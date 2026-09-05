@@ -1,7 +1,7 @@
 ---
 id: B-22
 title: "Upload and download rate limits"
-status: open
+status: done
 priority: P2
 size: S/M
 stage: m5-seeding
@@ -22,4 +22,21 @@ A client on a home connection has to be told how much of the uplink it may use.
 
 - AC: with an upload limit of 1 MiB/s and four unchoked fake peers pulling as fast as they can,
   the total served in 10 s is within 10 % of 10 MiB.
-- Anchors: `engine/src/commonMain/kotlin/ru/workinprogress/kachok/engine/session/`, `engine/src/commonMain/kotlin/ru/workinprogress/kachok/engine/peer/`.
+- Anchors: `engine/src/commonMain/kotlin/ru/workinprogress/kachok/engine/choke/TokenBucket.kt`,
+  `engine/src/commonMain/kotlin/ru/workinprogress/kachok/engine/session/Session.kt`,
+  `cli/src/main/kotlin/ru/workinprogress/kachok/cli/Arguments.kt`.
+
+**Done.** Two buckets in the session, refilled from the one timer, spent by bytes. Download: the
+budget is asked *before* the picker, because `next` marks what it hands back as in flight and
+taking more than the limit pays for would leave the picker holding blocks nobody is fetching until
+the request timeout expired them. Upload: a request the budget cannot cover waits for the next
+refill rather than being dropped — BEP 3 has no way to say "not now", and silence costs the peer a
+timeout it did not earn. The queue is bounded, because its other end is somebody else's client.
+
+The measured criterion holds: four peers each asking for more than the limit every second share
+10 MiB over ten seconds, and all four are served. The first second is not counted — a token bucket
+starts full, so the opening second is a burst by design.
+
+Beside the item: `--up` and `--down`, in kibibytes a second, because a limit a user cannot set is
+not a limit. Zero means *no limit* rather than no bytes, which is the one reading of the default
+that would stop the client dead.

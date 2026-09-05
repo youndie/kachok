@@ -132,6 +132,15 @@ public class SessionConfig(
      */
     public val requestTimeout: Duration = 30.seconds,
     /**
+     * Bytes a second this client will serve, across every peer. Zero means no limit.
+     *
+     * One budget for the session and not one per peer: a limit exists because an uplink is shared,
+     * and a per-peer limit multiplied by however many peers happen to be unchoked is not a limit.
+     */
+    public val uploadLimitBytesPerSecond: Long = 0,
+    /** Bytes a second this client will ask for, across every peer. Zero means no limit. */
+    public val downloadLimitBytesPerSecond: Long = 0,
+    /**
      * BEP 10's `m`: the extensions this client offers, and the message id it wants each sent under.
      *
      * Empty in phase 1, and that is not the same as not speaking BEP 10. A peer that gets an empty

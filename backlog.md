@@ -46,11 +46,10 @@ which is also the order of work.
 
 <!-- BEGIN INDEX -->
 
-## Open (16)
+## Open (15)
 
 | Task | | Priority | Size | Blocked by |
 |---|---|---|---|---|
-| [B-22](docs/backlog/B-22-rate-limits.md) `[ ]` | Upload and download rate limits | P2 | S/M | B-21 |
 | [B-28](docs/backlog/B-28-aot-cache-in-the-distribution.md) `[ ]` | Build the AOT cache with the launcher's flags and prove it maps | P2 | M | B-29 |
 | [B-29](docs/backlog/B-29-jlink-runtime-image.md) `[ ]` | A jlinked run-time image, the jars, and a launcher script | P2 | S/M | B-18 |
 | [B-30](docs/backlog/B-30-measure-transferto-vs-mmap.md) `[ ]` | Does seeding need mmap? Measure transferTo against a mapped file | P2 | M | B-20 |
@@ -67,7 +66,7 @@ which is also the order of work.
 | [B-41](docs/backlog/B-41-android-and-ios-targets.md) `[ ]` | Phase 3: Android and iOS targets on the engine | P3 | XL | B-39 |
 | [B-02](docs/backlog/B-02-ci-runs-build-and-docs-gates.md) `[ ]` | CI runs the build and the documentation gates on every push | infra | S | B-01 |
 
-## Closed (27)
+## Closed (28)
 
 **M0 — The build and its gates**
 
@@ -107,6 +106,7 @@ which is also the order of work.
 
 - [B-20](docs/backlog/B-20-upload-read-path.md) `[x]` - Serve requests with FileChannel.transferTo
 - [B-21](docs/backlog/B-21-choking-algorithm.md) `[x]` - The ten-second choker with optimistic unchoke
+- [B-22](docs/backlog/B-22-rate-limits.md) `[x]` - Upload and download rate limits
 
 **M6 — Resume**
 

@@ -30,7 +30,8 @@ module without touching the engine.
 No network API. The contract is the command line and the exit codes:
 
 ```
-kachok download <file.torrent> [--dir <path>] [--port <n>] [--peers <n>] [--pipeline <n>] [--seed]
+kachok download <file.torrent> [--dir <path>] [--port <n>] [--peers <n>] [--pipeline <n>]
+                              [--seed] [--up <KiB/s>] [--down <KiB/s>]
 ```
 
 | Exit | Meaning |
@@ -105,7 +106,9 @@ the code, which is why nothing in `build` calls it.
 ## 7. Configuration
 
 Flags only. There is no configuration file in phase 1 and nothing is read from the environment.
-`--peers` and `--pipeline` are the engine's `SessionConfig` fields under the same names; `--port`
+`--peers` and `--pipeline` are the engine's `SessionConfig` fields under the same names; `--up`
+and `--down` are its rate limits, given in kibibytes a second here and stored as bytes a second
+there, with no limit — not a limit of zero — as the default; `--port`
 defaults to the first of BEP 3's 6881–6889 (the probe itself arrives with
 [B-09](../backlog/B-09-incoming-connections.md), which is what will need the range).
 

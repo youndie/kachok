@@ -16,6 +16,7 @@ import ru.workinprogress.kachok.engine.PieceIndex
 import ru.workinprogress.kachok.engine.choke.Choker
 import ru.workinprogress.kachok.engine.choke.PeerRates
 import ru.workinprogress.kachok.engine.choke.RateMeter
+import ru.workinprogress.kachok.engine.choke.TokenBucket
 import ru.workinprogress.kachok.engine.metainfo.Metainfo
 import ru.workinprogress.kachok.engine.peer.PeerAddress
 import ru.workinprogress.kachok.engine.peer.PeerConnection
@@ -105,6 +106,16 @@ public class Session(
     private val known = LinkedHashSet<PeerAddress>()
     private val failed = HashMap<PeerAddress, kotlin.time.TimeMark>()
     private var announceInterval = DEFAULT_ANNOUNCE_SECONDS
+
+    /**
+     * The session's two rate limits (B-22). Both are unlimited by default, and an unlimited bucket
+     * takes no decision — the code paths below are the same ones an unthrottled client runs.
+     */
+    private val uploadBudget = TokenBucket(config.uploadLimitBytesPerSecond)
+    private val downloadBudget = TokenBucket(config.downloadLimitBytesPerSecond)
+
+    /** Rotated every tick so that a limited uplink is shared rather than taken by whoever asked first. */
+    private var uploadTurn = 0
     private var uploadedBytes = 0L
     private var stopping = false
     private val startedAt = timeSource.markNow()
@@ -510,9 +521,53 @@ public class Session(
             return
         }
         if (link.choking || !picker.completed[request.piece.value]) return
+        if (uploadBudget.take(request.length.toLong())) {
+            serveNow(link, request)
+            return
+        }
+        // The limit is reached, so the block waits for the timer's refill rather than being
+        // refused: BEP 3 has no way to say "not now", and a request dropped in silence costs the
+        // peer a timeout it did not earn. A peer that queues more than it could ever be sent is
+        // ignored past the bound — the alternative is a queue a peer can grow from the other end
+        // of the wire.
+        if (link.waiting.size < MAX_WAITING_REQUESTS) link.waiting.addLast(request)
+    }
+
+    private suspend fun serveNow(
+        link: PeerLink,
+        request: Message.Request,
+    ) {
         link.connection.sendBlock(request.piece, request.begin, request.length)
         link.upload.add(request.length.toLong(), elapsedMillis())
         publish { it.copy(uploaded = connected.values.sumOf { peer -> peer.connection.uploaded }) }
+    }
+
+    /**
+     * Spends the tick's upload tokens on the requests that were waiting for them.
+     *
+     * Round robin from a rotating start, so that a peer which asks first does not take the whole
+     * budget every tick. Conditions are re-checked before each block: a peer choked or a piece
+     * dropped between the request and the tokens for it is a block that must not go out, and
+     * checking after spending would throw the tokens away with it.
+     */
+    private suspend fun drainWaitingUploads() {
+        if (uploadBudget.isUnlimited) return
+        val links = connected.snapshot()
+        if (links.isEmpty()) return
+        uploadTurn = (uploadTurn + 1) % links.size
+        val order = links.drop(uploadTurn) + links.take(uploadTurn)
+        for (link in order) {
+            while (true) {
+                val next = link.waiting.firstOrNull() ?: break
+                if (link.choking || !picker.completed[next.piece.value]) {
+                    link.waiting.removeFirst()
+                    continue
+                }
+                if (!uploadBudget.take(next.length.toLong())) return
+                link.waiting.removeFirst()
+                serveNow(link, next)
+            }
+        }
     }
 
     /**
@@ -562,7 +617,18 @@ public class Session(
         if (link.choked || !link.interested || stopping) return
         val room = config.pipelineDepth - link.outstanding
         if (room <= 0) return
-        picker.next(link.connection.address, room, elapsedMillis()).forEach { request ->
+        // Asked of the budget *before* the picker, because `next` marks the blocks it hands back as
+        // in flight. Taking more than the limit pays for and then not sending them would leave the
+        // picker holding blocks nobody is fetching until the request timeout expired them.
+        val affordable =
+            if (downloadBudget.isUnlimited) {
+                room
+            } else {
+                minOf(room.toLong(), downloadBudget.available / PeerWire.BLOCK_SIZE).toInt()
+            }
+        if (affordable <= 0) return
+        picker.next(link.connection.address, affordable, elapsedMillis()).forEach { request ->
+            downloadBudget.take(request.length.toLong())
             if (!link.send(Message.Request(request.piece, request.begin, request.length))) return
             link.outstanding++
         }
@@ -618,6 +684,7 @@ public class Session(
                 sinceFlush = kotlin.time.Duration.ZERO
                 tick("flush") { storage.flush() }
             }
+            tick("rates") { refillRateLimits() }
             tick("expiry") { expireRequests() }
             sinceResume += config.tick
             if (sinceResume >= config.resumeInterval) {
@@ -634,6 +701,21 @@ public class Session(
             }
             publishPeerCounts()
         }
+    }
+
+    /**
+     * One tick's worth of tokens, and what they pay for.
+     *
+     * A throttled download would otherwise stall until some other event woke it: requests are
+     * normally issued when a block arrives, and a peer sends no block while nothing is asked of it.
+     * The refill is what breaks that circle, which is why it also asks every peer for more.
+     */
+    private suspend fun refillRateLimits() {
+        if (uploadBudget.isUnlimited && downloadBudget.isUnlimited) return
+        uploadBudget.refill(config.tick)
+        downloadBudget.refill(config.tick)
+        drainWaitingUploads()
+        if (!downloadBudget.isUnlimited) connected.snapshot().forEach { requestMore(it) }
     }
 
     /**
@@ -776,12 +858,28 @@ public class Session(
          * answers.
          */
         var extensions: ExtensionHandshake? = null
+
+        /**
+         * Requests this peer made that the upload limit has not paid for yet.
+         *
+         * Empty whenever there is no limit: an unthrottled client answers a request as it arrives
+         * and never queues one.
+         */
+        val waiting: ArrayDeque<Message.Request> = ArrayDeque()
     }
 
     private companion object {
         const val DEFAULT_ANNOUNCE_SECONDS = 1800
         const val MIN_ANNOUNCE_SECONDS = 60
         const val MILLIS_PER_SECOND = 1000L
+
+        /**
+         * How many of a peer's requests may wait for upload tokens.
+         *
+         * Bounded because the other end of this queue is somebody else's client: without a bound a
+         * peer could grow it by pipelining, and the memory would be this client's problem.
+         */
+        const val MAX_WAITING_REQUESTS = 64
     }
 }
 

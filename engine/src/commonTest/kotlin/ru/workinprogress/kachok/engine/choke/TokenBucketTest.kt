@@ -1,0 +1,67 @@
+package ru.workinprogress.kachok.engine.choke
+
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.seconds
+
+/** The arithmetic B-22's limits rest on. */
+class TokenBucketTest {
+    private val megabyte = 1024L * 1024L
+
+    @Test
+    fun aBucketStartsFullAndSpendsWhatItHolds() {
+        val bucket = TokenBucket(megabyte)
+
+        assertTrue(bucket.take(megabyte), "a second's worth is what a full bucket holds")
+        assertFalse(bucket.take(1), "and there is nothing left after it")
+    }
+
+    @Test
+    fun timePaysForTheNextSecond() {
+        val bucket = TokenBucket(megabyte)
+        bucket.take(megabyte)
+
+        bucket.refill(500.milliseconds)
+
+        assertEquals(megabyte / 2, bucket.available, "half a second buys half a second's bytes")
+        assertTrue(bucket.take(megabyte / 2))
+        assertFalse(bucket.take(1))
+    }
+
+    @Test
+    fun anIdleBucketDoesNotSaveUpForABurst() {
+        // The reason for the cap: a download paused for an hour would otherwise resume at an hour's
+        // worth of bytes at once, which is exactly what someone setting a limit is preventing.
+        val bucket = TokenBucket(megabyte)
+        bucket.take(megabyte)
+
+        bucket.refill(1.seconds * 60)
+
+        assertEquals(megabyte, bucket.available, "a minute of idling is still worth one second")
+    }
+
+    @Test
+    fun takingIsAllOrNothingBecauseThereIsNoHalfABlock() {
+        val bucket = TokenBucket(1000)
+        assertTrue(bucket.take(600))
+
+        assertFalse(bucket.take(600), "600 of the 400 left is not 400 bytes sent")
+        assertEquals(400, bucket.available, "and the refusal spent nothing")
+        assertTrue(bucket.take(400))
+    }
+
+    @Test
+    fun zeroMeansNoLimitRatherThanNoBytes() {
+        // The default, and the difference matters: read as "zero bytes a second" it would be a
+        // client that never asks for anything and never serves anything.
+        val bucket = TokenBucket(0)
+
+        assertTrue(bucket.isUnlimited)
+        assertTrue(bucket.take(Long.MAX_VALUE / 2))
+        assertTrue(bucket.take(Long.MAX_VALUE / 2))
+        assertEquals(Long.MAX_VALUE, bucket.available)
+    }
+}

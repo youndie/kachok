@@ -136,6 +136,8 @@ class Download(
                         maxStartedPieces = STARTED_PIECES,
                         pipelineDepth = options.pipelineDepth,
                         maxPeers = options.maxPeers,
+                        uploadLimitBytesPerSecond = options.uploadLimit,
+                        downloadLimitBytesPerSecond = options.downloadLimit,
                     ),
             )
 

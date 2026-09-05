@@ -10,6 +10,9 @@ class DownloadOptions(
     val maxPeers: Int,
     val pipelineDepth: Int,
     val seedAfterCompletion: Boolean,
+    /** Bytes a second, across every peer. Zero means no limit, which is the default. */
+    val uploadLimit: Long,
+    val downloadLimit: Long,
 )
 
 /** A command line that does not parse, with the reason a user can act on. */
@@ -31,7 +34,9 @@ object Arguments {
   --port <n>          listening port (default: the first free of 6881-6889)
   --peers <n>         connections to keep up (default: 50)
   --pipeline <n>      requests outstanding per peer (default: 16)
-  --seed              keep seeding after the download completes"""
+  --seed              keep seeding after the download completes
+  --up <KiB/s>        upload limit across all peers (default: no limit)
+  --down <KiB/s>      download limit across all peers (default: no limit)"""
 
     fun parseDownload(arguments: List<String>): DownloadOptions {
         if (arguments.isEmpty()) throw UsageException("download needs a .torrent file")
@@ -41,6 +46,8 @@ object Arguments {
         var maxPeers = DEFAULT_PEERS
         var pipeline = DEFAULT_PIPELINE
         var seed = false
+        var upload = 0L
+        var download = 0L
 
         var index = 0
         while (index < arguments.size) {
@@ -65,6 +72,17 @@ object Arguments {
                     seed = true
                 }
 
+                // Kibibytes a second on the command line, bytes a second inside: nobody types a
+                // rate limit in bytes, and nobody wants the engine's arithmetic to have a unit in
+                // it that only the command line uses.
+                "--up" -> {
+                    upload = number(value(arguments, ++index, argument), argument).toLong() * BYTES_PER_KIB
+                }
+
+                "--down" -> {
+                    download = number(value(arguments, ++index, argument), argument).toLong() * BYTES_PER_KIB
+                }
+
                 else -> {
                     if (argument.startsWith("--")) throw UsageException("unknown option '$argument'")
                     if (torrent != null) throw UsageException("more than one .torrent given")
@@ -81,6 +99,8 @@ object Arguments {
             maxPeers = maxPeers,
             pipelineDepth = pipeline,
             seedAfterCompletion = seed,
+            uploadLimit = upload,
+            downloadLimit = download,
         )
     }
 
@@ -96,6 +116,7 @@ object Arguments {
     ): Int =
         text.toIntOrNull()?.takeIf { it > 0 } ?: throw UsageException("$option needs a positive number, got '$text'")
 
+    private const val BYTES_PER_KIB = 1024L
     private const val DEFAULT_PEERS = 50
     private const val DEFAULT_PIPELINE = 16
 }

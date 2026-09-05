@@ -71,6 +71,9 @@ class SessionTest {
     /** Every session these tests build, so that the check above can see all of them. */
     private val sessions = mutableListOf<Session>()
 
+    /** Enough that four peers together ask for more than a megabyte a second. */
+    private val requestsPerPeerPerSecond = 32
+
     private val peerA = PeerAddress("10.0.0.1", 6881)
     private val peerB = PeerAddress("10.0.0.2", 6881)
     private val ourPeerId = PeerId("-KA0001-0123456789AB".encodeToByteArray())
@@ -336,6 +339,166 @@ class SessionTest {
             assertEquals(0, session.state.value.extendedPeers)
             assertEquals(1, session.state.value.connectedPeers, "everything BEP 3 needs still works")
             assertContains(session.state.value.lastPeerError ?: "", "extension handshake")
+            job.cancelAndJoin()
+        }
+
+    @Test
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    fun anUploadLimitIsWhatFourPeersPullingAtOnceShareBetweenThem() =
+        runTest {
+            // The acceptance criterion of B-22, and the reason the budget is one per session rather
+            // than one per peer: four peers each allowed a megabyte is four megabytes on an uplink
+            // the user said was worth one.
+            val megabyte = 1024L * 1024L
+            val metainfo = torrent(pieces = 4)
+            val peers = listOf(peerA, peerB, PeerAddress("10.0.0.3", 6881), PeerAddress("10.0.0.4", 6881))
+            val dialer = FakeDialer(metainfo.infoHash)
+            val session =
+                session(
+                    metainfo,
+                    dialer,
+                    FakeTracker(peers),
+                    FakeStorage(),
+                    AgreeableHasher(metainfo),
+                    config =
+                        SessionConfig(
+                            maxStartedPieces = 4,
+                            pipelineDepth = 2,
+                            maxPeers = 10,
+                            maxUnchoked = 4,
+                            uploadLimitBytesPerSecond = megabyte,
+                        ),
+                )
+            val job = session.start(kotlinx.coroutines.CoroutineScope(coroutineContext + handler))
+            testScheduler.runCurrent()
+
+            // One piece to serve, and four interested peers unchoked by the ten-second pass.
+            val connections = peers.map { dialer.connections.getValue(it) }
+            connections.first().incoming.send(
+                PeerEvent.BlockReceived(FakeBlock(PieceIndex(1), 0, PeerWire.BLOCK_SIZE)),
+            )
+            connections.forEach { it.incoming.send(PeerEvent.Received(Message.Interested)) }
+            testScheduler.advanceTimeBy(11_000)
+            testScheduler.runCurrent()
+            assertTrue(
+                connections.all { peer -> peer.sent.any { it === Message.Unchoke } },
+                "all four have to be unchoked or the limit is not what is being measured",
+            )
+
+            // Each peer asks for far more than the limit can pay for, every second.
+            suspend fun everyoneAsks() {
+                connections.forEach { peer ->
+                    repeat(requestsPerPeerPerSecond) {
+                        peer.incoming.send(PeerEvent.Received(Message.Request(PieceIndex(1), 0, PeerWire.BLOCK_SIZE)))
+                    }
+                }
+            }
+
+            // One second first, and not counted: a token bucket starts full, so the opening second
+            // is a burst by design and measuring from it would measure the burst.
+            everyoneAsks()
+            testScheduler.advanceTimeBy(1_000)
+            testScheduler.runCurrent()
+
+            fun served(): Long = connections.sumOf { peer -> peer.servedBlocks.sumOf { it.third }.toLong() }
+            val before = served()
+            repeat(10) {
+                everyoneAsks()
+                testScheduler.advanceTimeBy(1_000)
+                testScheduler.runCurrent()
+            }
+            val inTenSeconds = served() - before
+
+            assertTrue(
+                inTenSeconds in (9 * megabyte)..(11 * megabyte),
+                "ten seconds at a megabyte a second served $inTenSeconds bytes, not 10 MiB ± 10 %",
+            )
+            assertTrue(
+                connections.all { it.servedBlocks.isNotEmpty() },
+                "one peer took the whole budget: ${connections.map { it.servedBlocks.size }}",
+            )
+            job.cancelAndJoin()
+        }
+
+    @Test
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    fun aDownloadLimitIsAppliedByNotAskingRatherThanByReadingSlowly() =
+        runTest {
+            // Reading slowly does not stop a peer sending; not requesting does. So the limit has to
+            // be visible in the requests that go out, which is what this counts.
+            val metainfo = torrent(pieces = 512)
+            val dialer = FakeDialer(metainfo.infoHash)
+            val blocksPerSecond = 64
+            val session =
+                session(
+                    metainfo,
+                    dialer,
+                    FakeTracker(listOf(peerA)),
+                    FakeStorage(),
+                    AgreeableHasher(metainfo),
+                    config =
+                        SessionConfig(
+                            maxStartedPieces = 400,
+                            pipelineDepth = 400,
+                            maxPeers = 10,
+                            downloadLimitBytesPerSecond = blocksPerSecond.toLong() * PeerWire.BLOCK_SIZE,
+                        ),
+                )
+            val job = session.start(kotlinx.coroutines.CoroutineScope(coroutineContext + handler))
+            testScheduler.runCurrent()
+
+            val connection = dialer.connections.getValue(peerA)
+            connection.incoming.send(PeerEvent.Received(Message.Bitfield(allOf(metainfo.pieceCount))))
+            connection.incoming.send(PeerEvent.Received(Message.Unchoke))
+            testScheduler.runCurrent()
+
+            fun requests() = connection.sent.filterIsInstance<Message.Request>().size
+            assertEquals(
+                blocksPerSecond,
+                requests(),
+                "the opening burst is one second's worth, not the whole pipeline of 400",
+            )
+
+            testScheduler.advanceTimeBy(1_000)
+            testScheduler.runCurrent()
+            assertEquals(blocksPerSecond * 2, requests(), "the tick's refill buys exactly one more second")
+
+            testScheduler.advanceTimeBy(3_000)
+            testScheduler.runCurrent()
+            assertEquals(blocksPerSecond * 5, requests(), "and keeps buying one second at a time")
+            job.cancelAndJoin()
+        }
+
+    @Test
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    fun withNoLimitAPeerIsAnsweredAsItAsksAndNothingWaits() =
+        runTest {
+            // The default, and the path every other test in this file runs: a request is served
+            // when it arrives, without waiting for a tick.
+            val metainfo = torrent(pieces = 4)
+            val dialer = FakeDialer(metainfo.infoHash)
+            val session =
+                session(metainfo, dialer, FakeTracker(listOf(peerA)), FakeStorage(), AgreeableHasher(metainfo))
+            val job = session.start(kotlinx.coroutines.CoroutineScope(coroutineContext + handler))
+            testScheduler.runCurrent()
+
+            val connection = dialer.connections.getValue(peerA)
+            connection.incoming.send(PeerEvent.BlockReceived(FakeBlock(PieceIndex(1), 0, PeerWire.BLOCK_SIZE)))
+            connection.incoming.send(PeerEvent.Received(Message.Interested))
+            testScheduler.advanceTimeBy(11_000)
+            testScheduler.runCurrent()
+
+            val before = connection.servedBlocks.size
+            repeat(50) {
+                connection.incoming.send(PeerEvent.Received(Message.Request(PieceIndex(1), 0, PeerWire.BLOCK_SIZE)))
+            }
+            testScheduler.runCurrent()
+
+            assertEquals(
+                before + 50,
+                connection.servedBlocks.size,
+                "an unlimited session queues nothing and answers every request as it arrives",
+            )
             job.cancelAndJoin()
         }
 

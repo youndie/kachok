@@ -20,6 +20,7 @@ import kotlin.test.Test
 import kotlin.test.assertContains
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
 /**
@@ -224,6 +225,21 @@ class DownloadTest {
         assertEquals(Download.EXIT_USAGE, Cli.run(listOf("download"), StringBuilder(), err))
         assertContains(err.toString(), "needs a .torrent file")
         assertContains(err.toString(), "kachok download")
+    }
+
+    @Test
+    fun rateLimitsAreGivenInKibibytesAndZeroIsTheDefault() {
+        val plain = Arguments.parseDownload(listOf("x.torrent"))
+        assertEquals(0L, plain.uploadLimit, "no limit is the default, and it is not zero bytes a second")
+        assertEquals(0L, plain.downloadLimit)
+
+        val limited = Arguments.parseDownload(listOf("x.torrent", "--up", "512", "--down", "2048"))
+        assertEquals(512L * 1024, limited.uploadLimit)
+        assertEquals(2048L * 1024, limited.downloadLimit)
+
+        listOf(listOf("x.torrent", "--up"), listOf("x.torrent", "--down", "lots")).forEach { arguments ->
+            assertFailsWith<UsageException>("$arguments should not parse") { Arguments.parseDownload(arguments) }
+        }
     }
 
     @Test

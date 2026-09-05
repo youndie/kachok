@@ -74,6 +74,7 @@ What exists on `main` today:
 | `.../engine/resume/ResumeRecord.kt` | what survives a restart, bencoded, and the store interface |
 | `.../engine/resume/FileResumeStore.kt` (jvmMain) | a temporary sibling and an `ATOMIC_MOVE` |
 | `.../engine/resume/StartupVerifier.kt` | what is already on the disk, before a peer is dialled |
+| `.../engine/choke/TokenBucket.kt` | the upload and download rate limits, spent by bytes and refilled by the timer |
 | `.../engine/wire/ExtensionHandshake.kt` | BEP 10's `m` dictionary: what a peer can do and the id it wants each extension sent under |
 | `.../engine/tracker/Tracker.kt`, `TrackerProtocol.kt` | the announce model, the query string and the response parsing — both peer encodings |
 | `.../engine/tracker/UdpTrackerProtocol.kt` | BEP 15's two requests, three replies and retransmit schedule, without a socket |
@@ -206,6 +207,15 @@ them. Nothing is read from the environment by this module; that is [cli](cli.md)
 * **A `.torrent` is input from a stranger, and `MetainfoParser` treats it as one.** Path
   components that are empty, `.`, `..`, or that contain a separator are refused at parse time, so
   no code below has to remember that a torrent can ask to be written outside its own directory.
+* **A rate limit is applied by not asking, never by reading slowly.** Reading slowly does not stop
+  a peer sending — the bytes reach the kernel either way — and writing slowly blocks a virtual
+  thread inside a socket write. A block never requested is never sent, and a `request` left
+  unanswered costs the peer a timeout and nothing else.
+* **The limit is one budget for the session, not one per peer.** A per-peer limit multiplied by
+  however many peers happen to be unchoked is not a limit, and an uplink is shared.
+* **A throttled download would stall without the timer.** Requests are normally issued when a block
+  arrives, and no block arrives while nothing is asked for; the tick that refills the budget is
+  also what asks every peer for more.
 * **An extension id belongs to the peer that published it.** BEP 10's `m` maps a name to the id
   *that peer* wants messages sent under, and the two sides need not agree: `ut_pex` may be 1 here
   and 3 there. A client that hard-codes an id talks only to peers that happen to match it.
