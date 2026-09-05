@@ -53,6 +53,14 @@ public class LocalSwarm private constructor(
             failure: String? = null,
             delayPerBlockMillis: Long = 0,
             /**
+             * Whether the seed will serve the `info` dictionary over BEP 9.
+             *
+             * A magnet carries none of the torrent, so the only way to test that path end to end
+             * is a peer on a real socket that answers `ut_metadata` — off by default, because a
+             * seed that answers it is a different seed from the one BEP 3's tests want.
+             */
+            serveMetadata: Boolean = false,
+            /**
              * One block a piece by default, which is the smallest thing that exercises the wire.
              *
              * A test that wants the *buffer pool* exercised has to ask for more: the pool's working
@@ -67,13 +75,23 @@ public class LocalSwarm private constructor(
                 if (failure != null) {
                     null
                 } else {
-                    SeedingPeer(metainfo.infoHash, content, pieceLength, delayPerBlockMillis)
+                    SeedingPeer(
+                        infoHash = metainfo.infoHash,
+                        content = content,
+                        pieceLength = pieceLength,
+                        delayPerBlockMillis = delayPerBlockMillis,
+                        extensionProtocol = serveMetadata,
+                        metadata = if (serveMetadata) metainfo.infoBytes else null,
+                    )
                 }
             val tracker = startTracker(seed?.port, failure)
             val url = "http://127.0.0.1:${tracker.address.port}/annc"
             // Built twice on purpose: the info hash a peer is asked for has to be the one in the
             // torrent the client reads, and the announce URL is only known after the tracker binds.
             val finalTorrent = torrentBytes(content, pieceLength, url)
+            // The announce URL is outside the `info` dictionary, so the info hash and the bytes the
+            // seed serves are the same in both — which is the whole reason the hash is taken over
+            // that dictionary and not over the file.
             return LocalSwarm(content, finalTorrent, MetainfoParser.parse(finalTorrent), tracker, seed)
         }
 

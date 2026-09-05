@@ -3,8 +3,10 @@ package ru.workinprogress.kachok.swarm
 import ru.workinprogress.kachok.engine.InfoHash
 import ru.workinprogress.kachok.engine.PeerId
 import ru.workinprogress.kachok.engine.PieceIndex
+import ru.workinprogress.kachok.engine.wire.ExtensionHandshake
 import ru.workinprogress.kachok.engine.wire.Handshake
 import ru.workinprogress.kachok.engine.wire.Message
+import ru.workinprogress.kachok.engine.wire.MetadataMessage
 import ru.workinprogress.kachok.engine.wire.PeerWire
 import java.io.IOException
 import java.net.InetSocketAddress
@@ -36,6 +38,14 @@ public class SeedingPeer(
      * this seed from outside this machine's loopback, and nothing else does.
      */
     private val bindAddress: String = "127.0.0.1",
+    /**
+     * The `info` dictionary this seed will serve over BEP 9, or null for a seed that will not.
+     *
+     * A magnet carries none of the torrent, so a client that only has one has to ask a peer for it
+     * — which means a test of that path needs a peer on a real socket that answers, not an
+     * in-process fake. This is that peer.
+     */
+    private val metadata: ByteArray? = null,
 ) : AutoCloseable {
     private val server: ServerSocketChannel =
         ServerSocketChannel.open().bind(InetSocketAddress(bindAddress, 0), BACKLOG)
@@ -110,7 +120,19 @@ public class SeedingPeer(
             while (frame.hasRemaining()) if (socket.read(frame) < 0) return
             val message = PeerWire.decode(frame.array())
             received += message
-            if (message is Message.Extended) extended += message
+            if (message is Message.Extended) {
+                extended += message
+                if (message.extensionId == ExtensionHandshake.HANDSHAKE_ID) {
+                    clientMetadataId =
+                        ExtensionHandshake
+                            .decode(message.payload)
+                            .extensions[ExtensionHandshake.UT_METADATA] ?: clientMetadataId
+                }
+            }
+            if (message is Message.Extended) {
+                serveExtended(socket, message)
+                continue
+            }
             if (message is Message.Request) {
                 if (delayPerBlockMillis > 0) Thread.sleep(delayPerBlockMillis)
                 served += message
@@ -119,6 +141,45 @@ public class SeedingPeer(
             }
         }
     }
+
+    /**
+     * BEP 10's handshake, then BEP 9's blocks.
+     *
+     * The extension id this seed asks to be addressed by is its own choice and deliberately not
+     * the client's: `m` is a per-peer mapping, and a fetcher that assumed both ends used the same
+     * number would work against itself and nothing else.
+     */
+    private fun serveExtended(
+        socket: SocketChannel,
+        message: Message.Extended,
+    ) {
+        if (message.extensionId == ExtensionHandshake.HANDSHAKE_ID) {
+            val theirs =
+                ExtensionHandshake(
+                    extensions =
+                        if (metadata != null) mapOf(ExtensionHandshake.UT_METADATA to OUR_METADATA_ID) else emptyMap(),
+                    metadataSize = metadata?.size,
+                )
+            write(
+                socket,
+                PeerWire.encode(Message.Extended(ExtensionHandshake.HANDSHAKE_ID, theirs.encode())),
+            )
+            return
+        }
+        val bytes = metadata ?: return
+        val request = MetadataMessage.decode(message.payload)
+        if (request.type != MetadataMessage.REQUEST) return
+        val from = request.piece * MetadataMessage.BLOCK_SIZE
+        if (from >= bytes.size) return
+        val to = minOf(from + MetadataMessage.BLOCK_SIZE, bytes.size)
+        val reply = MetadataMessage.data(request.piece, bytes.size, bytes.copyOfRange(from, to))
+        // Addressed with the id the *client* advertised, which is what its handshake was for.
+        write(socket, PeerWire.encode(Message.Extended(clientMetadataId, reply.encode())))
+    }
+
+    /** What the client asked to be addressed by, learned from its own extension handshake. */
+    @Volatile
+    private var clientMetadataId: Int = ExtensionHandshake.ID_UT_METADATA
 
     private fun block(
         piece: PieceIndex,
@@ -152,5 +213,8 @@ public class SeedingPeer(
 
     private companion object {
         const val BACKLOG = 16
+
+        /** This seed's own id for `ut_metadata`, chosen to differ from the client's default. */
+        const val OUR_METADATA_ID = 3
     }
 }

@@ -51,26 +51,6 @@ internal fun AddMagnetSheet() {
     }
 }
 
-/**
- * The dialog as the running window actually shows it.
- *
- * The two above are the design's, with *Add* live. This is what a person meets today: the same
- * recognition, and a greyed button that says why. Both are goldens because both are real — one is
- * what the screen becomes when the engine can hold two sessions, and one is what it is now.
- */
-@ViddikScreenshot(name = "refused", group = "add", width = 560, height = 440)
-@Composable
-internal fun AddRefusedSheet() {
-    KachokTheme {
-        Box(
-            Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface),
-            contentAlignment = Alignment.Center,
-        ) {
-            AddTorrentDialog(designMagnetRefused)
-        }
-    }
-}
-
 /** The two ways in that are not a dialog: a drag over the window, and a link already copied. */
 @ViddikScreenshot(name = "gestures", group = "add", width = 760, height = 360)
 @Composable

@@ -46,7 +46,8 @@ waiting for.
 * **There is no paused torrent**, and the design says so on the row. Nothing the engine can report
   maps to *Paused*.
 * **A magnet is shown as what it carries**: a hash, a display name if it has one, and a sentence
-  saying the metainfo comes from the swarm first. Never blanks where a size would be.
+  saying the metainfo comes from the swarm first. Never blanks where a size would be. Once said yes
+  to it is a *Metadata* row until `fetchMetainfo` returns, and a real torrent after.
 * **Settings prints the measured default beside every field**, read out of `SessionConfig` rather
   than repeated. `no limit` is the words, not a zero.
 * **One window holds several torrents; one `Session` still holds one.** The listener, the DHT and
@@ -125,6 +126,16 @@ toolbar ── Add torrent ──▶ file chooser ──▶ MetainfoParser ─�
 * **Automated:** `ui AddFromTest#aMagnetSaysWhatItCannotSayYet` and
   `#aMagnetWithoutADisplayNameIsNamedByItsHash`
 
+### Scenario: A magnet becomes a torrent and downloads it
+* **Given:** a local swarm whose peer serves the `info` dictionary over BEP 9 on a socket, and a
+  magnet naming its hash and its tracker.
+* **When:** the magnet is added.
+* **Then:** it is a *Metadata* row first; `fetchMetainfo` returns a metainfo that hashes to the hash
+  the magnet named; the torrent downloads and the file on disk matches the swarm's content byte for
+  byte.
+* **Automated:** `ui MagnetTest#aMagnetBecomesATorrentAndDownloadsIt`,
+  `#aMagnetIsARowBeforeItIsATorrent`, `#aMagnetWithNoNameShowsItsHashWhereTheNameGoes`
+
 ### Scenario: Every settings default is the engine's own
 * **Given:** the settings screen with nothing changed.
 * **When:** each field's `default` label is compared with `SessionConfig()`.
@@ -148,7 +159,6 @@ toolbar ── Add torrent ──▶ file chooser ──▶ MetainfoParser ─�
 * Applying a settings change to a running session, `planned` in the design.
 * Per-file selection, sequential download, the peers list and the trackers list — four engine
   changes, each named by the screen that is waiting for it.
-* Starting a magnet from the window ([B-55](../backlog/B-55-magnets-in-the-window.md)).
 
 ## 7. Quirks
 

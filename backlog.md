@@ -46,17 +46,16 @@ which is also the order of work.
 
 <!-- BEGIN INDEX -->
 
-## Open (5)
+## Open (4)
 
 | Task | | Priority | Size | Blocked by |
 |---|---|---|---|---|
-| [B-55](docs/backlog/B-55-magnets-in-the-window.md) `[ ]` | Magnets in the window, not only on the command line | P2 | S | B-54 |
 | [B-37](docs/backlog/B-37-v2-and-hybrid-torrents.md) `[?]` | v2 and hybrid torrents (BEP 52): SHA-256 piece layers | P3 | L | B-04 |
 | [B-40](docs/backlog/B-40-wasmjs-ui-is-a-client-of-the-headless-engine.md) `[ ]` | Phase 2: the wasmJs UI is a client of the JVM headless engine | P3 | L | B-39 |
 | [B-41](docs/backlog/B-41-android-and-ios-targets.md) `[ ]` | Phase 3: Android and iOS targets on the engine | P3 | XL | B-39 |
 | [B-02](docs/backlog/B-02-ci-runs-build-and-docs-gates.md) `[ ]` | CI runs the build and the documentation gates on every push | infra | S | B-01 |
 
-## Closed (50)
+## Closed (51)
 
 **M0 — The build and its gates**
 
@@ -137,6 +136,7 @@ which is also the order of work.
 - [B-52](docs/backlog/B-52-ui-on-the-real-engine.md) `[x]` - The UI on the real engine, not on a fixture
 - [B-53](docs/backlog/B-53-feature-ui-document.md) `[x]` - The feature document the phase 2 epic names
 - [B-54](docs/backlog/B-54-many-torrents.md) `[x]` - More than one torrent in one process
+- [B-55](docs/backlog/B-55-magnets-in-the-window.md) `[x]` - Magnets in the window, not only on the command line
 
 <!-- END INDEX -->
 

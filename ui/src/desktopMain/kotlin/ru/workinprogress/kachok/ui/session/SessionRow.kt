@@ -1,5 +1,7 @@
 package ru.workinprogress.kachok.ui.session
 
+import ru.workinprogress.kachok.engine.InfoHash
+import ru.workinprogress.kachok.engine.metainfo.MagnetLink
 import ru.workinprogress.kachok.engine.session.SessionState
 import ru.workinprogress.kachok.ui.list.TorrentRowModel
 import ru.workinprogress.kachok.ui.list.TorrentState
@@ -112,6 +114,43 @@ internal fun stateOf(
  * asserts this stops passing and somebody has to come back here.
  */
 internal const val PAUSED_IS_PLANNED: Boolean = true
+
+/**
+ * A magnet that has been said yes to and has no torrent yet.
+ *
+ * Not a `SessionState` with the fields blanked: there is no session, and inventing one to blank it
+ * would be the row claiming a torrent the engine has not opened. The design's *Metadata* state is
+ * exactly this — the info hash where the name will be, an indeterminate bar, and no size, ratio or
+ * ETA to have an opinion about.
+ */
+internal fun magnetRow(
+    link: MagnetLink,
+    selected: Boolean = false,
+): TorrentRowModel =
+    TorrentRowModel(
+        name = link.displayName ?: shortHash(link.infoHash),
+        size = Figures.DASH,
+        progress = null,
+        percent = Figures.DASH,
+        down = Figures.rate(0),
+        up = Figures.rate(0),
+        connected = 0,
+        unchoked = 0,
+        outstanding = 0,
+        ratio = Figures.DASH,
+        eta = Figures.DASH,
+        state = TorrentState.Metadata,
+        selected = selected,
+    )
+
+private fun shortHash(infoHash: InfoHash): String =
+    infoHash.bytes
+        .joinToString("") { (it.toInt() and BYTE).toString(HEX).padStart(2, '0') }
+        .let { "${it.take(ENDS)}…${it.takeLast(ENDS)}" }
+
+private const val BYTE = 0xFF
+private const val HEX = 16
+private const val ENDS = 4
 
 /** One `SessionState` as one row of the list. */
 internal fun rowOf(

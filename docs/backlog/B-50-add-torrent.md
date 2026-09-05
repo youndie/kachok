@@ -27,15 +27,12 @@ blocked_by: [B-48]
 
 ## Deviations, and why
 
-- **`Add` is greyed for a magnet, and the dialog says why.** A `.torrent` opens and starts; a
-  magnet does not, because the window has no `MetadataFetcher` in front of a session
-  ([B-55](B-55-magnets-in-the-window.md)). There are two goldens because there are two real
-  screens: `add_dialog.png` with the button live, and `add_refused.png` with it off and a sentence
-  beside it. A live button that silently did nothing would be worse than either.
-
-  *This deviation was first written the other way round — `Add` greyed for everything, because the
-  engine held one `Session` per process. [B-54](B-54-many-torrents.md) closed two commits later
-  and made the file case true.*
+- ~~**`Add` is greyed, and the dialog says why.**~~ *This deviation is gone, and it went in two
+  steps, which is worth keeping rather than tidying away.* It was first written for everything,
+  because the engine held one `Session` per process; [B-54](B-54-many-torrents.md) closed and made
+  the file case true, leaving it for magnets only; [B-55](B-55-magnets-in-the-window.md) closed and
+  made that one true too. `AddTorrentState.refused` and its golden are gone with it —
+  a picture of a screen nothing produces is a picture of an intention.
 - **A file size is three significant figures here as everywhere else.** The design's file list
   writes `1.2 KiB` and `61 KiB` where its torrent list writes `3.70 GiB` and `48.2 MiB`; one rule
   gives `1.20 KiB` and `61.0 KiB`. Two rules would put `61 KiB` in one column and `61.0 KiB` in

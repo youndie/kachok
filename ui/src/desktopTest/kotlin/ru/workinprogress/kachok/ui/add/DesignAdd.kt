@@ -90,7 +90,3 @@ internal val designMagnetToAdd: AddTorrentState =
     addFrom(link = designMagnet, saveTo = "~/Downloads/iso", defaultDirectory = "~/Downloads")
 
 private const val PIECES = 1772
-
-/** The same magnet, in a window that cannot fetch its metainfo yet. */
-internal val designMagnetRefused: AddTorrentState =
-    designMagnetToAdd.refused("The window cannot fetch a magnet's metainfo yet.")

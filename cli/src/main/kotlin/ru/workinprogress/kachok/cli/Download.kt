@@ -29,6 +29,7 @@ import ru.workinprogress.kachok.engine.metainfo.MetainfoParser
 import ru.workinprogress.kachok.engine.runtime.RuntimeOptions
 import ru.workinprogress.kachok.engine.runtime.SetOptions
 import ru.workinprogress.kachok.engine.runtime.TorrentSet
+import ru.workinprogress.kachok.engine.runtime.fetchMetainfo
 import ru.workinprogress.kachok.engine.session.Command
 import ru.workinprogress.kachok.engine.session.Session
 import ru.workinprogress.kachok.engine.session.SessionConfig
@@ -110,28 +111,13 @@ class Download(
                 return null
             }
         out.appendLine("${link.displayName ?: "magnet"}: fetching the torrent from the swarm")
-        val identity = randomPeerId()
-        val pool = BufferPool(capacity = MAGNET_POOL)
         return try {
-            MetadataFetcher(
+            fetchMetainfo(
                 link = link,
-                peerId = identity,
+                scope = scope,
+                dispatchers = dispatchers,
                 listenPort = options.port ?: TrackerProtocol.PORT_RANGE.first,
-                dialer =
-                    SocketPeerDialer(
-                        scope,
-                        link.infoHash,
-                        identity,
-                        pool,
-                        Handshake.reservedBits(extensionProtocol = true, fastExtension = true),
-                    ),
-                trackerClient =
-                    TrackerClientByScheme(
-                        http = HttpTrackerClient(dispatchers.io),
-                        udp = UdpTrackerClient(dispatchers.io),
-                    ),
-                blocking = dispatchers.io,
-            ).fetch(scope)
+            )
         } catch (unavailable: IllegalArgumentException) {
             err.appendLine("kachok: ${unavailable.message}")
             null

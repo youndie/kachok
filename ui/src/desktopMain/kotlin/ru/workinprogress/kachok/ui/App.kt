@@ -16,14 +16,17 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import ru.workinprogress.kachok.engine.io.EngineDispatchers
+import ru.workinprogress.kachok.engine.metainfo.MagnetLink
 import ru.workinprogress.kachok.engine.metainfo.MagnetParser
 import ru.workinprogress.kachok.engine.metainfo.Metainfo
 import ru.workinprogress.kachok.engine.metainfo.MetainfoParser
 import ru.workinprogress.kachok.engine.runtime.RuntimeOptions
 import ru.workinprogress.kachok.engine.runtime.TorrentRuntime
 import ru.workinprogress.kachok.engine.runtime.TorrentSet
+import ru.workinprogress.kachok.engine.runtime.fetchMetainfo
 import ru.workinprogress.kachok.ui.add.AddTorrentState
 import ru.workinprogress.kachok.ui.details.DetailsTab
 import ru.workinprogress.kachok.ui.main.MainWindow
@@ -34,6 +37,7 @@ import ru.workinprogress.kachok.ui.session.RateMeter
 import ru.workinprogress.kachok.ui.session.Rates
 import ru.workinprogress.kachok.ui.session.addFrom
 import ru.workinprogress.kachok.ui.session.detailsOf
+import ru.workinprogress.kachok.ui.session.magnetRow
 import ru.workinprogress.kachok.ui.session.rowOf
 import ru.workinprogress.kachok.ui.session.settingsOf
 import ru.workinprogress.kachok.ui.session.windowOf
@@ -79,15 +83,24 @@ public fun main(args: Array<String>) {
 }
 
 /**
- * A torrent that was recognised and is waiting for a yes.
- *
- * [metainfo] is null for a magnet: the window has no `MetadataFetcher` in front of a session yet,
- * so a magnet can be shown and not started
- * ([B-55](../../../../../../../docs/backlog/B-55-magnets-in-the-window.md)).
+ * Something that was recognised and is waiting for a yes: a torrent, or a magnet, never both.
  */
 private class Pending(
     val metainfo: Metainfo?,
+    val magnet: MagnetLink?,
     val shown: AddTorrentState,
+)
+
+/**
+ * A magnet between the yes and the torrent.
+ *
+ * It is a row on the screen the whole time — the design's *Metadata* state, showing the info hash
+ * where the name will be — because a magnet's fetch takes as long as the swarm takes and a window
+ * that showed nothing for a minute would look broken rather than busy.
+ */
+private class Fetching(
+    val link: MagnetLink,
+    val started: Boolean = false,
 )
 
 /**
@@ -120,7 +133,7 @@ internal fun Client(
     val showSettings by rememberUpdatedState(settingsOpen)
     // The dialog runs on the composition and the engine on its own dispatcher; a channel is the
     // seam, so a click never blocks a frame on a torrent being opened and hashed.
-    val accepted = remember { Channel<Metainfo>(Channel.UNLIMITED) }
+    val accepted = remember { Channel<Pending>(Channel.UNLIMITED) }
 
     LaunchedEffect(initial, directory) {
         val dispatchers = EngineDispatchers()
@@ -130,12 +143,34 @@ internal fun Client(
         val savedTo = directory.toAbsolutePath().toString()
         try {
             initial?.let { open(set, MetainfoParser.parse(Files.readAllBytes(it)), directory, scope) }
+            val fetching = mutableListOf<Fetching>()
             var asked = false
             var stopTicks = 0
             while (true) {
                 while (true) {
-                    val metainfo = accepted.tryReceive().getOrNull() ?: break
-                    open(set, metainfo, directory, scope)
+                    val next = accepted.tryReceive().getOrNull() ?: break
+                    next.metainfo?.let { open(set, it, directory, scope) }
+                    next.magnet?.let { fetching += Fetching(it) }
+                }
+                // A fetch runs on the engine's scope and puts its torrent through the same door a
+                // file goes through, so there is one place a session is opened and not two.
+                fetching.filter { !it.started }.forEach { pending ->
+                    fetching[fetching.indexOf(pending)] = Fetching(pending.link, started = true)
+                    scope.launch {
+                        val metainfo =
+                            try {
+                                fetchMetainfo(pending.link, scope, dispatchers, set.listenPort)
+                            } catch (unavailable: IllegalArgumentException) {
+                                // The swarm had nothing to say. The row goes; a magnet nobody can
+                                // answer is not a torrent, and there is no session to mark broken.
+                                System.err.println("kachok: ${unavailable.message}")
+                                null
+                            }
+                        fetching.removeAll { it.link === pending.link }
+                        metainfo?.let {
+                            accepted.trySend(Pending(it, null, addFrom(pending.link, savedTo, savedTo)))
+                        }
+                    }
                 }
                 if (askedToStop && !asked) {
                     asked = true
@@ -148,13 +183,17 @@ internal fun Client(
                         val state = runtime.state.value
                         state to meters.getOrPut(runtime.metainfo.name) { RateMeter() }.sample(state)
                     }
-                val index = chosen.coerceIn(0, maxOf(0, running.lastIndex))
+                // A magnet's row comes first: it is the one the person just asked for, and the
+                // one with the least to say about itself.
+                val waiting = fetching.toList()
+                val index = chosen.coerceIn(0, maxOf(0, waiting.size + running.size - 1))
                 window =
                     windowOf(
                         rows =
-                            samples.mapIndexed { at, (state, rates) ->
-                                rowOf(state, rates, lifecycle, selected = at == index)
-                            },
+                            waiting.mapIndexed { at, it -> magnetRow(it.link, selected = at == index) } +
+                                samples.mapIndexed { at, (state, rates) ->
+                                    rowOf(state, rates, lifecycle, selected = waiting.size + at == index)
+                                },
                         // The status bar's two rates are the whole process's, which is what makes
                         // them different numbers from any one row's.
                         rates =
@@ -170,11 +209,11 @@ internal fun Client(
                         // is the row that is tinted.
                         sessionError = samples.firstNotNullOfOrNull { it.first.sessionError },
                         details =
-                            samples.getOrNull(index)?.takeIf { showPanel }?.let { (state, rates) ->
+                            samples.getOrNull(index - waiting.size)?.takeIf { showPanel }?.let { (state, rates) ->
                                 detailsOf(
                                     state = state,
                                     rates = rates,
-                                    pieceLength = running[index].metainfo.pieceLength.toLong(),
+                                    pieceLength = running[index - waiting.size].metainfo.pieceLength.toLong(),
                                     directory = savedTo,
                                     lifecycle = lifecycle,
                                     tab = shownTab,
@@ -212,7 +251,7 @@ internal fun Client(
             onAddTorrent = { pending = chooseTorrent(directory) },
             onCancelAdd = { pending = null },
             onConfirmAdd = {
-                pending?.metainfo?.let { accepted.trySend(it) }
+                pending?.let { accepted.trySend(it) }
                 pending = null
             },
         )
@@ -244,7 +283,7 @@ private fun chooseTorrent(directory: Path): Pending? {
     val here = directory.toAbsolutePath().toString()
     return try {
         val metainfo = MetainfoParser.parse(Files.readAllBytes(path))
-        Pending(metainfo, addFrom(metainfo, file, saveTo = here, defaultDirectory = here))
+        Pending(metainfo, null, addFrom(metainfo, file, saveTo = here, defaultDirectory = here))
     } catch (unreadable: IOException) {
         System.err.println("kachok: cannot read $path: ${unreadable.message}")
         null
@@ -273,15 +312,13 @@ private fun magnetFromClipboard(directory: Path): Pending? {
     if (!text.trim().startsWith("magnet:")) return null
     val here = directory.toAbsolutePath().toString()
     return try {
-        val shown = addFrom(MagnetParser.parse(text.trim()), saveTo = here, defaultDirectory = here)
-        Pending(metainfo = null, shown = shown.refused(MAGNET_NOT_YET))
+        val link = MagnetParser.parse(text.trim())
+        Pending(metainfo = null, magnet = link, shown = addFrom(link, saveTo = here, defaultDirectory = here))
     } catch (malformed: IllegalArgumentException) {
         System.err.println("kachok: not a usable magnet link: ${malformed.message}")
         null
     }
 }
-
-private const val MAGNET_NOT_YET = "The window cannot fetch a magnet's metainfo yet."
 
 private fun heapUsed(): Long = Runtime.getRuntime().let { it.totalMemory() - it.freeMemory() }
 

@@ -142,8 +142,10 @@ None. Two command-line arguments and nothing read from the environment; the sett
   defaults, because a value written down a second time goes stale the first time a measurement
   moves it. `no limit` is the one place the engine's value (`0`) and the words a person needs are
   different things.
-* **A magnet is recognised and not started.** The window has no `MetadataFetcher` in front of a
-  session, so the add dialog greys *Add* and says so ([B-55](../backlog/B-55-magnets-in-the-window.md)).
+* **A magnet is a row before it is a torrent.** It is added as the design's *Metadata* state —
+  the info hash where the name will be, an indeterminate bar, no size — and becomes a real one when
+  `fetchMetainfo` returns. A fetch nobody can answer removes the row rather than marking a session
+  broken; there is no session to mark.
 * **Three of the four details tabs have nothing to show.** *Files*, *Peers* and *Trackers* need
   engine changes that do not exist — per-file progress, peer identities, a status per tracker — so
   each says which one it is waiting for rather than drawing an empty table.
