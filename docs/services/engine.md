@@ -66,9 +66,11 @@ What exists on `main` today:
 | `.../engine/storage/BlockWriter.kt` | the single writer: blocks in, verified pieces out, buffers back to the pool |
 | `.../engine/storage/Storage.kt` | where a verified piece goes |
 | `.../engine/storage/FileStorage.kt` (jvmMain) | one gathering write per file span, and the `SpanSink` seam that makes the call count assertable |
+| `.../engine/tracker/Tracker.kt`, `TrackerProtocol.kt` | the announce model, the query string and the response parsing — both peer encodings |
+| `.../engine/tracker/HttpTrackerClient.kt` (jvmMain) | the GET, blocking on a virtual thread |
 | `.../engine/hash/MessageDigestPieceHasher.kt` (jvmMain) | SHA-1 on a bounded dispatcher, with a pool of digests and the `JvmBlock` seam |
 | `.../engine/storage/FileSet.kt` (jvmMain) | the torrent's files, created sparse with `setLength` and kept open for positional writes |
-| `engine/src/commonTest/kotlin/ru/workinprogress/kachok/engine/` | 79 tests across `bencode`, `metainfo`, `wire`, `io`, `storage` and `hash`; the fixtures are embedded strings, because a KMP test source set has no resources |
+| `engine/src/commonTest/kotlin/ru/workinprogress/kachok/engine/` | 95 tests across `bencode`, `metainfo`, `wire`, `io`, `storage`, `hash` and `tracker`; the fixtures are embedded strings, because a KMP test source set has no resources |
 
 The layout the backlog builds toward, under `engine/src/commonMain/kotlin/ru/workinprogress/kachok/engine/`
 (a directory appears when its first backlog item lands; none of these exist yet):
@@ -78,7 +80,6 @@ The layout the backlog builds toward, under `engine/src/commonMain/kotlin/ru/wor
 | `peer/` | one peer's state machine on top of the connection: choke/interest flags, pipeline, rates | [B-17](../backlog/B-17-session-orchestrator.md) |
 | `picker/` | rarest-first, strict priority for started pieces, endgame | [B-16](../backlog/B-16-piece-picker.md) |
 | `choke/` | the ten-second choker and the optimistic unchoke | [B-21](../backlog/B-21-choking-algorithm.md) |
-| `tracker/` | `TrackerClient` interface, announce request/response model | [B-15](../backlog/B-15-http-tracker-announce.md) |
 | `session/` | `Session`, the `StateFlow`, the command channel, the one timer | [B-17](../backlog/B-17-session-orchestrator.md) |
 | `resume/` | the resume record and its atomic persistence | [B-23](../backlog/B-23-atomic-resume-file.md) |
 
@@ -88,7 +89,7 @@ and under `engine/src/jvmMain/kotlin/ru/workinprogress/kachok/engine/`:
 |---|---|---|
 | `io/` | the listener that accepts incoming peers, beside the pool and the connection already there | [B-09](../backlog/B-09-incoming-connections.md) |
 | `storage/` | the `transferTo` read path for uploads, beside the writer already there | [B-20](../backlog/B-20-upload-read-path.md) |
-| `tracker/` | `java.net.http` announce | [B-15](../backlog/B-15-http-tracker-announce.md) |
+| `tracker/` | the UDP announce, beside the HTTP one already there | [B-32](../backlog/B-32-udp-tracker.md) |
 
 ## 3. How it is built
 

@@ -46,11 +46,10 @@ which is also the order of work.
 
 <!-- BEGIN INDEX -->
 
-## Open (31)
+## Open (30)
 
 | Task | | Priority | Size | Blocked by |
 |---|---|---|---|---|
-| [B-15](docs/backlog/B-15-http-tracker-announce.md) `[ ]` | HTTP tracker announce with compact peers | P0 | M | B-03 |
 | [B-16](docs/backlog/B-16-piece-picker.md) `[ ]` | Rarest-first piece picker with strict priority and endgame | P0 | M | - |
 | [B-17](docs/backlog/B-17-session-orchestrator.md) `[ ]` | Session: the StateFlow, the command channel and the one timer | P0 | L | B-07, B-11, B-15, B-16 |
 | [B-18](docs/backlog/B-18-cli-download-command.md) `[ ]` | kachok download <file.torrent> [--dir …]: progress on stderr, exit 0 on completion | P0 | M | B-17 |
@@ -82,7 +81,7 @@ which is also the order of work.
 | [B-41](docs/backlog/B-41-android-and-ios-targets.md) `[ ]` | Phase 3: Android and iOS targets on the engine | P3 | XL | B-39 |
 | [B-02](docs/backlog/B-02-ci-runs-build-and-docs-gates.md) `[ ]` | CI runs the build and the documentation gates on every push | infra | S | B-01 |
 
-## Closed (11)
+## Closed (12)
 
 **M0 — The build and its gates**
 
@@ -106,6 +105,10 @@ which is also the order of work.
 - [B-11](docs/backlog/B-11-single-writer-with-gathering-writes.md) `[x]` - One writer coroutine, one gathering positional write per piece
 - [B-12](docs/backlog/B-12-file-layout-and-sparse-files.md) `[x]` - Piece-to-file mapping and sparse file creation
 - [B-13](docs/backlog/B-13-hashing-dispatcher.md) `[x]` - Whole-piece SHA-1 on a bounded dispatcher with one MessageDigest per thread
+
+**M4 — A download, end to end**
+
+- [B-15](docs/backlog/B-15-http-tracker-announce.md) `[x]` - HTTP tracker announce with compact peers
 
 <!-- END INDEX -->
 
