@@ -94,10 +94,11 @@ public class FileSet private constructor(
             root: Path,
             metainfo: Metainfo,
         ): FileSet {
-            val paths =
-                metainfo.files.map { file ->
-                    root.resolve(metainfo.name).resolve(file.path.joinToString("/")).normalize()
-                }
+            // A single-file torrent's `name` IS the file; a multi-file torrent's is the directory
+            // its files sit in (BEP 3). Treating the first as the second writes the download one
+            // level too deep, into a directory named after the file it should have been.
+            val base = if (metainfo.isSingleFile) root else root.resolve(metainfo.name)
+            val paths = metainfo.files.map { file -> base.resolve(file.path.joinToString("/")).normalize() }
             paths.forEach { Files.createDirectories(it.parent) }
 
             paths.forEachIndexed { index, path -> size(path, metainfo.files[index].length) }

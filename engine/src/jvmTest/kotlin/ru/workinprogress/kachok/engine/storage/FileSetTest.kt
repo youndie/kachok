@@ -35,6 +35,18 @@ class FileSetTest {
     }
 
     @Test
+    fun aSingleFileTorrentIsAFileAndNotADirectoryOfThatName() {
+        // BEP 3: `name` is the file in the single-file case. Reading it as a directory writes the
+        // download one level too deep, into a directory named after the file it should have been —
+        // which is what the first version of this class did, found by the end-to-end test.
+        val single = MetainfoParser.parse(eightMegabytes.encodeToByteArray())
+        FileSet.open(root, single).use { files ->
+            assertEquals(root.resolve("big"), files.paths.single())
+            assertTrue(Files.isRegularFile(files.paths.single()))
+        }
+    }
+
+    @Test
     fun everyFileIsCreatedUnderTheTorrentNameWithItsFullLength() {
         FileSet.open(root, metainfo).use { files ->
             assertEquals(3, files.paths.size)

@@ -32,6 +32,15 @@ public class Metainfo(
     public val pieceHashes: ByteArray,
     public val trackers: List<String>,
     public val isPrivate: Boolean,
+    /**
+     * BEP 3: "In the single file case, the `name` key is the name of a file, in the muliple file
+     * case, it's the name of a directory."
+     *
+     * Recorded rather than inferred. Guessing from the shape — one file whose path is the name —
+     * misreads a multi-file torrent that happens to hold one file named after its directory, and
+     * the symptom is a download written one directory too deep.
+     */
+    public val isSingleFile: Boolean,
 ) {
     public val pieceCount: Int get() = pieceHashes.size / HASH_SIZE
 

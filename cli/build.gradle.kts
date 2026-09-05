@@ -10,6 +10,8 @@ dependencies {
     implementation(projects.engine)
     implementation(wip.kotlinx.coroutines.core)
     testImplementation(kotlin("test"))
+    // The end-to-end test runs a tracker and a seeding peer of its own; both are the JDK's.
+    testImplementation(wip.kotlinx.coroutines.test)
 }
 
 application {

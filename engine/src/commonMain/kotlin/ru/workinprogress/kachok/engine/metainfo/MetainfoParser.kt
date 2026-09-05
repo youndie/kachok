@@ -65,6 +65,7 @@ public object MetainfoParser {
             pieceHashes = pieceHashes,
             trackers = readTrackers(root),
             isPrivate = (info["private"] as? BInteger)?.value == 1L,
+            isSingleFile = info["length"] != null,
         )
     }
 

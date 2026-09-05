@@ -50,6 +50,8 @@ class MetainfoParserTest {
         assertEquals(1200L, metainfo.totalLength)
         assertEquals(3, metainfo.pieceCount)
         assertFalse(metainfo.isPrivate)
+        assertTrue(metainfo.isSingleFile, "`length` and no `files` is the single-file case")
+        assertEquals(listOf(listOf("readme.txt")), metainfo.files.map { it.path })
     }
 
     @Test
@@ -58,6 +60,7 @@ class MetainfoParserTest {
         assertEquals(multiFileInfoHash, metainfo.infoHash.bytes.toHex())
         assertEquals(2000L, metainfo.totalLength)
         assertEquals(4, metainfo.pieceCount)
+        assertFalse(metainfo.isSingleFile, "`files` and no `length` is the multi-file case")
         assertEquals(listOf(1000L, 1L, 999L), metainfo.files.map { it.length })
         assertEquals(listOf(0L, 1000L, 1001L), metainfo.files.map { it.offset })
         assertEquals(

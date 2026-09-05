@@ -27,25 +27,32 @@ module without touching the engine.
 
 ## 2. API contracts
 
-No network API. The contract is the command line, documented in the feature document
-`feature-cli` once it exists (it is `draft` on the phase-1 branch; `main` has the skeleton below).
-Today:
+No network API. The contract is the command line and the exit codes:
 
 ```
-kachok <anything>   → prints "kachok: no commands yet (skeleton)" to stderr, exit code 2
+kachok download <file.torrent> [--dir <path>] [--port <n>] [--peers <n>] [--pipeline <n>] [--seed]
 ```
+
+| Exit | Meaning |
+|---|---|
+| `0` | the download completed and every piece verified |
+| `1` | it failed; the reason is the last line on stderr |
+| `2` | the command line does not parse; usage follows on stderr |
 
 ## 2a. Code anchors
 
 | File | What is there |
 |---|---|
 | `cli/build.gradle.kts` | `application` main class, `applicationDefaultJvmArgs` — the flags of research D6 |
-| `cli/src/main/kotlin/ru/workinprogress/kachok/cli/Main.kt` | the entry point; usage exit code `2` |
-| `cli/src/test/kotlin/ru/workinprogress/kachok/cli/MainTest.kt` | proves the test task runs for this module |
+| `cli/src/main/kotlin/ru/workinprogress/kachok/cli/Main.kt` | the entry point and the exit codes; takes its streams so a test can read them |
+| `.../cli/Arguments.kt` | the hand-written parser and the usage text |
+| `.../cli/Download.kt` | the factory: every interface the engine needs meets its JVM implementation here |
+| `cli/src/test/kotlin/ru/workinprogress/kachok/cli/DownloadTest.kt` | the end-to-end download against a local tracker and a real seeding peer |
+| `.../cli/SeedingPeer.kt` | that peer: BEP 3 over a socket, serving the bytes it claims to have |
 
 ## 3. How it is built
 
-`main` will be short on purpose: parse, construct, run, render. The construction step is the one
+`main` is short on purpose: parse, construct, run, render. The construction step is the one
 place in phase 1 that names concrete JVM classes — `BufferPool`, the virtual-thread transport,
 `FileChannel` storage, the `MessageDigest` hasher, the `java.net.http` tracker client — and hands
 them to the engine as interfaces. There is no DI container; a hand-written factory is the entire
@@ -80,21 +87,22 @@ per-message events, which is what conflation is for.
 ./gradlew :cli:run --args="download example.torrent"
 ```
 
-Runs the skeleton with the JVM flags from `cli/build.gradle.kts`
+Runs with the JVM flags from `cli/build.gradle.kts`
 (`-XX:+UseCompactObjectHeaders -Xmx256m`). JDK 25 is resolved by the toolchain (foojay resolver in
 `settings.gradle.kts`), so a machine without it downloads one.
 
 ## 7. Configuration
 
-None yet. The plan: everything the engine's `SessionConfig` exposes is a command-line flag with the
-same name, there is no configuration file in phase 1, and nothing is read from the environment.
-The listening port defaults to BEP 3's 6881–6889 probe.
+Flags only. There is no configuration file in phase 1 and nothing is read from the environment.
+`--peers` and `--pipeline` are the engine's `SessionConfig` fields under the same names; `--port`
+defaults to the first of BEP 3's 6881–6889 (the probe itself arrives with
+[B-09](../backlog/B-09-incoming-connections.md), which is what will need the range).
 
 ## 8. Quirks
 
-* **The skeleton's `main` always exits with code 2**, so `./gradlew :cli:run` reports a failed
-  task. That is the usage exit code doing its job before there is a usage; it changes with
-  [B-18](../backlog/B-18-cli-download-command.md).
+* **A download gives up only when there is nothing to wait for**: every tracker refused *and* no
+  peer arrived from anywhere else. Deliberately not "no progress for a while" — a slow swarm is not
+  a failed download, and a client that gives up on one is worse than a client that waits.
 * **The JVM flags live in the build file, not in a script.** `applicationDefaultJvmArgs` is read by
   `run` and by `installDist`'s start scripts alike, so there is one place to change a flag and no
   way to measure a VM the distribution would not ship. The AOT cache flag is *not* there yet: the
