@@ -32,6 +32,7 @@ import kotlin.test.Test
 import kotlin.test.assertContains
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.seconds
 
 /**
  * The acceptance criteria of B-17, entirely on fakes.
@@ -193,6 +194,7 @@ class SessionTest {
         tracker: TrackerClient,
         storage: Storage,
         hasher: PieceHasher,
+        config: SessionConfig = SessionConfig(maxStartedPieces = 4, pipelineDepth = 2, maxPeers = 10),
     ) = Session(
         metainfo = metainfo,
         peerId = ourPeerId,
@@ -201,7 +203,7 @@ class SessionTest {
         trackerClient = tracker,
         hasher = hasher,
         storage = storage,
-        config = SessionConfig(maxStartedPieces = 4, pipelineDepth = 2, maxPeers = 10),
+        config = config,
     ).also { sessions += it }
 
     @Test
@@ -328,6 +330,61 @@ class SessionTest {
             assertEquals(0L, session.state.value.downloaded)
             assertTrue(storage.written.isEmpty(), "a piece that failed its hash reached the storage")
             job.cancelAndJoin()
+        }
+
+    @Test
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    fun theTimerFlushesOnItsIntervalAndNotPerPiece() =
+        runTest {
+            // B-14: `force()` on a schedule, never per piece. A flush per piece turns every piece
+            // into a synchronous disk round trip; the operating system's page cache chooses the
+            // moment better, and the resume record — which vouches only for hashed pieces — is
+            // what makes deferring it safe.
+            val metainfo = torrent(pieces = 4)
+            val dialer = FakeDialer(metainfo.infoHash)
+            val storage = FakeStorage()
+            val session =
+                session(
+                    metainfo,
+                    dialer,
+                    FakeTracker(listOf(peerA)),
+                    storage,
+                    AgreeableHasher(metainfo),
+                    config =
+                        SessionConfig(
+                            maxStartedPieces = 4,
+                            pipelineDepth = 2,
+                            maxPeers = 10,
+                            tick = 1.seconds,
+                            flushInterval = 5.seconds,
+                        ),
+                )
+            val job = session.start(kotlinx.coroutines.CoroutineScope(coroutineContext + handler))
+            testScheduler.runCurrent()
+            assertEquals(0, storage.flushes, "nothing is flushed before the interval")
+
+            val connection = dialer.connections.getValue(peerA)
+            (0 until metainfo.pieceCount).forEach { index ->
+                connection.incoming.send(
+                    PeerEvent.BlockReceived(FakeBlock(PieceIndex(index), 0, PeerWire.BLOCK_SIZE)),
+                )
+            }
+            testScheduler.runCurrent()
+            assertEquals(4, storage.written.size, "four pieces reached the disk")
+            assertEquals(0, storage.flushes, "and not one of them cost a flush")
+
+            testScheduler.advanceTimeBy(5_500)
+            testScheduler.runCurrent()
+            assertEquals(1, storage.flushes, "one flush, on the interval")
+
+            testScheduler.advanceTimeBy(5_500)
+            testScheduler.runCurrent()
+            assertEquals(2, storage.flushes)
+
+            session.send(Command.Stop)
+            testScheduler.runCurrent()
+            assertEquals(3, storage.flushes, "and one more at the end, after the peers are closed")
+            assertTrue(job.isCancelled || job.isCompleted)
         }
 
     @Test

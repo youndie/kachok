@@ -46,12 +46,11 @@ which is also the order of work.
 
 <!-- BEGIN INDEX -->
 
-## Open (27)
+## Open (26)
 
 | Task | | Priority | Size | Blocked by |
 |---|---|---|---|---|
 | [B-09](docs/backlog/B-09-incoming-connections.md) `[ ]` | Accept incoming peers on the BEP 3 port range | P1 | S | B-07 |
-| [B-14](docs/backlog/B-14-deferred-force-timer.md) `[ ]` | force() on a timer and at close, not per piece | P1 | S | B-11 |
 | [B-20](docs/backlog/B-20-upload-read-path.md) `[ ]` | Serve requests with FileChannel.transferTo | P1 | M | B-17 |
 | [B-21](docs/backlog/B-21-choking-algorithm.md) `[ ]` | The ten-second choker with optimistic unchoke | P1 | M | B-20 |
 | [B-23](docs/backlog/B-23-atomic-resume-file.md) `[ ]` | A resume record written atomically and rarely | P1 | M | B-17 |
@@ -78,7 +77,7 @@ which is also the order of work.
 | [B-41](docs/backlog/B-41-android-and-ios-targets.md) `[ ]` | Phase 3: Android and iOS targets on the engine | P3 | XL | B-39 |
 | [B-02](docs/backlog/B-02-ci-runs-build-and-docs-gates.md) `[ ]` | CI runs the build and the documentation gates on every push | infra | S | B-01 |
 
-## Closed (16)
+## Closed (17)
 
 **M0 — The build and its gates**
 
@@ -102,6 +101,7 @@ which is also the order of work.
 - [B-11](docs/backlog/B-11-single-writer-with-gathering-writes.md) `[x]` - One writer coroutine, one gathering positional write per piece
 - [B-12](docs/backlog/B-12-file-layout-and-sparse-files.md) `[x]` - Piece-to-file mapping and sparse file creation
 - [B-13](docs/backlog/B-13-hashing-dispatcher.md) `[x]` - Whole-piece SHA-1 on a bounded dispatcher with one MessageDigest per thread
+- [B-14](docs/backlog/B-14-deferred-force-timer.md) `[x]` - force() on a timer and at close, not per piece
 
 **M4 — A download, end to end**
 
