@@ -78,6 +78,8 @@ internal fun MainWindow(
     onAddTorrent: () -> Unit = {},
     onBrowse: () -> Unit = {},
     onSetting: (SettingChange) -> Unit = {},
+    onCopy: (String) -> Unit = {},
+    onShowDegraded: () -> Unit = {},
 ) {
     Box(modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)) {
@@ -93,7 +95,7 @@ internal fun MainWindow(
                     // session's complaint, and the panel beside it is showing a torrent that may not
                     // be the one complaining.
                     if (state.degradedSummary != null) {
-                        DegradedBanner(state.degradedSummary, state.degradedDetail)
+                        DegradedBanner(state.degradedSummary, state.degradedDetail, onShow = onShowDegraded)
                     }
                     when {
                         state.settings != null -> {
@@ -117,7 +119,7 @@ internal fun MainWindow(
                     }
                 }
                 if (state.torrents.isNotEmpty() && state.settings == null) {
-                    state.details?.let { DetailsPanel(it, onTab = onTab) }
+                    state.details?.let { DetailsPanel(it, onTab = onTab, onCopy = onCopy) }
                 }
             }
             StatusBar(state.status)

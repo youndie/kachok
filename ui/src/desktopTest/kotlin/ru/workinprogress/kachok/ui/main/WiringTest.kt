@@ -158,6 +158,45 @@ class WiringTest {
             )
         }
 
+    /**
+     * The copy button, which was a glyph.
+     *
+     * And what it copies is the whole hash, not the ten characters the panel has room for — the
+     * defect this catches is the easy one to write.
+     */
+    @Test
+    fun theCopyButtonLeavesTheWindowWithTheWholeHash(): Unit =
+        runComposeUiTest {
+            val copied = mutableListOf<String>()
+            setContent { KachokTheme { MainWindow(window, onCopy = { copied += it }) } }
+            onNodeWithContentDescription("Copy Info hash").performClick()
+            val hash = copied.single()
+            assertEquals(HASH_HEX, hash.length, "the shortened one was copied")
+            assertTrue(hash.all { it.isDigit() || it in 'a'..'f' }, hash)
+        }
+
+    /** *Show it* on the degraded banner, which took a callback nobody passed. */
+    @Test
+    fun showItLeavesTheWindow(): Unit =
+        runComposeUiTest {
+            var shown = 0
+            setContent {
+                KachokTheme {
+                    MainWindow(
+                        MainWindowState(
+                            torrents = window.torrents,
+                            status = window.status,
+                            degradedSummary = "Sintel is degraded.",
+                            degradedDetail = "java.net.SocketException: Network is unreachable",
+                        ),
+                        onShowDegraded = { shown++ },
+                    )
+                }
+            }
+            onNodeWithText("Show it").performClick()
+            assertEquals(1, shown)
+        }
+
     @Test
     fun everyEnabledToolbarControlLeavesTheWindow(): Unit =
         runComposeUiTest {
@@ -166,6 +205,11 @@ class WiringTest {
             onNodeWithText("Add torrent").performClick()
             assertEquals(listOf("Add torrent"), fired)
         }
+
+    private companion object {
+        /** Twenty bytes of SHA-1, in hex. */
+        const val HASH_HEX = 40
+    }
 
     private fun SettingChange.key(): SettingKey =
         when (this) {

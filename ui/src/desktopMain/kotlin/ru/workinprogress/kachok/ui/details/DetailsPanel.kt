@@ -20,15 +20,23 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.delay
 import ru.workinprogress.kachok.ui.icons.Glyph
 import ru.workinprogress.kachok.ui.icons.Icons
 import ru.workinprogress.kachok.ui.list.RowCell
@@ -41,6 +49,7 @@ import ru.workinprogress.kachok.ui.theme.PathText
 import ru.workinprogress.kachok.ui.theme.RowName
 import ru.workinprogress.kachok.ui.theme.RowStateLabel
 import ru.workinprogress.kachok.ui.theme.warningColors
+import kotlin.time.Duration.Companion.milliseconds
 
 /** The four tabs, in the design's order. Three of them are waiting on the engine. */
 internal enum class DetailsTab(
@@ -76,6 +85,13 @@ internal class DetailsField(
     /** The design's own badge: the field is drawn, and it says where the number came from. */
     val planned: Boolean = false,
     val copyable: Boolean = false,
+    /**
+     * What the copy button puts on the clipboard.
+     *
+     * Not the same string as [value] for the info hash: the panel shows the first and last five
+     * characters because forty do not fit, and a person copying it wants the forty.
+     */
+    val copyText: String = value,
     /** A path: identified by its end, so it is elided from the front rather than the back. */
     val path: Boolean = false,
 )
@@ -129,6 +145,7 @@ internal fun DetailsPanel(
     state: DetailsState,
     modifier: Modifier = Modifier,
     onTab: (DetailsTab) -> Unit = {},
+    onCopy: (String) -> Unit = {},
 ) {
     val scheme = MaterialTheme.colorScheme
     Row(modifier.width(Details.width + HAIRLINE)) {
@@ -137,7 +154,7 @@ internal fun DetailsPanel(
             Header(state)
             Tabs(state.tab, onTab)
             when (state.tab) {
-                DetailsTab.Overview -> Overview(state)
+                DetailsTab.Overview -> Overview(state, onCopy)
                 else -> Planned(state.tab)
             }
         }
@@ -227,7 +244,10 @@ private fun ColumnScope.Tabs(
 }
 
 @Composable
-private fun ColumnScope.Overview(state: DetailsState) {
+private fun ColumnScope.Overview(
+    state: DetailsState,
+    onCopy: (String) -> Unit,
+) {
     Column(
         Modifier
             .fillMaxSize()
@@ -236,7 +256,7 @@ private fun ColumnScope.Overview(state: DetailsState) {
     ) {
         state.sections.forEachIndexed { index, section ->
             SectionHead(section.title, first = index == 0)
-            section.fields.forEach { Field(it) }
+            section.fields.forEach { Field(it, onCopy) }
         }
         if (state.complaints.isNotEmpty() || state.sessionError != null) {
             SectionHead("LAST COMPLAINTS", first = false)
@@ -276,7 +296,10 @@ private fun SectionHead(
 }
 
 @Composable
-private fun Field(field: DetailsField) {
+private fun Field(
+    field: DetailsField,
+    onCopy: (String) -> Unit = {},
+) {
     Column {
         Row(
             Modifier.fillMaxWidth().height(Details.rowHeight),
@@ -316,7 +339,7 @@ private fun Field(field: DetailsField) {
                     )
                 }
                 if (field.copyable) {
-                    Glyph(Icons.CONTENT_COPY, size = COPY_GLYPH, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    CopyButton(field, onCopy)
                 }
             }
         }
@@ -422,5 +445,45 @@ private val BADGE_SIZE = 9.5.sp
 private val CARD_TEXT = 11.sp
 
 private val CARD_LINE = 16.5.sp
+
+/**
+ * It copies, and it says so.
+ *
+ * The glyph lights up in the accent for a second and a half. Something has to: the clipboard is not
+ * on screen, so a press with no acknowledgement is indistinguishable from the dead button this
+ * replaced — which is the whole complaint behind
+ * [B-76](../../../../../../../../docs/backlog/B-76-the-last-dead-controls.md).
+ *
+ * A tick would read better and is not available. The icon font is subset by codepoint from a 15 MB
+ * source that is deliberately not in the repository, so a new glyph means fetching it and running
+ * `scripts/subset_icon_font.sh`; a colour change carries the same information out of the twenty-seven
+ * glyphs already there.
+ */
+@Composable
+private fun CopyButton(
+    field: DetailsField,
+    onCopy: (String) -> Unit,
+) {
+    var copied by remember(field.copyText) { mutableStateOf(false) }
+    LaunchedEffect(copied) {
+        if (copied) {
+            delay(ACKNOWLEDGED)
+            copied = false
+        }
+    }
+    Glyph(
+        Icons.CONTENT_COPY,
+        size = COPY_GLYPH,
+        tint = if (copied) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier =
+            Modifier
+                .clickable {
+                    onCopy(field.copyText)
+                    copied = true
+                }.semantics { contentDescription = "Copy ${field.label}" },
+    )
+}
+
+private val ACKNOWLEDGED = 1500.milliseconds
 
 private val COPY_GLYPH = 14.sp

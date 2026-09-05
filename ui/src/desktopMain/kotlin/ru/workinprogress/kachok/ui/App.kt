@@ -63,6 +63,7 @@ import java.awt.FileDialog
 import java.awt.Frame
 import java.awt.Toolkit
 import java.awt.datatransfer.DataFlavor
+import java.awt.datatransfer.StringSelection
 import java.awt.datatransfer.UnsupportedFlavorException
 import java.io.IOException
 import java.nio.file.Files
@@ -296,6 +297,9 @@ internal fun Client(
     val rowKeys = snapshot.fetching.map { it.infoHash.hex() } + ordered.map { it.state.infoHash.hex() }
     val index = rowKeys.indexOf(selected).coerceAtLeast(0)
     val chosenSample = ordered.getOrNull(index - snapshot.fetching.size)
+    // The banner names a session, so *Show it* has to know which — the first one complaining, which
+    // is also the row the list tints.
+    val degraded = ordered.firstOrNull { it.state.sessionError != null }
     val window =
         windowOf(
             rows =
@@ -321,7 +325,7 @@ internal fun Client(
             heapMaxBytes = snapshot.heapMaxBytes,
             // The banner names one session because one session failed; which one it is is the row
             // that is tinted.
-            sessionError = ordered.firstNotNullOfOrNull { it.state.sessionError },
+            sessionError = degraded?.state?.sessionError,
             details =
                 chosenSample?.takeIf { panelOpen }?.let { sample ->
                     detailsOf(
@@ -377,6 +381,14 @@ internal fun Client(
                 is SettingChange.Typed -> {
                     preferences = preferences.typed(change.key, change.text)
                 }
+            }
+        },
+        onCopy = { text -> copyToClipboard(text) },
+        onShowDegraded = {
+            degraded?.let { sample ->
+                selected = sample.state.infoHash.hex()
+                panelOpen = true
+                tab = DetailsTab.Overview
             }
         },
         onCancelAdd = { pending = null },
@@ -437,6 +449,21 @@ private fun chooseTorrent(directory: String): Pending? {
     } catch (malformed: IllegalArgumentException) {
         System.err.println("kachok: $file is not a usable torrent: ${malformed.message}")
         null
+    }
+}
+
+/**
+ * The info hash, on the clipboard.
+ *
+ * Wrapped because `setContents` throws `IllegalStateException` when another process holds the
+ * clipboard — a transient condition on every platform, and one that must not take the window down
+ * over a copy button.
+ */
+private fun copyToClipboard(text: String) {
+    try {
+        Toolkit.getDefaultToolkit().systemClipboard.setContents(StringSelection(text), null)
+    } catch (busy: IllegalStateException) {
+        System.err.println("kachok: the clipboard is busy: ${busy.message}")
     }
 }
 

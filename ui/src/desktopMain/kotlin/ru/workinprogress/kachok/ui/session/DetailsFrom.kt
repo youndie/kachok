@@ -1,5 +1,6 @@
 package ru.workinprogress.kachok.ui.session
 
+import ru.workinprogress.kachok.engine.InfoHash
 import ru.workinprogress.kachok.engine.session.SessionState
 import ru.workinprogress.kachok.ui.details.Complaint
 import ru.workinprogress.kachok.ui.details.DetailsField
@@ -38,7 +39,14 @@ internal fun detailsOf(
                 DetailsSection(
                     "IDENTITY",
                     listOf(
-                        DetailsField("Info hash", shortHash(state), copyable = true),
+                        DetailsField(
+                            "Info hash",
+                            shortHash(state),
+                            copyable = true,
+                            // What the button copies is the whole forty, which is the reason the
+                            // button exists — the panel shows ten of them.
+                            copyText = hex(state.infoHash),
+                        ),
                         DetailsField("Total length", Figures.bytes(state.totalLength)),
                         DetailsField("Piece length", Figures.bytes(pieceLength)),
                         DetailsField("Save to", directory, path = true),
@@ -112,10 +120,11 @@ internal fun detailsOf(
  * Forty hex characters do not fit in a 340 px panel and nobody reads the middle twenty-eight; the
  * copy button beside it is what the whole hash is for.
  */
-private fun shortHash(state: SessionState): String {
-    val hex = state.infoHash.bytes.joinToString("") { (it.toInt() and BYTE).toString(HEX).padStart(2, '0') }
-    return "${hex.take(HASH_ENDS)}…${hex.takeLast(HASH_ENDS)}"
-}
+private fun shortHash(state: SessionState): String =
+    hex(state.infoHash).let { "${it.take(HASH_ENDS)}…${it.takeLast(HASH_ENDS)}" }
+
+private fun hex(infoHash: InfoHash): String =
+    infoHash.bytes.joinToString("") { (it.toInt() and BYTE).toString(HEX).padStart(2, '0') }
 
 /** `1 384`, the same grouping the rates use, because they sit in the same column. */
 private fun grouped(value: Int): String =

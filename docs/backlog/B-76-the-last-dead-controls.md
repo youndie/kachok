@@ -1,7 +1,7 @@
 ---
 id: B-76
 title: "The copy button, Show it, and the add dialog's ticks"
-status: open
+status: done
 priority: P1
 size: S
 stage: phase-2-ui
@@ -30,9 +30,27 @@ neither a badge nor a behaviour — the worse of the two failures, because a per
   change wears the badge, and one that will never do anything is not drawn.
 - Rejected in advance: hiding the copy button until the engine can produce the hash — it can.
 
+## Deviations, and why
+
+- **The copy button acknowledges in colour, not with a tick.** The glyph lights up in the accent for
+  a second and a half. A tick reads better and needs a twenty-eighth glyph; the icon font is subset
+  by codepoint from a 15 MB source that is deliberately not in the repository, so adding one means
+  fetching that font and re-running `scripts/subset_icon_font.sh` — for a signal the existing glyph
+  already carries.
+- **The two radios stay as they are.** *Add paused* wears the badge; *Start immediately* does not,
+  because it is the option already chosen and pressing a selected radio is a no-op in any dialog.
+  Wiring it would move a dot to *Add paused* and start the torrent anyway, which is worse than not
+  responding.
+- **What the button copies is not what the field shows.** The panel has room for ten of the forty
+  hex characters, so `DetailsField` gained `copyText`. The test asserts the length, because copying
+  the shortened one is the easy mistake and looks right on screen.
+
 - AC: the copy glyph puts the info hash on the clipboard and says so; *Show it* opens the details
   panel on the degraded torrent; every non-acting control in the add dialog carries the badge, and
   `WiringTest` enumerates the dialog's controls the way it enumerates the settings'.
+  **Automated:** `ui/src/desktopTest/.../main/WiringTest.kt` —
+  `theCopyButtonLeavesTheWindowWithTheWholeHash`, `showItLeavesTheWindow`; and
+  `ui/src/desktopTest/.../add/AddTorrentTest.kt` — `everyControlWaitingOnTheEngineWearsTheBadge`.
 - Anchors: `ui/src/desktopMain/kotlin/ru/workinprogress/kachok/ui/details/DetailsPanel.kt`,
   `ui/src/desktopMain/kotlin/ru/workinprogress/kachok/ui/add/AddTorrent.kt`,
   `ui/src/desktopMain/kotlin/ru/workinprogress/kachok/ui/main/MainWindow.kt`.

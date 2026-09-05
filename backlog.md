@@ -46,14 +46,13 @@ which is also the order of work.
 
 <!-- BEGIN INDEX -->
 
-## Open (20)
+## Open (19)
 
 | Task | | Priority | Size | Blocked by |
 |---|---|---|---|---|
 | [B-60](docs/backlog/B-60-two-torrents-one-path.md) `[ ]` | Two torrents saving to the same file, and nothing that notices | P1 | M | B-54 |
 | [B-66](docs/backlog/B-66-the-filter-field.md) `[ ]` | The filter field, which is a box with the word Filter in it | P1 | S | B-62 |
 | [B-72](docs/backlog/B-72-the-keyboard-map.md) `[ ]` | The keyboard map the empty state advertises | P1 | S | B-62 |
-| [B-76](docs/backlog/B-76-the-last-dead-controls.md) `[ ]` | The copy button, Show it, and the add dialog's ticks | P1 | S | B-62 |
 | [B-57](docs/backlog/B-57-a-paused-torrent.md) `[ ]` | A paused torrent, which the engine does not have | P2 | M | B-54 |
 | [B-58](docs/backlog/B-58-remove-a-torrent.md) `[ ]` | Removing a torrent, and the dialog the ellipsis promises | P2 | S | B-54 |
 | [B-67](docs/backlog/B-67-per-file-selection.md) `[ ]` | Per-file progress and choosing which files to fetch | P2 | L | B-54 |
@@ -71,7 +70,7 @@ which is also the order of work.
 | [B-75](docs/backlog/B-75-the-window-below-800dp.md) `[ ]` | The window below 800 dp | P3 | S | B-49 |
 | [B-02](docs/backlog/B-02-ci-runs-build-and-docs-gates.md) `[ ]` | CI runs the build and the documentation gates on every push | infra | S | B-01 |
 
-## Closed (56)
+## Closed (57)
 
 **M0 — The build and its gates**
 
@@ -158,6 +157,7 @@ which is also the order of work.
 - [B-62](docs/backlog/B-62-dead-controls-on-two-more-screens.md) `[x]` - Controls on two more screens that reported nothing, and the guard that missed them
 - [B-63](docs/backlog/B-63-joining-the-dht-at-runtime.md) `[x]` - Joining the DHT from the settings screen, not from a restart
 - [B-64](docs/backlog/B-64-a-click-waited-for-the-tick.md) `[x]` - A click waited for the tick
+- [B-76](docs/backlog/B-76-the-last-dead-controls.md) `[x]` - The copy button, Show it, and the add dialog's ticks
 
 <!-- END INDEX -->
 
