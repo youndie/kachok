@@ -84,10 +84,13 @@ person — the machine only guards the membership.
 
 - [x] [research-architecture](research/research-architecture.md) — what JDK 25 actually ships, the AOT cache measured, the protocol from the BEPs, twelve decisions and where they depart from the brief
 
-### Features (1)
+### Features (2)
 
 Getting a torrent in:
 - [x] [feature-metainfo](features/feature-metainfo.md) — bencode, `.torrent` and magnet parsing, the info hash over the original bytes; one scenario still target, in M8
+
+Surviving:
+- [x] [feature-resume](features/feature-resume.md) — a record that vouches only for hashed pieces, the start-up check that needs no record, and the clean stop on a signal
 
 ### Services (2/2)
 
