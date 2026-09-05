@@ -53,14 +53,16 @@ What exists on `main` today:
 | `engine/build.gradle.kts` | the one target (`jvm()`), `jvmDefault = NO_COMPATIBILITY`, the release-only assertion flags |
 | `engine/src/commonMain/kotlin/ru/workinprogress/kachok/engine/Ids.kt` | `InfoHash`, `PeerId`, `PieceIndex` — the value classes every other type is phrased in |
 | `engine/src/commonTest/kotlin/ru/workinprogress/kachok/engine/IdsTest.kt` | the size checks |
+| `.../engine/bencode/` | the codec: `BValue`, the strict decoder that records source byte ranges, the canonical encoder |
+| `.../engine/metainfo/` | `Metainfo`, `TorrentFile`, and the parser that hashes `info` from its source bytes |
+| `.../engine/platform/Sha1.kt` + `engine/src/jvmMain/kotlin/ru/workinprogress/kachok/engine/platform/Sha1.jvm.kt` | the one-shot SHA-1 primitive, `expect`/`actual` |
+| `engine/src/commonTest/kotlin/ru/workinprogress/kachok/engine/bencode/BencodeTest.kt`, `.../metainfo/MetainfoParserTest.kt` | 18 tests; the fixtures are embedded strings, because a KMP test source set has no resources |
 
 The layout the backlog builds toward, under `engine/src/commonMain/kotlin/ru/workinprogress/kachok/engine/`
 (a directory appears when its first backlog item lands; none of these exist yet):
 
 | Directory | What goes there | Backlog |
 |---|---|---|
-| `bencode/` | encoder and decoder over a byte source; the info-dictionary substring is returned as bytes, never re-encoded | [B-03](../backlog/B-03-bencode-codec.md) |
-| `metainfo/` | `.torrent` → `Metainfo` (files, piece length, hashes) and the `InfoHash` | [B-04](../backlog/B-04-metainfo-parser-and-info-hash.md) |
 | `wire/` | handshake, message ids, in-place `piece`/`request` parsing, the sealed `Message` for the rest | [B-06](../backlog/B-06-peer-wire-codec.md) |
 | `peer/` | one peer's state machine: choke/interest flags, pipeline, rates | [B-07](../backlog/B-07-virtual-thread-peer-transport.md) |
 | `picker/` | rarest-first, strict priority for started pieces, endgame | [B-16](../backlog/B-16-piece-picker.md) |
@@ -76,7 +78,7 @@ and under `engine/src/jvmMain/kotlin/ru/workinprogress/kachok/engine/`:
 |---|---|---|
 | `io/` | `BufferPool` (direct, 16 KiB), the virtual-thread `PeerTransport`, the listener | [B-07](../backlog/B-07-virtual-thread-peer-transport.md), [B-08](../backlog/B-08-direct-buffer-pool.md), [B-09](../backlog/B-09-incoming-connections.md) |
 | `storage/` | `FileChannel` storage: positional gathering writes, `transferTo` reads, `force()` timer | [B-11](../backlog/B-11-single-writer-with-gathering-writes.md), [B-20](../backlog/B-20-upload-read-path.md) |
-| `hash/` | `MessageDigest` per hashing thread, the `limitedParallelism` dispatcher | [B-13](../backlog/B-13-hashing-dispatcher.md) |
+| `hash/` | `MessageDigest` per hashing thread, the `limitedParallelism` dispatcher — bulk piece hashing, not the one-shot primitive above | [B-13](../backlog/B-13-hashing-dispatcher.md) |
 | `tracker/` | `java.net.http` announce | [B-15](../backlog/B-15-http-tracker-announce.md) |
 
 ## 3. How it is built
@@ -146,5 +148,8 @@ them. Nothing is read from the environment by this module; that is [cli](cli.md)
 * **`-Xno-param-assertions` and `-Xno-call-assertions` are release-only.** They are added when the
   build runs with `-Pkachok.release`; a plain `./gradlew build` keeps the null checks. Both builds
   are green on 2026-09-05.
+* **A `.torrent` is input from a stranger, and `MetainfoParser` treats it as one.** Path
+  components that are empty, `.`, `..`, or that contain a separator are refused at parse time, so
+  no code below has to remember that a torrent can ask to be written outside its own directory.
 * **`explicitApi()` and warnings-as-errors come from `sborka.kmp`**, not from this file. A new
   public declaration without a visibility modifier fails the build; that is intended.
