@@ -28,7 +28,8 @@ public object MetainfoParser {
             root["info"] as? BDictionary
                 ?: throw MetainfoException("`info` is not a dictionary")
 
-        val infoHash = InfoHash(sha1(bytes, infoRange.first, infoRange.last + 1))
+        val infoBytes = bytes.copyOfRange(infoRange.first, infoRange.last + 1)
+        val infoHash = InfoHash(sha1(infoBytes, 0, infoBytes.size))
         val name = info.text("name", "info")
         val pieceLength = info.integer("piece length", "info")
         if (pieceLength <= 0 || pieceLength > Int.MAX_VALUE) {
@@ -66,6 +67,7 @@ public object MetainfoParser {
             trackers = readTrackers(root),
             isPrivate = (info["private"] as? BInteger)?.value == 1L,
             isSingleFile = info["length"] != null,
+            infoBytes = infoBytes,
         )
     }
 

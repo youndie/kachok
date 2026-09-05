@@ -41,6 +41,16 @@ public class Metainfo(
      * the symptom is a download written one directory too deep.
      */
     public val isSingleFile: Boolean,
+    /**
+     * The `info` dictionary exactly as it arrived, which is what BEP 9 serves.
+     *
+     * A slice of the source and never a re-encode. The info hash is the SHA-1 of *these* bytes, and
+     * a torrent whose keys are not canonically sorted — which BEP 3 permits and this parser accepts
+     * — would re-encode into a different dictionary with a different hash. A peer asking for the
+     * metadata of a hash is asking for the bytes that hash, so anything but the original is the
+     * wrong answer, however well formed.
+     */
+    public val infoBytes: ByteArray,
 ) {
     public val pieceCount: Int get() = pieceHashes.size / HASH_SIZE
 

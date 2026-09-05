@@ -40,6 +40,7 @@ import ru.workinprogress.kachok.engine.tracker.TrackerException
 import ru.workinprogress.kachok.engine.wire.ExtensionHandshake
 import ru.workinprogress.kachok.engine.wire.Handshake
 import ru.workinprogress.kachok.engine.wire.Message
+import ru.workinprogress.kachok.engine.wire.MetadataMessage
 import ru.workinprogress.kachok.engine.wire.PeerWire
 import ru.workinprogress.kachok.engine.wire.PexMessage
 import ru.workinprogress.kachok.engine.wire.WireException
@@ -604,6 +605,47 @@ public class Session(
     }
 
     /**
+     * BEP 9 from the other side: a peer asks this client for the info dictionary.
+     *
+     * The bytes are the ones the torrent arrived with — `metainfo.infoBytes`, a slice of the file
+     * or of what the swarm sent — and never a re-encode. The info hash is the SHA-1 of exactly
+     * those bytes, and a torrent whose keys are not canonically sorted would re-encode into
+     * something with a different hash: well formed, and the wrong answer to the question asked.
+     *
+     * Served from the moment the torrent is open, not from the moment it completes. The dictionary
+     * is whole either way; it is the pieces that are missing.
+     */
+    private suspend fun serveMetadata(
+        link: PeerLink,
+        payload: ByteArray,
+    ) {
+        val request =
+            try {
+                MetadataMessage.decode(payload)
+            } catch (malformed: WireException) {
+                return
+            }
+        if (request.type != MetadataMessage.REQUEST) return
+        val total = metainfo.infoBytes.size
+        val from = request.piece.toLong() * MetadataMessage.BLOCK_SIZE
+        if (request.piece < 0 || from >= total) {
+            link.send(Message.Extended(METADATA_ID, MetadataMessage.reject(request.piece).encode()))
+            return
+        }
+        val to = minOf(from + MetadataMessage.BLOCK_SIZE, total.toLong()).toInt()
+        val block = metainfo.infoBytes.copyOfRange(from.toInt(), to)
+        // Through the upload budget, so a peer cannot ask for the same block a thousand times to
+        // get around a rate limit. BEP 9 gives `reject` for exactly this: a refusal that says so.
+        if (!uploadBudget.take(block.size.toLong())) {
+            link.send(Message.Extended(METADATA_ID, MetadataMessage.reject(request.piece).encode()))
+            return
+        }
+        link.send(
+            Message.Extended(METADATA_ID, MetadataMessage.data(request.piece, total, block).encode()),
+        )
+    }
+
+    /**
      * A peer told us about peers.
      *
      * Treated exactly like a tracker's answer, which is what it is: addresses go into the same
@@ -714,10 +756,13 @@ public class Session(
      * here, next to the only place that could break it.
      */
     private val offeredExtensions: Map<String, Int> =
-        if (metainfo.isPrivate) {
-            config.extensions - ExtensionHandshake.UT_PEX
-        } else {
-            config.extensions + (ExtensionHandshake.UT_PEX to PEX_ID)
+        buildMap {
+            putAll(config.extensions)
+            // BEP 27 names PEX, DHT and local discovery; metadata exchange is not on that list and
+            // there is nothing to hide — every peer of a private torrent got the file from the
+            // same tracker this client did.
+            put(ExtensionHandshake.UT_METADATA, METADATA_ID)
+            if (metainfo.isPrivate) remove(ExtensionHandshake.UT_PEX) else put(ExtensionHandshake.UT_PEX, PEX_ID)
         }
 
     /** The dictionary itself, which is [offeredExtensions] plus who this client is. */
@@ -727,6 +772,9 @@ public class Session(
             clientVersion = config.clientVersion,
             listenPort = listenPort,
             requestQueueLength = config.pipelineDepth,
+            // BEP 9: without this a peer knows the extension is offered and not how much to ask
+            // for, which is the same as it not being offered.
+            metadataSize = metainfo.infoBytes.size,
         )
 
     /**
@@ -744,6 +792,10 @@ public class Session(
     ) {
         if (message.extensionId == PEX_ID && offeredExtensions.containsKey(ExtensionHandshake.UT_PEX)) {
             receivePex(scope, link, message.payload)
+            return
+        }
+        if (message.extensionId == METADATA_ID) {
+            scope.launch { serveMetadata(link, message.payload) }
             return
         }
         if (message.extensionId != ExtensionHandshake.HANDSHAKE_ID) return
@@ -1161,10 +1213,11 @@ public class Session(
         const val MILLIS_PER_SECOND = 1000L
 
         /**
-         * The id this client asks peers to send `ut_pex` under. Ours to choose, and theirs to
-         * choose theirs — BEP 10's ids are not symmetric.
+         * The ids this client asks peers to use. Ours to choose, and theirs to choose theirs —
+         * BEP 10's ids are not symmetric.
          */
-        const val PEX_ID = 1
+        const val PEX_ID = ExtensionHandshake.ID_UT_PEX
+        const val METADATA_ID = ExtensionHandshake.ID_UT_METADATA
 
         /**
          * How many of a peer's requests may wait for upload tokens.

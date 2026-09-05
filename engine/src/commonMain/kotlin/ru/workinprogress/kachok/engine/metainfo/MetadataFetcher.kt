@@ -280,8 +280,8 @@ public class MetadataFetcher(
     }
 
     public companion object {
-        /** The id this client asks peers to send `ut_metadata` under. Ours to choose. */
-        public const val METADATA_ID: Int = 2
+        /** The id this client asks peers to send `ut_metadata` under, shared with the session. */
+        public const val METADATA_ID: Int = ExtensionHandshake.ID_UT_METADATA
 
         public const val DEFAULT_MAX_PEERS: Int = 20
 

@@ -184,13 +184,15 @@ class DownloadTest {
         assertTrue(handshake != null, "the peer advertised BEP 10 and was sent no extended message")
         assertEquals(ExtensionHandshake.HANDSHAKE_ID, handshake.extensionId)
         val read = ExtensionHandshake.decode(handshake.payload)
-        // `ut_pex` since B-34, under the id this client chose. The torrent is not private, which is
-        // the only condition on offering it.
+        // The exact set, deliberately: this assertion has caught both extensions being added, and
+        // "contains ut_pex" would have caught neither. `ut_pex` since B-34 — the torrent is not
+        // private, which is the only condition on it — and `ut_metadata` since B-45.
         assertEquals(
-            setOf(ExtensionHandshake.UT_PEX),
+            setOf(ExtensionHandshake.UT_PEX, ExtensionHandshake.UT_METADATA),
             read.extensions.keys,
             "what this client offers a peer",
         )
+        assertTrue((read.metadataSize ?: 0) > 0, "ut_metadata without metadata_size tells a peer nothing")
         assertContains(read.clientVersion ?: "", "kachok")
     }
 

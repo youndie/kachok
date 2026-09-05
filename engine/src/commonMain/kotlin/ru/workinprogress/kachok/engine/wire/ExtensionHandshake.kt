@@ -65,6 +65,16 @@ public class ExtensionHandshake(
         public const val UT_METADATA: String = "ut_metadata"
 
         /**
+         * The ids **this client** asks peers to use, which is a choice and not a protocol constant.
+         *
+         * In one place because two halves of this codebase publish them and both must publish the
+         * same numbers: the session, and the metadata fetch that runs before a session exists. A
+         * peer's ids are its own and are read from its handshake — see [id].
+         */
+        public const val ID_UT_PEX: Int = 1
+        public const val ID_UT_METADATA: Int = 2
+
+        /**
          * Reads a handshake payload, refusing only what cannot be a handshake at all.
          *
          * The line between "refuse" and "ignore" is the interesting part. Payload that is not a

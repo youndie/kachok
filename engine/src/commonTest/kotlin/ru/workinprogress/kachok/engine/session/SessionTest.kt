@@ -28,6 +28,7 @@ import ru.workinprogress.kachok.engine.tracker.TrackerException
 import ru.workinprogress.kachok.engine.wire.ExtensionHandshake
 import ru.workinprogress.kachok.engine.wire.Handshake
 import ru.workinprogress.kachok.engine.wire.Message
+import ru.workinprogress.kachok.engine.wire.MetadataMessage
 import ru.workinprogress.kachok.engine.wire.PeerWire
 import ru.workinprogress.kachok.engine.wire.PexMessage
 import kotlin.test.Test
@@ -978,6 +979,123 @@ class SessionTest {
 
             assertContains(dialer.dialled, stranger, "a peer named over ut_pex was never dialled")
             assertEquals(2, session.state.value.knownPeers)
+            job.cancelAndJoin()
+        }
+
+    @Test
+    fun aPeerAsksForTheMetadataAndGetsBytesThatHashToTheInfoHash() =
+        runTest {
+            // The acceptance criterion of B-45. The fixture's metadata is more than one block, so a
+            // client that answered block 0 and stopped would fail here rather than pass.
+            val metainfo = torrent(pieces = 1000)
+            val dialer = FakeDialer(metainfo.infoHash, reserved = Handshake.reservedBits(extensionProtocol = true))
+            val session =
+                session(metainfo, dialer, FakeTracker(listOf(peerA)), FakeStorage(), AgreeableHasher(metainfo))
+            val job = session.start(kotlinx.coroutines.CoroutineScope(coroutineContext + handler))
+            testScheduler.runCurrent()
+
+            val connection = dialer.connections.getValue(peerA)
+            val offered =
+                ExtensionHandshake.decode(
+                    (connection.sent.first { it is Message.Extended } as Message.Extended).payload,
+                )
+            val id = offered.id(ExtensionHandshake.UT_METADATA)
+            assertTrue(id != null, "the client offered no ut_metadata: ${offered.extensions}")
+            val size = offered.metadataSize
+            assertTrue(size != null && size > MetadataMessage.BLOCK_SIZE, "metadata_size was $size")
+
+            val blocks = MetadataMessage.blockCount(size)
+            (0 until blocks).forEach { piece ->
+                connection.incoming.send(
+                    PeerEvent.Received(Message.Extended(id, MetadataMessage.request(piece).encode())),
+                )
+            }
+            testScheduler.runCurrent()
+
+            val answered =
+                connection.sent
+                    .filterIsInstance<Message.Extended>()
+                    .filter { it.extensionId == id }
+                    .map { MetadataMessage.decode(it.payload) }
+                    .filter { it.type == MetadataMessage.DATA }
+            assertEquals(blocks, answered.size, "one data message per block")
+            val assembled = ByteArray(size)
+            answered.forEach { it.data.copyInto(assembled, it.piece * MetadataMessage.BLOCK_SIZE) }
+            assertTrue(
+                ru.workinprogress.kachok.engine.platform
+                    .sha1(assembled, 0, assembled.size)
+                    .contentEquals(metainfo.infoHash.bytes),
+                "the bytes served do not hash to this client's own info hash",
+            )
+            job.cancelAndJoin()
+        }
+
+    @Test
+    fun aRequestPastTheEndOfTheMetadataIsRejected() =
+        runTest {
+            val metainfo = torrent(pieces = 4)
+            val dialer = FakeDialer(metainfo.infoHash, reserved = Handshake.reservedBits(extensionProtocol = true))
+            val session =
+                session(metainfo, dialer, FakeTracker(listOf(peerA)), FakeStorage(), AgreeableHasher(metainfo))
+            val job = session.start(kotlinx.coroutines.CoroutineScope(coroutineContext + handler))
+            testScheduler.runCurrent()
+
+            val connection = dialer.connections.getValue(peerA)
+            val id = ExtensionHandshake.ID_UT_METADATA
+            listOf(99, -1).forEach { piece ->
+                connection.incoming.send(
+                    PeerEvent.Received(Message.Extended(id, MetadataMessage.request(piece).encode())),
+                )
+            }
+            testScheduler.runCurrent()
+
+            val replies =
+                connection.sent
+                    .filterIsInstance<Message.Extended>()
+                    .filter { it.extensionId == id }
+                    .map { MetadataMessage.decode(it.payload) }
+            assertEquals(2, replies.size, "a request that cannot be answered is answered anyway")
+            assertTrue(replies.all { it.type == MetadataMessage.REJECT }, "both should be rejects: $replies")
+            job.cancelAndJoin()
+        }
+
+    @Test
+    fun theMetadataGoesThroughTheUploadBudgetLikeAnythingElse() =
+        runTest {
+            // Otherwise a peer asks for the same block a thousand times and walks around the limit.
+            val metainfo = torrent(pieces = 4)
+            val dialer = FakeDialer(metainfo.infoHash, reserved = Handshake.reservedBits(extensionProtocol = true))
+            val session =
+                session(
+                    metainfo,
+                    dialer,
+                    FakeTracker(listOf(peerA)),
+                    FakeStorage(),
+                    AgreeableHasher(metainfo),
+                    config =
+                        SessionConfig(
+                            maxStartedPieces = 4,
+                            pipelineDepth = 2,
+                            maxPeers = 10,
+                            uploadLimitBytesPerSecond = 1,
+                        ),
+                )
+            val job = session.start(kotlinx.coroutines.CoroutineScope(coroutineContext + handler))
+            testScheduler.runCurrent()
+
+            val connection = dialer.connections.getValue(peerA)
+            val id = ExtensionHandshake.ID_UT_METADATA
+            connection.incoming.send(
+                PeerEvent.Received(Message.Extended(id, MetadataMessage.request(0).encode())),
+            )
+            testScheduler.runCurrent()
+
+            val reply =
+                MetadataMessage.decode(
+                    (connection.sent.last { it is Message.Extended && it.extensionId == id } as Message.Extended)
+                        .payload,
+                )
+            assertEquals(MetadataMessage.REJECT, reply.type, "a byte a second cannot pay for a block")
             job.cancelAndJoin()
         }
 
