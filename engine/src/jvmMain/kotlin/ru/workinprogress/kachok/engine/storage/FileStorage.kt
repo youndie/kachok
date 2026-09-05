@@ -4,6 +4,7 @@ import ru.workinprogress.kachok.engine.PieceIndex
 import ru.workinprogress.kachok.engine.hash.JvmBlock
 import ru.workinprogress.kachok.engine.peer.Block
 import java.nio.ByteBuffer
+import java.nio.channels.WritableByteChannel
 
 /**
  * One gathering write, aimed at one place in one file.
@@ -22,6 +23,23 @@ public interface SpanSink {
         position: Long,
         buffers: Array<ByteBuffer>,
     )
+
+    /**
+     * Sends [length] bytes from [position] in file [file] straight to [target].
+     *
+     * The upload path, and the reason it is a method here rather than a `read` returning bytes:
+     * `FileChannel.transferTo` hands the file to the socket inside the kernel, so an uploaded byte
+     * is never copied into this process at all — not into the heap, not into a direct buffer
+     * (research D5). A `read` returning a `ByteArray` could not express that.
+     *
+     * Returns what was transferred; the operating system may transfer short.
+     */
+    public fun transferSpan(
+        file: Int,
+        position: Long,
+        length: Int,
+        target: WritableByteChannel,
+    ): Long
 
     public fun flushAll()
 }
@@ -79,5 +97,33 @@ public class FileStorage(
 
     override suspend fun flush() {
         sink.flushAll()
+    }
+
+    /**
+     * Serves one block to a socket, without the bytes entering this process.
+     *
+     * A block can straddle a file boundary exactly as a written one can, so this walks the same
+     * spans the writer does — one `transferTo` per span, the read-side mirror of the gathering
+     * write.
+     */
+    public fun transferBlock(
+        piece: PieceIndex,
+        begin: Int,
+        length: Int,
+        target: WritableByteChannel,
+    ): Long {
+        var sent = 0L
+        layout.spans(piece, begin, length).forEach { span ->
+            var remaining = span.length
+            var at = span.position
+            while (remaining > 0) {
+                val moved = sink.transferSpan(span.file, at, remaining, target)
+                check(moved > 0) { "the file for span ${span.file} transferred nothing" }
+                remaining -= moved.toInt()
+                at += moved
+                sent += moved
+            }
+        }
+        return sent
     }
 }

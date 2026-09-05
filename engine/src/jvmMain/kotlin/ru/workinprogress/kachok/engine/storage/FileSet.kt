@@ -4,6 +4,7 @@ import ru.workinprogress.kachok.engine.metainfo.Metainfo
 import java.io.RandomAccessFile
 import java.nio.ByteBuffer
 import java.nio.channels.FileChannel
+import java.nio.channels.WritableByteChannel
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardOpenOption
@@ -55,6 +56,18 @@ public class FileSet private constructor(
             remaining -= written
         }
     }
+
+    /**
+     * `FileChannel.transferTo`: the kernel's own copy, from the page cache to the socket.
+     *
+     * Positional, so it does not disturb the channel position the single writer aims with.
+     */
+    override fun transferSpan(
+        file: Int,
+        position: Long,
+        length: Int,
+        target: WritableByteChannel,
+    ): Long = channels[file].transferTo(position, length.toLong(), target)
 
     override fun flushAll() {
         flush()

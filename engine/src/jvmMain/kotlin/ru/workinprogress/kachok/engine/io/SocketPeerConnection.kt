@@ -12,6 +12,7 @@ import ru.workinprogress.kachok.engine.hash.JvmBlock
 import ru.workinprogress.kachok.engine.peer.PeerAddress
 import ru.workinprogress.kachok.engine.peer.PeerConnection
 import ru.workinprogress.kachok.engine.peer.PeerEvent
+import ru.workinprogress.kachok.engine.storage.FileStorage
 import ru.workinprogress.kachok.engine.wire.Handshake
 import ru.workinprogress.kachok.engine.wire.Message
 import ru.workinprogress.kachok.engine.wire.PeerWire
@@ -59,9 +60,14 @@ public class SocketPeerConnection private constructor(
     override val handshake: Handshake,
     private val socket: SocketChannel,
     private val pool: BufferPool,
+    private val blocks: FileStorage? = null,
 ) : PeerConnection,
     AutoCloseable {
-    private val outgoing = Channel<Message>(OUTGOING_QUEUE)
+    /** Bytes this connection has served. The session sums these for the tracker announce. */
+    override var uploaded: Long = 0L
+        private set
+
+    private val outgoing = Channel<Outgoing>(OUTGOING_QUEUE)
     private val incoming = Channel<PeerEvent>(INCOMING_QUEUE)
     private lateinit var reader: Job
     private lateinit var writer: Job
@@ -69,7 +75,22 @@ public class SocketPeerConnection private constructor(
     override val events: ReceiveChannel<PeerEvent> get() = incoming
 
     override suspend fun send(message: Message) {
-        outgoing.send(message)
+        outgoing.send(Outgoing.Frame(message))
+    }
+
+    /**
+     * Queues a block to be served from storage.
+     *
+     * It goes through the same queue as everything else, because a peer's bytes must arrive in the
+     * order the protocol put them in — a block written past a `choke` that was queued behind it
+     * would be a block the peer has already stopped expecting.
+     */
+    override suspend fun sendBlock(
+        piece: PieceIndex,
+        begin: Int,
+        length: Int,
+    ) {
+        outgoing.send(Outgoing.Block(piece, begin, length))
     }
 
     override fun close() {
@@ -184,9 +205,23 @@ public class SocketPeerConnection private constructor(
      */
     private suspend fun writeLoop() {
         try {
-            for (message in outgoing) {
-                val bytes = ByteBuffer.wrap(PeerWire.encode(message))
-                while (bytes.hasRemaining()) socket.write(bytes)
+            for (item in outgoing) {
+                when (item) {
+                    is Outgoing.Frame -> {
+                        val bytes = ByteBuffer.wrap(PeerWire.encode(item.message))
+                        while (bytes.hasRemaining()) socket.write(bytes)
+                    }
+
+                    is Outgoing.Block -> {
+                        val source = blocks ?: continue
+                        val header = PeerWire.encodePieceHeader(item.piece, item.begin, item.length)
+                        val bytes = ByteBuffer.wrap(header)
+                        while (bytes.hasRemaining()) socket.write(bytes)
+                        // And the block itself never enters this process.
+                        source.transferBlock(item.piece, item.begin, item.length, socket)
+                        uploaded += item.length.toLong()
+                    }
+                }
             }
         } catch (cancelled: kotlinx.coroutines.CancellationException) {
             throw cancelled
@@ -201,6 +236,19 @@ public class SocketPeerConnection private constructor(
                 // what this shutdown was announcing.
             }
         }
+    }
+
+    /** What a connection's single writer may be asked to put on the wire. */
+    private sealed interface Outgoing {
+        class Frame(
+            val message: Message,
+        ) : Outgoing
+
+        class Block(
+            val piece: PieceIndex,
+            val begin: Int,
+            val length: Int,
+        ) : Outgoing
     }
 
     public companion object {

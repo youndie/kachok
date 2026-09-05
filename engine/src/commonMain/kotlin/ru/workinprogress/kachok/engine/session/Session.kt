@@ -27,6 +27,7 @@ import ru.workinprogress.kachok.engine.tracker.AnnounceRequest
 import ru.workinprogress.kachok.engine.tracker.TrackerClient
 import ru.workinprogress.kachok.engine.tracker.TrackerException
 import ru.workinprogress.kachok.engine.wire.Message
+import ru.workinprogress.kachok.engine.wire.PeerWire
 import kotlin.coroutines.ContinuationInterceptor
 import kotlin.time.TimeSource
 
@@ -298,6 +299,10 @@ public class Session(
             connected.remove(address)
             picker.removePeer(address)
             connection.close()
+            // The same wait as after a failed dial, and for a stronger reason: a peer that accepts
+            // and immediately hangs up would otherwise be redialled in a tight loop, which is a
+            // busy wait against somebody else's machine as well as our own.
+            failed[address] = timeSource.markNow()
             publish { it.copy(connectedPeers = connected.size) }
             if (!stopping && scope.isActive) connectMore(scope)
         }
@@ -347,12 +352,63 @@ public class Session(
                         updateInterest(link)
                     }
 
-                    // Seeding — `request`, `cancel`, `interested` — arrives with B-20 and B-21.
+                    is Message.Request -> {
+                        serveRequest(link, message)
+                    }
+
+                    Message.Interested -> {
+                        link.peerInterested = true
+                        considerUnchoking(link)
+                    }
+
+                    Message.NotInterested -> {
+                        link.peerInterested = false
+                    }
+
+                    // `cancel` is honoured by the connection's queue order; a block already handed
+                    // to the writer is on its way out. Dropping a queued one arrives with B-33's
+                    // reject, which is where the bookkeeping to do it properly lives.
                     else -> {}
                 }
             }
         }
         return Unit
+    }
+
+    /**
+     * Answers a `request`, or refuses to.
+     *
+     * BEP 3: a request larger than 16 KiB is a connection every deployed client closes, so this
+     * one does too — a peer asking for a megabyte is either broken or trying something, and there
+     * is no reading of the specification under which it is neither.
+     */
+    private suspend fun serveRequest(
+        link: PeerLink,
+        request: Message.Request,
+    ) {
+        if (request.length !in 1..PeerWire.BLOCK_SIZE) {
+            link.connection.close()
+            return
+        }
+        if (link.choking || !picker.completed[request.piece.value]) return
+        link.connection.sendBlock(request.piece, request.begin, request.length)
+        publish { it.copy(uploaded = connected.values.sumOf { peer -> peer.connection.uploaded }) }
+    }
+
+    /**
+     * Whether to serve this peer at all.
+     *
+     * A placeholder policy on purpose: unchoke interested peers up to a cap, first come first
+     * served. It exists because the serving machinery above would otherwise be code nobody calls —
+     * the mechanism needs *a* policy to be exercised. BEP 3's actual algorithm, which ranks peers
+     * by what they give back and rotates an optimistic unchoke, replaces the choice here and
+     * nothing else: [B-21](../backlog/B-21-choking-algorithm.md).
+     */
+    private suspend fun considerUnchoking(link: PeerLink) {
+        if (!link.choking || !link.peerInterested) return
+        if (connected.values.count { !it.choking } >= config.maxUnchoked) return
+        link.choking = false
+        link.send(Message.Unchoke)
     }
 
     private suspend fun updateInterest(link: PeerLink) {
@@ -545,9 +601,13 @@ public class Session(
     private class PeerLink(
         val connection: PeerConnection,
     ) {
-        /** BEP 3: "Connections start out choked and not interested." */
+        /** BEP 3: "Connections start out choked and not interested." Four flags, two per side. */
         var choked: Boolean = true
         var interested: Boolean = false
+
+        /** Whether *we* are choking *them*, and whether they said they want anything. */
+        var choking: Boolean = true
+        var peerInterested: Boolean = false
         var outstanding: Int = 0
     }
 

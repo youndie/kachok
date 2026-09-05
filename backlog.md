@@ -46,11 +46,10 @@ which is also the order of work.
 
 <!-- BEGIN INDEX -->
 
-## Open (25)
+## Open (24)
 
 | Task | | Priority | Size | Blocked by |
 |---|---|---|---|---|
-| [B-20](docs/backlog/B-20-upload-read-path.md) `[ ]` | Serve requests with FileChannel.transferTo | P1 | M | B-17 |
 | [B-21](docs/backlog/B-21-choking-algorithm.md) `[ ]` | The ten-second choker with optimistic unchoke | P1 | M | B-20 |
 | [B-23](docs/backlog/B-23-atomic-resume-file.md) `[ ]` | A resume record written atomically and rarely | P1 | M | B-17 |
 | [B-24](docs/backlog/B-24-startup-verification-of-existing-data.md) `[ ]` | Re-hash what the resume file does not vouch for | P1 | M | B-23, B-13 |
@@ -76,7 +75,7 @@ which is also the order of work.
 | [B-41](docs/backlog/B-41-android-and-ios-targets.md) `[ ]` | Phase 3: Android and iOS targets on the engine | P3 | XL | B-39 |
 | [B-02](docs/backlog/B-02-ci-runs-build-and-docs-gates.md) `[ ]` | CI runs the build and the documentation gates on every push | infra | S | B-01 |
 
-## Closed (18)
+## Closed (19)
 
 **M0 — The build and its gates**
 
@@ -110,6 +109,10 @@ which is also the order of work.
 - [B-17](docs/backlog/B-17-session-orchestrator.md) `[x]` - Session: the StateFlow, the command channel and the one timer
 - [B-18](docs/backlog/B-18-cli-download-command.md) `[x]` - kachok download <file.torrent> [--dir …]: progress on stderr, exit 0 on completion
 - [B-19](docs/backlog/B-19-end-to-end-download-acceptance.md) `[x]` - Download a real public torrent end to end, and record the numbers
+
+**M5 — Seeding**
+
+- [B-20](docs/backlog/B-20-upload-read-path.md) `[x]` - Serve requests with FileChannel.transferTo
 
 <!-- END INDEX -->
 

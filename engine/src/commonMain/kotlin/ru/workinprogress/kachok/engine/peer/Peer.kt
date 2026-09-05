@@ -82,6 +82,22 @@ public interface PeerConnection {
     /** Queues a message. Suspends only if the peer is far enough behind to fill the queue. */
     public suspend fun send(message: Message)
 
+    /**
+     * Queues a block of a piece we hold, to be read from storage and sent.
+     *
+     * The bytes are deliberately not a parameter. On the JVM the block goes from the page cache to
+     * the socket inside the kernel and never enters this process (research D5); a signature taking
+     * a `ByteArray` would make the copy compulsory.
+     */
+    public suspend fun sendBlock(
+        piece: PieceIndex,
+        begin: Int,
+        length: Int,
+    )
+
+    /** Bytes served on this connection, for the tracker's `uploaded`. */
+    public val uploaded: Long
+
     public fun close()
 }
 

@@ -79,6 +79,20 @@ class BlockWriterTest {
             }
         }
 
+        override fun transferSpan(
+            file: Int,
+            position: Long,
+            length: Int,
+            target: java.nio.channels.WritableByteChannel,
+        ): Long {
+            val bytes = ByteBuffer.wrap(files.getValue(file), position.toInt(), length)
+            transfers += Triple(file, position, length)
+            return target.write(bytes).toLong()
+        }
+
+        /** Reads served, so a test can count `transferTo` calls the way it counts writes. */
+        val transfers = mutableListOf<Triple<Int, Long, Int>>()
+
         override fun flushAll() {
             flushes++
         }
@@ -226,6 +240,32 @@ class BlockWriterTest {
             assertEquals(1, sink.calls.size)
             assertEquals(0, pool.outstanding, "the duplicate's buffer came back too")
             writer.blocks.close()
+        }
+
+    @Test
+    fun aBlockIsServedByTransferringSpansRatherThanReadingBytes(): Unit =
+        runBlocking {
+            // B-20: the upload path is the read-side mirror of the gathering write — one
+            // `transferTo` per file span, and the bytes never enter this process.
+            val info = metainfo()
+            val sink = CountingSink()
+            sink.files[0] = ByteArray(1024) { (it and 0x7F).toByte() }
+            sink.files[1] = ByteArray(1) { 42 }
+            sink.files[2] = ByteArray(1024) { (it and 0x3F).toByte() }
+            val storage = FileStorage(PieceLayout(info), sink)
+
+            val received = java.io.ByteArrayOutputStream()
+            val target =
+                java.nio.channels.Channels
+                    .newChannel(received)
+            // Piece 1 spans all three files: 488 bytes of a.bin, the single byte of b.bin, 23 of c.bin.
+            val sent = storage.transferBlock(PieceIndex(1), 0, 512, target)
+
+            assertEquals(512L, sent)
+            assertEquals(listOf(0, 1, 2), sink.transfers.map { it.first })
+            assertEquals(listOf(512L, 0L, 0L), sink.transfers.map { it.second })
+            assertEquals(listOf(488, 1, 23), sink.transfers.map { it.third })
+            assertEquals(512, received.size())
         }
 
     private companion object {

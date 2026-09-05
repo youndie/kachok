@@ -112,6 +112,21 @@ class SessionTest {
             sent += message
         }
 
+        /** Blocks this peer was served, and how many bytes of them. */
+        val servedBlocks = mutableListOf<Triple<Int, Int, Int>>()
+
+        override var uploaded: Long = 0L
+            private set
+
+        override suspend fun sendBlock(
+            piece: ru.workinprogress.kachok.engine.PieceIndex,
+            begin: Int,
+            length: Int,
+        ) {
+            servedBlocks += Triple(piece.value, begin, length)
+            uploaded += length.toLong()
+        }
+
         override fun close() {
             closes++
             incoming.close()
@@ -437,6 +452,89 @@ class SessionTest {
             dialer.connections.values.forEach { peer ->
                 assertTrue(peer.closes >= 1, "${peer.address} outlived the session it belonged to")
             }
+        }
+
+    @Test
+    fun anInterestedPeerIsUnchokedAndServedThePiecesWeHave() =
+        runTest {
+            val metainfo = torrent(pieces = 4)
+            val dialer = FakeDialer(metainfo.infoHash)
+            val session =
+                session(metainfo, dialer, FakeTracker(listOf(peerA)), FakeStorage(), AgreeableHasher(metainfo))
+            val job = session.start(kotlinx.coroutines.CoroutineScope(coroutineContext + handler))
+            testScheduler.runCurrent()
+
+            val connection = dialer.connections.getValue(peerA)
+            // We have piece 1 and nothing else.
+            connection.incoming.send(PeerEvent.BlockReceived(FakeBlock(PieceIndex(1), 0, PeerWire.BLOCK_SIZE)))
+            connection.incoming.send(PeerEvent.Received(Message.Interested))
+            testScheduler.runCurrent()
+
+            assertTrue(
+                connection.sent.any { it === Message.Unchoke },
+                "an interested peer was never unchoked, so nothing can be served",
+            )
+
+            connection.incoming.send(PeerEvent.Received(Message.Request(PieceIndex(1), 0, PeerWire.BLOCK_SIZE)))
+            connection.incoming.send(PeerEvent.Received(Message.Request(PieceIndex(2), 0, PeerWire.BLOCK_SIZE)))
+            testScheduler.runCurrent()
+
+            assertEquals(
+                listOf(Triple(1, 0, PeerWire.BLOCK_SIZE)),
+                connection.servedBlocks,
+                "only the piece we actually have is served",
+            )
+            assertEquals(PeerWire.BLOCK_SIZE.toLong(), session.state.value.uploaded)
+            job.cancelAndJoin()
+        }
+
+    @Test
+    fun aRequestLargerThanABlockClosesTheConnection() =
+        runTest {
+            // BEP 3: "all current implementations … close connections which request an amount
+            // greater than that". A peer asking for a megabyte is broken or trying something.
+            val metainfo = torrent(pieces = 2)
+            val dialer = FakeDialer(metainfo.infoHash)
+            val session =
+                session(metainfo, dialer, FakeTracker(listOf(peerA)), FakeStorage(), AgreeableHasher(metainfo))
+            val job = session.start(kotlinx.coroutines.CoroutineScope(coroutineContext + handler))
+            testScheduler.runCurrent()
+
+            val connection = dialer.connections.getValue(peerA)
+            connection.incoming.send(
+                PeerEvent.Received(Message.Request(PieceIndex(0), 0, PeerWire.BLOCK_SIZE * 2)),
+            )
+            testScheduler.runCurrent()
+
+            assertTrue(connection.closes >= 1, "the connection should have been closed")
+            assertTrue(connection.servedBlocks.isEmpty())
+            job.cancelAndJoin()
+        }
+
+    @Test
+    fun onlySoManyPeersAreServedAtOnce() =
+        runTest {
+            val metainfo = torrent(pieces = 2)
+            val dialer = FakeDialer(metainfo.infoHash)
+            val session =
+                session(
+                    metainfo,
+                    dialer,
+                    FakeTracker(listOf(peerA, peerB)),
+                    FakeStorage(),
+                    AgreeableHasher(metainfo),
+                    config =
+                        SessionConfig(maxStartedPieces = 4, pipelineDepth = 2, maxPeers = 10, maxUnchoked = 1),
+                )
+            val job = session.start(kotlinx.coroutines.CoroutineScope(coroutineContext + handler))
+            testScheduler.runCurrent()
+
+            dialer.connections.values.forEach { it.incoming.send(PeerEvent.Received(Message.Interested)) }
+            testScheduler.runCurrent()
+
+            val unchoked = dialer.connections.values.count { peer -> peer.sent.any { it === Message.Unchoke } }
+            assertEquals(1, unchoked, "the cap is one peer served at a time")
+            job.cancelAndJoin()
         }
 
     @Test
