@@ -14,7 +14,8 @@ public class PeerAddress(
 
     override fun hashCode(): Int = host.hashCode() * 31 + port
 
-    override fun toString(): String = "$host:$port"
+    /** Brackets an IPv6 host: `2001:db8::1:6881` cannot be read back, `[2001:db8::1]:6881` can. */
+    override fun toString(): String = if (':' in host) "[$host]:$port" else "$host:$port"
 }
 
 /**

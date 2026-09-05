@@ -126,4 +126,38 @@ class TrackerProtocolTest {
         assertEquals(6881, TrackerProtocol.PORT_RANGE.first)
         assertEquals(6889, TrackerProtocol.PORT_RANGE.last)
     }
+
+    @Test
+    fun peers6IsReadBesidePeersAndNotInsteadOfIt() {
+        // BEP 7: a tracker with both sends both, as two fields. A client reading only `peers` finds
+        // no IPv6 peer at all; one reading `peers6` as `peers` finds three peers made of one
+        // peer's pieces. Written the way the tests above are — by hand, because the parser is what
+        // is under test and encoding the fixture with this project's own encoder would be circular.
+        val v6 = ByteArray(18)
+        v6[0] = 0x20
+        v6[1] = 0x01
+        v6[15] = 1
+        v6[16] = 0x1A
+        v6[17] = 0xE1.toByte()
+        val body =
+            "d8:intervali1800e5:peers6:".encodeToByteArray() +
+                byteArrayOf(10, 0, 0, 1, 0x1A, 0xE1.toByte()) +
+                "6:peers618:".encodeToByteArray() + v6 + "e".encodeToByteArray()
+
+        val response = TrackerProtocol.parseResponse(body)
+
+        assertEquals(2, response.peers.size, "one of each family")
+        assertEquals("10.0.0.1", response.peers[0].host)
+        assertEquals("2001::1", response.peers[1].host)
+        assertEquals(6881, response.peers[1].port)
+    }
+
+    @Test
+    fun aPeers6StringOfTheWrongLengthIsRefused() {
+        val body = "d8:intervali1800e6:peers617:12345678901234567e".encodeToByteArray()
+
+        val thrown = assertFailsWith<TrackerException> { TrackerProtocol.parseResponse(body) }
+
+        assertContains(thrown.message ?: "", "peers6")
+    }
 }

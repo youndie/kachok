@@ -14,9 +14,10 @@ import ru.workinprogress.kachok.engine.peer.PeerAddress
  * message that repeats the whole swarm every minute is still well formed and still parses. Each
  * side keeps what it last told the other and sends the difference.
  *
- * IPv6 travels in `added6` / `dropped6`, which this does not read or write
- * ([B-38](../backlog/B-38-ipv6.md)); a message carrying both is read for its IPv4 half rather than
- * refused, because the sender did nothing wrong.
+ * IPv6 travels in `added6` / `dropped6`, which this **reads and does not write** (BEP 7, B-38):
+ * a peer learned that way is dialled like any other, and this client advertises only the peers it
+ * can pack into the IPv4 form. Sending `added6` needs this client to know its own IPv6 reachability,
+ * which is a different question from being able to read somebody else's answer to it.
  */
 public class PexMessage(
     public val added: List<PeerAddress> = emptyList(),
@@ -60,11 +61,11 @@ public class PexMessage(
                 } catch (malformed: BencodeException) {
                     throw WireException("a ut_pex message is not bencode: ${malformed.message}")
                 }
-            val added = peers(root["added"])
+            val added = peers(root["added"]) + peers6(root["added6"])
             val flags = ((root["added.f"] as? BString)?.bytes ?: ByteArray(0)).map { it.toInt() and 0xFF }
             return PexMessage(
                 added = added,
-                dropped = peers(root["dropped"]),
+                dropped = peers(root["dropped"]) + peers6(root["dropped6"]),
                 // Trimmed to the peers it describes: a sender that disagrees with itself about how
                 // many it added should not make the flags of the peer after it mean something else.
                 addedFlags = flags.take(added.size),
@@ -73,5 +74,8 @@ public class PexMessage(
 
         private fun peers(value: Any?): List<PeerAddress> =
             (value as? BString)?.let { CompactPeers.decode(it.bytes) } ?: emptyList()
+
+        private fun peers6(value: Any?): List<PeerAddress> =
+            (value as? BString)?.let { CompactPeers.decode6(it.bytes) } ?: emptyList()
     }
 }

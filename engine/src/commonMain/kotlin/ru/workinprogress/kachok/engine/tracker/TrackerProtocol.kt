@@ -65,7 +65,9 @@ public object TrackerProtocol {
 
         return AnnounceResponse(
             interval = interval,
-            peers = parsePeers(root["peers"]),
+            // BEP 7: `peers6` is a *separate field*, not a longer `peers`. A tracker that has both
+            // sends both, and a client reading only the first finds no IPv6 peers at all.
+            peers = parsePeers(root["peers"]) + parsePeers6(root["peers6"]),
             minInterval = (root["min interval"] as? BInteger)?.value?.toInt(),
             seeders = (root["complete"] as? BInteger)?.value?.toInt(),
             leechers = (root["incomplete"] as? BInteger)?.value?.toInt(),
@@ -105,6 +107,17 @@ public object TrackerProtocol {
                 emptyList()
             }
         }
+
+    /** BEP 7's eighteen-byte form. Refused rather than truncated, for `peers`' reason. */
+    private fun parsePeers6(value: Any?): List<PeerAddress> {
+        val bytes = (value as? BString)?.bytes ?: return emptyList()
+        if (bytes.size % CompactPeers.SIZE_V6 != 0) {
+            throw TrackerException(
+                "compact `peers6` is ${bytes.size} bytes, not a multiple of ${CompactPeers.SIZE_V6}",
+            )
+        }
+        return CompactPeers.decode6(bytes)
+    }
 
     private fun percentEncode(bytes: ByteArray): String =
         buildString(bytes.size * 3) {

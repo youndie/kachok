@@ -62,15 +62,20 @@ public class PeerListener private constructor(
         private const val BACKLOG = 128
 
         /**
-         * Binds the first free port of [ports], or fails naming the range.
+         * Binds the first free port of [ports], on **both** address families where the platform
+         * has one stack for them — or fails naming the range.
          *
          * Failing is the right answer rather than picking an ephemeral port: the port is announced
          * to the tracker, and a client quietly listening somewhere nobody was told about is a
          * client that believes it is reachable and is not.
+         *
+         * `host = null` means the wildcard address, which on a dual-stack JVM is `::` and accepts
+         * IPv4 connections as v4-mapped addresses. Binding `0.0.0.0`, which this did, is a client
+         * that announces a port no IPv6 peer can reach (BEP 7).
          */
         public fun bind(
             ports: IntRange = TrackerProtocol.PORT_RANGE,
-            host: String = "0.0.0.0",
+            host: String? = null,
         ): PeerListener {
             ports.forEach { port ->
                 val server = ServerSocketChannel.open()
@@ -80,7 +85,8 @@ public class PeerListener private constructor(
                     // use". A restarted client would then announce a different port every time,
                     // and peers holding the old address would find nobody there.
                     server.setOption(StandardSocketOptions.SO_REUSEADDR, true)
-                    server.bind(InetSocketAddress(host, port), BACKLOG)
+                    val address = if (host == null) InetSocketAddress(port) else InetSocketAddress(host, port)
+                    server.bind(address, BACKLOG)
                     return PeerListener(server, port)
                 } catch (taken: BindException) {
                     server.close()

@@ -73,6 +73,29 @@ class PeerListenerTest {
     }
 
     @Test
+    fun theDefaultBindAcceptsOverIpv6AndOverIpv4(): Unit =
+        runBlocking {
+            // The acceptance criterion of B-38's second half. Binding `0.0.0.0`, which this used
+            // to, is a client that announces a port no IPv6 peer can reach — and the failure is
+            // invisible from an IPv4 test.
+            val bound = PeerListener.bind(range).also { listener = it }
+
+            listOf("::1", "127.0.0.1").forEach { host ->
+                val client =
+                    try {
+                        SocketChannel.open(InetSocketAddress(host, bound.port))
+                    } catch (unsupported: java.io.IOException) {
+                        // A machine with no loopback for that family says so here rather than by
+                        // failing an assertion about the listener.
+                        throw AssertionError("this machine cannot connect to $host: ${unsupported.message}")
+                    }
+                client.use {
+                    assertTrue(it.isConnected, "the listener refused a connection over $host")
+                }
+            }
+        }
+
+    @Test
     fun aFullyOccupiedRangeIsAnErrorNamingIt() {
         range.forEach { occupy(it) }
         val thrown = assertFailsWith<BindException> { PeerListener.bind(range, host = "127.0.0.1") }

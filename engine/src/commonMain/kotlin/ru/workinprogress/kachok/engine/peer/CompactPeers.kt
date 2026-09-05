@@ -11,6 +11,9 @@ public object CompactPeers {
     /** Four bytes of address and two of port. */
     public const val SIZE: Int = 6
 
+    /** BEP 7's IPv6 form: sixteen bytes of address and two of port. */
+    public const val SIZE_V6: Int = 18
+
     /** Reads `[from, until)`, ignoring a trailing fragment: an address without a port is not one. */
     public fun decode(
         bytes: ByteArray,
@@ -26,6 +29,66 @@ public object CompactPeers {
             at += SIZE
         }
         return peers
+    }
+
+    /**
+     * BEP 7's `peers6` / `added6`: the same idea at eighteen bytes.
+     *
+     * A separate function and not a size parameter, because the two are separate *fields* on the
+     * wire — a tracker sends `peers` and `peers6`, never one string of both — and a reader that
+     * took the size from somewhere else would decode one as the other and produce addresses made
+     * of two peers' halves.
+     */
+    public fun decode6(
+        bytes: ByteArray,
+        from: Int = 0,
+        until: Int = bytes.size,
+    ): List<PeerAddress> {
+        val peers = ArrayList<PeerAddress>((until - from) / SIZE_V6)
+        var at = from
+        while (at + SIZE_V6 <= until) {
+            val port = ((bytes[at + 16].toInt() and 0xFF) shl 8) or (bytes[at + 17].toInt() and 0xFF)
+            peers += PeerAddress(formatIpv6(bytes, at), port)
+            at += SIZE_V6
+        }
+        return peers
+    }
+
+    /**
+     * Sixteen bytes as text, with the longest run of zero groups collapsed (RFC 5952).
+     *
+     * Uncompressed would dial just as well; this is what ends up in a log line a person reads, and
+     * `2001:db8::1` is a thing somebody can compare against what their client shows them while
+     * `2001:0db8:0000:0000:0000:0000:0000:0001` is not.
+     */
+    private fun formatIpv6(
+        bytes: ByteArray,
+        at: Int,
+    ): String {
+        val groups =
+            IntArray(8) { ((bytes[at + it * 2].toInt() and 0xFF) shl 8) or (bytes[at + it * 2 + 1].toInt() and 0xFF) }
+        var bestStart = -1
+        var bestLength = 0
+        var start = -1
+        var length = 0
+        groups.forEachIndexed { index, group ->
+            if (group == 0) {
+                if (start < 0) start = index
+                length++
+                if (length > bestLength) {
+                    bestLength = length
+                    bestStart = start
+                }
+            } else {
+                start = -1
+                length = 0
+            }
+        }
+        // A single zero group is written out: `::` for one group is legal and RFC 5952 forbids it.
+        if (bestLength < 2) return groups.joinToString(":") { it.toString(16) }
+        val head = (0 until bestStart).joinToString(":") { groups[it].toString(16) }
+        val tail = ((bestStart + bestLength) until 8).joinToString(":") { groups[it].toString(16) }
+        return "$head::$tail"
     }
 
     /**

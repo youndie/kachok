@@ -56,22 +56,37 @@ class PexMessageTest {
     }
 
     @Test
-    fun ipv6KeysAreIgnoredRatherThanRefused() {
-        // The sender did nothing wrong; this client just cannot read that half yet.
+    fun ipv6PeersAreReadBesideTheIpv4Ones() {
+        // BEP 7 in PEX (B-38): `added6` is read and never written — this client advertises only
+        // what it can pack into the IPv4 form, because sending `added6` would mean claiming
+        // something about its own IPv6 reachability.
+        val v6 = ByteArray(18)
+        v6[0] = 0x20
+        v6[1] = 0x01
+        v6[15] = 1
+        v6[17] = 1
         val payload =
             Bencode.encode(
                 BDictionary(
                     mapOf(
                         BString("added") to BString(CompactPeers.encode(listOf(alice))),
-                        BString("added6") to BString(ByteArray(18)),
-                        BString("dropped6") to BString(ByteArray(18)),
+                        BString("added6") to BString(v6),
+                        BString("dropped6") to BString(v6),
                     ),
                 ),
             )
 
         val read = PexMessage.decode(payload)
 
-        assertEquals(1, read.added.size, "the IPv4 half is still readable")
+        assertEquals(listOf("10.0.0.1", "2001::1"), read.added.map { it.host })
+        assertEquals(listOf("2001::1"), read.dropped.map { it.host })
+        assertEquals(
+            0,
+            PexMessage(added = read.added)
+                .encode()
+                .let { PexMessage.decode(it) }
+                .added.size - 1,
+        )
     }
 
     @Test

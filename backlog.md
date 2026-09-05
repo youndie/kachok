@@ -46,19 +46,18 @@ which is also the order of work.
 
 <!-- BEGIN INDEX -->
 
-## Open (7)
+## Open (6)
 
 | Task | | Priority | Size | Blocked by |
 |---|---|---|---|---|
 | [B-37](docs/backlog/B-37-v2-and-hybrid-torrents.md) `[?]` | v2 and hybrid torrents (BEP 52): SHA-256 piece layers | P3 | L | B-04 |
-| [B-38](docs/backlog/B-38-ipv6.md) `[ ]` | IPv6 peers and trackers (BEP 7) | P3 | S | B-15 |
 | [B-39](docs/backlog/B-39-compose-ui-desktop.md) `[ ]` | Phase 2: a Compose Multiplatform desktop UI on the engine's StateFlow | P3 | XL | B-19 |
 | [B-40](docs/backlog/B-40-wasmjs-ui-is-a-client-of-the-headless-engine.md) `[ ]` | Phase 2: the wasmJs UI is a client of the JVM headless engine | P3 | L | B-39 |
 | [B-41](docs/backlog/B-41-android-and-ios-targets.md) `[ ]` | Phase 3: Android and iOS targets on the engine | P3 | XL | B-39 |
 | [B-45](docs/backlog/B-45-serve-metadata-to-peers.md) `[ ]` | Serve the info dictionary to peers that ask (BEP 9) | P3 | S | B-36 |
 | [B-02](docs/backlog/B-02-ci-runs-build-and-docs-gates.md) `[ ]` | CI runs the build and the documentation gates on every push | infra | S | B-01 |
 
-## Closed (38)
+## Closed (39)
 
 **M0 — The build and its gates**
 
@@ -124,6 +123,7 @@ which is also the order of work.
 - [B-34](docs/backlog/B-34-peer-exchange.md) `[x]` - Peer exchange (BEP 11, ut_pex)
 - [B-35](docs/backlog/B-35-dht.md) `[x]` - Mainline DHT (BEP 5)
 - [B-36](docs/backlog/B-36-ut-metadata-and-magnets.md) `[x]` - Metadata exchange (BEP 9): make magnet links downloadable
+- [B-38](docs/backlog/B-38-ipv6.md) `[x]` - IPv6 peers and trackers (BEP 7)
 
 <!-- END INDEX -->
 

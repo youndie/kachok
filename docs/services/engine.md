@@ -251,6 +251,12 @@ them. Nothing is read from the environment by this module; that is [cli](cli.md)
   class around a `ByteArray` inherits the array's equality, which is identity; the routing table
   keys maps by node id, so every lookup would miss and the table would fill with duplicates of the
   same node.
+* **BEP 7's `peers6` is a separate field, not a longer `peers`.** A tracker with both sends both;
+  a client reading only the first finds no IPv6 peer, and one reading eighteen bytes as six finds
+  three peers made of one peer's halves. Same for PEX's `added6`, which is read and never written.
+* **The listener binds the wildcard, not `0.0.0.0`.** On a dual-stack JVM that is `::` and accepts
+  both families; binding the IPv4 wildcard announces a port no IPv6 peer can reach, and the failure
+  is invisible from an IPv4 test.
 * **The DHT's `values` is a list of strings and the tracker's `peers` is one string.** They carry
   the same six bytes per peer and are not the same field. `nodes` is a third shape again —
   twenty-six bytes, id first (research §1.6).
