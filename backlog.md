@@ -46,7 +46,7 @@ which is also the order of work.
 
 <!-- BEGIN INDEX -->
 
-## Open (39)
+## Open (38)
 
 | Task | | Priority | Size | Blocked by |
 |---|---|---|---|---|
@@ -71,7 +71,6 @@ which is also the order of work.
 | [B-26](docs/backlog/B-26-jfr-baseline-of-the-hot-path.md) `[ ]` | A JFR baseline: allocations on the hot path, pinned threads, carrier count | P1 | M | B-19 |
 | [B-27](docs/backlog/B-27-measure-heap-and-collector.md) `[ ]` | Measure the heap the engine needs, with G1 and with ZGC | P1 | S/M | B-26 |
 | [B-32](docs/backlog/B-32-udp-tracker.md) `[ ]` | UDP tracker protocol (BEP 15) | P1 | M | B-15 |
-| [B-05](docs/backlog/B-05-magnet-link-parsing.md) `[ ]` | Parse magnet links into an info hash and tracker list | P2 | S | - |
 | [B-10](docs/backlog/B-10-extension-protocol-handshake.md) `[ ]` | Extension protocol (BEP 10): reserved bit and the handshake dictionary | P2 | S | B-06 |
 | [B-22](docs/backlog/B-22-rate-limits.md) `[ ]` | Upload and download rate limits | P2 | S/M | B-21 |
 | [B-28](docs/backlog/B-28-aot-cache-in-the-distribution.md) `[ ]` | Build the AOT cache with the launcher's flags and prove it maps | P2 | M | B-29 |
@@ -90,7 +89,7 @@ which is also the order of work.
 | [B-42](docs/backlog/B-42-scopedvalue-in-the-reader-loop.md) `[?]` | Is ScopedValue used anywhere, or dropped? | P3 | XS | B-07 |
 | [B-02](docs/backlog/B-02-ci-runs-build-and-docs-gates.md) `[ ]` | CI runs the build and the documentation gates on every push | infra | S | B-01 |
 
-## Closed (3)
+## Closed (4)
 
 **M0 — The build and its gates**
 
@@ -100,6 +99,7 @@ which is also the order of work.
 
 - [B-03](docs/backlog/B-03-bencode-codec.md) `[x]` - Bencode encoder and decoder in common code
 - [B-04](docs/backlog/B-04-metainfo-parser-and-info-hash.md) `[x]` - Metainfo parser and the v1 info hash
+- [B-05](docs/backlog/B-05-magnet-link-parsing.md) `[x]` - Parse magnet links into an info hash and tracker list
 
 <!-- END INDEX -->
 
