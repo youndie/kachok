@@ -51,6 +51,19 @@ compose.desktop {
     application {
         mainClass = "ru.workinprogress.kachok.ui.AppKt"
         jvmArgs += listOf("-XX:+UseG1GC", "-XX:+UseCompactObjectHeaders", "-Xmx128m")
+
+        // The app image `createDistributable` writes, and what it is called inside it.
+        //
+        // `jpackage` cannot cross-compile: a Windows image is built on Windows and a macOS one on
+        // macOS, which is why this is named here rather than assumed from the host. The name is
+        // the product's, not the module's — the default is the Gradle project's, and an executable
+        // called `ui.exe` is one nobody recognises in a task list.
+        nativeDistributions {
+            packageName = "kachok"
+            packageVersion = "0.1.0"
+            description = "A BitTorrent client"
+            vendor = "workinprogress"
+        }
     }
 }
 
