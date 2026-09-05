@@ -34,6 +34,63 @@ import ru.workinprogress.kachok.ui.theme.KachokPalette
 import ru.workinprogress.kachok.ui.theme.MonoSmall
 
 /**
+ * The filter matched nothing, which is not the same as having nothing.
+ *
+ * A separate state because the design's *Nothing downloading — drop a `.torrent`* is a lie here:
+ * there are torrents, and the status bar three lines below is still counting them. A window whose
+ * middle contradicts its own status bar is worse than either half alone, which is the rule
+ * [MainWindowState] is written around.
+ */
+@Composable
+internal fun NoMatches(
+    filter: String,
+    hidden: Int,
+    modifier: Modifier = Modifier,
+    onClear: () -> Unit = {},
+) {
+    val scheme = MaterialTheme.colorScheme
+    Column(
+        modifier.fillMaxSize().background(scheme.surface),
+        verticalArrangement = Arrangement.spacedBy(14.dp, Alignment.CenterVertically),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Box(
+            Modifier
+                .size(RING)
+                .border(HAIRLINE, scheme.outlineVariant, RoundedCornerShape(RING / 2)),
+            contentAlignment = Alignment.Center,
+        ) {
+            Glyph(Icons.SEARCH, size = RING_GLYPH, tint = scheme.onSurfaceVariant)
+        }
+        Text(
+            "Nothing matches \u201C$filter\u201D",
+            style = MaterialTheme.typography.headlineSmall.copy(fontSize = TITLE),
+            color = scheme.onSurface,
+        )
+        Text(
+            // The count, because "nothing matches" on its own leaves a person wondering whether
+            // the torrents are gone or merely hidden.
+            "${if (hidden == 1) "One torrent is" else "$hidden torrents are"} hidden by the filter.",
+            style = ChromeText.copy(fontSize = 12.5.sp),
+            color = KachokPalette.onSurfaceMuted,
+            textAlign = TextAlign.Center,
+        )
+        Row(
+            Modifier
+                .height(BUTTON)
+                .background(scheme.primaryContainer, RoundedCornerShape(4.dp))
+                .clickable(onClick = onClear)
+                .padding(horizontal = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Glyph(Icons.CLOSE, size = 15.sp, tint = KachokPalette.primaryBright)
+            Text("Clear the filter", style = ChromeButton, color = KachokPalette.primaryBright, maxLines = 1)
+        }
+    }
+}
+
+/**
  * Nothing downloading, which is what a new install looks like.
  *
  * **It says what to do rather than that there is nothing.** Three ways in, all of them named: drop

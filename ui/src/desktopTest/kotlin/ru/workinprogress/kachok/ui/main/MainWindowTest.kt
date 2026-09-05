@@ -181,6 +181,54 @@ class MainWindowTest {
             assertEquals(listOf("Add torrent"), fired)
             assertTrue(!state.toolbar.resume.enabled, "the design greys Resume while a torrent runs")
         }
+
+    /**
+     * A filter that matches nothing must not say the client is empty.
+     *
+     * This shipped for the length of one live check: with `ubuntu` in the field the window drew
+     * *Nothing downloading — drop a `.torrent`* while its own status bar three lines below said
+     * *1 torrent, 1 seeding*. Two halves of one window disagreeing is the thing
+     * [MainWindowState] is written to prevent.
+     */
+    @Test
+    fun anEmptyFilterResultSaysSoRatherThanSayingTheClientIsEmpty(): Unit =
+        runComposeUiTest {
+            var cleared = 0
+            setContent {
+                KachokTheme {
+                    MainWindow(
+                        MainWindowState(
+                            torrents = emptyList(),
+                            status = designStatus,
+                            toolbar = ToolbarState(filter = "ubuntu"),
+                            hiddenByFilter = 16,
+                        ),
+                        onFilter = { if (it.isEmpty()) cleared++ },
+                    )
+                }
+            }
+            onNodeWithText("Nothing matches", substring = true).assertIsDisplayed()
+            onNodeWithText("16 torrents are hidden by the filter.").assertIsDisplayed()
+            assertEquals(
+                0,
+                onAllNodesWithText("Nothing downloading").fetchSemanticsNodes().size,
+                "the window told a person with sixteen torrents that they have none",
+            )
+            onNodeWithText("Clear the filter").performClick()
+            assertEquals(1, cleared)
+        }
+
+    /** And with no filter at all it is still the design's own empty state. */
+    @Test
+    fun anEmptyClientIsStillTheDesignsEmptyState(): Unit =
+        runComposeUiTest {
+            setContent {
+                KachokTheme {
+                    MainWindow(MainWindowState(torrents = emptyList(), status = designStatus))
+                }
+            }
+            onNodeWithText("Nothing downloading").assertIsDisplayed()
+        }
 }
 
 private const val A_MINUTE = 60_000L

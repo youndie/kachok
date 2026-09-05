@@ -63,6 +63,15 @@ internal fun windowOf(
     adding: AddTorrentState? = null,
     settings: SettingsState? = null,
     removing: RemoveState? = null,
+    /**
+     * Every torrent, which is not always [rows].
+     *
+     * The status bar counts these and the table draws those: a filter is a question about the list,
+     * and a status line that answered it would tell somebody with sixteen torrents that they have
+     * three.
+     */
+    allRows: List<TorrentRowModel> = rows,
+    filter: String = "",
     sort: SortOrder = SortOrder(),
 ): MainWindowState =
     MainWindowState(
@@ -72,10 +81,11 @@ internal fun windowOf(
         adding = adding,
         settings = settings,
         removing = removing,
-        status = statusOf(rows, rates, listenPort, dhtNodes, heapUsedBytes, heapMaxBytes),
+        hiddenByFilter = allRows.size - rows.size,
+        status = statusOf(allRows, rates, listenPort, dhtNodes, heapUsedBytes, heapMaxBytes),
         // What Pause and Resume may do is decided by the row that is selected, so the bar is built
         // from the list rather than defaulted and left.
-        toolbar = ToolbarState().forSelection(rows.firstOrNull { it.selected }?.state),
+        toolbar = ToolbarState(filter = filter).forSelection(rows.firstOrNull { it.selected }?.state),
         degradedSummary =
             sessionError?.let {
                 if (rows.size == 1) "${rows.first().name} is degraded." else "One session is degraded."

@@ -81,8 +81,14 @@ public enum class TorrentState(
     Error("Error", Icons.ERROR),
 }
 
-/** What a row draws. Not `SessionState`: a row is one line of it, and several are one list. */
-public class TorrentRowModel(
+/**
+ * What a row draws. Not `SessionState`: a row is one line of it, and several are one list.
+ *
+ * A data class for one reason: which row is selected is decided after the list is built and
+ * filtered, so `copy(selected = …)` is the alternative to threading an index through three
+ * mapIndexed calls that have to agree with each other.
+ */
+public data class TorrentRowModel(
     public val name: String,
     public val size: String,
     public val progress: Float?,

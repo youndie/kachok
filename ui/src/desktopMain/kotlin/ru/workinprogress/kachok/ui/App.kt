@@ -55,6 +55,7 @@ import ru.workinprogress.kachok.ui.session.clicked
 import ru.workinprogress.kachok.ui.session.detailsOf
 import ru.workinprogress.kachok.ui.session.inOrder
 import ru.workinprogress.kachok.ui.session.magnetRow
+import ru.workinprogress.kachok.ui.session.matches
 import ru.workinprogress.kachok.ui.session.rowOf
 import ru.workinprogress.kachok.ui.session.settingsOf
 import ru.workinprogress.kachok.ui.session.windowOf
@@ -186,6 +187,7 @@ internal fun Client(
     // one the person clicked.
     var selected by remember { mutableStateOf<String?>(null) }
     var removing by remember { mutableStateOf<RemoveState?>(null) }
+    var filter by remember { mutableStateOf("") }
     var settingsOpen by remember { mutableStateOf(false) }
     // What the settings screen has been told. Held for the session and not written anywhere: there
     // is no settings file yet, and inventing one is a decision about where it lives.
@@ -334,24 +336,28 @@ internal fun Client(
     val snapshot = engine ?: return
     // Composed here rather than in the loop, so a click is a recomposition and not a wait.
     val ordered = snapshot.samples.inOrder(sort)
-    val rowKeys = snapshot.fetching.map { it.infoHash.hex() } + ordered.map { it.state.infoHash.hex() }
+    // Built once, unselected, because which row is selected is decided *after* the filter has
+    // decided which rows there are.
+    val everyRow =
+        snapshot.fetching.map { magnetRow(it) } +
+            ordered.map { rowOf(it.state, it.rates, snapshot.lifecycle) }
+    val everyKey = snapshot.fetching.map { it.infoHash.hex() } + ordered.map { it.state.infoHash.hex() }
+    val kept = everyRow.indices.filter { everyRow[it].matches(filter) }
+    val rowKeys = kept.map { everyKey[it] }
     val index = rowKeys.indexOf(selected).coerceAtLeast(0)
-    val chosenSample = ordered.getOrNull(index - snapshot.fetching.size)
+    val chosenSample =
+        kept.getOrNull(index)?.let { source -> ordered.getOrNull(source - snapshot.fetching.size) }
     // The banner names a session, so *Show it* has to know which — the first one complaining, which
     // is also the row the list tints.
     val degraded = ordered.firstOrNull { it.state.sessionError != null }
     val window =
         windowOf(
-            rows =
-                snapshot.fetching.mapIndexed { at, link -> magnetRow(link, selected = at == index) } +
-                    ordered.mapIndexed { at, sample ->
-                        rowOf(
-                            sample.state,
-                            sample.rates,
-                            snapshot.lifecycle,
-                            selected = snapshot.fetching.size + at == index,
-                        )
-                    },
+            rows = kept.mapIndexed { at, source -> everyRow[source].copy(selected = at == index) },
+            // The status bar counts every torrent, not the visible ones: a filter is a question
+            // about the list, and a status line that answered it would be saying "3 torrents" to a
+            // person who has sixteen.
+            allRows = everyRow,
+            filter = filter,
             // The status bar's two rates are the whole process's, which is what makes them
             // different numbers from any one row's.
             rates =
@@ -444,6 +450,7 @@ internal fun Client(
             }
         },
         onSort = { column -> sort = sort.clicked(column) },
+        onFilter = { typed -> filter = typed },
         onTab = { chosenTab -> tab = chosenTab },
         onSelect = { row -> rowKeys.getOrNull(row)?.let { selected = it } },
         onAddTorrent = { pending = chooseTorrent(preferences.directory) },

@@ -6,17 +6,20 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.disabled
 import androidx.compose.ui.semantics.semantics
@@ -139,22 +142,53 @@ private fun AddTorrentButton(onClick: () -> Unit) {
  * The filter box.
  *
  * An outlined box rather than `OutlinedTextField`, which reserves room for a floating label and a
- * supporting line and cannot be 28 dp high with either. It types nothing yet; the field arrives
- * with the shell's behaviour in [B-52](../../../../../../../../docs/backlog/B-52-ui-on-the-real-engine.md).
+ * supporting line and cannot be 28 dp high with either — so the placeholder is drawn behind the
+ * field rather than configured on it.
+ *
+ * The clear button appears only when there is something to clear. A filter that has hidden thirteen
+ * of sixteen rows is a state a person has to be able to leave in one press, and the alternative —
+ * selecting the text and deleting it — is three.
  */
 @Composable
-private fun FilterField(text: String) {
+private fun FilterField(
+    text: String,
+    onFilter: (String) -> Unit,
+) {
+    val scheme = MaterialTheme.colorScheme
     Row(
         Modifier
             .height(Chrome.controlHeight)
             .width(FILTER_WIDTH)
-            .border(Chrome.hairline, MaterialTheme.colorScheme.outline, RoundedCornerShape(CONTROL_RADIUS))
+            .border(Chrome.hairline, scheme.outline, RoundedCornerShape(CONTROL_RADIUS))
             .padding(horizontal = 9.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        Glyph(Icons.SEARCH, size = SEARCH_GLYPH, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(text, style = ChromeText, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+        Glyph(Icons.SEARCH, size = SEARCH_GLYPH, tint = scheme.onSurfaceVariant)
+        Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
+            if (text.isEmpty()) {
+                Text("Filter", style = ChromeText, color = scheme.onSurfaceVariant, maxLines = 1)
+            }
+            BasicTextField(
+                value = text,
+                onValueChange = onFilter,
+                singleLine = true,
+                textStyle = ChromeText.copy(color = scheme.onSurface),
+                cursorBrush = SolidColor(scheme.primary),
+                modifier = Modifier.fillMaxWidth().semantics { contentDescription = "Filter" },
+            )
+        }
+        if (text.isNotEmpty()) {
+            Glyph(
+                Icons.CLOSE,
+                size = SEARCH_GLYPH,
+                tint = scheme.onSurfaceVariant,
+                modifier =
+                    Modifier
+                        .clickable { onFilter("") }
+                        .semantics { contentDescription = "Clear the filter" },
+            )
+        }
     }
 }
 
@@ -174,7 +208,7 @@ internal class ToolbarState(
         ToolbarAction(Icons.DELETE, "Remove…", disabledBecause = NOTHING_SELECTED),
     val recheck: ToolbarAction =
         ToolbarAction(Icons.RESTART_ALT, "Force re-check", disabledBecause = NOTHING_SELECTED),
-    val filter: String = "Filter",
+    val filter: String = "",
     val details: ToolbarAction =
         ToolbarAction(Icons.RIGHT_PANEL_OPEN, "Details panel", ToolbarCommand.ToggleDetails),
     val settings: ToolbarAction = ToolbarAction(Icons.TUNE, "Settings", ToolbarCommand.ToggleSettings),
@@ -280,6 +314,7 @@ internal fun Toolbar(
     state: ToolbarState,
     modifier: Modifier = Modifier,
     onAction: (ToolbarAction) -> Unit = {},
+    onFilter: (String) -> Unit = {},
 ) {
     Bar(
         height = Chrome.toolbarHeight,
@@ -295,7 +330,7 @@ internal fun Toolbar(
             IconAction(action) { onAction(action) }
         }
         Spacer()
-        FilterField(state.filter)
+        FilterField(state.filter, onFilter)
         ToolbarSeparator()
         IconAction(state.details) { onAction(state.details) }
         IconAction(state.settings) { onAction(state.settings) }

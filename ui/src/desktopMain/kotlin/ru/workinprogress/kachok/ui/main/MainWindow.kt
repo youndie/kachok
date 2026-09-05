@@ -57,6 +57,13 @@ internal class MainWindowState(
     val settings: SettingsState? = null,
     /** The question behind *Remove…*, waiting for an answer. */
     val removing: RemoveState? = null,
+    /**
+     * How many torrents the filter is keeping out of [torrents].
+     *
+     * Kept as a count rather than derived, because the window does not hold the unfiltered list —
+     * and an empty table with this above zero means something different from an empty table.
+     */
+    val hiddenByFilter: Int = 0,
 )
 
 /**
@@ -87,6 +94,7 @@ internal fun MainWindow(
     onCancelRemove: () -> Unit = {},
     onToggleRemoveData: (Boolean) -> Unit = {},
     onConfirmRemove: () -> Unit = {},
+    onFilter: (String) -> Unit = {},
 ) {
     Box(modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)) {
@@ -95,6 +103,7 @@ internal fun MainWindow(
             Toolbar(
                 state.toolbar.withDetails(state.details != null, settings = state.settings != null),
                 onAction = onAction,
+                onFilter = onFilter,
             )
             Row(Modifier.fillMaxWidth().weight(1f)) {
                 Column(Modifier.weight(1f).fillMaxHeight()) {
@@ -107,6 +116,17 @@ internal fun MainWindow(
                     when {
                         state.settings != null -> {
                             SettingsScreen(state.settings, Modifier.weight(1f), onSetting)
+                        }
+
+                        // An empty list with a filter on it is not an empty client; saying
+                        // "nothing downloading" here would contradict the status bar below.
+                        state.torrents.isEmpty() && state.hiddenByFilter > 0 -> {
+                            NoMatches(
+                                state.toolbar.filter,
+                                state.hiddenByFilter,
+                                Modifier.weight(1f),
+                                onClear = { onFilter("") },
+                            )
                         }
 
                         // Nine column heads over nothing is a table that looks broken; this looks

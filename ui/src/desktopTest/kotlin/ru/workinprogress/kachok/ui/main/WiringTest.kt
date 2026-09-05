@@ -200,6 +200,32 @@ class WiringTest {
             assertEquals(1, shown)
         }
 
+    /** Typing in the filter, and clearing it. */
+    @Test
+    fun theFilterFieldLeavesTheWindow(): Unit =
+        runComposeUiTest {
+            val typed = mutableListOf<String>()
+            setContent {
+                KachokTheme {
+                    MainWindow(
+                        MainWindowState(
+                            torrents = window.torrents,
+                            status = window.status,
+                            toolbar = ToolbarState(filter = "deb"),
+                        ),
+                        onFilter = { typed += it },
+                    )
+                }
+            }
+            onNodeWithContentDescription("Filter").performTextReplacement("sintel")
+            onNodeWithContentDescription("Clear the filter").performClick()
+            // Not an exact list: the field is given a value it never gets back — the test does not
+            // feed the change into the state — so it re-syncs to "deb" and reports that too. What
+            // matters is that both presses arrived.
+            assertEquals("sintel", typed.first())
+            assertEquals("", typed.last(), "the clear button reported nothing")
+        }
+
     /** The remove dialog's three answers, through the window rather than through the dialog. */
     @Test
     fun theRemoveDialogsAnswersLeaveTheWindow(): Unit =
