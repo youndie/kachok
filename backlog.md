@@ -46,11 +46,10 @@ which is also the order of work.
 
 <!-- BEGIN INDEX -->
 
-## Open (41)
+## Open (40)
 
 | Task | | Priority | Size | Blocked by |
 |---|---|---|---|---|
-| [B-03](docs/backlog/B-03-bencode-codec.md) `[ ]` | Bencode encoder and decoder in common code | P0 | S/M | - |
 | [B-04](docs/backlog/B-04-metainfo-parser-and-info-hash.md) `[ ]` | Metainfo parser and the v1 info hash | P0 | M | B-03 |
 | [B-06](docs/backlog/B-06-peer-wire-codec.md) `[ ]` | Peer wire codec: handshake, message ids, in-place piece and request | P0 | M | - |
 | [B-07](docs/backlog/B-07-virtual-thread-peer-transport.md) `[ ]` | One virtual thread per peer on a blocking SocketChannel | P0 | M | B-06, B-08 |
@@ -92,11 +91,15 @@ which is also the order of work.
 | [B-42](docs/backlog/B-42-scopedvalue-in-the-reader-loop.md) `[?]` | Is ScopedValue used anywhere, or dropped? | P3 | XS | B-07 |
 | [B-02](docs/backlog/B-02-ci-runs-build-and-docs-gates.md) `[ ]` | CI runs the build and the documentation gates on every push | infra | S | B-01 |
 
-## Closed (1)
+## Closed (2)
 
 **M0 — The build and its gates**
 
 - [B-01](docs/backlog/B-01-gradle-skeleton-builds-on-jdk-25.md) `[x]` - The Gradle skeleton builds, lints and tests on JDK 25
+
+**M1 — Metainfo**
+
+- [B-03](docs/backlog/B-03-bencode-codec.md) `[x]` - Bencode encoder and decoder in common code
 
 <!-- END INDEX -->
 
