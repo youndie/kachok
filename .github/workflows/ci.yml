@@ -1,0 +1,34 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    # A public repository: GitHub-hosted runners. Written before the first run — see B-02.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      # Java 21 + 25 and the Gradle cache, at the same versions as the rest of the portfolio.
+      - uses: youndie/sborka/.github/actions/setup-kotlin@main
+
+      # build covers ktlintCheck (through check) and the tests of every module. Both flag sets:
+      # the release flags are accepted by the compiler or they are not, and only a build says which.
+      - run: ./gradlew build --stacktrace
+      - run: ./gradlew build -Pkachok.release --stacktrace
+
+      - if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: reports
+          path: |
+            **/build/reports/**
+            **/build/test-results/**
+          retention-days: 7

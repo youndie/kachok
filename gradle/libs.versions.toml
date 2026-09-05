@@ -1,0 +1,15 @@
+[versions]
+# The compiler. Everything that has to agree with it (coroutines, serialization) comes from the
+# shared `wip` catalog that `ru.workinprogress.sborka.settings` puts beside this one.
+kotlin = "2.4.10"
+# The shared build conventions. One number: every sborka plugin below takes its version from here,
+# and settings.gradle.kts repeats it by hand because a settings plugin cannot read a catalog.
+sborka = "0.2.0.29"
+
+[plugins]
+kotlinMultiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
+kotlinJvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
+sborkaBase = { id = "ru.workinprogress.sborka.base", version.ref = "sborka" }
+sborkaTest = { id = "ru.workinprogress.sborka.test", version.ref = "sborka" }
+sborkaKmp = { id = "ru.workinprogress.sborka.kmp", version.ref = "sborka" }
+sborkaLint = { id = "ru.workinprogress.sborka.lint", version.ref = "sborka" }
