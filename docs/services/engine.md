@@ -228,6 +228,10 @@ them. Nothing is read from the environment by this module; that is [cli](cli.md)
 * **A throttled download would stall without the timer.** Requests are normally issued when a block
   arrives, and no block arrives while nothing is asked for; the tick that refills the budget is
   also what asks every peer for more.
+* **`index in started` on a `Map<Int, _>` boxes the index.** The picker asks it once per piece per
+  request, which is where half of the profile's `Integer` allocations came from; a `BooleanArray`
+  beside the map answers the same question for nothing. Both mutations of `started` go through one
+  pair of methods, because a second copy of a key set is worth nothing if it can drift from it.
 * **BEP 9 puts bencode and raw bytes in one message with nothing between them.** No length, no
   separator: the block starts at the byte after the dictionary's closing `e`, and the only thing
   that knows where that is is the decoder — which is why `Bencode.decodePrefix` exists and why it

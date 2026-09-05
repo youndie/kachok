@@ -51,6 +51,16 @@ public class PiecePicker(
     private val peers = HashMap<PeerAddress, Bitfield>()
     private val started = LinkedHashMap<Int, PieceProgress>()
 
+    /**
+     * The same information as `started.keys`, as bits.
+     *
+     * Because `index in started` on a `Map<Int, _>` boxes the index, and the scan below asks it
+     * once per piece per request. Boxing is what the profile of the Debian download found at the
+     * top of the allocation samples (research §1.2c) — `java.lang.Integer`, from here and from the
+     * candidate list this scan used to build.
+     */
+    private val isStarted = BooleanArray(metainfo.pieceCount)
+
     /** When the caller says it is. The picker has no clock of its own and wants none. */
     private var now: Long = 0L
 
@@ -139,7 +149,7 @@ public class PiecePicker(
         fillFromStarted(peer, bitfield, requests, count)
         while (requests.size < count && started.size < maxStartedPieces) {
             val index = rarestUnstarted(bitfield) ?: break
-            started[index] = PieceProgress(blockCount(index))
+            begin(index)
             fillFrom(peer, index, requests, count)
         }
         if (requests.size < count && isEndgame) fillFromEndgame(peer, bitfield, requests, count)
@@ -169,7 +179,7 @@ public class PiecePicker(
         // are the same pooled buffers.
         if (piece.value !in started) {
             if (started.size >= maxStartedPieces) return emptyList()
-            started[piece.value] = PieceProgress(blockCount(piece.value))
+            begin(piece.value)
         }
         fillFrom(peer, piece.value, requests, count)
         return requests
@@ -241,13 +251,29 @@ public class PiecePicker(
 
     /** The writer verified a piece. */
     public fun pieceVerified(piece: PieceIndex) {
-        started.remove(piece.value)
+        finish(piece.value)
         have.set(piece.value)
     }
 
     /** The writer found a bad hash: every block of the piece has to come again. */
     public fun pieceFailed(piece: PieceIndex) {
-        started.remove(piece.value)
+        finish(piece.value)
+    }
+
+    /**
+     * The two places a piece enters or leaves [started], and the only two.
+     *
+     * `isStarted` is a second copy of the map's key set and would be worth nothing if it could
+     * drift from it; keeping both mutations behind one pair of calls is what stops that.
+     */
+    private fun begin(index: Int) {
+        started[index] = PieceProgress(blockCount(index))
+        isStarted[index] = true
+    }
+
+    private fun finish(index: Int) {
+        started.remove(index)
+        isStarted[index] = false
     }
 
     private fun fillFromStarted(
@@ -307,16 +333,37 @@ public class PiecePicker(
 
     /**
      * The rarest piece this peer has that is neither had nor started, or — for the first piece of
-     * the torrent — one of its pieces at random.
+     * the torrent — one of its pieces at random. In one pass, and without allocating.
+     *
+     * It used to build a `List<Int>` of every candidate and take the minimum of it, which is a
+     * boxed integer per piece per request — nothing measurable on the 3 020-piece torrent the
+     * profile ran on, and a hundred thousand of them per decision on a large one (B-43). The rules
+     * are unchanged: rarest first, ties to the lowest index, and the very first piece of a torrent
+     * chosen at random.
+     *
+     * The random case is a reservoir sample rather than a second pass: keeping the *n*-th
+     * candidate with probability 1/n leaves every candidate equally likely, which is what the
+     * list-and-index version did with a list.
      */
     private fun rarestUnstarted(bitfield: Bitfield): Int? {
-        val candidates =
-            (0 until metainfo.pieceCount).filter { index ->
-                bitfield[index] && !have[index] && index !in started
+        val chooseAtRandom = have.cardinality == 0 && started.isEmpty()
+        var best = -1
+        var rarest = Int.MAX_VALUE
+        var seen = 0
+        for (index in 0 until metainfo.pieceCount) {
+            if (!bitfield[index] || have[index] || isStarted[index]) continue
+            seen++
+            if (chooseAtRandom) {
+                if (random.nextInt(seen) == 0) best = index
+                continue
             }
-        if (candidates.isEmpty()) return null
-        if (have.cardinality == 0 && started.isEmpty()) return candidates[random.nextInt(candidates.size)]
-        return candidates.minBy { availability[it] }
+            val availableFrom = availability[index]
+            if (availableFrom < rarest) {
+                rarest = availableFrom
+                best = index
+            }
+        }
+        return if (best < 0) null else best
     }
 
     /** Which blocks of one started piece have been asked of whom. */

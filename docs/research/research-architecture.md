@@ -218,6 +218,12 @@ candidate pieces on every request. Nothing on the block path appears at all. Tha
 [B-43](../backlog/B-43-picker-allocates-per-decision.md), and the profile has now named not just
 the method but the mechanism.
 
+*(Later, B-43: fixed, and the size of it measured. On a 100 000-piece torrent one choice allocated
+**4 477 304 bytes** before and **448 bytes** after — `getThreadAllocatedBytes` over a hundred
+choices, `PickerAllocationTest`. The profile's `Integer` had two sources, not one: the candidate
+list, and `index in started` on a `Map<Int, _>`, which boxes the index once per piece per request.
+A `BooleanArray` beside the map removes the second.)*
+
 **Consequence 3 — Open question 2 is answered.** The engine's heap is 6–8 MB live under load. The
 launcher's `-Xmx256m` is thirty times what the engine needs. *(§1.2d, later: this paragraph then
 left the setting alone on the grounds that phase 2's UI would want the room. Measured, 128m keeps

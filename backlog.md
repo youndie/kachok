@@ -46,11 +46,10 @@ which is also the order of work.
 
 <!-- BEGIN INDEX -->
 
-## Open (10)
+## Open (9)
 
 | Task | | Priority | Size | Blocked by |
 |---|---|---|---|---|
-| [B-43](docs/backlog/B-43-picker-allocates-per-decision.md) `[ ]` | The picker allocates a candidate list on every request | P2 | S | - |
 | [B-44](docs/backlog/B-44-does-closing-a-peer-end-a-write-in-flight.md) `[ ]` | Does closing a peer socket end a write already in flight? | P2 | S/M | B-30 |
 | [B-31](docs/backlog/B-31-verify-codec-dispatch-is-a-tableswitch.md) `[ ]` | Check with javap that the message dispatch compiles to a tableswitch | P3 | XS | B-06 |
 | [B-37](docs/backlog/B-37-v2-and-hybrid-torrents.md) `[?]` | v2 and hybrid torrents (BEP 52): SHA-256 piece layers | P3 | L | B-04 |
@@ -61,7 +60,7 @@ which is also the order of work.
 | [B-45](docs/backlog/B-45-serve-metadata-to-peers.md) `[ ]` | Serve the info dictionary to peers that ask (BEP 9) | P3 | S | B-36 |
 | [B-02](docs/backlog/B-02-ci-runs-build-and-docs-gates.md) `[ ]` | CI runs the build and the documentation gates on every push | infra | S | B-01 |
 
-## Closed (35)
+## Closed (36)
 
 **M0 — The build and its gates**
 
@@ -116,6 +115,7 @@ which is also the order of work.
 - [B-28](docs/backlog/B-28-aot-cache-in-the-distribution.md) `[x]` - Build the AOT cache with the launcher's flags and prove it maps
 - [B-29](docs/backlog/B-29-jlink-runtime-image.md) `[x]` - A jlinked run-time image, the jars, and a launcher script
 - [B-30](docs/backlog/B-30-measure-transferto-vs-mmap.md) `[x]` - Does seeding need mmap? Measure transferTo against a mapped file
+- [B-43](docs/backlog/B-43-picker-allocates-per-decision.md) `[x]` - The picker allocates a candidate list on every request
 
 **M8 — Extensions**
 

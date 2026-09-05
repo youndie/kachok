@@ -1,7 +1,7 @@
 ---
 id: B-43
 title: "The picker allocates a candidate list on every request"
-status: open
+status: done
 priority: P2
 size: S
 stage: m7-measure
@@ -27,4 +27,23 @@ itself contributes none, which is the design working.
 
 - AC: a torrent with 100 000 pieces chooses a block without allocating proportionally to the piece
   count, and the existing picker tests still pass unchanged — the rules are not what is changing.
-- Anchors: `engine/src/commonMain/kotlin/ru/workinprogress/kachok/engine/picker/PiecePicker.kt`.
+- Anchors: `engine/src/commonMain/kotlin/ru/workinprogress/kachok/engine/picker/PiecePicker.kt`,
+  `engine/src/jvmTest/kotlin/ru/workinprogress/kachok/engine/picker/PickerAllocationTest.kt`.
+
+**Done, and measured both ways.** On a 100 000-piece torrent one choice allocated **4 477 304
+bytes** before and **448 bytes** after — `getThreadAllocatedBytes` over a hundred choices, with the
+old implementation put back to check the test could fail at all. Every existing picker test passes
+unchanged, which was the other half of the criterion: the rules are not what changed.
+
+**The profile named the type and there were two sources of it, not one.** The candidate `List<Int>`
+was the obvious one. The other was `index in started`, a `Map<Int, PieceProgress>` lookup that
+boxes the index — asked once per piece per request, so it produced as many `Integer`s as the list
+did. A `BooleanArray` beside the map answers it for nothing, and both mutations of `started` now go
+through one pair of methods, because a second copy of a key set is worth nothing if it can drift.
+
+**Not the structure the item proposed.** It suggested bucketing pieces by availability so the cost
+would follow the number of buckets rather than the number of pieces. That would make the *scan*
+sub-linear; what the measurement said was that the scan was never the cost — the boxing was. A
+single pass with primitives and a reservoir sample for the random first piece is allocation-free
+and keeps every rule where a reader can see it. The bucket structure remains available if a
+measurement ever says the scan itself is what costs; nothing here says that.
