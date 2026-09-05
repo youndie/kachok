@@ -150,6 +150,36 @@ class PiecePickerTest {
     }
 
     @Test
+    fun aRequestNobodyAnsweredIsOfferedToSomebodyElse() {
+        // The failure this prevents was measured, not imagined: against the Debian swarm the
+        // download stalled at 960 pieces of 3020 with twenty-five connections, every one of them
+        // waiting on a request its peer was never going to answer.
+        val picker = PiecePicker(tenPieces, maxStartedPieces = 1, random = Random(5))
+        picker.peerWith(a, 0, 1)
+        picker.peerWith(b, 0, 1)
+        val taken = picker.next(a, 1, nowMillis = 1_000).single()
+
+        assertTrue(picker.expireRequests(beforeMillis = 500).isEmpty(), "not yet due")
+        assertTrue(picker.next(b, 1, nowMillis = 1_100).isEmpty(), "a's claim still stands")
+
+        val expired = picker.expireRequests(beforeMillis = 31_000)
+        assertEquals(listOf(a), expired.map { it.peer })
+        assertEquals(taken.piece.value, expired.single().piece.value)
+
+        val retaken = picker.next(b, 1, nowMillis = 31_100).single()
+        assertEquals(taken.piece.value, retaken.piece.value, "the freed block went to the other peer")
+    }
+
+    @Test
+    fun anExpiredRequestIsNotOfferedTwiceToTheSamePeer() {
+        val picker = PiecePicker(tenPieces, maxStartedPieces = 1, random = Random(5))
+        picker.peerWith(a, 0)
+        picker.next(a, 1, nowMillis = 0)
+        assertEquals(1, picker.expireRequests(beforeMillis = 1_000).size)
+        assertEquals(0, picker.expireRequests(beforeMillis = 1_000).size, "expiring twice frees nothing twice")
+    }
+
+    @Test
     fun aChokedPeersRequestsComeBackToThePool() {
         val picker = PiecePicker(tenPieces, maxStartedPieces = 1, random = Random(5))
         picker.peerWith(a, 0, 1)

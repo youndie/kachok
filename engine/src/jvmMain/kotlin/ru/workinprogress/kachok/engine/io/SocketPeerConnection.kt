@@ -21,6 +21,8 @@ import java.io.IOException
 import java.net.InetSocketAddress
 import java.nio.ByteBuffer
 import java.nio.channels.SocketChannel
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.seconds
 
 /** A [Block] whose bytes are a pooled direct buffer, flipped and ready to be written. */
 public class PooledBlock internal constructor(
@@ -202,6 +204,9 @@ public class SocketPeerConnection private constructor(
     }
 
     public companion object {
+        /** Long enough for a slow route, short enough that a dead peer is not a lost slot. */
+        public val DEFAULT_CONNECT_TIMEOUT: Duration = 10.seconds
+
         private const val OUTGOING_QUEUE = 64
         private const val INCOMING_QUEUE = 64
         private const val SCRATCH_SIZE = 16
@@ -221,10 +226,20 @@ public class SocketPeerConnection private constructor(
             peerId: PeerId,
             pool: BufferPool,
             reserved: ByteArray = Handshake.reservedBits(),
+            connectTimeout: Duration = DEFAULT_CONNECT_TIMEOUT,
         ): SocketPeerConnection {
             val socket = SocketChannel.open()
             try {
-                socket.connect(InetSocketAddress(address.host, address.port))
+                // Through the socket rather than the channel, because `SocketChannel.connect` has
+                // no timeout and a peer that silently drops packets then holds this coroutine —
+                // and one of the session's connection slots — until the operating system gives up,
+                // which is minutes. Half the addresses a tracker hands out are like that; it is the
+                // normal case, not an edge one. Measured against a real swarm in B-19: 22 of 50
+                // dials were stuck in `connect` while five connections did the work.
+                socket.socket().connect(
+                    InetSocketAddress(address.host, address.port),
+                    connectTimeout.inWholeMilliseconds.toInt(),
+                )
                 val ours = Handshake(infoHash, peerId, reserved)
                 val out = ByteBuffer.wrap(ours.encode())
                 while (out.hasRemaining()) socket.write(out)

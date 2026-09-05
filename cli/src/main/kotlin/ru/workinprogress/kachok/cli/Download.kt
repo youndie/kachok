@@ -89,6 +89,7 @@ class Download(
                 trackerClient = HttpTrackerClient(dispatchers.io),
                 hasher = MessageDigestPieceHasher(dispatchers.io),
                 storage = FileStorage(PieceLayout(metainfo), files),
+                blocking = dispatchers.io,
                 config =
                     SessionConfig(
                         maxStartedPieces = STARTED_PIECES,
@@ -151,9 +152,15 @@ class Download(
                 .append(state.connectedPeers)
                 .append(" of ")
                 .append(state.knownPeers)
-                .append(" peers")
+                .append(" peers (")
+                .append(state.unchokedPeers)
+                .append(" unchoked, ")
+                .append(state.outstandingRequests)
+                .append(" out)")
             if (state.hashFailures > 0) append(", ").append(state.hashFailures).append(" hash failures")
             state.trackerError?.let { append(", tracker: ").append(it) }
+            // A degraded session that says nothing is how a stalled download looked for three runs.
+            state.sessionError?.let { append(", DEGRADED: ").append(it) }
         }
     }
 

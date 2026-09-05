@@ -21,6 +21,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.seconds
 
 /**
  * The acceptance criteria of B-07, against a local fake peer.
@@ -42,6 +43,29 @@ class SocketPeerConnectionTest {
         scope.cancel()
         dispatchers.close()
     }
+
+    @Test
+    fun aPeerThatNeverAnswersGivesUpRatherThanHoldingTheSlot(): Unit =
+        runBlocking {
+            // 203.0.113.0/24 is TEST-NET-3 (RFC 5737): reserved for documentation, routed nowhere,
+            // so a connection there hangs rather than being refused — which is what a dead peer in
+            // a real swarm does. Without a timeout this call waits for the operating system,
+            // which is minutes, and holds one of the session's connection slots for all of it.
+            val started = System.nanoTime()
+            assertFailsWith<java.io.IOException> {
+                SocketPeerConnection.connect(
+                    scope,
+                    ru.workinprogress.kachok.engine.peer
+                        .PeerAddress("203.0.113.1", 6881),
+                    infoHash,
+                    peerId,
+                    BufferPool(capacity = 4),
+                    connectTimeout = 1.seconds,
+                )
+            }
+            val elapsed = (System.nanoTime() - started) / 1_000_000
+            assertTrue(elapsed < 5_000, "the dial took ${elapsed}ms; the timeout was not applied")
+        }
 
     @Test
     fun aPeerAnsweringForAnotherTorrentIsDropped(): Unit =

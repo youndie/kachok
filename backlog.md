@@ -50,7 +50,6 @@ which is also the order of work.
 
 | Task | | Priority | Size | Blocked by |
 |---|---|---|---|---|
-| [B-19](docs/backlog/B-19-end-to-end-download-acceptance.md) `[ ]` | Download a real public torrent end to end, and record the numbers | P0 | S | B-18 |
 | [B-09](docs/backlog/B-09-incoming-connections.md) `[ ]` | Accept incoming peers on the BEP 3 port range | P1 | S | B-07 |
 | [B-14](docs/backlog/B-14-deferred-force-timer.md) `[ ]` | force() on a timer and at close, not per piece | P1 | S | B-11 |
 | [B-20](docs/backlog/B-20-upload-read-path.md) `[ ]` | Serve requests with FileChannel.transferTo | P1 | M | B-17 |
@@ -70,6 +69,7 @@ which is also the order of work.
 | [B-34](docs/backlog/B-34-peer-exchange.md) `[ ]` | Peer exchange (BEP 11, ut_pex) | P2 | M | B-10 |
 | [B-35](docs/backlog/B-35-dht.md) `[ ]` | Mainline DHT (BEP 5) | P2 | L | - |
 | [B-36](docs/backlog/B-36-ut-metadata-and-magnets.md) `[ ]` | Metadata exchange (BEP 9): make magnet links downloadable | P2 | M | B-05, B-10 |
+| [B-43](docs/backlog/B-43-picker-allocates-per-decision.md) `[ ]` | The picker allocates a candidate list on every request | P2 | S | B-26 |
 | [B-31](docs/backlog/B-31-verify-codec-dispatch-is-a-tableswitch.md) `[ ]` | Check with javap that the message dispatch compiles to a tableswitch | P3 | XS | B-06 |
 | [B-37](docs/backlog/B-37-v2-and-hybrid-torrents.md) `[?]` | v2 and hybrid torrents (BEP 52): SHA-256 piece layers | P3 | L | B-04 |
 | [B-38](docs/backlog/B-38-ipv6.md) `[ ]` | IPv6 peers and trackers (BEP 7) | P3 | S | B-15 |
@@ -78,7 +78,7 @@ which is also the order of work.
 | [B-41](docs/backlog/B-41-android-and-ios-targets.md) `[ ]` | Phase 3: Android and iOS targets on the engine | P3 | XL | B-39 |
 | [B-02](docs/backlog/B-02-ci-runs-build-and-docs-gates.md) `[ ]` | CI runs the build and the documentation gates on every push | infra | S | B-01 |
 
-## Closed (15)
+## Closed (16)
 
 **M0 — The build and its gates**
 
@@ -109,6 +109,7 @@ which is also the order of work.
 - [B-16](docs/backlog/B-16-piece-picker.md) `[x]` - Rarest-first piece picker with strict priority and endgame
 - [B-17](docs/backlog/B-17-session-orchestrator.md) `[x]` - Session: the StateFlow, the command channel and the one timer
 - [B-18](docs/backlog/B-18-cli-download-command.md) `[x]` - kachok download <file.torrent> [--dir …]: progress on stderr, exit 0 on completion
+- [B-19](docs/backlog/B-19-end-to-end-download-acceptance.md) `[x]` - Download a real public torrent end to end, and record the numbers
 
 <!-- END INDEX -->
 

@@ -118,6 +118,40 @@ the machine's parallelism. The test asserts a bound of `availableProcessors() + 
 the measured 8, because the bound rules out the failure that matters — one platform thread per
 peer — without failing on a scheduler that adds a carrier for its own reasons.
 
+### 1.2b A real swarm, measured
+
+The Debian 13.6.0 netinst image — 791 674 880 bytes, 3 020 pieces of 256 KiB, HTTP tracker —
+downloaded from the public swarm on 2026-09-05, macOS/aarch64, JDK 25.0.2, with JFR recording and
+`-Xlog:gc`. The SHA-256 of the result equals the one Debian publishes in `SHA256SUMS`, which is
+the only oracle here that this project did not write.
+
+| Measurement | Result |
+|---|---|
+| Time to complete | 368 s, about 2.05 MB/s |
+| Peers | 21–24 unchoked of ~50 known; 35–105 requests in flight |
+| `jdk.VirtualThreadPinned` events | **0** |
+| Heap live after GC | **8 MB** peak, in a 256 MB heap |
+| Young collections | 4, longest 14.8 ms, mean 8.9 ms |
+| Full collections | 0 |
+| Allocation samples on the block path | **none** — no sample in `readLoop`, the pool or the writer's block handling |
+| Allocation samples, top two sites | `PiecePicker.rarestUnstarted` (353), `PiecePicker.next` (182) |
+
+**Consequence 1 — the memory design holds, and by a wide margin.** Eight megabytes live for a
+download running at two megabytes a second is the off-heap design working: the data is in pooled
+direct buffers and the heap holds bookkeeping. Open question 2 asked what heap the engine needs;
+the answer is "far less than the 256 MB the launcher gives it", and the number to argue about now
+is how much lower to set it, not whether 256 is enough.
+
+**Consequence 2 — no carrier was ever pinned.** The claim §1.1 took from the JEPs is now a
+measurement under load: 80 496 socket reads on virtual threads, zero pinning events.
+
+**Consequence 3 — the allocation that remains is in the picker, not on the block path.** The brief
+asked for zero garbage where the bytes flow, and that is what the profile shows. What it also shows
+is `rarestUnstarted` building a candidate list over all 3 020 pieces on **every** request — the one
+place in this engine that allocates per decision. It is not on the byte path and it did not cost
+anything measurable here; it will at a hundred thousand pieces
+([B-43](../backlog/B-43-picker-allocates-per-decision.md)).
+
 ### 1.3 A trimmed run-time image, measured
 
 `jlink --add-modules java.base,java.net.http,jdk.jfr,java.management --strip-debug --no-man-pages
@@ -467,7 +501,11 @@ usage and exits is a document nobody can trust about anything else either.
 
 ## 3. Risks and open questions
 
-**Risk 1. Carrier pinning and compensation hide a thread explosion.** Mechanism: file I/O and
+**Risk 1 — measured, and it did not happen.** Carrier pinning and compensation hiding a thread
+explosion: the Debian download recorded **zero** `jdk.VirtualThreadPinned` events over 80 496
+socket reads (§1.2b). The mitigation below stays, because it is what keeps it that way.
+
+**Risk 1 (as originally written). Carrier pinning and compensation hide a thread explosion.** Mechanism: file I/O and
 `transferTo` block carriers (§1.1); enough concurrent disk operations grow the carrier pool to
 `maxPoolSize` and then queue. Mitigation: D4 (one writer) and D5 (uploads bounded by the choker);
 `jdk.VirtualThreadPinned` and the carrier count recorded by JFR in M7's baseline, with a threshold

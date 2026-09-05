@@ -21,8 +21,7 @@ import java.time.Duration
  */
 public class HttpTrackerClient(
     private val dispatcher: CoroutineDispatcher,
-    private val client: HttpClient =
-        HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(CONNECT_TIMEOUT_SECONDS)).build(),
+    private val client: HttpClient = defaultClient(),
     private val requestTimeout: Duration = Duration.ofSeconds(REQUEST_TIMEOUT_SECONDS),
     private val userAgent: String = DEFAULT_USER_AGENT,
 ) : TrackerClient {
@@ -61,6 +60,26 @@ public class HttpTrackerClient(
     public companion object {
         private const val CONNECT_TIMEOUT_SECONDS = 15L
         private const val REQUEST_TIMEOUT_SECONDS = 30L
+
+        /**
+         * **HTTP/1.1, pinned.**
+         *
+         * `HttpClient` defaults to HTTP/2, which over cleartext means offering an `h2c` upgrade on
+         * every request. Trackers are HTTP/1.1 servers, many of them older than HTTP/2, and one of
+         * them is `bttracker.debian.org`: with the default client the JDK fails the response with
+         * `chunked transfer encoding, state: READING_LENGTH` — the tracker answers 200 with a
+         * correct `Content-Length` to a plain HTTP/1.1 request and something the client cannot
+         * parse to an upgrade request.
+         *
+         * Found by the first announce to a real tracker (B-19); no local test server reproduces
+         * it, because a server that understands the upgrade handles it correctly.
+         */
+        public fun defaultClient(): HttpClient =
+            HttpClient
+                .newBuilder()
+                .version(HttpClient.Version.HTTP_1_1)
+                .connectTimeout(Duration.ofSeconds(CONNECT_TIMEOUT_SECONDS))
+                .build()
 
         /** BEP 20's Azureus style: `-KA` and a four-digit version. */
         public const val DEFAULT_USER_AGENT: String = "kachok/0.1"

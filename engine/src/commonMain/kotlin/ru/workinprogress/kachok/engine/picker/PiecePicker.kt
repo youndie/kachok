@@ -6,6 +6,13 @@ import ru.workinprogress.kachok.engine.peer.PeerAddress
 import ru.workinprogress.kachok.engine.wire.PeerWire
 import kotlin.random.Random
 
+/** A request that was never answered, freed for somebody else. */
+public class ExpiredRequest(
+    public val peer: PeerAddress,
+    public val piece: PieceIndex,
+    public val block: Int,
+)
+
 /** One block to ask a peer for. */
 public class BlockRequest(
     public val piece: PieceIndex,
@@ -43,6 +50,9 @@ public class PiecePicker(
     private val availability = IntArray(metainfo.pieceCount)
     private val peers = HashMap<PeerAddress, Bitfield>()
     private val started = LinkedHashMap<Int, PieceProgress>()
+
+    /** When the caller says it is. The picker has no clock of its own and wants none. */
+    private var now: Long = 0L
 
     /** Pieces this client has verified. */
     public val completed: Bitfield get() = have
@@ -116,8 +126,10 @@ public class PiecePicker(
     public fun next(
         peer: PeerAddress,
         count: Int,
+        nowMillis: Long = 0L,
     ): List<BlockRequest> {
         if (count <= 0) return emptyList()
+        this.now = nowMillis
         val bitfield = peers[peer] ?: return emptyList()
         val requests = ArrayList<BlockRequest>(count)
 
@@ -142,6 +154,22 @@ public class PiecePicker(
     ): List<PeerAddress> {
         val progress = started[piece.value] ?: return emptyList()
         return progress.received(begin / PeerWire.BLOCK_SIZE, from)
+    }
+
+    /**
+     * Frees every block asked before [beforeMillis] and says whom it was asked of.
+     *
+     * **Without this a real download stops.** A peer that takes a request and answers nothing —
+     * because it went away without closing, or is snubbing us — holds that block for ever, and
+     * once every block of every started piece is held that way the picker has nothing to give
+     * anyone and no new piece may begin. Measured against the Debian swarm in B-19: the download
+     * stalled at 960 pieces of 3020 with twenty-five connections all waiting on requests nobody
+     * was going to answer.
+     */
+    public fun expireRequests(beforeMillis: Long): List<ExpiredRequest> {
+        val expired = mutableListOf<ExpiredRequest>()
+        started.forEach { (index, progress) -> progress.expire(beforeMillis, index, expired) }
+        return expired
     }
 
     /** A peer choked us or went away: its outstanding requests are gone and may be asked again. */
@@ -180,7 +208,7 @@ public class PiecePicker(
     ) {
         val progress = started[index] ?: return
         while (into.size < count) {
-            val block = progress.takeUnrequested(peer) ?: return
+            val block = progress.takeUnrequested(peer, now) ?: return
             into += request(index, block)
         }
     }
@@ -195,7 +223,7 @@ public class PiecePicker(
             if (into.size >= count) return
             if (!bitfield[index] || have[index]) return@forEach
             while (into.size < count) {
-                val block = progress.takeForEndgame(peer) ?: break
+                val block = progress.takeForEndgame(peer, now) ?: break
                 into += request(index, block)
             }
         }
@@ -233,7 +261,8 @@ public class PiecePicker(
     private class PieceProgress(
         val blocks: Int,
     ) {
-        private val askedOf = arrayOfNulls<MutableSet<PeerAddress>>(blocks)
+        /** Per block: which peers were asked, and when. The time is what makes expiry possible. */
+        private val askedOf = arrayOfNulls<MutableMap<PeerAddress, Long>>(blocks)
         private val received = BooleanArray(blocks)
 
         fun hasUnrequested(): Boolean = (0 until blocks).any { !received[it] && askedOf[it].isNullOrEmpty() }
@@ -241,20 +270,27 @@ public class PiecePicker(
         fun hasMissing(): Boolean = (0 until blocks).any { !received[it] }
 
         /** The first block nobody has been asked for, now asked of [peer]. */
-        fun takeUnrequested(peer: PeerAddress): Int? {
+        fun takeUnrequested(
+            peer: PeerAddress,
+            at: Long,
+        ): Int? {
             val block =
                 (0 until blocks).firstOrNull { !received[it] && askedOf[it].isNullOrEmpty() }
                     ?: return null
-            askedOf[block] = mutableSetOf(peer)
+            askedOf[block] = mutableMapOf(peer to at)
             return block
         }
 
         /** A block still missing that this peer has not already been asked for. */
-        fun takeForEndgame(peer: PeerAddress): Int? {
+        fun takeForEndgame(
+            peer: PeerAddress,
+            at: Long,
+        ): Int? {
             val block =
-                (0 until blocks).firstOrNull { !received[it] && peer !in (askedOf[it] ?: emptySet()) }
+                (0 until blocks).firstOrNull { !received[it] && peer !in (askedOf[it] ?: emptyMap()) }
                     ?: return null
-            (askedOf[block] ?: mutableSetOf<PeerAddress>().also { askedOf[block] = it }) += peer
+            val asked = askedOf[block] ?: mutableMapOf<PeerAddress, Long>().also { askedOf[block] = it }
+            asked[peer] = at
             return block
         }
 
@@ -265,7 +301,7 @@ public class PiecePicker(
         ): List<PeerAddress> {
             if (block !in 0 until blocks || received[block]) return emptyList()
             received[block] = true
-            val others = askedOf[block].orEmpty().filter { it != from }
+            val others = askedOf[block].orEmpty().keys.filter { it != from }
             askedOf[block] = null
             return others
         }
@@ -273,7 +309,25 @@ public class PiecePicker(
         fun forget(peer: PeerAddress) {
             (0 until blocks).forEach { block ->
                 val asked = askedOf[block] ?: return@forEach
-                asked -= peer
+                asked.remove(peer)
+                if (asked.isEmpty()) askedOf[block] = null
+            }
+        }
+
+        /** Frees every block asked before [before] and reports who was asked and never delivered. */
+        fun expire(
+            before: Long,
+            index: Int,
+            into: MutableList<ExpiredRequest>,
+        ) {
+            (0 until blocks).forEach { block ->
+                val asked = askedOf[block] ?: return@forEach
+                asked.entries
+                    .filter { it.value < before }
+                    .forEach { (peer, _) ->
+                        asked.remove(peer)
+                        into += ExpiredRequest(peer, PieceIndex(index), block)
+                    }
                 if (asked.isEmpty()) askedOf[block] = null
             }
         }

@@ -84,6 +84,17 @@ class HttpTrackerClientTest {
         }
 
     @Test
+    fun theClientSpeaksHttpOneOne() {
+        // Not a style preference. The default client offers an h2c upgrade on every cleartext
+        // request, and bttracker.debian.org answers that with something the JDK cannot parse:
+        // `chunked transfer encoding, state: READING_LENGTH`, against a tracker that returns a
+        // correct Content-Length to a plain HTTP/1.1 request. No local server reproduces it —
+        // one that understands the upgrade handles it correctly — so this is the only place the
+        // decision can be pinned.
+        assertEquals(java.net.http.HttpClient.Version.HTTP_1_1, HttpTrackerClient.defaultClient().version())
+    }
+
+    @Test
     fun aStoppedAnnounceSaysSo(): Unit =
         runBlocking {
             val url = serve(body = "d8:intervali1800e5:peers0:e".encodeToByteArray())

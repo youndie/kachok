@@ -74,7 +74,7 @@ What exists on `main` today:
 | `.../engine/session/Session.kt` | the orchestrator: peers, tracker loop, writer, one timer, all under one `SupervisorJob` |
 | `.../engine/hash/MessageDigestPieceHasher.kt` (jvmMain) | SHA-1 on a bounded dispatcher, with a pool of digests and the `JvmBlock` seam |
 | `.../engine/storage/FileSet.kt` (jvmMain) | the torrent's files, created sparse with `setLength` and kept open for positional writes |
-| `engine/src/commonTest/kotlin/ru/workinprogress/kachok/engine/` | 116 tests across every package; the session's nine run entirely on fakes; the fixtures are embedded strings, because a KMP test source set has no resources |
+| `engine/src/commonTest/kotlin/ru/workinprogress/kachok/engine/` | 121 tests across every package; the session's nine run entirely on fakes; the fixtures are embedded strings, because a KMP test source set has no resources |
 
 The layout the backlog builds toward, under `engine/src/commonMain/kotlin/ru/workinprogress/kachok/engine/`
 (a directory appears when its first backlog item lands; none of these exist yet):
@@ -162,6 +162,11 @@ them. Nothing is read from the environment by this module; that is [cli](cli.md)
 * **`-Xno-param-assertions` and `-Xno-call-assertions` are release-only.** They are added when the
   build runs with `-Pkachok.release`; a plain `./gradlew build` keeps the null checks. Both builds
   are green on 2026-09-05.
+* **The session confines its own state to one thread, and must.** The peer table, the picker and
+  every `PeerLink` are plain mutable structures; the engine's dispatcher runs coroutines on as many
+  carriers as the machine has. `Session.start` takes `limitedParallelism(1)` of the caller's
+  dispatcher for its own coroutines and does its one blocking call — the dial — elsewhere. A single
+  test dispatcher hides the absence of this completely.
 * **A collection iterated across a suspension point is racy, single-threaded or not.** Coroutines
   interleave at suspension points exactly as threads interleave anywhere, so every loop that sends
   to each peer iterates a snapshot. The symptom otherwise is an intermittent

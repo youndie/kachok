@@ -1,5 +1,6 @@
 package ru.workinprogress.kachok.engine.session
 
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
@@ -26,6 +27,7 @@ import ru.workinprogress.kachok.engine.tracker.AnnounceRequest
 import ru.workinprogress.kachok.engine.tracker.TrackerClient
 import ru.workinprogress.kachok.engine.tracker.TrackerException
 import ru.workinprogress.kachok.engine.wire.Message
+import kotlin.coroutines.ContinuationInterceptor
 import kotlin.time.TimeSource
 
 /**
@@ -54,6 +56,15 @@ public class Session(
     private val storage: Storage,
     private val config: SessionConfig = SessionConfig(),
     private val timeSource: TimeSource = TimeSource.Monotonic,
+    /**
+     * Where a blocking call may go.
+     *
+     * The session confines its own state to one thread (see [start]); a dial is the one blocking
+     * thing it does itself, and doing that under the confinement would stop the whole session for
+     * the length of a TCP timeout. Null means "there is nowhere else", which is what the tests
+     * want: a single-threaded test dispatcher is the point of them.
+     */
+    private val blocking: CoroutineDispatcher? = null,
 ) {
     private val picker = PiecePicker(metainfo, config.maxStartedPieces)
     private val writer = BlockWriter(metainfo, hasher, storage)
@@ -78,6 +89,7 @@ public class Session(
     private var announceInterval = DEFAULT_ANNOUNCE_SECONDS
     private var uploadedBytes = 0L
     private var stopping = false
+    private val startedAt = timeSource.markNow()
 
     /** The only way to change a session from outside. */
     public suspend fun send(command: Command) {
@@ -92,7 +104,26 @@ public class Session(
      */
     public fun start(scope: CoroutineScope): Job {
         val sessionJob = SupervisorJob(scope.coroutineContext[Job])
-        val sessionScope = CoroutineScope(scope.coroutineContext + sessionJob)
+        // **One thread for the session's own state, and this is not an optimisation.**
+        //
+        // The peer table, the picker and every `PeerLink` are ordinary mutable structures with no
+        // locks, touched by the timer, the tracker loop, the writer's outcomes and one coroutine
+        // per peer. The engine's dispatcher is a virtual-thread-per-task executor, which runs all
+        // of those on as many carriers as the machine has — so "ordinary mutable structure" meant
+        // "data race". Against a real swarm it surfaced as a `NullPointerException` reading a
+        // `LinkedHashMap` another thread was writing; the single-threaded test dispatcher had
+        // hidden it completely.
+        //
+        // `limitedParallelism(1)` makes the session one logical actor again, and costs nothing:
+        // its work is bookkeeping, and everything expensive — sockets, hashing, the disk — already
+        // runs elsewhere. Nothing that blocks may run here; see [blocking].
+        val current = scope.coroutineContext[ContinuationInterceptor] as? CoroutineDispatcher
+        val confined = current?.limitedParallelism(1)
+        val sessionScope =
+            CoroutineScope(
+                scope.coroutineContext + sessionJob +
+                    (confined ?: kotlin.coroutines.EmptyCoroutineContext),
+            )
 
         sessionScope.launchGuarded("writer") { writer.run() }
         sessionScope.launchGuarded("outcomes") { consumeOutcomes(sessionScope) }
@@ -198,7 +229,14 @@ public class Session(
     ) {
         val connection =
             try {
-                dialer.connect(address)
+                // Off the confined dispatcher: a dial blocks for up to the connect timeout, and
+                // under confinement that would stop every other peer, the timer and the tracker
+                // along with it.
+                if (blocking != null) {
+                    kotlinx.coroutines.withContext(blocking) { dialer.connect(address) }
+                } else {
+                    dialer.connect(address)
+                }
             } catch (cancelled: kotlinx.coroutines.CancellationException) {
                 // A blanket `catch (Exception)` around a suspending call swallows cancellation as
                 // well, and a peer that cannot be cancelled outlives the session it belongs to.
@@ -218,7 +256,7 @@ public class Session(
         publish { it.copy(connectedPeers = connected.size) }
         try {
             if (picker.completed.cardinality > 0) {
-                connection.send(Message.Bitfield(picker.completed.toBytes()))
+                link.send(Message.Bitfield(picker.completed.toBytes()))
             }
             for (event in connection.events) {
                 handle(link, event) ?: break
@@ -255,9 +293,7 @@ public class Session(
                 link.outstanding--
                 val block = event.block
                 picker.blockReceived(address, block.piece, block.begin).forEach { other ->
-                    connected[other]?.connection?.send(
-                        Message.Cancel(block.piece, block.begin, block.length),
-                    )
+                    connected[other]?.send(Message.Cancel(block.piece, block.begin, block.length))
                 }
                 writer.blocks.send(block)
                 requestMore(link)
@@ -298,7 +334,7 @@ public class Session(
         val interesting = picker.isInteresting(link.connection.address)
         if (interesting == link.interested) return
         link.interested = interesting
-        link.connection.send(if (interesting) Message.Interested else Message.NotInterested)
+        link.send(if (interesting) Message.Interested else Message.NotInterested)
         if (interesting) requestMore(link)
     }
 
@@ -306,8 +342,8 @@ public class Session(
         if (link.choked || !link.interested || stopping) return
         val room = config.pipelineDepth - link.outstanding
         if (room <= 0) return
-        picker.next(link.connection.address, room).forEach { request ->
-            link.connection.send(Message.Request(request.piece, request.begin, request.length))
+        picker.next(link.connection.address, room, elapsedMillis()).forEach { request ->
+            if (!link.send(Message.Request(request.piece, request.begin, request.length))) return
             link.outstanding++
         }
     }
@@ -326,7 +362,7 @@ public class Session(
                             isComplete = picker.isComplete,
                         )
                     }
-                    connected.snapshot().forEach { it.connection.send(Message.Have(outcome.piece)) }
+                    connected.snapshot().forEach { it.send(Message.Have(outcome.piece)) }
                     if (picker.isComplete) scope.launch { announce(AnnounceEvent.COMPLETED) }
                 }
 
@@ -353,14 +389,95 @@ public class Session(
             sinceFlush += config.tick
             if (sinceKeepAlive >= config.keepAliveInterval) {
                 sinceKeepAlive = kotlin.time.Duration.ZERO
-                connected.snapshot().forEach { it.connection.send(Message.KeepAlive) }
+                tick("keep-alives") { connected.snapshot().forEach { it.send(Message.KeepAlive) } }
             }
             if (sinceFlush >= config.flushInterval) {
                 sinceFlush = kotlin.time.Duration.ZERO
-                storage.flush()
+                tick("flush") { storage.flush() }
             }
+            tick("expiry") { expireRequests() }
+            publishPeerCounts()
         }
     }
+
+    /**
+     * Runs one of the timer's jobs so that its failure does not end the others.
+     *
+     * The timer is the session's only periodic anything: keep-alives, `force()`, and taking back
+     * requests nobody answered. A single throw used to end the loop, after which a download simply
+     * stopped — no error a user could see, because the failure went to `sessionError` and nothing
+     * printed it. One job failing is a problem; all three stopping is a dead client.
+     */
+    private suspend fun tick(
+        what: String,
+        job: suspend () -> Unit,
+    ) {
+        try {
+            job()
+        } catch (cancelled: kotlinx.coroutines.CancellationException) {
+            throw cancelled
+        } catch (failure: Exception) {
+            publish { it.copy(sessionError = "$what: ${failure.message ?: failure::class.simpleName}") }
+        }
+    }
+
+    /**
+     * Sends, and reports whether the peer was still there.
+     *
+     * A peer that went away has a closed outgoing queue, and sending to one throws. Every loop
+     * that writes to *all* peers — the timer's keep-alives, the `have` broadcast, the re-request
+     * after an expiry — would otherwise die on the first departed peer and take the whole periodic
+     * half of the session with it. That is not hypothetical: it is what stopped the Debian
+     * download dead at 123 pieces with five peers unchoked and sixteen requests outstanding for
+     * ever (B-19).
+     *
+     * The reason is published rather than dropped. It is usually "the peer left", which the
+     * connection also reports as a `Closed` event — but "usually" is not "always", and a send that
+     * fails for another reason should not be the one failure nobody can see.
+     */
+    private suspend fun PeerLink.send(message: Message): Boolean =
+        try {
+            connection.send(message)
+            true
+        } catch (cancelled: kotlinx.coroutines.CancellationException) {
+            throw cancelled
+        } catch (gone: Exception) {
+            publish {
+                it.copy(lastPeerError = "${connection.address}: ${gone.message ?: gone::class.simpleName}")
+            }
+            false
+        }
+
+    /** Recomputed rather than tracked: two counters that must agree with the peer table. */
+    private fun publishPeerCounts() {
+        val links = connected.values
+        publish {
+            it.copy(
+                connectedPeers = links.size,
+                unchokedPeers = links.count { link -> !link.choked },
+                outstandingRequests = links.sumOf { link -> link.outstanding },
+            )
+        }
+    }
+
+    /**
+     * Takes back the blocks nobody answered for.
+     *
+     * The one timer's third job, after keep-alives and `force()`. Each freed block is a request
+     * this client is still owed and will now ask somebody else for; the peer keeps its connection,
+     * because a peer that is slow now may be fast in a minute, but it loses the claim.
+     */
+    private suspend fun expireRequests() {
+        val expired = picker.expireRequests(elapsedMillis() - config.requestTimeout.inWholeMilliseconds)
+        if (expired.isEmpty()) return
+        expired.forEach { request ->
+            connected[request.peer]?.let { link -> link.outstanding = (link.outstanding - 1).coerceAtLeast(0) }
+        }
+        connected.snapshot().forEach { requestMore(it) }
+    }
+
+    /** Milliseconds since this session started; the picker's only notion of time. */
+    private fun elapsedMillis(): Long = startedAt.elapsedNow().inWholeMilliseconds
 
     /**
      * A copy of the peer table to iterate over.
@@ -422,6 +539,8 @@ private fun SessionState.copy(
     uploaded: Long = this.uploaded,
     left: Long = this.left,
     connectedPeers: Int = this.connectedPeers,
+    unchokedPeers: Int = this.unchokedPeers,
+    outstandingRequests: Int = this.outstandingRequests,
     knownPeers: Int = this.knownPeers,
     hashFailures: Int = this.hashFailures,
     trackerError: String? = this.trackerError,
@@ -439,6 +558,8 @@ private fun SessionState.copy(
         uploaded = uploaded,
         left = left,
         connectedPeers = connectedPeers,
+        unchokedPeers = unchokedPeers,
+        outstandingRequests = outstandingRequests,
         knownPeers = knownPeers,
         hashFailures = hashFailures,
         trackerError = trackerError,

@@ -44,6 +44,10 @@
   test into `fun x() = runBlocking { … }`; if the last expression returns a value the method is
   non-void and JUnit ignores it. Write `fun x(): Unit = runBlocking { … }`. The `sborka.test` guard
   catches it — "declares 5 @Test and JUnit ran 1" — which is the only reason it was noticed.
+- **A single-threaded test dispatcher hides every data race.** The engine runs on a
+  virtual-thread-per-task executor, which is as parallel as the machine. State that looks confined
+  in `runTest` is shared in production; the session buys confinement back with
+  `limitedParallelism(1)` and nothing that blocks may run under it.
 - **Iterating a collection across a suspension point races.** `map.values.forEach { suspendingSend(it) }`
   lets another coroutine mutate the map at the suspension. Iterate `values.toList()`.
 - **`catch (Exception)` around a suspending call swallows `CancellationException`.** Rethrow it

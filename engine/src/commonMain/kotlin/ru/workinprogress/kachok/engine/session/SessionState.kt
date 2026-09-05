@@ -24,6 +24,15 @@ public class SessionState(
     /** Bytes still wanted. BEP 3 is explicit that this is not `total - downloaded` after a resume. */
     public val left: Long = totalLength,
     public val connectedPeers: Int = 0,
+    /**
+     * Connected peers that are not choking us — the ones that can actually serve a block.
+     *
+     * Separate from [connectedPeers] because the difference is the commonest reason a download
+     * makes no progress, and "50 peers" with no second number tells a user nothing about it.
+     */
+    public val unchokedPeers: Int = 0,
+    /** Requests sent and not yet answered. Zero while peers are connected means a stall. */
+    public val outstandingRequests: Int = 0,
     public val knownPeers: Int = 0,
     public val hashFailures: Int = 0,
     /** The last tracker complaint, in the tracker's own words, or null. */
@@ -80,4 +89,13 @@ public class SessionConfig(
     public val flushInterval: Duration = 30.seconds,
     /** Wait before dialling a peer that just failed. */
     public val reconnectDelay: Duration = 30.seconds,
+    /**
+     * How long a request may go unanswered before the block is offered to somebody else.
+     *
+     * Not an optimisation. A peer that takes a request and answers nothing holds that block for
+     * ever, and a download whose every started piece is held that way stops dead — measured
+     * against a real swarm in B-19. Longer than a slow peer's round trip, shorter than a user's
+     * patience.
+     */
+    public val requestTimeout: Duration = 30.seconds,
 )
