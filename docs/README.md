@@ -32,10 +32,11 @@ one file each in [`backlog/`](backlog/), cited as
 
 > **`main` describes what exists. An open pull request describes what will be.**
 
-A feature document for behaviour that is not built is `status: draft` and lives in an open branch.
-On `main`, the research says why the engine is designed as it is, the service documents describe
-the modules that exist, and the backlog says what comes next. Nothing on `main` claims the client
-downloads anything until it does.
+A feature document for behaviour that is not built is `status: draft` and lives in an open branch;
+`feat/phase-1-feature-docs` holds the four that describe work still to come. A document arrives
+here when its behaviour does, carrying an `**Automated:**` line under every scenario a test now
+covers, and a scenario whose code is genuinely later is labelled *target* beside the backlog item
+that will build it. Nothing on `main` claims the client downloads anything until it does.
 
 > **What was verified is separated from what was assumed, explicitly.**
 
@@ -82,6 +83,11 @@ person — the machine only guards the membership.
 ### Research (1)
 
 - [x] [research-architecture](research/research-architecture.md) — what JDK 25 actually ships, the AOT cache measured, the protocol from the BEPs, twelve decisions and where they depart from the brief
+
+### Features (1)
+
+Getting a torrent in:
+- [x] [feature-metainfo](features/feature-metainfo.md) — bencode, `.torrent` and magnet parsing, the info hash over the original bytes; one scenario still target, in M8
 
 ### Services (2/2)
 
