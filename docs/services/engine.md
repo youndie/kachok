@@ -71,13 +71,15 @@ What exists on `main` today:
 | `.../engine/picker/Bitfield.kt` | which pieces something has, as a `LongArray` in BEP 3's bit order |
 | `.../engine/picker/PiecePicker.kt` | rarest-first with strict priority, the started-piece bound, endgame |
 | `.../engine/choke/Choker.kt`, `RateMeter.kt` | BEP 3's ten-second pass and optimistic unchoke, over a rolling rate window |
+| `.../engine/resume/ResumeRecord.kt` | what survives a restart, bencoded, and the store interface |
+| `.../engine/resume/FileResumeStore.kt` (jvmMain) | a temporary sibling and an `ATOMIC_MOVE` |
 | `.../engine/tracker/Tracker.kt`, `TrackerProtocol.kt` | the announce model, the query string and the response parsing — both peer encodings |
 | `.../engine/tracker/HttpTrackerClient.kt` (jvmMain) | the GET, blocking on a virtual thread |
 | `.../engine/session/SessionState.kt` | the state a UI reads, the commands it sends, and every knob with what it trades |
 | `.../engine/session/Session.kt` | the orchestrator: peers, tracker loop, writer, one timer, all under one `SupervisorJob` |
 | `.../engine/hash/MessageDigestPieceHasher.kt` (jvmMain) | SHA-1 on a bounded dispatcher, with a pool of digests and the `JvmBlock` seam |
 | `.../engine/storage/FileSet.kt` (jvmMain) | the torrent's files, created sparse with `setLength` and kept open for positional writes |
-| `engine/src/commonTest/kotlin/ru/workinprogress/kachok/engine/` | 149 tests across every package; the session's nine run entirely on fakes; the fixtures are embedded strings, because a KMP test source set has no resources |
+| `engine/src/commonTest/kotlin/ru/workinprogress/kachok/engine/` | 161 tests across every package; the session's nine run entirely on fakes; the fixtures are embedded strings, because a KMP test source set has no resources |
 
 The layout the backlog builds toward, under `engine/src/commonMain/kotlin/ru/workinprogress/kachok/engine/`
 (a directory appears when its first backlog item lands; none of these exist yet):
@@ -85,7 +87,7 @@ The layout the backlog builds toward, under `engine/src/commonMain/kotlin/ru/wor
 | Directory | What goes there | Backlog |
 |---|---|---|
 | `peer/` | one peer's state machine on top of the connection: choke/interest flags, pipeline, rates | [B-17](../backlog/B-17-session-orchestrator.md) |
-| `resume/` | the resume record and its atomic persistence | [B-23](../backlog/B-23-atomic-resume-file.md) |
+| `resume/` | reading a record back: seeding the picker and re-hashing the rest | [B-24](../backlog/B-24-startup-verification-of-existing-data.md) |
 
 and under `engine/src/jvmMain/kotlin/ru/workinprogress/kachok/engine/`:
 

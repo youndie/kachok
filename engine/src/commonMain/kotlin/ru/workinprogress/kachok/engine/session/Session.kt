@@ -21,6 +21,8 @@ import ru.workinprogress.kachok.engine.peer.PeerConnection
 import ru.workinprogress.kachok.engine.peer.PeerDialer
 import ru.workinprogress.kachok.engine.peer.PeerEvent
 import ru.workinprogress.kachok.engine.picker.PiecePicker
+import ru.workinprogress.kachok.engine.resume.ResumeRecord
+import ru.workinprogress.kachok.engine.resume.ResumeStore
 import ru.workinprogress.kachok.engine.storage.BlockWriter
 import ru.workinprogress.kachok.engine.storage.PieceHasher
 import ru.workinprogress.kachok.engine.storage.PieceOutcome
@@ -58,6 +60,13 @@ public class Session(
     private val trackerClient: TrackerClient,
     hasher: PieceHasher,
     private val storage: Storage,
+    /**
+     * Where progress is recorded, or null for a session that keeps none.
+     *
+     * Optional because a client that refuses to download when it cannot save its progress is
+     * worse than one that re-hashes on the next start.
+     */
+    private val resume: ResumeStore? = null,
     private val config: SessionConfig = SessionConfig(),
     private val timeSource: TimeSource = TimeSource.Monotonic,
     /**
@@ -181,6 +190,29 @@ public class Session(
         connected.clear()
         writer.blocks.close()
         storage.flush()
+        // Last, and the order is the whole of it: the record vouches for pieces that are hashed
+        // *and* on the disk, so it is written after the flush and never before.
+        saveResume()
+    }
+
+    /**
+     * Records what is verified, never what is merely written.
+     *
+     * `force()` runs on a timer, so a crash can lose what the page cache still held; a record that
+     * vouched for a written piece would send this client back to a swarm claiming a piece it does
+     * not have. Under-claiming costs a re-hash and nothing else.
+     */
+    private suspend fun saveResume() {
+        val store = resume ?: return
+        val snapshot = mutableState.value
+        store.save(
+            ResumeRecord(
+                infoHash = metainfo.infoHash,
+                verified = picker.completed,
+                uploaded = snapshot.uploaded,
+                downloaded = snapshot.downloaded,
+            ),
+        )
     }
 
     private suspend fun announceLoop(scope: CoroutineScope) {
@@ -491,6 +523,7 @@ public class Session(
         var sinceKeepAlive = kotlin.time.Duration.ZERO
         var sinceFlush = kotlin.time.Duration.ZERO
         var sinceChoke = kotlin.time.Duration.ZERO
+        var sinceResume = kotlin.time.Duration.ZERO
         var sinceOptimistic = config.optimisticInterval
         while (!stopping) {
             delay(config.tick)
@@ -505,6 +538,11 @@ public class Session(
                 tick("flush") { storage.flush() }
             }
             tick("expiry") { expireRequests() }
+            sinceResume += config.tick
+            if (sinceResume >= config.resumeInterval) {
+                sinceResume = kotlin.time.Duration.ZERO
+                tick("resume") { saveResume() }
+            }
             sinceChoke += config.tick
             if (sinceChoke >= config.chokeInterval) {
                 sinceChoke = kotlin.time.Duration.ZERO

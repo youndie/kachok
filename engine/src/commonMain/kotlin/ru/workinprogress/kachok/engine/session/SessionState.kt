@@ -103,6 +103,11 @@ public class SessionConfig(
     public val tick: Duration = 1.seconds,
     /** `force()` runs on this schedule rather than per piece (research D4). */
     public val flushInterval: Duration = 30.seconds,
+    /**
+     * How often progress is recorded. Rarely, because the cost of losing the last N seconds of it
+     * is a re-hash of those pieces and nothing worse.
+     */
+    public val resumeInterval: Duration = 60.seconds,
     /** Wait before dialling a peer that just failed. */
     public val reconnectDelay: Duration = 30.seconds,
     /**

@@ -16,6 +16,7 @@ import ru.workinprogress.kachok.engine.io.SocketPeerConnection
 import ru.workinprogress.kachok.engine.io.SocketPeerDialer
 import ru.workinprogress.kachok.engine.metainfo.Metainfo
 import ru.workinprogress.kachok.engine.metainfo.MetainfoParser
+import ru.workinprogress.kachok.engine.resume.FileResumeStore
 import ru.workinprogress.kachok.engine.session.Command
 import ru.workinprogress.kachok.engine.session.Session
 import ru.workinprogress.kachok.engine.session.SessionConfig
@@ -101,6 +102,14 @@ class Download(
                 trackerClient = HttpTrackerClient(dispatchers.io),
                 hasher = MessageDigestPieceHasher(dispatchers.io),
                 storage = FileStorage(PieceLayout(metainfo), files),
+                resume =
+                    FileResumeStore(
+                        path = options.directory.resolve("${metainfo.name}.resume"),
+                        infoHash = metainfo.infoHash,
+                        pieceCount = metainfo.pieceCount,
+                        dispatcher = dispatchers.io,
+                        onFailure = { err.appendLine("kachok: $it") },
+                    ),
                 blocking = dispatchers.io,
                 config =
                     SessionConfig(

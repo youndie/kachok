@@ -402,6 +402,73 @@ class SessionTest {
             assertTrue(job.isCancelled || job.isCompleted)
         }
 
+    private class FakeResumeStore : ru.workinprogress.kachok.engine.resume.ResumeStore {
+        val saved = mutableListOf<ru.workinprogress.kachok.engine.resume.ResumeRecord>()
+
+        override suspend fun load(): ru.workinprogress.kachok.engine.resume.ResumeRecord? = null
+
+        override suspend fun save(record: ru.workinprogress.kachok.engine.resume.ResumeRecord) {
+            saved += record
+        }
+    }
+
+    @Test
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    fun progressIsRecordedOnTheIntervalAndAfterTheFinalFlush() =
+        runTest {
+            val metainfo = torrent(pieces = 4)
+            val dialer = FakeDialer(metainfo.infoHash)
+            val storage = FakeStorage()
+            val store = FakeResumeStore()
+            val session =
+                Session(
+                    metainfo = metainfo,
+                    peerId = ourPeerId,
+                    listenPort = 6881,
+                    dialer = dialer,
+                    trackerClient = FakeTracker(listOf(peerA)),
+                    hasher = AgreeableHasher(metainfo),
+                    storage = storage,
+                    resume = store,
+                    config =
+                        SessionConfig(
+                            maxStartedPieces = 4,
+                            pipelineDepth = 2,
+                            maxPeers = 10,
+                            tick = 1.seconds,
+                            flushInterval = 5.seconds,
+                            resumeInterval = 5.seconds,
+                        ),
+                ).also { sessions += it }
+
+            val job = session.start(kotlinx.coroutines.CoroutineScope(coroutineContext + handler))
+            testScheduler.runCurrent()
+            val connection = dialer.connections.getValue(peerA)
+            connection.incoming.send(PeerEvent.BlockReceived(FakeBlock(PieceIndex(2), 0, PeerWire.BLOCK_SIZE)))
+            testScheduler.runCurrent()
+
+            testScheduler.advanceTimeBy(5_500)
+            testScheduler.runCurrent()
+            assertEquals(1, store.saved.size, "one record, on the interval")
+            assertTrue(store.saved.last().verified[2], "the piece that was verified is in the record")
+            assertEquals(
+                1,
+                store.saved
+                    .last()
+                    .verified.cardinality,
+                "and nothing else is",
+            )
+
+            session.send(Command.Stop)
+            testScheduler.runCurrent()
+            assertEquals(2, store.saved.size, "and one more at the end")
+            assertTrue(
+                storage.flushes >= 1,
+                "the record must be written after the flush, never before: it vouches for what is on the disk",
+            )
+            assertTrue(job.isCancelled || job.isCompleted)
+        }
+
     @Test
     fun stoppingTellsTheTrackerAndClosesEveryPeer() =
         runTest {
