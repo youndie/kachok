@@ -46,11 +46,10 @@ which is also the order of work.
 
 <!-- BEGIN INDEX -->
 
-## Open (29)
+## Open (28)
 
 | Task | | Priority | Size | Blocked by |
 |---|---|---|---|---|
-| [B-17](docs/backlog/B-17-session-orchestrator.md) `[ ]` | Session: the StateFlow, the command channel and the one timer | P0 | L | B-07, B-11, B-15, B-16 |
 | [B-18](docs/backlog/B-18-cli-download-command.md) `[ ]` | kachok download <file.torrent> [--dir …]: progress on stderr, exit 0 on completion | P0 | M | B-17 |
 | [B-19](docs/backlog/B-19-end-to-end-download-acceptance.md) `[ ]` | Download a real public torrent end to end, and record the numbers | P0 | S | B-18 |
 | [B-09](docs/backlog/B-09-incoming-connections.md) `[ ]` | Accept incoming peers on the BEP 3 port range | P1 | S | B-07 |
@@ -80,7 +79,7 @@ which is also the order of work.
 | [B-41](docs/backlog/B-41-android-and-ios-targets.md) `[ ]` | Phase 3: Android and iOS targets on the engine | P3 | XL | B-39 |
 | [B-02](docs/backlog/B-02-ci-runs-build-and-docs-gates.md) `[ ]` | CI runs the build and the documentation gates on every push | infra | S | B-01 |
 
-## Closed (13)
+## Closed (14)
 
 **M0 — The build and its gates**
 
@@ -109,6 +108,7 @@ which is also the order of work.
 
 - [B-15](docs/backlog/B-15-http-tracker-announce.md) `[x]` - HTTP tracker announce with compact peers
 - [B-16](docs/backlog/B-16-piece-picker.md) `[x]` - Rarest-first piece picker with strict priority and endgame
+- [B-17](docs/backlog/B-17-session-orchestrator.md) `[x]` - Session: the StateFlow, the command channel and the one timer
 
 <!-- END INDEX -->
 

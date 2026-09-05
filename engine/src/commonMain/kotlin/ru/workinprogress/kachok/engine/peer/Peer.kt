@@ -1,5 +1,6 @@
 package ru.workinprogress.kachok.engine.peer
 
+import kotlinx.coroutines.channels.ReceiveChannel
 import ru.workinprogress.kachok.engine.PieceIndex
 import ru.workinprogress.kachok.engine.wire.Handshake
 import ru.workinprogress.kachok.engine.wire.Message
@@ -75,8 +76,22 @@ public interface PeerConnection {
     /** What the peer said in its handshake, including which extensions it speaks. */
     public val handshake: Handshake
 
+    /** Everything the peer says, in order. The receiver owns — and must release — every block. */
+    public val events: ReceiveChannel<PeerEvent>
+
     /** Queues a message. Suspends only if the peer is far enough behind to fill the queue. */
     public suspend fun send(message: Message)
 
     public fun close()
+}
+
+/**
+ * Dials a peer, or fails.
+ *
+ * The session never constructs a connection itself: on the JVM that means a `SocketChannel` and a
+ * handshake, in a test it means a scripted event channel, and the session cannot tell the
+ * difference — which is what makes every rule in it testable without a network.
+ */
+public interface PeerDialer {
+    public suspend fun connect(address: PeerAddress): PeerConnection
 }

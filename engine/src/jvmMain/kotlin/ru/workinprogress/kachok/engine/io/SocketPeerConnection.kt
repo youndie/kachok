@@ -64,8 +64,7 @@ public class SocketPeerConnection private constructor(
     private lateinit var reader: Job
     private lateinit var writer: Job
 
-    /** Everything the peer said, in order. The receiver owns — and must release — every block. */
-    public val events: ReceiveChannel<PeerEvent> get() = incoming
+    override val events: ReceiveChannel<PeerEvent> get() = incoming
 
     override suspend fun send(message: Message) {
         outgoing.send(message)
@@ -103,11 +102,19 @@ public class SocketPeerConnection private constructor(
                 readFrame(length, scratch)
             }
             incoming.send(PeerEvent.Closed(null))
+        } catch (cancelled: kotlinx.coroutines.CancellationException) {
+            throw cancelled
         } catch (failure: Throwable) {
-            // trySend rather than send: the session may already have stopped listening, and a
-            // second failure while reporting the first one helps nobody.
+            // Reported, not rethrown. A connection ending — because the peer hung up, because the
+            // frame was malformed, or because *we* closed the socket — is news for the session,
+            // which is what the event is for. Rethrowing sends it to whatever the platform does
+            // with an uncaught coroutine exception instead, and the commonest cause is our own
+            // `close()`: the blocking read then fails with `AsynchronousCloseException`, which is
+            // the shutdown working rather than anything going wrong.
+            //
+            // trySend because the session may already have stopped listening, and a second failure
+            // while reporting the first one helps nobody.
             incoming.trySend(PeerEvent.Closed(failure))
-            throw failure
         } finally {
             incoming.close()
             socket.closeQuietly()
@@ -179,6 +186,11 @@ public class SocketPeerConnection private constructor(
                 val bytes = ByteBuffer.wrap(PeerWire.encode(message))
                 while (bytes.hasRemaining()) socket.write(bytes)
             }
+        } catch (cancelled: kotlinx.coroutines.CancellationException) {
+            throw cancelled
+        } catch (closed: IOException) {
+            // The socket went away under us; the reader reports the connection's end, and two
+            // reports of one event are one too many.
         } finally {
             try {
                 socket.shutdownOutput()

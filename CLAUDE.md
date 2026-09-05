@@ -38,12 +38,19 @@
   element.
 - Language: English in code, comments and documents.
 
-## Two traps this repository has already fallen into
+## Traps this repository has already fallen into
 
 - **A `@Test` with an expression body can be silently skipped.** ktlint rewrites a single-statement
   test into `fun x() = runBlocking { … }`; if the last expression returns a value the method is
   non-void and JUnit ignores it. Write `fun x(): Unit = runBlocking { … }`. The `sborka.test` guard
   catches it — "declares 5 @Test and JUnit ran 1" — which is the only reason it was noticed.
+- **Iterating a collection across a suspension point races.** `map.values.forEach { suspendingSend(it) }`
+  lets another coroutine mutate the map at the suspension. Iterate `values.toList()`.
+- **`catch (Exception)` around a suspending call swallows `CancellationException`.** Rethrow it
+  first, always, or the coroutine cannot be cancelled.
+- **Never write bencode fixtures by hand.** Three of them have had wrong length prefixes. Build
+  them with `Bencode.encode`, or generate them with an independent encoder when the parser itself
+  is under test.
 - **A test that acquires from a pool and then filters is a leak.** `blocksOf(…).take(2)` acquires
   four buffers and uses two. Ask for what you need.
 

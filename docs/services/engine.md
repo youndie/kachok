@@ -70,9 +70,11 @@ What exists on `main` today:
 | `.../engine/picker/PiecePicker.kt` | rarest-first with strict priority, the started-piece bound, endgame |
 | `.../engine/tracker/Tracker.kt`, `TrackerProtocol.kt` | the announce model, the query string and the response parsing — both peer encodings |
 | `.../engine/tracker/HttpTrackerClient.kt` (jvmMain) | the GET, blocking on a virtual thread |
+| `.../engine/session/SessionState.kt` | the state a UI reads, the commands it sends, and every knob with what it trades |
+| `.../engine/session/Session.kt` | the orchestrator: peers, tracker loop, writer, one timer, all under one `SupervisorJob` |
 | `.../engine/hash/MessageDigestPieceHasher.kt` (jvmMain) | SHA-1 on a bounded dispatcher, with a pool of digests and the `JvmBlock` seam |
 | `.../engine/storage/FileSet.kt` (jvmMain) | the torrent's files, created sparse with `setLength` and kept open for positional writes |
-| `engine/src/commonTest/kotlin/ru/workinprogress/kachok/engine/` | 107 tests across `bencode`, `metainfo`, `wire`, `io`, `storage`, `hash`, `tracker` and `picker`; the fixtures are embedded strings, because a KMP test source set has no resources |
+| `engine/src/commonTest/kotlin/ru/workinprogress/kachok/engine/` | 116 tests across every package; the session's nine run entirely on fakes; the fixtures are embedded strings, because a KMP test source set has no resources |
 
 The layout the backlog builds toward, under `engine/src/commonMain/kotlin/ru/workinprogress/kachok/engine/`
 (a directory appears when its first backlog item lands; none of these exist yet):
@@ -81,7 +83,6 @@ The layout the backlog builds toward, under `engine/src/commonMain/kotlin/ru/wor
 |---|---|---|
 | `peer/` | one peer's state machine on top of the connection: choke/interest flags, pipeline, rates | [B-17](../backlog/B-17-session-orchestrator.md) |
 | `choke/` | the ten-second choker and the optimistic unchoke | [B-21](../backlog/B-21-choking-algorithm.md) |
-| `session/` | `Session`, the `StateFlow`, the command channel, the one timer | [B-17](../backlog/B-17-session-orchestrator.md) |
 | `resume/` | the resume record and its atomic persistence | [B-23](../backlog/B-23-atomic-resume-file.md) |
 
 and under `engine/src/jvmMain/kotlin/ru/workinprogress/kachok/engine/`:
@@ -161,6 +162,16 @@ them. Nothing is read from the environment by this module; that is [cli](cli.md)
 * **`-Xno-param-assertions` and `-Xno-call-assertions` are release-only.** They are added when the
   build runs with `-Pkachok.release`; a plain `./gradlew build` keeps the null checks. Both builds
   are green on 2026-09-05.
+* **A collection iterated across a suspension point is racy, single-threaded or not.** Coroutines
+  interleave at suspension points exactly as threads interleave anywhere, so every loop that sends
+  to each peer iterates a snapshot. The symptom otherwise is an intermittent
+  `ConcurrentModificationException` from code that looks sequential.
+* **A connection ending is an event, never a thrown exception.** `SocketPeerConnection` reports
+  `PeerEvent.Closed` and does not rethrow: under a `SupervisorJob` a throw goes to the platform's
+  uncaught-exception path, and the commonest cause is our own `close()`.
+* **`catch (Exception)` around a suspending call swallows cancellation.** Every such catch in this
+  module rethrows `CancellationException` first; a peer that cannot be cancelled outlives its
+  session.
 * **A gathering write is aimed by moving the channel's position**, because the JDK has no
   `write(ByteBuffer[], long)`. Correct only while exactly one coroutine writes; a second writer
   would corrupt the file layout, not merely the thread budget.
