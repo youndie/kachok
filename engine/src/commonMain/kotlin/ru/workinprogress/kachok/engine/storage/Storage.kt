@@ -18,6 +18,16 @@ public interface Storage {
         blocks: List<Block>,
     )
 
+    /**
+     * Reads a whole piece back, in blocks, for hashing.
+     *
+     * Null when the data is not there to read — a file shorter than the piece, or a store that
+     * cannot read. The caller owns the blocks and must release them, exactly as it does for blocks
+     * that arrived from a peer: the same pool, the same discipline, so a verification pass costs
+     * no more memory than a download does.
+     */
+    public suspend fun readPiece(piece: PieceIndex): List<Block>?
+
     /** Asks the platform to make what has been written durable. Called on a timer, not per piece. */
     public suspend fun flush()
 }

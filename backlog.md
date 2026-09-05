@@ -46,11 +46,10 @@ which is also the order of work.
 
 <!-- BEGIN INDEX -->
 
-## Open (22)
+## Open (21)
 
 | Task | | Priority | Size | Blocked by |
 |---|---|---|---|---|
-| [B-24](docs/backlog/B-24-startup-verification-of-existing-data.md) `[ ]` | Re-hash what the resume file does not vouch for | P1 | M | B-23, B-13 |
 | [B-25](docs/backlog/B-25-graceful-shutdown.md) `[ ]` | SIGINT: stop announces, close peers, flush, write resume, exit | P1 | S | B-17 |
 | [B-26](docs/backlog/B-26-jfr-baseline-of-the-hot-path.md) `[ ]` | A JFR baseline: allocations on the hot path, pinned threads, carrier count | P1 | M | B-19 |
 | [B-27](docs/backlog/B-27-measure-heap-and-collector.md) `[ ]` | Measure the heap the engine needs, with G1 and with ZGC | P1 | S/M | B-26 |
@@ -73,7 +72,7 @@ which is also the order of work.
 | [B-41](docs/backlog/B-41-android-and-ios-targets.md) `[ ]` | Phase 3: Android and iOS targets on the engine | P3 | XL | B-39 |
 | [B-02](docs/backlog/B-02-ci-runs-build-and-docs-gates.md) `[ ]` | CI runs the build and the documentation gates on every push | infra | S | B-01 |
 
-## Closed (21)
+## Closed (22)
 
 **M0 — The build and its gates**
 
@@ -116,6 +115,7 @@ which is also the order of work.
 **M6 — Resume**
 
 - [B-23](docs/backlog/B-23-atomic-resume-file.md) `[x]` - A resume record written atomically and rarely
+- [B-24](docs/backlog/B-24-startup-verification-of-existing-data.md) `[x]` - Re-hash what the resume file does not vouch for
 
 <!-- END INDEX -->
 

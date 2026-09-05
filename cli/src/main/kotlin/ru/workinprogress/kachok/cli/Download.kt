@@ -79,6 +79,7 @@ class Download(
         sessionScope: CoroutineScope,
     ): Int {
         val pool = BufferPool(capacity = poolCapacity(metainfo))
+        val hasher = MessageDigestPieceHasher(dispatchers.io)
         // Bound before the session starts, because the port the tracker is told about must be the
         // one that was actually free — announcing a port nothing listens on is how a client comes
         // to believe it is reachable when it is not.
@@ -100,8 +101,8 @@ class Download(
                 listenPort = port,
                 dialer = SocketPeerDialer(sessionScope, metainfo.infoHash, identity, pool),
                 trackerClient = HttpTrackerClient(dispatchers.io),
-                hasher = MessageDigestPieceHasher(dispatchers.io),
-                storage = FileStorage(PieceLayout(metainfo), files),
+                hasher = hasher,
+                storage = FileStorage(PieceLayout(metainfo), files, pool),
                 resume =
                     FileResumeStore(
                         path = options.directory.resolve("${metainfo.name}.resume"),
@@ -120,6 +121,14 @@ class Download(
             )
 
         out.appendLine("${metainfo.name}: ${metainfo.totalLength} bytes in ${metainfo.pieceCount} pieces")
+        // Before a single peer is dialled: a client that announced itself and then found it already
+        // had half the torrent would have asked the swarm for it first.
+        session.restore(hasher)
+        session.state.value.let { state ->
+            if (state.completedPieces > 0) {
+                out.appendLine("resuming with ${state.completedPieces} of ${state.pieceCount} pieces")
+            }
+        }
         listener?.let { out.appendLine("listening on port ${it.port}") }
         session.start(sessionScope)
         listener?.start(sessionScope) { socket ->

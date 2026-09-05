@@ -35,6 +35,9 @@ public class SessionState(
     public val outstandingRequests: Int = 0,
     public val knownPeers: Int = 0,
     public val hashFailures: Int = 0,
+    /** Pieces checked so far by the start-up pass, and of how many. Equal when it is finished. */
+    public val verifiedPieces: Int = 0,
+    public val verifyingOf: Int = 0,
     /** The last tracker complaint, in the tracker's own words, or null. */
     public val trackerError: String? = null,
     /** Why the last dial failed. "No peers, no reason" is a state nobody can act on. */

@@ -69,6 +69,22 @@ public class FileSet private constructor(
         target: WritableByteChannel,
     ): Long = channels[file].transferTo(position, length.toLong(), target)
 
+    override fun readSpan(
+        file: Int,
+        position: Long,
+        buffer: ByteBuffer,
+    ): Int {
+        var at = position
+        var total = 0
+        while (buffer.hasRemaining()) {
+            val read = channels[file].read(buffer, at)
+            if (read < 0) return if (total == 0) -1 else total
+            at += read
+            total += read
+        }
+        return total
+    }
+
     override fun flushAll() {
         flush()
     }

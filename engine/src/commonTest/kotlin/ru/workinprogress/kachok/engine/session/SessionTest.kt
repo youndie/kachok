@@ -174,6 +174,12 @@ class SessionTest {
             written += piece
         }
 
+        /** Pieces this fake claims to hold, so a restore test can put data on the "disk". */
+        val present = mutableSetOf<Int>()
+
+        override suspend fun readPiece(piece: PieceIndex): List<Block>? =
+            if (piece.value in present) listOf(FakeBlock(piece, 0, PeerWire.BLOCK_SIZE)) else null
+
         override suspend fun flush() {
             flushes++
         }

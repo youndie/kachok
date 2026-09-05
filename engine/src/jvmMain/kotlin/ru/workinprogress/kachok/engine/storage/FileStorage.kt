@@ -2,7 +2,10 @@ package ru.workinprogress.kachok.engine.storage
 
 import ru.workinprogress.kachok.engine.PieceIndex
 import ru.workinprogress.kachok.engine.hash.JvmBlock
+import ru.workinprogress.kachok.engine.io.BufferPool
+import ru.workinprogress.kachok.engine.io.PooledBlock
 import ru.workinprogress.kachok.engine.peer.Block
+import ru.workinprogress.kachok.engine.wire.PeerWire
 import java.nio.ByteBuffer
 import java.nio.channels.WritableByteChannel
 
@@ -41,6 +44,18 @@ public interface SpanSink {
         target: WritableByteChannel,
     ): Long
 
+    /**
+     * Fills [buffer] to its limit from [position] in file [file].
+     *
+     * Returns the bytes read, or -1 when the file ends before the buffer is full — which is how a
+     * verification pass learns that a piece is not on the disk at all.
+     */
+    public fun readSpan(
+        file: Int,
+        position: Long,
+        buffer: ByteBuffer,
+    ): Int
+
     public fun flushAll()
 }
 
@@ -55,6 +70,13 @@ public interface SpanSink {
 public class FileStorage(
     private val layout: PieceLayout,
     private val sink: SpanSink,
+    /**
+     * Where a verification pass gets its buffers, or null for a storage that only writes.
+     *
+     * The same pool the download uses, so re-hashing a torrent at start-up costs the memory of a
+     * few blocks rather than the memory of a piece list.
+     */
+    private val pool: BufferPool? = null,
 ) : Storage {
     override suspend fun write(
         piece: PieceIndex,
@@ -93,6 +115,44 @@ public class FileStorage(
             }
             sink.writeSpan(span.file, span.position, parts.toTypedArray())
         }
+    }
+
+    override suspend fun readPiece(piece: PieceIndex): List<Block>? {
+        val buffers = pool ?: return null
+        val pieceLength = layout.metainfo.pieceLengthAt(piece)
+        val blocks = mutableListOf<PooledBlock>()
+        try {
+            var begin = 0
+            while (begin < pieceLength) {
+                val size = minOf(PeerWire.BLOCK_SIZE, pieceLength - begin)
+                val pooled = buffers.acquire()
+                blocks += PooledBlock(piece, begin, pooled)
+                pooled.buffer.clear().limit(size)
+                var filled = 0
+                layout.spans(piece, begin, size).forEach { span ->
+                    val slice = pooled.buffer.duplicate()
+                    slice.position(filled).limit(filled + span.length)
+                    if (sink.readSpan(span.file, span.position, slice) < span.length) {
+                        // Short read: the file is not as long as the torrent says, so this piece
+                        // is not on the disk. Not an error — it is the ordinary state of a piece
+                        // nobody has downloaded yet.
+                        return releaseAndFail(blocks)
+                    }
+                    filled += span.length
+                }
+                pooled.buffer.position(0).limit(size)
+                begin += size
+            }
+        } catch (failure: Throwable) {
+            releaseAndFail(blocks)
+            throw failure
+        }
+        return blocks
+    }
+
+    private fun releaseAndFail(blocks: List<PooledBlock>): List<Block>? {
+        blocks.forEach { it.release() }
+        return null
     }
 
     override suspend fun flush() {

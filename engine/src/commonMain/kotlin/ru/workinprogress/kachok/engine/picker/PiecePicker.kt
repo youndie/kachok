@@ -177,6 +177,20 @@ public class PiecePicker(
         started.values.forEach { it.forget(peer) }
     }
 
+    /**
+     * Seeds the picker with what a start-up check found on the disk.
+     *
+     * Only before anything else happens: a picker that has already handed out requests would be
+     * told it has pieces those requests are for.
+     */
+    public fun restore(verified: Bitfield) {
+        require(verified.size == metainfo.pieceCount) {
+            "a bitfield for ${verified.size} pieces cannot restore a torrent of ${metainfo.pieceCount}"
+        }
+        check(started.isEmpty() && have.cardinality == 0) { "the picker is already in use" }
+        (0 until metainfo.pieceCount).forEach { if (verified[it]) have.set(it) }
+    }
+
     /** The writer verified a piece. */
     public fun pieceVerified(piece: PieceIndex) {
         started.remove(piece.value)

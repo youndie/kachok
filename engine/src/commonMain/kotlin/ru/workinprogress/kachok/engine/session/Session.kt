@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import ru.workinprogress.kachok.engine.PeerId
+import ru.workinprogress.kachok.engine.PieceIndex
 import ru.workinprogress.kachok.engine.choke.Choker
 import ru.workinprogress.kachok.engine.choke.PeerRates
 import ru.workinprogress.kachok.engine.choke.RateMeter
@@ -23,6 +24,7 @@ import ru.workinprogress.kachok.engine.peer.PeerEvent
 import ru.workinprogress.kachok.engine.picker.PiecePicker
 import ru.workinprogress.kachok.engine.resume.ResumeRecord
 import ru.workinprogress.kachok.engine.resume.ResumeStore
+import ru.workinprogress.kachok.engine.resume.StartupVerifier
 import ru.workinprogress.kachok.engine.storage.BlockWriter
 import ru.workinprogress.kachok.engine.storage.PieceHasher
 import ru.workinprogress.kachok.engine.storage.PieceOutcome
@@ -108,6 +110,38 @@ public class Session(
     /** The only way to change a session from outside. */
     public suspend fun send(command: Command) {
         commands.send(command)
+    }
+
+    /**
+     * Reads the resume record and checks the disk, before any peer is dialled.
+     *
+     * Separate from [start] and suspending on purpose: a full check of a large torrent takes
+     * minutes, and it must finish before the picker can hand out a single request — a client that
+     * announced itself and then discovered it already had half the torrent would have asked the
+     * swarm for it first.
+     */
+    public suspend fun restore(hasher: PieceHasher) {
+        val record = resume?.load()
+        val verified =
+            StartupVerifier(metainfo, storage, hasher).verify(record) { checked, total ->
+                publish { it.copy(verifiedPieces = checked, verifyingOf = total) }
+            }
+        picker.restore(verified)
+        val bytes =
+            (0 until metainfo.pieceCount)
+                .filter { verified[it] }
+                .sumOf { metainfo.pieceLengthAt(PieceIndex(it)).toLong() }
+        publish {
+            it.copy(
+                completedPieces = verified.cardinality,
+                downloaded = bytes,
+                left = metainfo.totalLength - bytes,
+                uploaded = record?.uploaded ?: 0,
+                isComplete = verified.isComplete,
+                verifiedPieces = metainfo.pieceCount,
+                verifyingOf = metainfo.pieceCount,
+            )
+        }
     }
 
     /**
@@ -706,6 +740,8 @@ private fun SessionState.copy(
     outstandingRequests: Int = this.outstandingRequests,
     knownPeers: Int = this.knownPeers,
     hashFailures: Int = this.hashFailures,
+    verifiedPieces: Int = this.verifiedPieces,
+    verifyingOf: Int = this.verifyingOf,
     trackerError: String? = this.trackerError,
     lastPeerError: String? = this.lastPeerError,
     sessionError: String? = this.sessionError,
@@ -725,6 +761,8 @@ private fun SessionState.copy(
         outstandingRequests = outstandingRequests,
         knownPeers = knownPeers,
         hashFailures = hashFailures,
+        verifiedPieces = verifiedPieces,
+        verifyingOf = verifyingOf,
         trackerError = trackerError,
         lastPeerError = lastPeerError,
         sessionError = sessionError,

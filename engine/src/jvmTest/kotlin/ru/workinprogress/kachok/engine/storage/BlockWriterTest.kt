@@ -93,6 +93,18 @@ class BlockWriterTest {
         /** Reads served, so a test can count `transferTo` calls the way it counts writes. */
         val transfers = mutableListOf<Triple<Int, Long, Int>>()
 
+        override fun readSpan(
+            file: Int,
+            position: Long,
+            buffer: ByteBuffer,
+        ): Int {
+            val source = files[file] ?: return -1
+            val length = minOf(buffer.remaining(), source.size - position.toInt())
+            if (length <= 0) return -1
+            buffer.put(source, position.toInt(), length)
+            return length
+        }
+
         override fun flushAll() {
             flushes++
         }
