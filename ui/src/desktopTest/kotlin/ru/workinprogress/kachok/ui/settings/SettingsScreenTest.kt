@@ -39,9 +39,9 @@ class SettingsScreenTest {
             key.disabledBecause?.let { assertTrue(it.length > SHORT, "$key: $it") }
         }
         assertEquals(
-            listOf(SettingKey.ListeningPort, SettingKey.Dht),
+            listOf(SettingKey.ListeningPort),
             SettingKey.entries.filter { !it.editable },
-            "these two are built once, when the process starts",
+            "the port is bound once; everything else, the DHT included, can be changed here",
         )
     }
 
@@ -50,9 +50,9 @@ class SettingsScreenTest {
     fun aSettingThatCannotBeChangedSaysSoOnItsOwnRow() =
         runComposeUiTest {
             setContent { KachokTheme { SettingsScreen(settingsOf(preferences)) } }
-            // Two rows cannot be changed here, and both say so on themselves.
+            // One row cannot be changed here, and it says so on itself.
             assertEquals(
-                2,
+                1,
                 onAllNodesWithText("Not changeable here", substring = true).fetchSemanticsNodes().size,
             )
         }
@@ -66,6 +66,18 @@ class SettingsScreenTest {
             val toggled = changes.filterIsInstance<SettingChange.Toggled>().single()
             assertEquals(SettingKey.StartWhenAdded, toggled.key)
             assertEquals(false, toggled.on, "it is on, so a click asks for off")
+        }
+
+    /** Joining the DHT is a decision a person takes, and taking it opens the socket. */
+    @Test
+    fun theDhtCanBeJoinedFromHere() =
+        runComposeUiTest {
+            val changes = mutableListOf<SettingChange>()
+            setContent { KachokTheme { SettingsScreen(settingsOf(preferences)) { changes += it } } }
+            onNodeWithContentDescription("Join the DHT (BEP 5)").performClick()
+            val toggled = changes.filterIsInstance<SettingChange.Toggled>().single()
+            assertEquals(SettingKey.Dht, toggled.key)
+            assertEquals(true, toggled.on, "it is off, so a click asks for on")
         }
 
     @Test

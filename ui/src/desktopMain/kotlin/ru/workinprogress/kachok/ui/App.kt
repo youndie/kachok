@@ -57,6 +57,7 @@ import ru.workinprogress.kachok.ui.session.rowOf
 import ru.workinprogress.kachok.ui.session.settingsOf
 import ru.workinprogress.kachok.ui.session.windowOf
 import ru.workinprogress.kachok.ui.settings.SettingChange
+import ru.workinprogress.kachok.ui.settings.SettingKey
 import ru.workinprogress.kachok.ui.theme.KachokTheme
 import java.awt.FileDialog
 import java.awt.Frame
@@ -165,15 +166,22 @@ internal fun Client(
     stopping: Boolean = false,
     onStopped: () -> Unit = {},
 ) {
-    var window by remember { mutableStateOf<MainWindowState?>(null) }
+    // **What the engine says, sampled once a second — and nothing else.**
+    //
+    // Everything the *person* decides — which panel is open, which column sorts, which row is
+    // selected, what has been typed into settings — is read in composition, not folded into this.
+    // It used to be: the whole window state was rebuilt inside the sampling loop, so every click
+    // waited up to a second to appear and opening settings looked broken
+    // ([B-64](../../../../../../../docs/backlog/B-64-a-click-waited-for-the-tick.md)).
+    var engine by remember { mutableStateOf<EngineSnapshot?>(null) }
+
     var panelOpen by remember { mutableStateOf(true) }
     var tab by remember { mutableStateOf(DetailsTab.Overview) }
     var pending by remember { mutableStateOf<Pending?>(null) }
-    // The torrent that is selected, by info hash — not the row it is in. Sorting reorders the
-    // rows under the selection, and an index would leave the highlight on a different torrent
-    // than the one the person clicked.
+    // The torrent that is selected, by info hash — not the row it is in. Sorting reorders the rows
+    // under the selection, and an index would leave the highlight on a different torrent than the
+    // one the person clicked.
     var selected by remember { mutableStateOf<String?>(null) }
-    var order by remember { mutableStateOf<List<String>>(emptyList()) }
     var settingsOpen by remember { mutableStateOf(false) }
     // What the settings screen has been told. Held for the session and not written anywhere: there
     // is no settings file yet, and inventing one is a decision about where it lives.
@@ -182,23 +190,17 @@ internal fun Client(
     // Read through a state, not captured: the effect is launched once and these change later, so
     // a plain read inside it would be the value from before the click.
     val askedToStop by rememberUpdatedState(stopping)
-    val showPanel by rememberUpdatedState(panelOpen)
-    val shownTab by rememberUpdatedState(tab)
-    val shownAdd by rememberUpdatedState(pending?.shown)
-    val chosen by rememberUpdatedState(selected)
-    val showSettings by rememberUpdatedState(settingsOpen)
     val chosenPreferences by rememberUpdatedState(preferences)
-    val sortedBy by rememberUpdatedState(sort)
     // The dialog runs on the composition and the engine on its own dispatcher; a channel is the
     // seam, so a click never blocks a frame on a torrent being opened and hashed.
     val accepted = remember { Channel<Pending>(Channel.UNLIMITED) }
+    val dhtWanted = remember { Channel<Boolean>(Channel.CONFLATED) }
 
     LaunchedEffect(initial, directory) {
         val dispatchers = EngineDispatchers()
         val scope = CoroutineScope(coroutineContext + dispatchers.io + SupervisorJob())
         val set = TorrentSet(dispatchers = dispatchers, scope = scope)
         val meters = mutableMapOf<String, RateMeter>()
-        val savedTo = directory.toAbsolutePath().toString()
         try {
             initial?.let {
                 open(set, MetainfoParser.parse(Files.readAllBytes(it)), chosenPreferences, scope)
@@ -207,32 +209,39 @@ internal fun Client(
             var asked = false
             var stopTicks = 0
             while (true) {
+                dhtWanted.tryReceive().getOrNull()?.let { set.useDht(it) }
                 while (true) {
                     val next = accepted.tryReceive().getOrNull() ?: break
-                    // The settings a person has typed reach the *next* torrent. Nothing reaches a
-                    // running one — that is the screen's own footnote, and B-62.
                     // Where *this* torrent goes was decided in its own dialog; everything else
                     // about it comes from the settings.
-                    next.metainfo?.let { open(set, it, chosenPreferences.withDirectory(next.shown.saveTo), scope) }
+                    next.metainfo?.let {
+                        open(set, it, chosenPreferences.withDirectory(next.shown.saveTo), scope)
+                    }
                     next.magnet?.let { fetching += Fetching(it) }
                 }
                 // A fetch runs on the engine's scope and puts its torrent through the same door a
                 // file goes through, so there is one place a session is opened and not two.
-                fetching.filter { !it.started }.forEach { pending ->
-                    fetching[fetching.indexOf(pending)] = Fetching(pending.link, started = true)
+                fetching.filter { !it.started }.forEach { waiting ->
+                    fetching[fetching.indexOf(waiting)] = Fetching(waiting.link, started = true)
                     scope.launch {
                         val metainfo =
                             try {
-                                fetchMetainfo(pending.link, scope, dispatchers, set.listenPort)
+                                fetchMetainfo(waiting.link, scope, dispatchers, set.listenPort)
                             } catch (unavailable: IllegalArgumentException) {
                                 // The swarm had nothing to say. The row goes; a magnet nobody can
                                 // answer is not a torrent, and there is no session to mark broken.
                                 System.err.println("kachok: ${unavailable.message}")
                                 null
                             }
-                        fetching.removeAll { it.link === pending.link }
+                        fetching.removeAll { it.link === waiting.link }
                         metainfo?.let {
-                            accepted.trySend(Pending(it, null, addFrom(pending.link, savedTo, savedTo)))
+                            accepted.trySend(
+                                Pending(
+                                    it,
+                                    null,
+                                    addFrom(waiting.link, chosenPreferences.directory, chosenPreferences.directory),
+                                ),
+                            )
                         }
                     }
                 }
@@ -241,76 +250,32 @@ internal fun Client(
                     set.torrents.forEach { it.stop() }
                 }
                 val running = set.torrents
-                val lifecycle = if (asked) Lifecycle.Stopping else Lifecycle.Running
-                // Sorted here rather than in the composable: the details panel and the selection
-                // both index into this list, and two orders would put the panel on another torrent
-                // than the highlighted row.
-                val ordered =
-                    running
-                        .map { runtime ->
-                            val state = runtime.state.value
-                            Sample(state, meters.getOrPut(runtime.metainfo.name) { RateMeter() }.sample(state))
-                        }.inOrder(sortedBy)
-                val byHash = running.associateBy { it.metainfo.infoHash.hex() }
-                // A magnet's row comes first: it is the one the person just asked for, and the
-                // one with the least to say about itself.
-                val waiting = fetching.toList()
-                // Every row on the screen, in the order it is drawn — magnets first, then the
-                // sorted torrents. A click carries a row number and this is what turns it back
-                // into a torrent.
-                order = waiting.map { it.link.infoHash.hex() } + ordered.map { it.state.infoHash.hex() }
-                // The selected torrent's row, or the first one when it has gone or none was
-                // chosen. Never a stale number.
-                val index = order.indexOf(chosen).coerceAtLeast(0)
-                window =
-                    windowOf(
-                        rows =
-                            waiting.mapIndexed { at, it -> magnetRow(it.link, selected = at == index) } +
-                                ordered.mapIndexed { at, sample ->
-                                    rowOf(
-                                        sample.state,
-                                        sample.rates,
-                                        lifecycle,
-                                        selected = waiting.size + at == index,
-                                    )
-                                },
-                        // The status bar's two rates are the whole process's, which is what makes
-                        // them different numbers from any one row's.
-                        rates =
-                            Rates(
-                                down = ordered.sumOf { it.rates.down },
-                                up = ordered.sumOf { it.rates.up },
-                            ),
-                        listenPort = set.listenPort,
-                        dhtNodes = set.dhtPort?.let { ordered.firstOrNull()?.state?.dhtNodes ?: 0 },
-                        heapUsedBytes = heapUsed(),
-                        heapMaxBytes = Runtime.getRuntime().maxMemory(),
-                        // The banner names one session because one session failed; which one it is
-                        // is the row that is tinted.
-                        sessionError = ordered.firstNotNullOfOrNull { it.state.sessionError },
-                        details =
-                            ordered.getOrNull(index - waiting.size)?.takeIf { showPanel }?.let { sample ->
-                                detailsOf(
-                                    state = sample.state,
-                                    rates = sample.rates,
-                                    pieceLength =
-                                        byHash[sample.state.infoHash.hex()]
-                                            ?.metainfo
-                                            ?.pieceLength
-                                            ?.toLong() ?: 0,
-                                    directory = savedTo,
-                                    lifecycle = lifecycle,
-                                    tab = shownTab,
-                                )
+                engine =
+                    EngineSnapshot(
+                        samples =
+                            running.map { runtime ->
+                                val state = runtime.state.value
+                                Sample(state, meters.getOrPut(runtime.metainfo.name) { RateMeter() }.sample(state))
                             },
-                        adding = shownAdd,
-                        settings =
-                            if (showSettings) {
-                                settingsOf(chosenPreferences.boundTo(set.listenPort))
+                        fetching = fetching.map { it.link },
+                        pieceLengths =
+                            running.associate {
+                                it.metainfo.infoHash.hex() to it.metainfo.pieceLength.toLong()
+                            },
+                        listenPort = set.listenPort,
+                        dhtNodes =
+                            if (set.dhtEnabled) {
+                                running
+                                    .firstOrNull()
+                                    ?.state
+                                    ?.value
+                                    ?.dhtNodes ?: 0
                             } else {
                                 null
                             },
-                        sort = sortedBy,
+                        heapUsedBytes = heapUsed(),
+                        heapMaxBytes = Runtime.getRuntime().maxMemory(),
+                        lifecycle = if (asked) Lifecycle.Stopping else Lifecycle.Running,
                     )
                 if (!asked) {
                     delay(TICK)
@@ -324,54 +289,120 @@ internal fun Client(
             onStopped()
         }
     }
-    window?.let {
-        MainWindow(
-            it,
-            // Exhaustive on purpose, and on the command rather than on the label: a control that
-            // reports itself and nobody listens is what B-56 was.
-            onAction = { action ->
-                when (action.command) {
-                    ToolbarCommand.ToggleDetails -> panelOpen = !panelOpen
-                    ToolbarCommand.ToggleSettings -> settingsOpen = !settingsOpen
-                    ToolbarCommand.AddTorrent -> pending = chooseTorrent(preferences.directory)
-                    ToolbarCommand.PasteMagnet -> pending = magnetFromClipboard(preferences.directory)
-                    null -> Unit
-                }
-            },
-            onSort = { column -> sort = sort.clicked(column) },
-            onTab = { chosenTab -> tab = chosenTab },
-            onSelect = { row -> order.getOrNull(row)?.let { selected = it } },
-            onAddTorrent = { pending = chooseTorrent(preferences.directory) },
-            onBrowse = {
-                chooseDirectory("Save to", preferences.directory)?.let { chosen ->
-                    pending = pending?.savingTo(chosen)
-                }
-            },
-            onSetting = { change ->
-                when (change) {
-                    is SettingChange.Browsed -> {
-                        chooseDirectory("Save to", preferences.directory)?.let {
-                            preferences = preferences.withDirectory(it)
-                        }
-                    }
 
-                    is SettingChange.Toggled -> {
-                        preferences = preferences.toggled(change.key, change.on)
-                    }
-
-                    is SettingChange.Typed -> {
-                        preferences = preferences.typed(change.key, change.text)
-                    }
-                }
-            },
-            onCancelAdd = { pending = null },
-            onConfirmAdd = {
-                pending?.let { accepted.trySend(it) }
-                pending = null
-            },
+    val snapshot = engine ?: return
+    // Composed here rather than in the loop, so a click is a recomposition and not a wait.
+    val ordered = snapshot.samples.inOrder(sort)
+    val rowKeys = snapshot.fetching.map { it.infoHash.hex() } + ordered.map { it.state.infoHash.hex() }
+    val index = rowKeys.indexOf(selected).coerceAtLeast(0)
+    val chosenSample = ordered.getOrNull(index - snapshot.fetching.size)
+    val window =
+        windowOf(
+            rows =
+                snapshot.fetching.mapIndexed { at, link -> magnetRow(link, selected = at == index) } +
+                    ordered.mapIndexed { at, sample ->
+                        rowOf(
+                            sample.state,
+                            sample.rates,
+                            snapshot.lifecycle,
+                            selected = snapshot.fetching.size + at == index,
+                        )
+                    },
+            // The status bar's two rates are the whole process's, which is what makes them
+            // different numbers from any one row's.
+            rates =
+                Rates(
+                    down = ordered.sumOf { it.rates.down },
+                    up = ordered.sumOf { it.rates.up },
+                ),
+            listenPort = snapshot.listenPort,
+            dhtNodes = snapshot.dhtNodes,
+            heapUsedBytes = snapshot.heapUsedBytes,
+            heapMaxBytes = snapshot.heapMaxBytes,
+            // The banner names one session because one session failed; which one it is is the row
+            // that is tinted.
+            sessionError = ordered.firstNotNullOfOrNull { it.state.sessionError },
+            details =
+                chosenSample?.takeIf { panelOpen }?.let { sample ->
+                    detailsOf(
+                        state = sample.state,
+                        rates = sample.rates,
+                        pieceLength = snapshot.pieceLengths[sample.state.infoHash.hex()] ?: 0,
+                        directory = preferences.directory,
+                        lifecycle = snapshot.lifecycle,
+                        tab = tab,
+                    )
+                },
+            adding = pending?.shown,
+            settings = if (settingsOpen) settingsOf(preferences.boundTo(snapshot.listenPort)) else null,
+            sort = sort,
         )
-    }
+    MainWindow(
+        window,
+        // Exhaustive on purpose, and on the command rather than on the label: a control that
+        // reports itself and nobody listens is what B-56 was.
+        onAction = { action ->
+            when (action.command) {
+                ToolbarCommand.ToggleDetails -> panelOpen = !panelOpen
+                ToolbarCommand.ToggleSettings -> settingsOpen = !settingsOpen
+                ToolbarCommand.AddTorrent -> pending = chooseTorrent(preferences.directory)
+                ToolbarCommand.PasteMagnet -> pending = magnetFromClipboard(preferences.directory)
+                null -> Unit
+            }
+        },
+        onSort = { column -> sort = sort.clicked(column) },
+        onTab = { chosenTab -> tab = chosenTab },
+        onSelect = { row -> rowKeys.getOrNull(row)?.let { selected = it } },
+        onAddTorrent = { pending = chooseTorrent(preferences.directory) },
+        onBrowse = {
+            chooseDirectory("Save to", preferences.directory)?.let { chosen ->
+                pending = pending?.savingTo(chosen)
+            }
+        },
+        onSetting = { change ->
+            when (change) {
+                is SettingChange.Browsed -> {
+                    chooseDirectory("Save to", preferences.directory)?.let {
+                        preferences = preferences.withDirectory(it)
+                    }
+                }
+
+                is SettingChange.Toggled -> {
+                    preferences = preferences.toggled(change.key, change.on)
+                    // The one toggle that reaches further than the next torrent's options: joining
+                    // the DHT opens a socket, so the set is told rather than a field.
+                    if (change.key == SettingKey.Dht) dhtWanted.trySend(change.on)
+                }
+
+                is SettingChange.Typed -> {
+                    preferences = preferences.typed(change.key, change.text)
+                }
+            }
+        },
+        onCancelAdd = { pending = null },
+        onConfirmAdd = {
+            pending?.let { accepted.trySend(it) }
+            pending = null
+        },
+    )
 }
+
+/**
+ * One second's worth of what the engine says, and nothing the person decided.
+ *
+ * The split is the point: this is recomputed on a timer and everything else is recomputed on a
+ * click.
+ */
+private class EngineSnapshot(
+    val samples: List<Sample>,
+    val fetching: List<MagnetLink>,
+    val pieceLengths: Map<String, Long>,
+    val listenPort: Int,
+    val dhtNodes: Int?,
+    val heapUsedBytes: Long,
+    val heapMaxBytes: Long,
+    val lifecycle: Lifecycle,
+)
 
 private suspend fun open(
     set: TorrentSet,

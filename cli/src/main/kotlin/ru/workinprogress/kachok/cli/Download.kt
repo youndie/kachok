@@ -163,7 +163,6 @@ class Download(
         }
         out.appendLine("listening on port ${set.listenPort}")
         val runningJob = runtime.start(sessionScope)
-        set.startDht()
         set.dhtPort?.let { out.appendLine("dht on udp port $it") }
         val renderer = sessionScope.launch { render(session) }
 

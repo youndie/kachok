@@ -173,6 +173,16 @@ toolbar ── Add torrent ──▶ file chooser ──▶ MetainfoParser ─�
   `#aPathThatFitsIsLeftAlone`, `#aWiderCellShowsMoreOfTheSamePath`, and the golden
   `details_long-path.png`.
 
+### Scenario: Every control that can be pressed is heard outside the window
+* **Given:** the window with a list, a details panel, the settings screen and the add dialog.
+* **When:** every column head, every details tab, every editable setting and the toolbar's live
+  controls are pressed.
+* **Then:** each one reports itself to the window's caller, and each reports *its own* identity —
+  not a neighbour's.
+* **Automated:** `ui WiringTest#everyColumnHeadLeavesTheWindow`, `#everyDetailsTabLeavesTheWindow`,
+  `#everyEditableSettingLeavesTheWindow`, `#theSettingsScreensChangesLeaveTheWindow`,
+  `#theAddDialogsBrowseLeavesTheWindow`
+
 ### Scenario: Nothing to show is a place to start
 * **Given:** a window with no torrents.
 * **When:** it is drawn.

@@ -4,11 +4,14 @@ import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.v2.runComposeUiTest
 import ru.workinprogress.kachok.ui.add.designTorrentToAdd
+import ru.workinprogress.kachok.ui.details.DetailsTab
 import ru.workinprogress.kachok.ui.session.Preferences
 import ru.workinprogress.kachok.ui.session.settingsOf
 import ru.workinprogress.kachok.ui.settings.SettingChange
+import ru.workinprogress.kachok.ui.settings.SettingKey
 import ru.workinprogress.kachok.ui.theme.KachokTheme
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -77,15 +80,6 @@ class WiringTest {
         }
 
     @Test
-    fun aColumnHeadsSortLeavesTheWindow(): Unit =
-        runComposeUiTest {
-            val sorted = mutableListOf<SortColumn>()
-            setContent { KachokTheme { MainWindow(window, onSort = { sorted += it }) } }
-            onNodeWithText("RATIO").performClick()
-            assertEquals(listOf(SortColumn.Ratio), sorted)
-        }
-
-    @Test
     fun aRowsSelectionLeavesTheWindow(): Unit =
         runComposeUiTest {
             val selected = mutableListOf<Int>()
@@ -94,13 +88,74 @@ class WiringTest {
             assertTrue(selected.isNotEmpty(), "a click on a row reached nobody")
         }
 
+    /**
+     * Every column head, not a chosen one.
+     *
+     * A test that clicks RATIO proves RATIO is wired. The nine are nine separate `Head` calls with
+     * nine separate `column` arguments, and a copy-paste that repeats one of them is the defect
+     * this catches.
+     */
     @Test
-    fun aDetailsTabLeavesTheWindow(): Unit =
+    fun everyColumnHeadLeavesTheWindow(): Unit =
         runComposeUiTest {
-            val tabs = mutableListOf<String>()
-            setContent { KachokTheme { MainWindow(window, onTab = { tabs += it.label }) } }
-            onNodeWithText("Peers").performClick()
-            assertEquals(listOf("Peers"), tabs)
+            val sorted = mutableListOf<SortColumn>()
+            setContent { KachokTheme { MainWindow(window, onSort = { sorted += it }) } }
+            listOf(
+                "NAME",
+                "SIZE",
+                "PROGRESS",
+                "DOWN KIB/S",
+                "UP KIB/S",
+                "PEERS · OUT",
+                "RATIO",
+                "ETA",
+                "STATE",
+            ).forEach { head -> onNodeWithContentDescription("column $head").performClick() }
+            assertEquals(SortColumn.entries.size, sorted.size)
+            assertEquals(SortColumn.entries.toSet(), sorted.toSet(), "a head reported another head's column")
+        }
+
+    /** All four tabs, for the same reason. */
+    @Test
+    fun everyDetailsTabLeavesTheWindow(): Unit =
+        runComposeUiTest {
+            val tabs = mutableListOf<DetailsTab>()
+            setContent { KachokTheme { MainWindow(window, onTab = { tabs += it }) } }
+            DetailsTab.entries.forEach { onNodeWithText(it.label).performClick() }
+            assertEquals(DetailsTab.entries.toList(), tabs)
+        }
+
+    /** And every editable setting, addressed by the label its own row carries. */
+    @Test
+    fun everyEditableSettingLeavesTheWindow(): Unit =
+        runComposeUiTest {
+            val changes = mutableListOf<SettingChange>()
+            setContent {
+                KachokTheme {
+                    MainWindow(
+                        MainWindowState(
+                            torrents = window.torrents,
+                            status = window.status,
+                            settings = settingsOf(Preferences(directory = "/tmp/x")),
+                        ),
+                        onSetting = { changes += it },
+                    )
+                }
+            }
+            val screen = settingsOf(Preferences(directory = "/tmp/x"))
+            val editable = screen.all.filter { it.key.editable }
+            editable.forEach { setting ->
+                when {
+                    setting.folder -> onNodeWithContentDescription("Browse").performClick()
+                    setting.toggle != null -> onNodeWithContentDescription(setting.label).performClick()
+                    else -> onNodeWithContentDescription(setting.label).performTextReplacement("7")
+                }
+            }
+            assertEquals(
+                editable.map { it.key }.toSet(),
+                changes.map { it.key() }.toSet(),
+                "a row was drawn editable and reported nothing",
+            )
         }
 
     @Test
@@ -110,5 +165,12 @@ class WiringTest {
             setContent { KachokTheme { MainWindow(window, onAction = { fired += it.label }) } }
             onNodeWithText("Add torrent").performClick()
             assertEquals(listOf("Add torrent"), fired)
+        }
+
+    private fun SettingChange.key(): SettingKey =
+        when (this) {
+            is SettingChange.Browsed -> key
+            is SettingChange.Toggled -> key
+            is SettingChange.Typed -> key
         }
 }

@@ -10,6 +10,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -76,7 +78,11 @@ private fun RowScope.Head(
     // The name column stretches, exactly as it does in the row; every other one is fixed.
     val cell = if (width == null) Modifier.weight(1f) else Modifier.width(width)
     Row(
-        cell.clickable { onSort(column) },
+        // Named, because "PROGRESS" is also a section head in the details panel and a test that
+        // clicks "the one that says PROGRESS" is a test that clicks whichever came first.
+        cell
+            .semantics { contentDescription = "column $text" }
+            .clickable { onSort(column) },
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = if (align == TextAlign.End) Arrangement.End else Arrangement.spacedBy(3.dp),
     ) {

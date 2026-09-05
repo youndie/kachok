@@ -141,6 +141,13 @@ None. Two command-line arguments and nothing read from the environment; the sett
   the DHT and the dispatcher, and there is a `BufferPool` per torrent because the cap is the
   back-pressure and back-pressure that is global lets a fast torrent starve a slow one (research
   §1.2c2).
+* **What the engine says is sampled on a timer; what the person decides is read in composition.**
+  `EngineSnapshot` holds one second's worth of session state and nothing else. The window state used
+  to be rebuilt inside the sampling loop, which made every click up to a second late
+  ([B-64](../backlog/B-64-a-click-waited-for-the-tick.md)).
+* **The DHT is built the first time it is asked for.** Joining announces this machine's address to
+  three public routers, so it happens when somebody asks for it rather than because a flag was true
+  at start-up; a torrent already running keeps the `Dht` it was opened with, which may be none.
 * **Every callback the window exposes is proved to arrive**, through `MainWindow` and not through
   the screen underneath it. A screen's own test cannot see a parameter that the window accepts and
   drops, which is what `onSetting` was ([B-62](../backlog/B-62-dead-controls-on-two-more-screens.md)).

@@ -46,7 +46,7 @@ which is also the order of work.
 
 <!-- BEGIN INDEX -->
 
-## Open (8)
+## Open (9)
 
 | Task | | Priority | Size | Blocked by |
 |---|---|---|---|---|
@@ -57,9 +57,10 @@ which is also the order of work.
 | [B-40](docs/backlog/B-40-wasmjs-ui-is-a-client-of-the-headless-engine.md) `[ ]` | Phase 2: the wasmJs UI is a client of the JVM headless engine | P3 | L | B-39 |
 | [B-41](docs/backlog/B-41-android-and-ios-targets.md) `[ ]` | Phase 3: Android and iOS targets on the engine | P3 | XL | B-39 |
 | [B-59](docs/backlog/B-59-force-re-check.md) `[ ]` | Force re-check: verifying a torrent that is already running | P3 | M | B-54 |
+| [B-65](docs/backlog/B-65-sequential-download.md) `[ ]` | Sequential download, which the add dialog offers and the picker does not do | P3 | M | B-54 |
 | [B-02](docs/backlog/B-02-ci-runs-build-and-docs-gates.md) `[ ]` | CI runs the build and the documentation gates on every push | infra | S | B-01 |
 
-## Closed (54)
+## Closed (56)
 
 **M0 — The build and its gates**
 
@@ -144,6 +145,8 @@ which is also the order of work.
 - [B-56](docs/backlog/B-56-dead-toolbar-controls.md) `[x]` - Controls that reported themselves and nobody listened
 - [B-61](docs/backlog/B-61-appframe-title-bar.md) `[x]` - The title bar the design draws, which is not the operating system's
 - [B-62](docs/backlog/B-62-dead-controls-on-two-more-screens.md) `[x]` - Controls on two more screens that reported nothing, and the guard that missed them
+- [B-63](docs/backlog/B-63-joining-the-dht-at-runtime.md) `[x]` - Joining the DHT from the settings screen, not from a restart
+- [B-64](docs/backlog/B-64-a-click-waited-for-the-tick.md) `[x]` - A click waited for the tick
 
 <!-- END INDEX -->
 

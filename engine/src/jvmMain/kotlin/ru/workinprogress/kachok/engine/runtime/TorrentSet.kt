@@ -54,9 +54,50 @@ public class TorrentSet(
             null
         }
 
-    private val dhtTransport = if (options.dht) DatagramKrpcTransport(dispatchers.io) else null
+    /**
+     * The DHT, built the first time it is asked for and not before.
+     *
+     * **Joining is a decision, so it is taken when somebody takes it.** A socket that announces
+     * this machine's address to three public routers is not something to open because a flag was
+     * true at start-up and might be turned off a second later — and it is not something a person
+     * should have to restart the client to change, which is what a `val` here made it
+     * ([B-63](../../../../../../../../docs/backlog/B-63-joining-the-dht-at-runtime.md)).
+     *
+     * A torrent already running keeps the `Dht` it was opened with, which for one opened before
+     * this is null. That is the same rule every other setting follows: it reaches the next torrent.
+     */
+    private var dhtTransport: DatagramKrpcTransport? = null
 
-    private val dht = dhtTransport?.let { Dht(self = NodeId.random(), transport = it) }
+    private var dht: Dht? = null
+
+    init {
+        if (options.dht) useDht(true)
+    }
+
+    /** Whether a torrent added now would be given the DHT. */
+    public val dhtEnabled: Boolean get() = dht != null
+
+    /**
+     * Turns the DHT on or off for torrents added from now on.
+     *
+     * Turning it off closes the socket, which stops the announcing this client is doing; a session
+     * that already holds the `Dht` finds its transport shut, which its own loop reports the way it
+     * reports any other failure to reach the network.
+     */
+    @Synchronized
+    public fun useDht(on: Boolean) {
+        if (on == dhtEnabled) return
+        if (on) {
+            val transport = DatagramKrpcTransport(dispatchers.io)
+            dhtTransport = transport
+            dht = Dht(self = NodeId.random(), transport = transport)
+            transport.start(scope)
+        } else {
+            dhtTransport?.close()
+            dhtTransport = null
+            dht = null
+        }
+    }
 
     private val byInfoHash = ConcurrentHashMap<String, TorrentRuntime>()
 
@@ -153,11 +194,6 @@ public class TorrentSet(
         dhtTransport?.close()
         byInfoHash.values.forEach { it.close() }
         byInfoHash.clear()
-    }
-
-    /** Starts the DHT's reader, if there is one. Every session's lookups go through it. */
-    public fun startDht() {
-        dhtTransport?.start(scope)
     }
 
     private companion object {

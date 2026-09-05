@@ -55,7 +55,7 @@ internal enum class SettingKey(
     PipelineDepth,
     UploadLimit,
     DownloadLimit,
-    Dht("the socket and the routing table are built with the session set"),
+    Dht,
     ;
 
     val editable: Boolean get() = disabledBecause == null
@@ -259,7 +259,10 @@ private fun ValueField(
                     textAlign = TextAlign.End,
                 ),
             cursorBrush = SolidColor(scheme.primary),
-            modifier = Modifier.fillMaxWidth(),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .semantics { contentDescription = setting.label },
         )
     }
 }
