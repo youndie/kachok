@@ -120,7 +120,20 @@ internal class ToolbarState(
     val filter: String = "Filter",
     val details: ToolbarAction = ToolbarAction(Icons.RIGHT_PANEL_OPEN, "Details panel"),
     val settings: ToolbarAction = ToolbarAction(Icons.TUNE, "Settings"),
-)
+) {
+    /** The same state with the panel toggle set from whether the panel is actually there. */
+    fun withDetails(open: Boolean): ToolbarState =
+        ToolbarState(
+            pasteMagnet = pasteMagnet,
+            pause = pause,
+            resume = resume,
+            remove = remove,
+            recheck = recheck,
+            filter = filter,
+            details = ToolbarAction(details.glyph, details.label, active = open),
+            settings = settings,
+        )
+}
 
 @Composable
 internal fun Toolbar(

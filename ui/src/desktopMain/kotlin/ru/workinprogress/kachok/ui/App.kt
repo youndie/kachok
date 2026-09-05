@@ -20,10 +20,12 @@ import ru.workinprogress.kachok.engine.io.EngineDispatchers
 import ru.workinprogress.kachok.engine.metainfo.MetainfoParser
 import ru.workinprogress.kachok.engine.runtime.RuntimeOptions
 import ru.workinprogress.kachok.engine.runtime.TorrentRuntime
+import ru.workinprogress.kachok.ui.details.DetailsTab
 import ru.workinprogress.kachok.ui.main.MainWindow
 import ru.workinprogress.kachok.ui.main.MainWindowState
 import ru.workinprogress.kachok.ui.session.Lifecycle
 import ru.workinprogress.kachok.ui.session.RateMeter
+import ru.workinprogress.kachok.ui.session.detailsOf
 import ru.workinprogress.kachok.ui.session.rowOf
 import ru.workinprogress.kachok.ui.session.windowOf
 import ru.workinprogress.kachok.ui.theme.KachokTheme
@@ -80,6 +82,12 @@ internal fun Torrent(
     onStopped: () -> Unit = {},
 ) {
     var window by remember { mutableStateOf<MainWindowState?>(null) }
+    // The panel and the tab are the window's, not the session's: they survive every sample, and
+    // the toolbar's toggle reads them rather than keeping an opinion of its own.
+    var panelOpen by remember { mutableStateOf(true) }
+    var tab by remember { mutableStateOf(DetailsTab.Overview) }
+    val showPanel by rememberUpdatedState(panelOpen)
+    val shownTab by rememberUpdatedState(tab)
     // Read through a state, not captured: the effect is launched once and `stopping` becomes true
     // later, so a plain parameter read inside it would be the value from before the close.
     val askedToStop by rememberUpdatedState(stopping)
@@ -87,6 +95,7 @@ internal fun Torrent(
         val dispatchers = EngineDispatchers()
         val scope = CoroutineScope(coroutineContext + dispatchers.io + SupervisorJob())
         val metainfo = MetainfoParser.parse(Files.readAllBytes(torrent))
+        val savedTo = directory.toAbsolutePath().toString()
         val runtime =
             TorrentRuntime.open(
                 metainfo = metainfo,
@@ -124,6 +133,19 @@ internal fun Torrent(
                         heapUsedBytes = heapUsed(),
                         heapMaxBytes = Runtime.getRuntime().maxMemory(),
                         sessionError = state.sessionError,
+                        details =
+                            if (showPanel) {
+                                detailsOf(
+                                    state = state,
+                                    rates = rates,
+                                    pieceLength = metainfo.pieceLength.toLong(),
+                                    directory = savedTo,
+                                    lifecycle = if (asked) Lifecycle.Stopping else Lifecycle.Running,
+                                    tab = shownTab,
+                                )
+                            } else {
+                                null
+                            },
                     )
                 // The window stays up while the stop runs — the design's *stopping* row — and is
                 // bounded the way the CLI bounds it: a peer that will not close must not be able
@@ -140,7 +162,13 @@ internal fun Torrent(
             onStopped()
         }
     }
-    window?.let { MainWindow(it) }
+    window?.let {
+        MainWindow(
+            it,
+            onAction = { action -> if (action.label == "Details panel") panelOpen = !panelOpen },
+            onTab = { chosen -> tab = chosen },
+        )
+    }
 }
 
 private fun heapUsed(): Long = Runtime.getRuntime().let { it.totalMemory() - it.freeMemory() }

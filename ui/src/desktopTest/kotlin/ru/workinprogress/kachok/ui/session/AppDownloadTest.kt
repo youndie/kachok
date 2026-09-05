@@ -186,11 +186,14 @@ class AppDownloadTest {
             waitUntil(timeoutMillis = WAIT) {
                 onAllNodesWithText("payload.bin").fetchSemanticsNodes().isNotEmpty()
             }
-            onNodeWithText("payload.bin").assertIsDisplayed()
+            // Twice: the list's row and the details panel's header, which is the panel being
+            // wired to the same session rather than to a second one.
+            assertEquals(2, onAllNodesWithText("payload.bin").fetchSemanticsNodes().size)
             waitUntil(timeoutMillis = WAIT) {
                 onAllNodesWithText("100%").fetchSemanticsNodes().isNotEmpty()
             }
-            onNodeWithText("Seeding").assertIsDisplayed()
+            onNodeWithText("Info hash").assertIsDisplayed()
+            onNodeWithText("Connected peers").assertIsDisplayed()
             assertTrue(local.served > 0, "the bytes came off the wire, not off the disk")
         }
 

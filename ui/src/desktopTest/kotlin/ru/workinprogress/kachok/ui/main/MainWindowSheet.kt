@@ -1,21 +1,25 @@
 package ru.workinprogress.kachok.ui.main
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
 import io.github.youndie.viddik.annotations.ViddikScreenshot
+import ru.workinprogress.kachok.ui.details.DetailsPanel
+import ru.workinprogress.kachok.ui.details.DetailsTab
 import ru.workinprogress.kachok.ui.theme.KachokTheme
 
 /**
- * The whole shell, with the design's sixteen torrents in it.
+ * The whole window, with the design's sixteen torrents and its details panel.
  *
- * **The details panel is closed here, and that is the deliberate difference from
- * `docs/design/screens/main-window.png`.** The reference draws it open, and drawing it is
- * [B-49](../../../../../../../../docs/backlog/B-49-details-panel.md); a placeholder in its place
- * would put something in a golden that the product does not have. Everything full-width — the
- * toolbar, the banner, the status bar — is directly comparable to the reference; the list is
- * 1200 px instead of 859, which is what `minmax(0, 1fr)` does to the name column when the panel is
- * not there, and every other column keeps its width.
+ * 1200 x 731 is `docs/design/screens/main-window.png` below the title bar, which the operating
+ * system draws and this does not: the reference is 1200 x 760 with a 29 px chrome on top of it.
+ * Everything under that line is comparable pixel for pixel.
  */
-@ViddikScreenshot(name = "shell", group = "main", width = 1200, height = 731)
+@ViddikScreenshot(name = "window", group = "main", width = 1200, height = 731)
 @Composable
 internal fun MainWindowSheet() {
     KachokTheme {
@@ -25,7 +29,30 @@ internal fun MainWindowSheet() {
                 status = designStatus,
                 degradedSummary = DEGRADED_SUMMARY,
                 degradedDetail = DEGRADED_DETAIL,
+                details = designDetails(),
             ),
         )
+    }
+}
+
+/**
+ * The three tabs the engine cannot fill, side by side the way the design lays them out.
+ *
+ * The design draws all three full of rows — a mockup can — and this draws what the engine can
+ * actually say about them, which is nothing yet and why. See the deviation recorded in
+ * [B-49](../../../../../../../../docs/backlog/B-49-details-panel.md).
+ */
+@ViddikScreenshot(name = "planned-tabs", group = "details", width = 1023, height = 300)
+@Composable
+internal fun DetailsTabsSheet() {
+    KachokTheme {
+        Row(
+            Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface),
+            horizontalArrangement = Arrangement.Start,
+        ) {
+            listOf(DetailsTab.Files, DetailsTab.Peers, DetailsTab.Trackers).forEach { tab ->
+                DetailsPanel(designDetails(tab))
+            }
+        }
     }
 }

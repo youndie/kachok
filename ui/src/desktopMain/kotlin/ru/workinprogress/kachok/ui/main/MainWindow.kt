@@ -2,6 +2,8 @@ package ru.workinprogress.kachok.ui.main
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.lazy.LazyColumn
@@ -9,6 +11,9 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import ru.workinprogress.kachok.ui.details.DetailsPanel
+import ru.workinprogress.kachok.ui.details.DetailsState
+import ru.workinprogress.kachok.ui.details.DetailsTab
 import ru.workinprogress.kachok.ui.list.TorrentRow
 import ru.workinprogress.kachok.ui.list.TorrentRowModel
 
@@ -26,6 +31,8 @@ internal class MainWindowState(
     val toolbar: ToolbarState = ToolbarState(),
     val degradedSummary: String? = null,
     val degradedDetail: String = "",
+    /** Null when the panel is closed, which is also what the toolbar's toggle then says. */
+    val details: DetailsState? = null,
 )
 
 /**
@@ -42,15 +49,26 @@ internal fun MainWindow(
     modifier: Modifier = Modifier,
     onSort: (SortColumn) -> Unit = {},
     onAction: (ToolbarAction) -> Unit = {},
+    onTab: (DetailsTab) -> Unit = {},
 ) {
     Column(modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)) {
-        Toolbar(state.toolbar, onAction = onAction)
-        if (state.degradedSummary != null) {
-            DegradedBanner(state.degradedSummary, state.degradedDetail)
-        }
-        ColumnHeader(state.sort, onSort = onSort)
-        LazyColumn(Modifier.fillMaxWidth().weight(1f)) {
-            items(state.torrents) { torrent -> TorrentRow(torrent) }
+        // The toggle says what the panel is doing rather than carrying its own opinion: two
+        // places recording "the panel is open" is one place for it to be wrong.
+        Toolbar(state.toolbar.withDetails(state.details != null), onAction = onAction)
+        Row(Modifier.fillMaxWidth().weight(1f)) {
+            Column(Modifier.weight(1f).fillMaxHeight()) {
+                // The banner is inside the list's column rather than across the window: it is one
+                // session's complaint, and the panel beside it is showing a torrent that may not
+                // be the one complaining.
+                if (state.degradedSummary != null) {
+                    DegradedBanner(state.degradedSummary, state.degradedDetail)
+                }
+                ColumnHeader(state.sort, onSort = onSort)
+                LazyColumn(Modifier.fillMaxWidth().weight(1f)) {
+                    items(state.torrents) { torrent -> TorrentRow(torrent) }
+                }
+            }
+            state.details?.let { DetailsPanel(it, onTab = onTab) }
         }
         StatusBar(state.status)
     }

@@ -1,9 +1,11 @@
 package ru.workinprogress.kachok.ui.list
 
 import androidx.compose.material3.ColorScheme
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.graphics.Color
 import ru.workinprogress.kachok.ui.theme.KachokPalette
 import ru.workinprogress.kachok.ui.theme.WarningColors
+import ru.workinprogress.kachok.ui.theme.warningColors
 
 /**
  * Every colour in a row, as a function rather than as a composable.
@@ -175,6 +177,31 @@ private fun Color.onContainer(scheme: ColorScheme): Color =
         else -> this
     }
 
+/**
+ * The colour of a state's name, wherever it is written.
+ *
+ * The details panel says the same word the row's last column does, so it says it in the same
+ * colour — a header that called a stopping torrent something other than what the list calls it
+ * would be two answers to one question.
+ */
+@androidx.compose.runtime.Composable
+internal fun stateLabelColor(state: TorrentState): Color =
+    labelColor(state, androidx.compose.material3.MaterialTheme.colorScheme, MaterialTheme.warningColors)
+
+private fun labelColor(
+    state: TorrentState,
+    scheme: ColorScheme,
+    warning: WarningColors,
+): Color =
+    when (state) {
+        TorrentState.Metadata -> KachokPalette.onSurfaceMuted
+        TorrentState.Checking, TorrentState.Stopping -> warning.warning
+        TorrentState.Downloading -> scheme.onSurface
+        TorrentState.Seeding -> scheme.primary
+        TorrentState.Paused -> scheme.onSurfaceVariant
+        TorrentState.Error -> scheme.error
+    }
+
 /** The proportion of the bar a metadata row fills: it has no percentage, so it shows a position. */
 internal const val METADATA_BAR_FRACTION: Float = 0.34f
 
@@ -255,14 +282,7 @@ private fun plainRowColor(
         }
 
         RowCell.Label -> {
-            when (state) {
-                TorrentState.Metadata -> KachokPalette.onSurfaceMuted
-                TorrentState.Checking, TorrentState.Stopping -> warning.warning
-                TorrentState.Downloading -> scheme.onSurface
-                TorrentState.Seeding -> scheme.primary
-                TorrentState.Paused -> scheme.onSurfaceVariant
-                TorrentState.Error -> scheme.error
-            }
+            labelColor(state, scheme, warning)
         }
 
         else -> {

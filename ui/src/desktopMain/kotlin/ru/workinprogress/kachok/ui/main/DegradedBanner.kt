@@ -58,9 +58,10 @@ internal fun DegradedBanner(
             color = KachokPalette.errorFigure,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f, fill = false),
+            // One weight, not a weight and a spacer: two of them share the leftover evenly and
+            // the exception loses half the room it needs to be readable.
+            modifier = Modifier.weight(1f),
         )
-        Spacer()
         Row(
             Modifier
                 .height(BUTTON_HEIGHT)

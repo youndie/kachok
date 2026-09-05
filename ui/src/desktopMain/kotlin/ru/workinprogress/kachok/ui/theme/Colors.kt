@@ -134,4 +134,21 @@ internal object KachokPalette {
 
     /** The docked banner that says a session is degraded, and the line under it. */
     val degradedBanner: Color = Color(0xFF2A1A18)
+
+    /**
+     * The details panel's ground, one step *below* the surface rather than above it.
+     *
+     * The design has no elevation, so a secondary panel cannot be raised out of the way; it is
+     * recessed instead, which reads the same and needs no shadow.
+     */
+    val panel: Color = Color(0xFF0D1211)
+
+    /** A tracker's complaint: the warning role's own card. */
+    val warningCard: Color = Color(0xFF231B0C)
+
+    /** Its text, lighter than the label so the two are not one block of yellow. */
+    val onWarningCard: Color = Color(0xFFF0D9A8)
+
+    /** And the neutral card beside it, for a complaint that is somebody else's peer. */
+    val neutralCard: Color = Color(0xFF141A19)
 }

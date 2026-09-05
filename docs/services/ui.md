@@ -46,6 +46,8 @@ compared.
 | `.../ui/list/TorrentRow.kt` | the nine columns at the design's widths, and the row's own hairline |
 | `.../ui/list/RowColors.kt` | which colour every cell of every state is, as a function of the scheme rather than of a composition |
 | `.../ui/main/` | the toolbar, the banner, the column header, the status bar, and the window that stacks them |
+| `.../ui/details/DetailsPanel.kt` | the right-hand panel, its four tabs, and what the three empty ones say instead of rows |
+| `.../ui/session/DetailsFrom.kt` | `SessionState` as those fields, including the one the design badges `planned` |
 | `.../ui/session/Figures.kt` | three significant figures for a size, grouped thousands for a rate |
 | `.../ui/session/SessionRow.kt` | `SessionState` as a row, plus the lifecycle the engine has no field for |
 | `ui/src/desktopTest/.../session/AppDownloadTest.kt` | a real download from `:swarm`, sampled the way the window samples it |
@@ -129,3 +131,9 @@ None. Two command-line arguments and nothing read from the environment; the sett
   has to come back.
 * **One torrent per window.** The engine is one `Session` per torrent and nothing above it holds
   several; the list, the status bar and the counts are all built for many and are given one.
+* **Three of the four details tabs have nothing to show.** *Files*, *Peers* and *Trackers* need
+  engine changes that do not exist — per-file progress, peer identities, a status per tracker — so
+  each says which one it is waiting for rather than drawing an empty table.
+* **`IntrinsicSize.Max` on a tab, or the first tab eats the row.** The 2 dp indicator under a
+  selected tab is `fillMaxWidth`, which in a wrap-content column takes the whole remaining width
+  unless the column is measured by its text.
