@@ -25,6 +25,8 @@ class SeedingPeer(
     private val infoHash: InfoHash,
     private val content: ByteArray,
     private val pieceLength: Int,
+    /** Slows the seed down, so a test can interrupt a download that is genuinely in progress. */
+    private val delayPerBlockMillis: Long = 0,
 ) : AutoCloseable {
     private val server: ServerSocketChannel =
         ServerSocketChannel.open().bind(InetSocketAddress("127.0.0.1", 0), BACKLOG)
@@ -81,6 +83,7 @@ class SeedingPeer(
             while (frame.hasRemaining()) if (socket.read(frame) < 0) return
             val message = PeerWire.decode(frame.array())
             if (message is Message.Request) {
+                if (delayPerBlockMillis > 0) Thread.sleep(delayPerBlockMillis)
                 served += message
                 write(socket, PeerWire.encodePieceHeader(message.piece, message.begin, message.length))
                 write(socket, block(message.piece, message.begin, message.length))

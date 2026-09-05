@@ -46,7 +46,8 @@ kachok download <file.torrent> [--dir <path>] [--port <n>] [--peers <n>] [--pipe
 | `cli/build.gradle.kts` | `application` main class, `applicationDefaultJvmArgs` — the flags of research D6 |
 | `cli/src/main/kotlin/ru/workinprogress/kachok/cli/Main.kt` | the entry point and the exit codes; takes its streams so a test can read them |
 | `.../cli/Arguments.kt` | the hand-written parser and the usage text |
-| `.../cli/Download.kt` | the factory: every interface the engine needs meets its JVM implementation here |
+| `.../cli/Download.kt` | the factory: every interface the engine needs meets its JVM implementation here, and the shutdown hook |
+| `cli/src/test/kotlin/ru/workinprogress/kachok/cli/ShutdownTest.kt` | a real subprocess, a real `SIGINT`, and the record it leaves behind |
 | `cli/src/test/kotlin/ru/workinprogress/kachok/cli/DownloadTest.kt` | the end-to-end download against a local tracker and a real seeding peer |
 | `.../cli/SeedingPeer.kt` | that peer: BEP 3 over a socket, serving the bytes it claims to have |
 
@@ -100,6 +101,11 @@ defaults to the first of BEP 3's 6881–6889 (the probe itself arrives with
 
 ## 8. Quirks
 
+* **A second `SIGINT` is not special-cased.** Doing it properly needs internal API; the ten-second
+  bound on the clean stop already guarantees the process ends.
+
+* **A signal is a request to stop, not a reason to lose progress.** The handler asks the session
+  to stop the way the command does — tracker, peers, flush, record — and waits for it, bounded.
 * **A download gives up only when there is nothing to wait for**: every tracker refused *and* no
   peer arrived from anywhere else. Deliberately not "no progress for a while" — a slow swarm is not
   a failed download, and a client that gives up on one is worse than a client that waits.

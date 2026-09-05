@@ -1,12 +1,17 @@
 package ru.workinprogress.kachok.cli
 
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.selects.select
+import kotlinx.coroutines.withTimeoutOrNull
 import ru.workinprogress.kachok.engine.PeerId
 import ru.workinprogress.kachok.engine.hash.MessageDigestPieceHasher
 import ru.workinprogress.kachok.engine.io.BufferPool
@@ -64,7 +69,7 @@ class Download(
         val sessionScope = CoroutineScope(scope.coroutineContext + dispatchers.io + sessionJob)
 
         try {
-            return download(metainfo, files, dispatchers, sessionScope)
+            return download(metainfo, files, dispatchers, sessionScope, sessionJob)
         } finally {
             sessionJob.cancelAndJoin()
             files.close()
@@ -77,6 +82,7 @@ class Download(
         files: FileSet,
         dispatchers: EngineDispatchers,
         sessionScope: CoroutineScope,
+        sessionJob: Job,
     ): Int {
         val pool = BufferPool(capacity = poolCapacity(metainfo))
         val hasher = MessageDigestPieceHasher(dispatchers.io)
@@ -130,7 +136,7 @@ class Download(
             }
         }
         listener?.let { out.appendLine("listening on port ${it.port}") }
-        session.start(sessionScope)
+        val runningJob = session.start(sessionScope)
         listener?.start(sessionScope) { socket ->
             val connection =
                 SocketPeerConnection.accept(sessionScope, socket, metainfo.infoHash, identity, pool)
@@ -138,13 +144,47 @@ class Download(
         }
         val renderer = sessionScope.launch { render(session) }
 
+        // A signal is a request to stop, not a reason to lose the download's progress: the handler
+        // asks the session to stop the way `Command.Stop` does — tracker, peers, flush, record —
+        // and waits for that sequence, bounded, before letting the process go.
+        val interrupted = CompletableDeferred<Unit>()
+        val stopped = CompletableDeferred<Unit>()
+        val hook =
+            Thread {
+                interrupted.complete(Unit)
+                runBlocking { withTimeoutOrNull(SHUTDOWN_TIMEOUT) { stopped.await() } }
+            }
+        Runtime.getRuntime().addShutdownHook(hook)
+
         val finished =
             try {
-                session.state.first { state -> state.isComplete || hopeless(state) }
+                val settled =
+                    sessionScope.async {
+                        session.state.first { state -> state.isComplete || hopeless(state) }
+                    }
+                select {
+                    settled.onAwait { it }
+                    interrupted.onAwait {
+                        settled.cancel()
+                        null
+                    }
+                }
             } finally {
                 renderer.cancel()
                 listener?.close()
             }
+
+        if (finished == null) {
+            out.appendLine("stopping")
+            session.send(Command.Stop)
+            val clean = withTimeoutOrNull(SHUTDOWN_TIMEOUT) { runningJob.join() } != null
+            stopped.complete(Unit)
+            dropHook(hook)
+            if (!clean) err.appendLine("kachok: the session did not stop within $SHUTDOWN_TIMEOUT")
+            return if (clean) EXIT_OK else EXIT_FAILED
+        }
+        stopped.complete(Unit)
+        dropHook(hook)
 
         return when {
             finished.isComplete -> {
@@ -163,6 +203,21 @@ class Download(
                 session.send(Command.Stop)
                 EXIT_FAILED
             }
+        }
+    }
+
+    /**
+     * Takes the shutdown hook back off, if there is still a JVM to take it off.
+     *
+     * `removeShutdownHook` refuses once shutdown has begun, which is exactly the case when the
+     * hook itself is what asked the session to stop. That refusal is the expected answer, not a
+     * failure: the hook is running, it will finish, and there is nothing to remove.
+     */
+    private fun dropHook(hook: Thread) {
+        try {
+            Runtime.getRuntime().removeShutdownHook(hook)
+        } catch (shuttingDown: IllegalStateException) {
+            // See above: the hook is already running because the signal is what got us here.
         }
     }
 
@@ -229,5 +284,13 @@ class Download(
         private const val MIN_POOL = 64
         private const val PERCENT = 100
         private val RENDER_INTERVAL = 1.seconds
+
+        /**
+         * How long a clean stop may take before the process leaves anyway.
+         *
+         * Bounded because the alternative is a client that cannot be stopped: a peer that will not
+         * close or a tracker that will not answer must not be able to hold the process open.
+         */
+        private val SHUTDOWN_TIMEOUT = 10.seconds
     }
 }
