@@ -14,6 +14,7 @@ import ru.workinprogress.kachok.engine.wire.Handshake
 import ru.workinprogress.kachok.engine.wire.WireException
 import java.net.BindException
 import java.net.InetSocketAddress
+import java.net.StandardSocketOptions
 import java.nio.ByteBuffer
 import java.nio.channels.ServerSocketChannel
 import java.nio.channels.SocketChannel
@@ -43,11 +44,31 @@ class PeerListenerTest {
         dispatchers.close()
     }
 
+    /**
+     * `SO_REUSEADDR`, the same option [PeerListener] binds with.
+     *
+     * Without it this helper is stricter than the code it is standing in for, and the class defeats
+     * itself: `aPortLeftInTimeWaitIsStillOurs` deliberately leaves a connection to the bottom of
+     * the range in TIME_WAIT, and the next test's `occupy` of that port then fails to bind at all —
+     * a `BindException` from the *fixture*, reported as the listener misbehaving.
+     */
     private fun occupy(port: Int) {
-        occupied += ServerSocketChannel.open().bind(InetSocketAddress("127.0.0.1", port), 1)
+        occupied +=
+            ServerSocketChannel.open().apply {
+                setOption(StandardSocketOptions.SO_REUSEADDR, true)
+                bind(InetSocketAddress("127.0.0.1", port), 1)
+            }
     }
 
-    /** A range nobody else on this machine is likely to be using, so the test is not flaky. */
+    /**
+     * A range nobody else on this machine is likely to be using.
+     *
+     * "Likely" is doing real work: the build machine's `ip_local_port_range` is 40525-44620, which
+     * contains this, so the kernel can hand one of these out as an ephemeral client port to
+     * anything on the box. There is no range that is safe everywhere — the reserved ones need root
+     * — so this stays a probability, and the `SO_REUSEADDR` above removes the one failure this
+     * class was causing itself.
+     */
     private val range = 43_881..43_889
 
     @Test
