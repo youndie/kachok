@@ -93,8 +93,26 @@ public class SocketPeerConnection private constructor(
         outgoing.send(Outgoing.Block(piece, begin, length))
     }
 
+    /**
+     * **`shutdownOutput` before `close`, and the order is not cosmetic.**
+     *
+     * A block is served with `FileChannel.transferTo(position, count, socket)`. A thread blocked
+     * inside that call — which is what a peer that stops reading mid-block produces — is waiting
+     * on the *socket* while registered on the *file* channel, and closing the socket does not
+     * signal it: measured on macOS and on Linux, 0 of 8 writers ended (research §1.3d). Closing
+     * the file channel or interrupting the thread does not end it either; both of those block the
+     * caller instead. `shutdownOutput` is the one thing that does, on both platforms, 8 of 8.
+     *
+     * Without this line a peer that hangs holds a coroutine for as long as TCP takes to give up,
+     * and the `FileSet.close()` at the end of the download never returns.
+     */
     override fun close() {
         outgoing.close()
+        try {
+            socket.shutdownOutput()
+        } catch (gone: java.io.IOException) {
+            // Already closed, or never connected. The `close` below is what matters then.
+        }
         socket.closeQuietly()
         if (::reader.isInitialized) reader.cancel()
         if (::writer.isInitialized) writer.cancel()

@@ -411,22 +411,58 @@ it, neither of which appears in a count of copies.
 `write` is a memory access and a socket write, which should not. At five peers both peaked at 17
 platform threads. Whatever the compensation costs, it is not what separates these two paths here.
 
-**A hazard found while measuring, mechanism not established.** Above about ten concurrent peers
-the harness could no longer stop itself: after the run flag was cleared and every socket closed,
-every one of its forty threads was still alive two seconds later, and `FileChannel.close()` then
-blocked indefinitely in `NativeThreadSet.signalAndWait` waiting for the eight still inside
-`transferTo0` (main-thread stack captured with `jcmd`). It happens on **both** paths — with the
-mapping the thread is in a plain `SocketChannel.write` — so it is not a property of `transferTo`.
-What it looks like is that closing a `SocketChannel` from another thread does not reliably end a
-blocking write already in progress on it, on this platform. That is a symptom and a stack, not a
-mechanism, and the numbers above are from five peers where it does not arise. Whether the engine
-can meet it on shutdown is [B-44](../backlog/B-44-does-closing-a-peer-end-a-write-in-flight.md).
+**A hazard found while measuring.** Above about ten concurrent peers the harness could no longer
+stop itself: after the run flag was cleared and every socket closed, its threads were still alive
+two seconds later, and `FileChannel.close()` then blocked indefinitely in
+`NativeThreadSet.signalAndWait`. The guess written here first — that closing a `SocketChannel` does
+not end a blocking write on it — was **wrong**, and §1.3d has the measurement that says so: a plain
+blocked write ends five different ways. It is `transferTo` specifically, and the numbers above are
+from five peers where it does not arise.
 
 **Not covered.** A file larger than the page cache. Both numbers above are cache-to-socket, which
 is the case a seeding client usually has and the favourable one for both paths; a cold file would
 be a different measurement and is not this one. Nor is the mapping's other use — scanning a
 multi-gigabyte file to hash it at start-up — which is what mmap uniquely buys and remains
 [B-24](../backlog/B-24-startup-verification-of-existing-data.md)'s question rather than this one.
+
+### 1.3d What ends a write that is already blocked
+
+[B-44](../backlog/B-44-does-closing-a-peer-end-a-write-in-flight.md), from the hazard §1.3c ran
+into. Eight virtual threads are blocked writing to a socket whose far end accepted and never reads;
+each row then tries one way of stopping them and counts how many came back within five seconds.
+`./gradlew :engine:blockedWriteProbe`, run on macOS 27/aarch64 (JDK 25.0.2) and in a Linux
+container (JDK 25.0.4), 2026-09-05:
+
+| What was tried | macOS | Linux |
+|---|---|---|
+| `SocketChannel.close()` from another thread | **8 of 8** | **8 of 8** |
+| `SocketChannel.shutdownOutput()` | 8 of 8 | 8 of 8 |
+| `Thread.interrupt()` on the writer | 8 of 8 | 8 of 8 |
+| `Socket.close()` / `shutdownOutput()` | 8 of 8 | 8 of 8 |
+| `FileChannel.transferTo`, then close the socket | **0 of 8** | **0 of 8** |
+| `FileChannel.transferTo`, then `shutdownOutput` | **8 of 8** | **8 of 8** |
+| `FileChannel.transferTo`, then interrupt the writer | 0 of 8 — *the interrupt never returned* | 0 of 8 — *the interrupt never returned* |
+| `FileChannel.transferTo`, then close the file | 0 of 8 — *the close never returned* | 0 of 8 — *the close never returned* |
+
+**Consequence 1 — the hypothesis in §1.3c was wrong, and in an instructive direction.** A plain
+blocked `write` ends every way there is. What does not end is a thread inside
+`FileChannel.transferTo(position, count, socket)`: it is waiting on the *socket* while registered
+on the *file* channel, and closing the socket signals nobody. The symptom was "closing does not
+work"; the mechanism is one thread and two channels.
+
+**Consequence 2 — two of the obvious remedies are worse than doing nothing.** Closing the file
+channel signals the thread and then waits for it to leave, which it never does, so the closer hangs
+too. `Thread.interrupt()` reaches `AbstractInterruptibleChannel.postInterrupt`, which closes the
+channel, which waits — so *the interrupting thread* hangs. Both were found by a probe that hung
+itself before it hung on purpose.
+
+**Consequence 3 — `shutdownOutput` is the answer, and it is the same on both kernels.** So this is
+not a platform quirk to be avoided by shipping elsewhere; it is how `transferTo` behaves.
+`SocketPeerConnection.close` now shuts the output down before closing, and
+`BlockedTransferTest` keeps both halves of the row: that `close` alone is not enough, and that
+`shutdownOutput` is. A peer that stops reading mid-block would otherwise hold a coroutine for as
+long as TCP takes to give up, and the `FileSet.close()` at the end of a download would never
+return.
 
 ### 1.4 Kotlin, coroutines and the build
 

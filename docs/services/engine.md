@@ -185,6 +185,10 @@ them. Nothing is read from the environment by this module; that is [cli](cli.md)
 * **The listener sets `SO_REUSEADDR`.** Without it a port this client used a minute ago cannot be
   taken again while its old connections sit in `TIME_WAIT`, and a restarted client announces a
   different port than the one peers remember.
+* **A blocked `transferTo` is ended by `shutdownOutput`, and by nothing else that is safe.**
+  Closing the socket leaves the writer inside it; closing the file channel or interrupting the
+  writer hangs the *caller*. Measured the same on macOS and Linux (research §1.3d), which is why
+  `SocketPeerConnection.close` shuts the output down first and why the order is not cosmetic.
 * **An uploaded byte never enters this process.** `FileChannel.transferTo` moves it from the page
   cache to the socket inside the kernel; the storage interface therefore has no `read` returning
   bytes, because one would make the copy compulsory.

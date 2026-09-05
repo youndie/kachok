@@ -54,3 +54,34 @@ tasks.register<JavaExec>("uploadPathBench") {
     )
     args = (project.findProperty("benchArgs") as String?)?.split(" ") ?: emptyList()
 }
+
+// B-44's probe: what ends a write that is already blocked. Not part of `build` — it deliberately
+// wedges sockets and then waits on them.
+tasks.register<JavaExec>("blockedWriteProbe") {
+    group = "verification"
+    description = "Blocks writers on an unread socket and reports what stops them"
+    mainClass.set("ru.workinprogress.kachok.engine.io.BlockedWriteProbe")
+    val testCompilation =
+        kotlin.targets
+            .getByName("jvm")
+            .compilations
+            .getByName("test")
+    classpath = files(testCompilation.runtimeDependencyFiles, testCompilation.output.allOutputs)
+    javaLauncher.set(
+        javaToolchains.launcherFor {
+            languageVersion.set(java.toolchain.languageVersion.get())
+        },
+    )
+}
+
+// Prints the probe's class path, so the same classes can be run under another kernel:
+// `docker run … java -cp "$(./gradlew -q :engine:probeClasspath)" …`.
+tasks.register("probeClasspath") {
+    val testCompilation =
+        kotlin.targets
+            .getByName("jvm")
+            .compilations
+            .getByName("test")
+    val entries = files(testCompilation.runtimeDependencyFiles, testCompilation.output.allOutputs)
+    doLast { println(entries.joinToString(":")) }
+}

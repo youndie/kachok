@@ -1,7 +1,7 @@
 ---
 id: B-44
 title: "Does closing a peer socket end a write already in flight?"
-status: open
+status: done
 priority: P2
 size: S/M
 stage: m7-measure
@@ -36,4 +36,28 @@ A stuck writer would show up as a shutdown that takes the CLI's full ten-second 
   reports how many end; a table in the research for macOS and Linux; the mechanism named, or
   recorded as unestablished with what was ruled out.
 - Anchors: `engine/src/jvmMain/kotlin/ru/workinprogress/kachok/engine/io/SocketPeerConnection.kt`,
-  `engine/src/jvmTest/kotlin/ru/workinprogress/kachok/engine/storage/UploadPathBench.kt`.
+  `engine/src/jvmTest/kotlin/ru/workinprogress/kachok/engine/io/BlockedWriteProbe.kt`,
+  `engine/src/jvmTest/kotlin/ru/workinprogress/kachok/engine/io/BlockedTransferTest.kt`.
+
+**Answered, and the answer is a one-line fix.** Research §1.3d has the table, measured on macOS and
+in a Linux container.
+
+**The question as asked had a false premise.** It asked whether `SocketChannel.close()` ends a
+blocking write; it does, five different ways do. What does not end is a thread inside
+`FileChannel.transferTo(position, count, socket)` — waiting on the *socket* while registered on the
+*file* channel, so closing the socket signals nobody. One thread, two channels.
+
+**Two of the obvious remedies are worse than doing nothing.** Closing the file channel signals the
+thread and waits for it to leave, which it never does. `Thread.interrupt()` goes through
+`AbstractInterruptibleChannel.postInterrupt`, which closes the channel, which waits — so the
+*interrupting* thread hangs. Both were found the hard way: the probe hung itself twice before it
+hung anything on purpose, and it now runs every stop attempt on a bounded thread for that reason.
+
+**`shutdownOutput` ends it, identically on both kernels** — so this is not a platform quirk to ship
+around, it is how `transferTo` behaves. `SocketPeerConnection.close` shuts the output down before
+closing, and `BlockedTransferTest` keeps both halves: that `close` alone is not enough, and that
+`shutdownOutput` is. The first assertion is the one that starts failing if a JDK ever makes `close`
+sufficient, which is the right way to learn that.
+
+Nothing here changes [B-30](B-30-measure-transferto-vs-mmap.md)'s choice: the price of `transferTo`
+turned out to be a line in `close`, not the 15 % the mapped path costs.
