@@ -103,6 +103,21 @@ the flags gets a silently uncached start, not an error.
 distribution smoke test has to assert that the cache was *mapped*, not that the program ran —
 [Risk 3](#3-risks-and-open-questions).
 
+### 1.2a The transport, measured on this machine
+
+Verified by `SocketPeerConnectionTest` (B-07) on macOS/aarch64, JDK 25.0.2, 2026-09-05.
+
+| Measurement | Result |
+|---|---|
+| 1 000 connections to a local peer, each parked on a blocking `SocketChannel.read` | **+8 platform threads**, and 266 ms to open all of them |
+| the same, per connection | 0.008 platform threads |
+
+**Consequence.** The design's central claim is not a quotation from a JEP any more. One thread per
+connection would have been a thousand platform threads; the eight are the carrier pool growing to
+the machine's parallelism. The test asserts a bound of `availableProcessors() + 32` rather than
+the measured 8, because the bound rules out the failure that matters — one platform thread per
+peer — without failing on a scheduler that adds a carrier for its own reasons.
+
 ### 1.3 A trimmed run-time image, measured
 
 `jlink --add-modules java.base,java.net.http,jdk.jfr,java.management --strip-debug --no-man-pages
@@ -209,9 +224,16 @@ Why:
   with JFR before anyone tunes it.
 
 Per-peer structure: one coroutine per peer owns the connection; its *reader* is a blocking loop
-(read length prefix, read message, dispatch) that never suspends; its *writer* drains a
-`Channel<Outgoing>`. The session owns the timer, the picker, the choker and the tracker
-announcer as coroutines under one `SupervisorJob`; cancelling the session cancels every peer.
+(read length prefix, read message, dispatch); its *writer* drains a `Channel<Outgoing>`. The
+session owns the timer, the picker, the choker and the tracker announcer as coroutines under one
+`SupervisorJob`; cancelling the session cancels every peer.
+
+**Correction found while implementing M2** (B-07): this paragraph used to say the reader "never
+suspends". It cannot. Reading an incoming block means taking a buffer from the pool, and that call
+suspends when every buffer is out — which is not an oversight but the back-pressure of D3, the only
+flow control the download path has. The reader therefore has exactly one suspension point, at the
+one place where waiting is the correct behaviour; everything else in the loop blocks. See the
+knock-on correction in D2.
 
 ### D2. `ScopedValue` is allowed in the blocking loops only *(deviation from the brief)*
 
@@ -231,6 +253,12 @@ Why:
   `withContext` and `Channel` hand-offs; it is the same idea with the right scope;
 - the price: two mechanisms if `ScopedValue` is used in the reader loop. The reader loop is one
   function, and the rule "no `ScopedValue.get()` after a suspension" is checkable by reading it.
+
+**Correction found while implementing M2** (B-07): there is no such loop, so there is no price and
+no second mechanism. The reader suspends when it takes a pool buffer (see D1's correction), which
+means a `ScopedValue` binding does not survive it there either. `ScopedValue` is therefore not used
+anywhere in this engine, and Open question 5 is answered: no. The exemption this decision carved
+out was carved for a loop that turned out not to exist.
 
 ### D3. A pool of 16 KiB direct buffers is the unit of everything
 
@@ -465,8 +493,11 @@ headless service in phase 2 rather than being replaced, and the engine's `StateF
 channel is a wire contract in waiting, so it must stay serialisable — no platform types, no
 callbacks — from the first version ([B-40](../backlog/B-40-wasmjs-ui-is-a-client-of-the-headless-engine.md)).
 
-**Open question 5. Is `ScopedValue` worth having at all?** See D2. Hypothesis: no — the per-peer
-reader loop already has its state in local variables. Settled in M2 by whether any code asks for it.
+**Open question 5 — settled 2026-09-05, in M2.** Is `ScopedValue` worth having at all? No, and for
+a firmer reason than the hypothesis had. The exemption in D2 assumed a reader loop that never
+suspends; the reader suspends on pool acquisition, so a binding would not survive it. Nothing in
+the engine uses `ScopedValue`, and [B-42](../backlog/B-42-scopedvalue-in-the-reader-loop.md) is
+dropped rather than done.
 
 ---
 
@@ -493,7 +524,7 @@ accident.
 
 | Brief said | Research found | Where |
 |---|---|---|
-| `ScopedValue` instead of `ThreadLocal` for the session context | bindings are per thread and do not survive a coroutine's suspension; allowed in the non-suspending reader loop only, `CoroutineContext` everywhere else | D2 |
+| `ScopedValue` instead of `ThreadLocal` for the session context | bindings are per thread and do not survive a coroutine's suspension; the reader loop that was to be the exemption suspends too, so `ScopedValue` is not used at all and `CoroutineContext` carries the session | D2, Open question 5 |
 | FFM mmap for seeding, "read straight from the page cache" | `transferTo` is the kernel's zero-copy path with the same copy count and no unmapping; mmap is a hypothesis for start-up hashing | D5 |
 | Generational ZGC *or* G1 | G1 + compact headers for phase 1, because the AOT cache is bound to the collector and the heap is small; ZGC measured in M7 | D6, §1.2 |
 | `-Xjvm-default=all` | deprecated since Kotlin 2.2.0; `-jvm-default=no-compatibility` | §1.4 |

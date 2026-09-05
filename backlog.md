@@ -46,11 +46,10 @@ which is also the order of work.
 
 <!-- BEGIN INDEX -->
 
-## Open (36)
+## Open (34)
 
 | Task | | Priority | Size | Blocked by |
 |---|---|---|---|---|
-| [B-07](docs/backlog/B-07-virtual-thread-peer-transport.md) `[ ]` | One virtual thread per peer on a blocking SocketChannel | P0 | M | B-06, B-08 |
 | [B-11](docs/backlog/B-11-single-writer-with-gathering-writes.md) `[ ]` | One writer coroutine, one gathering positional write per piece | P0 | M | B-08, B-12 |
 | [B-12](docs/backlog/B-12-file-layout-and-sparse-files.md) `[ ]` | Piece-to-file mapping and sparse file creation | P0 | S/M | B-04 |
 | [B-13](docs/backlog/B-13-hashing-dispatcher.md) `[ ]` | Whole-piece SHA-1 on a bounded dispatcher with one MessageDigest per thread | P0 | S | B-08 |
@@ -84,10 +83,9 @@ which is also the order of work.
 | [B-39](docs/backlog/B-39-compose-ui-desktop.md) `[ ]` | Phase 2: a Compose Multiplatform desktop UI on the engine's StateFlow | P3 | XL | B-19 |
 | [B-40](docs/backlog/B-40-wasmjs-ui-is-a-client-of-the-headless-engine.md) `[ ]` | Phase 2: the wasmJs UI is a client of the JVM headless engine | P3 | L | B-39 |
 | [B-41](docs/backlog/B-41-android-and-ios-targets.md) `[ ]` | Phase 3: Android and iOS targets on the engine | P3 | XL | B-39 |
-| [B-42](docs/backlog/B-42-scopedvalue-in-the-reader-loop.md) `[?]` | Is ScopedValue used anywhere, or dropped? | P3 | XS | B-07 |
 | [B-02](docs/backlog/B-02-ci-runs-build-and-docs-gates.md) `[ ]` | CI runs the build and the documentation gates on every push | infra | S | B-01 |
 
-## Closed (6)
+## Closed (8)
 
 **M0 — The build and its gates**
 
@@ -102,7 +100,9 @@ which is also the order of work.
 **M2 — The wire**
 
 - [B-06](docs/backlog/B-06-peer-wire-codec.md) `[x]` - Peer wire codec: handshake, message ids, in-place piece and request
+- [B-07](docs/backlog/B-07-virtual-thread-peer-transport.md) `[x]` - One virtual thread per peer on a blocking SocketChannel
 - [B-08](docs/backlog/B-08-direct-buffer-pool.md) `[x]` - A capped pool of 16 KiB direct ByteBuffers
+- [B-42](docs/backlog/B-42-scopedvalue-in-the-reader-loop.md) `[-]` - Is ScopedValue used anywhere, or dropped?
 
 <!-- END INDEX -->
 

@@ -57,15 +57,18 @@ What exists on `main` today:
 | `.../engine/metainfo/` | `Metainfo`, `TorrentFile`, and the parser that hashes `info` from its source bytes |
 | `.../engine/platform/Sha1.kt` + `engine/src/jvmMain/kotlin/ru/workinprogress/kachok/engine/platform/Sha1.jvm.kt` | the one-shot SHA-1 primitive, `expect`/`actual` |
 | `.../engine/wire/` | `Handshake`, the sealed `Message`, `PeerWire` — framing, the identifier table, in-place `piece` decoding |
+| `.../engine/peer/Peer.kt` | `PeerAddress`, `Block`, `PeerEvent`, `PeerConnection` — what the session is allowed to know about a connection |
 | `engine/src/jvmMain/kotlin/ru/workinprogress/kachok/engine/io/BufferPool.kt` | the capped pool of direct 16 KiB buffers and its `PooledBuffer` handle |
-| `engine/src/commonTest/kotlin/ru/workinprogress/kachok/engine/` | 51 tests across `bencode`, `metainfo`, `wire` and `io`; the fixtures are embedded strings, because a KMP test source set has no resources |
+| `.../engine/io/EngineDispatchers.kt` | the virtual-thread dispatcher every coroutine in the engine runs on |
+| `.../engine/io/SocketPeerConnection.kt` | one peer, one blocking `SocketChannel`, one virtual thread; blocks read straight into pool buffers |
+| `engine/src/commonTest/kotlin/ru/workinprogress/kachok/engine/` | 58 tests across `bencode`, `metainfo`, `wire`, `io` and the transport; the fixtures are embedded strings, because a KMP test source set has no resources |
 
 The layout the backlog builds toward, under `engine/src/commonMain/kotlin/ru/workinprogress/kachok/engine/`
 (a directory appears when its first backlog item lands; none of these exist yet):
 
 | Directory | What goes there | Backlog |
 |---|---|---|
-| `peer/` | one peer's state machine: choke/interest flags, pipeline, rates | [B-07](../backlog/B-07-virtual-thread-peer-transport.md) |
+| `peer/` | one peer's state machine on top of the connection: choke/interest flags, pipeline, rates | [B-17](../backlog/B-17-session-orchestrator.md) |
 | `picker/` | rarest-first, strict priority for started pieces, endgame | [B-16](../backlog/B-16-piece-picker.md) |
 | `choke/` | the ten-second choker and the optimistic unchoke | [B-21](../backlog/B-21-choking-algorithm.md) |
 | `storage/` | `Storage` interface, piece → file-span mapping, the writer queue | [B-11](../backlog/B-11-single-writer-with-gathering-writes.md) |
@@ -77,7 +80,7 @@ and under `engine/src/jvmMain/kotlin/ru/workinprogress/kachok/engine/`:
 
 | Directory | What goes there | Backlog |
 |---|---|---|
-| `io/` | the virtual-thread `PeerTransport` and the listener, beside the pool that is already there | [B-07](../backlog/B-07-virtual-thread-peer-transport.md), [B-09](../backlog/B-09-incoming-connections.md) |
+| `io/` | the listener that accepts incoming peers, beside the pool and the connection already there | [B-09](../backlog/B-09-incoming-connections.md) |
 | `storage/` | `FileChannel` storage: positional gathering writes, `transferTo` reads, `force()` timer | [B-11](../backlog/B-11-single-writer-with-gathering-writes.md), [B-20](../backlog/B-20-upload-read-path.md) |
 | `hash/` | `MessageDigest` per hashing thread, the `limitedParallelism` dispatcher — bulk piece hashing, not the one-shot primitive above | [B-13](../backlog/B-13-hashing-dispatcher.md) |
 | `tracker/` | `java.net.http` announce | [B-15](../backlog/B-15-http-tracker-announce.md) |
@@ -91,7 +94,9 @@ summarised here.
   `Executors.newVirtualThreadPerTaskExecutor()`; hashing runs on `limitedParallelism(cores)` of the
   same dispatcher; the writer is one coroutine. Each peer is one coroutine whose reader is a
   blocking loop on a blocking `SocketChannel` — a virtual thread parks on socket I/O, so this scales
-  to thousands of peers with no selector code
+  to thousands of peers with no selector code — measured at **8 platform threads for a thousand
+  parked connections** (research §1.2a). The reader suspends in exactly one place, taking a pool
+  buffer, and that suspension is the back-pressure
   ([D1](../research/research-architecture.md#d1-one-virtual-thread-dispatcher-blocking-io-inside-it-coroutines-above-it)).
 * **A block is a pooled direct buffer, from socket to disk.** The `piece` payload is read into a
   16 KiB direct buffer from the pool and that buffer — not a copy — is what the writer hands to
