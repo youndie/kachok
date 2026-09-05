@@ -1,0 +1,290 @@
+package ru.workinprogress.kachok.engine.picker
+
+import ru.workinprogress.kachok.engine.PieceIndex
+import ru.workinprogress.kachok.engine.metainfo.Metainfo
+import ru.workinprogress.kachok.engine.peer.PeerAddress
+import ru.workinprogress.kachok.engine.wire.PeerWire
+import kotlin.random.Random
+
+/** One block to ask a peer for. */
+public class BlockRequest(
+    public val piece: PieceIndex,
+    public val begin: Int,
+    public val length: Int,
+) {
+    override fun toString(): String = "Request(${piece.value}, $begin, $length)"
+}
+
+/**
+ * Which block to ask which peer for.
+ *
+ * Three rules, in this order, and each of them is doing a different job:
+ *
+ * 1. **Strict priority for started pieces.** A piece in flight holds `pieceLength / 16 KiB` pooled
+ *    buffers, so finishing one frees memory as much as it makes progress. BEP 3 asks for this and
+ *    the buffer pool insists on it.
+ * 2. **Rarest first.** A piece only one peer has is the piece the swarm is about to lose. Ties go
+ *    to the lowest index, except for the very first piece of a torrent, which is chosen at random:
+ *    every client starting at piece 0 makes piece 0 the only piece anyone has.
+ * 3. **Endgame.** When every block is either had or already asked for, ask several peers for the
+ *    stragglers and cancel the losers. Without it a download ends at the speed of its slowest peer.
+ *
+ * The number of pieces started at once is bounded ([maxStartedPieces]) because that bound *is* the
+ * memory the download uses.
+ *
+ * This class is pure: it decides, it does not send. The session sends, and tells it what happened.
+ */
+public class PiecePicker(
+    private val metainfo: Metainfo,
+    private val maxStartedPieces: Int = DEFAULT_MAX_STARTED,
+    private val random: Random = Random.Default,
+) {
+    private val have = Bitfield(metainfo.pieceCount)
+    private val availability = IntArray(metainfo.pieceCount)
+    private val peers = HashMap<PeerAddress, Bitfield>()
+    private val started = LinkedHashMap<Int, PieceProgress>()
+
+    /** Pieces this client has verified. */
+    public val completed: Bitfield get() = have
+
+    public val isComplete: Boolean get() = have.isComplete
+
+    /**
+     * True when there is work outstanding and nothing left to ask for a first time; the picker
+     * then allows the same block to be asked of several peers.
+     *
+     * **Availability is part of the condition**, and leaving it out was the first version's bug: a
+     * piece no connected peer has can never be requested, so a swarm that holds two pieces out of
+     * ten would never have reached endgame at all. What endgame waits for is the last *reachable*
+     * blocks, not the last blocks.
+     */
+    public val isEndgame: Boolean
+        get() =
+            started.values.any { it.hasMissing() } &&
+                (0 until metainfo.pieceCount).none { index ->
+                    !have[index] && availability[index] > 0 && (started[index]?.hasUnrequested() ?: true)
+                }
+
+    public fun addPeer(peer: PeerAddress) {
+        peers.getOrPut(peer) { Bitfield(metainfo.pieceCount) }
+    }
+
+    public fun removePeer(peer: PeerAddress) {
+        val bitfield = peers.remove(peer) ?: return
+        (0 until metainfo.pieceCount).forEach { if (bitfield[it]) availability[it]-- }
+        started.values.forEach { it.forget(peer) }
+    }
+
+    /** A `bitfield` message: the peer's whole set, replacing whatever was assumed before. */
+    public fun setBitfield(
+        peer: PeerAddress,
+        bits: ByteArray,
+    ) {
+        val bitfield = Bitfield.fromBytes(bits, metainfo.pieceCount)
+        removePeer(peer)
+        peers[peer] = bitfield
+        (0 until metainfo.pieceCount).forEach { if (bitfield[it]) availability[it]++ }
+    }
+
+    /** A `have` message. */
+    public fun addHave(
+        peer: PeerAddress,
+        piece: PieceIndex,
+    ) {
+        val bitfield = peers.getOrPut(peer) { Bitfield(metainfo.pieceCount) }
+        if (bitfield[piece.value]) return
+        bitfield.set(piece.value)
+        availability[piece.value]++
+    }
+
+    /** How many peers have this piece. Zero means nobody connected can serve it. */
+    public fun availabilityOf(piece: PieceIndex): Int = availability[piece.value]
+
+    /** True if there is anything this peer could give us. Drives `interested`/`not interested`. */
+    public fun isInteresting(peer: PeerAddress): Boolean {
+        val bitfield = peers[peer] ?: return false
+        return (0 until metainfo.pieceCount).any { bitfield[it] && !have[it] }
+    }
+
+    /**
+     * Up to [count] blocks to ask [peer] for right now, marked as asked.
+     *
+     * Returns fewer — or none — when the peer has nothing wanted, when the started-piece bound is
+     * reached and this peer can contribute to none of them, or when everything is already asked
+     * for and the download is not yet in endgame.
+     */
+    public fun next(
+        peer: PeerAddress,
+        count: Int,
+    ): List<BlockRequest> {
+        if (count <= 0) return emptyList()
+        val bitfield = peers[peer] ?: return emptyList()
+        val requests = ArrayList<BlockRequest>(count)
+
+        fillFromStarted(peer, bitfield, requests, count)
+        while (requests.size < count && started.size < maxStartedPieces) {
+            val index = rarestUnstarted(bitfield) ?: break
+            started[index] = PieceProgress(blockCount(index))
+            fillFrom(peer, index, requests, count)
+        }
+        if (requests.size < count && isEndgame) fillFromEndgame(peer, bitfield, requests, count)
+        return requests
+    }
+
+    /**
+     * A block arrived. Returns the **other** peers it was asked of, so the session can cancel it
+     * with them — the endgame's other half.
+     */
+    public fun blockReceived(
+        from: PeerAddress,
+        piece: PieceIndex,
+        begin: Int,
+    ): List<PeerAddress> {
+        val progress = started[piece.value] ?: return emptyList()
+        return progress.received(begin / PeerWire.BLOCK_SIZE, from)
+    }
+
+    /** A peer choked us or went away: its outstanding requests are gone and may be asked again. */
+    public fun requestsDropped(peer: PeerAddress) {
+        started.values.forEach { it.forget(peer) }
+    }
+
+    /** The writer verified a piece. */
+    public fun pieceVerified(piece: PieceIndex) {
+        started.remove(piece.value)
+        have.set(piece.value)
+    }
+
+    /** The writer found a bad hash: every block of the piece has to come again. */
+    public fun pieceFailed(piece: PieceIndex) {
+        started.remove(piece.value)
+    }
+
+    private fun fillFromStarted(
+        peer: PeerAddress,
+        bitfield: Bitfield,
+        into: MutableList<BlockRequest>,
+        count: Int,
+    ) {
+        started.keys.toList().forEach { index ->
+            if (into.size >= count) return
+            if (bitfield[index] && !have[index]) fillFrom(peer, index, into, count)
+        }
+    }
+
+    private fun fillFrom(
+        peer: PeerAddress,
+        index: Int,
+        into: MutableList<BlockRequest>,
+        count: Int,
+    ) {
+        val progress = started[index] ?: return
+        while (into.size < count) {
+            val block = progress.takeUnrequested(peer) ?: return
+            into += request(index, block)
+        }
+    }
+
+    private fun fillFromEndgame(
+        peer: PeerAddress,
+        bitfield: Bitfield,
+        into: MutableList<BlockRequest>,
+        count: Int,
+    ) {
+        started.forEach { (index, progress) ->
+            if (into.size >= count) return
+            if (!bitfield[index] || have[index]) return@forEach
+            while (into.size < count) {
+                val block = progress.takeForEndgame(peer) ?: break
+                into += request(index, block)
+            }
+        }
+    }
+
+    private fun request(
+        index: Int,
+        block: Int,
+    ): BlockRequest {
+        val begin = block * PeerWire.BLOCK_SIZE
+        val pieceLength = metainfo.pieceLengthAt(PieceIndex(index))
+        return BlockRequest(PieceIndex(index), begin, minOf(PeerWire.BLOCK_SIZE, pieceLength - begin))
+    }
+
+    private fun blockCount(index: Int): Int {
+        val pieceLength = metainfo.pieceLengthAt(PieceIndex(index))
+        return (pieceLength + PeerWire.BLOCK_SIZE - 1) / PeerWire.BLOCK_SIZE
+    }
+
+    /**
+     * The rarest piece this peer has that is neither had nor started, or — for the first piece of
+     * the torrent — one of its pieces at random.
+     */
+    private fun rarestUnstarted(bitfield: Bitfield): Int? {
+        val candidates =
+            (0 until metainfo.pieceCount).filter { index ->
+                bitfield[index] && !have[index] && index !in started
+            }
+        if (candidates.isEmpty()) return null
+        if (have.cardinality == 0 && started.isEmpty()) return candidates[random.nextInt(candidates.size)]
+        return candidates.minBy { availability[it] }
+    }
+
+    /** Which blocks of one started piece have been asked of whom. */
+    private class PieceProgress(
+        val blocks: Int,
+    ) {
+        private val askedOf = arrayOfNulls<MutableSet<PeerAddress>>(blocks)
+        private val received = BooleanArray(blocks)
+
+        fun hasUnrequested(): Boolean = (0 until blocks).any { !received[it] && askedOf[it].isNullOrEmpty() }
+
+        fun hasMissing(): Boolean = (0 until blocks).any { !received[it] }
+
+        /** The first block nobody has been asked for, now asked of [peer]. */
+        fun takeUnrequested(peer: PeerAddress): Int? {
+            val block =
+                (0 until blocks).firstOrNull { !received[it] && askedOf[it].isNullOrEmpty() }
+                    ?: return null
+            askedOf[block] = mutableSetOf(peer)
+            return block
+        }
+
+        /** A block still missing that this peer has not already been asked for. */
+        fun takeForEndgame(peer: PeerAddress): Int? {
+            val block =
+                (0 until blocks).firstOrNull { !received[it] && peer !in (askedOf[it] ?: emptySet()) }
+                    ?: return null
+            (askedOf[block] ?: mutableSetOf<PeerAddress>().also { askedOf[block] = it }) += peer
+            return block
+        }
+
+        /** Marks a block arrived and reports the other peers it was asked of. */
+        fun received(
+            block: Int,
+            from: PeerAddress,
+        ): List<PeerAddress> {
+            if (block !in 0 until blocks || received[block]) return emptyList()
+            received[block] = true
+            val others = askedOf[block].orEmpty().filter { it != from }
+            askedOf[block] = null
+            return others
+        }
+
+        fun forget(peer: PeerAddress) {
+            (0 until blocks).forEach { block ->
+                val asked = askedOf[block] ?: return@forEach
+                asked -= peer
+                if (asked.isEmpty()) askedOf[block] = null
+            }
+        }
+    }
+
+    public companion object {
+        /**
+         * Started pieces at once. Each one holds its blocks in pooled buffers until it completes,
+         * so this number times `pieceLength / 16 KiB` is the pool's working set. The default is a
+         * placeholder until [B-26] measures it.
+         */
+        public const val DEFAULT_MAX_STARTED: Int = 8
+    }
+}

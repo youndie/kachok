@@ -66,11 +66,13 @@ What exists on `main` today:
 | `.../engine/storage/BlockWriter.kt` | the single writer: blocks in, verified pieces out, buffers back to the pool |
 | `.../engine/storage/Storage.kt` | where a verified piece goes |
 | `.../engine/storage/FileStorage.kt` (jvmMain) | one gathering write per file span, and the `SpanSink` seam that makes the call count assertable |
+| `.../engine/picker/Bitfield.kt` | which pieces something has, as a `LongArray` in BEP 3's bit order |
+| `.../engine/picker/PiecePicker.kt` | rarest-first with strict priority, the started-piece bound, endgame |
 | `.../engine/tracker/Tracker.kt`, `TrackerProtocol.kt` | the announce model, the query string and the response parsing — both peer encodings |
 | `.../engine/tracker/HttpTrackerClient.kt` (jvmMain) | the GET, blocking on a virtual thread |
 | `.../engine/hash/MessageDigestPieceHasher.kt` (jvmMain) | SHA-1 on a bounded dispatcher, with a pool of digests and the `JvmBlock` seam |
 | `.../engine/storage/FileSet.kt` (jvmMain) | the torrent's files, created sparse with `setLength` and kept open for positional writes |
-| `engine/src/commonTest/kotlin/ru/workinprogress/kachok/engine/` | 95 tests across `bencode`, `metainfo`, `wire`, `io`, `storage`, `hash` and `tracker`; the fixtures are embedded strings, because a KMP test source set has no resources |
+| `engine/src/commonTest/kotlin/ru/workinprogress/kachok/engine/` | 107 tests across `bencode`, `metainfo`, `wire`, `io`, `storage`, `hash`, `tracker` and `picker`; the fixtures are embedded strings, because a KMP test source set has no resources |
 
 The layout the backlog builds toward, under `engine/src/commonMain/kotlin/ru/workinprogress/kachok/engine/`
 (a directory appears when its first backlog item lands; none of these exist yet):
@@ -78,7 +80,6 @@ The layout the backlog builds toward, under `engine/src/commonMain/kotlin/ru/wor
 | Directory | What goes there | Backlog |
 |---|---|---|
 | `peer/` | one peer's state machine on top of the connection: choke/interest flags, pipeline, rates | [B-17](../backlog/B-17-session-orchestrator.md) |
-| `picker/` | rarest-first, strict priority for started pieces, endgame | [B-16](../backlog/B-16-piece-picker.md) |
 | `choke/` | the ten-second choker and the optimistic unchoke | [B-21](../backlog/B-21-choking-algorithm.md) |
 | `session/` | `Session`, the `StateFlow`, the command channel, the one timer | [B-17](../backlog/B-17-session-orchestrator.md) |
 | `resume/` | the resume record and its atomic persistence | [B-23](../backlog/B-23-atomic-resume-file.md) |
