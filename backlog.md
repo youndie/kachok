@@ -50,15 +50,15 @@ which is also the order of work.
 
 | Task | | Priority | Size | Blocked by |
 |---|---|---|---|---|
-| [B-54](docs/backlog/B-54-many-torrents.md) `[ ]` | More than one torrent in one process | P1 | L | B-52 |
 | [B-51](docs/backlog/B-51-empty-and-settings.md) `[ ]` | The empty state and the settings screen | P2 | S/M | B-48 |
 | [B-53](docs/backlog/B-53-feature-ui-document.md) `[ ]` | The feature document the phase 2 epic names | P2 | S | B-52 |
+| [B-55](docs/backlog/B-55-magnets-in-the-window.md) `[ ]` | Magnets in the window, not only on the command line | P2 | S | B-54 |
 | [B-37](docs/backlog/B-37-v2-and-hybrid-torrents.md) `[?]` | v2 and hybrid torrents (BEP 52): SHA-256 piece layers | P3 | L | B-04 |
 | [B-40](docs/backlog/B-40-wasmjs-ui-is-a-client-of-the-headless-engine.md) `[ ]` | Phase 2: the wasmJs UI is a client of the JVM headless engine | P3 | L | B-39 |
 | [B-41](docs/backlog/B-41-android-and-ios-targets.md) `[ ]` | Phase 3: Android and iOS targets on the engine | P3 | XL | B-39 |
 | [B-02](docs/backlog/B-02-ci-runs-build-and-docs-gates.md) `[ ]` | CI runs the build and the documentation gates on every push | infra | S | B-01 |
 
-## Closed (47)
+## Closed (48)
 
 **M0 — The build and its gates**
 
@@ -136,6 +136,7 @@ which is also the order of work.
 - [B-49](docs/backlog/B-49-details-panel.md) `[x]` - The details panel and its four tabs
 - [B-50](docs/backlog/B-50-add-torrent.md) `[x]` - Add torrent: the dialog, the drop target, the clipboard magnet
 - [B-52](docs/backlog/B-52-ui-on-the-real-engine.md) `[x]` - The UI on the real engine, not on a fixture
+- [B-54](docs/backlog/B-54-many-torrents.md) `[x]` - More than one torrent in one process
 
 <!-- END INDEX -->
 

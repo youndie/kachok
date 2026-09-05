@@ -52,8 +52,15 @@ public class LocalSwarm private constructor(
             content: ByteArray = content(),
             failure: String? = null,
             delayPerBlockMillis: Long = 0,
+            /**
+             * One block a piece by default, which is the smallest thing that exercises the wire.
+             *
+             * A test that wants the *buffer pool* exercised has to ask for more: the pool's working
+             * set is `maxStartedPieces × blocksPerPiece`, and with one block a piece that is eight
+             * buffers however large the torrent is.
+             */
+            pieceLength: Int = PeerWire.BLOCK_SIZE,
         ): LocalSwarm {
-            val pieceLength = PeerWire.BLOCK_SIZE
             val torrentBytes = torrentBytes(content, pieceLength, placeholderTracker())
             val metainfo = MetainfoParser.parse(torrentBytes)
             val seed =

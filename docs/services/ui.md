@@ -40,7 +40,7 @@ compared.
 
 | File | What is there |
 |---|---|
-| `ui/src/desktopMain/kotlin/ru/workinprogress/kachok/ui/App.kt` | `main`, the window, and the loop that samples the session and stops it cleanly on close |
+| `ui/src/desktopMain/kotlin/ru/workinprogress/kachok/ui/App.kt` | `main`, the window, and the loop that samples every session and stops them cleanly on close |
 | `.../ui/theme/` | the eight roles, the `warning` M3 does not ship, the three bundled families, the 4 dp calibration |
 | `.../ui/icons/Icons.kt` | the twenty-one Material Symbols codepoints and the subset font they index into |
 | `.../ui/list/TorrentRow.kt` | the nine columns at the design's widths, and the row's own hairline |
@@ -131,10 +131,12 @@ None. Two command-line arguments and nothing read from the environment; the sett
 * **There is no paused torrent.** The engine has `Command.Stop` and no paused state, the design
   marks the row *planned*, and `PAUSED_IS_PLANNED` is asserted so that the day it changes somebody
   has to come back.
-* **One torrent per window.** The engine is one `Session` per torrent and nothing above it holds
-  several; the list, the status bar and the counts are all built for many and are given one, and
-  the add dialog's *Add* is greyed with that written on it
-  ([B-54](../backlog/B-54-many-torrents.md)).
+* **A window holds several torrents; a `Session` still holds one.** `TorrentSet` owns the listener,
+  the DHT and the dispatcher, and there is a `BufferPool` per torrent because the cap is the
+  back-pressure and back-pressure that is global lets a fast torrent starve a slow one (research
+  §1.2c2).
+* **A magnet is recognised and not started.** The window has no `MetadataFetcher` in front of a
+  session, so the add dialog greys *Add* and says so ([B-55](../backlog/B-55-magnets-in-the-window.md)).
 * **Three of the four details tabs have nothing to show.** *Files*, *Peers* and *Trackers* need
   engine changes that do not exist — per-file progress, peer identities, a status per tracker — so
   each says which one it is waiting for rather than drawing an empty table.

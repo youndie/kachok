@@ -234,6 +234,42 @@ its own flags for its own process. The launcher sets `-Xmx128m`.)*
 against 449 pieces, and 9 `FileRead`. The gathering write and the deferred `force()` are visible in
 the profile rather than only in the design.
 
+### 1.2c2 A second torrent, and what it costs
+
+Measured in phase 2 for [B-54](../backlog/B-54-many-torrents.md), because the question the item had
+to answer was whether the buffer pool should be shared by a set of torrents or stay one per
+session.
+
+Two 4 MiB torrents in 256 KiB pieces — sixteen blocks a piece, so the pool is actually asked for
+something; with the one-block pieces the earlier fixtures used it hands out eight buffers however
+large the torrent is — downloading at once from two local swarms in one process, through one
+`TorrentSet`.
+
+| | peak outstanding | cap |
+|---|---|---|
+| torrent A | 18 | 178 |
+| torrent B | 18 | 178 |
+
+The cap is `maxStartedPieces × blocksPerPiece + maxPeers` = 8 × 16 + 50. Each peak is a tenth of
+it, which is the same shape as the single-torrent measurement in §1.2c (117 of 144 against a real
+swarm, where the peers were real and numerous).
+
+**Consequence — the pool stays per session.** Sharing one would have bought a global cap and cost
+the property the design rests on: *the cap is the back-pressure*, and back-pressure that is global
+lets a fast torrent's peers take the buffers a slow torrent's writer is waiting for. Direct buffers
+are allocated lazily and never freed, so N pools cost what N torrents actually use rather than the
+sum of their caps — 36 buffers, 576 KiB, for the two above.
+
+**What is shared instead:** the listener, because there is one port and it is announced to every
+tracker; the DHT, because there is one routing table and BEP 5's `implied_port` needs one stable
+source port; and the dispatcher, because every coroutine in the engine already runs on the same
+virtual-thread executor. An incoming peer names the torrent it wants in its own handshake, so the
+socket is read first and routed second — which is why `SocketPeerConnection` grew a two-step
+accept.
+
+*Not measured: what happens at sixteen torrents, which is what the design's list draws. The two
+numbers above are linear in the count only if the peers are, and a real swarm decides that.*
+
 ### 1.2d The collector, the headers and the heap, measured against each other
 
 Six configurations, the same 1 GB download three times each, round robin so that whatever else the

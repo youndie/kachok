@@ -13,9 +13,9 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import ru.workinprogress.kachok.engine.io.EngineDispatchers
 import ru.workinprogress.kachok.engine.runtime.RuntimeOptions
-import ru.workinprogress.kachok.engine.runtime.TorrentRuntime
+import ru.workinprogress.kachok.engine.runtime.TorrentSet
 import ru.workinprogress.kachok.swarm.LocalSwarm
-import ru.workinprogress.kachok.ui.Torrent
+import ru.workinprogress.kachok.ui.Client
 import ru.workinprogress.kachok.ui.list.TorrentState
 import ru.workinprogress.kachok.ui.theme.KachokTheme
 import java.nio.file.Files
@@ -58,13 +58,8 @@ class AppDownloadTest {
             val dispatchers = EngineDispatchers()
             val job = SupervisorJob()
             val scope = CoroutineScope(coroutineContext + dispatchers.io + job)
-            val runtime =
-                TorrentRuntime.open(
-                    metainfo = local.metainfo,
-                    options = RuntimeOptions(directory = root),
-                    dispatchers = dispatchers,
-                    scope = scope,
-                )
+            val set = TorrentSet(dispatchers, scope)
+            val runtime = set.add(local.metainfo, RuntimeOptions(directory = root))
             val meter = RateMeter(minimumInterval = 1.milliseconds)
             val seen = mutableListOf<TorrentState>()
             var midway: String? = null
@@ -99,20 +94,20 @@ class AppDownloadTest {
                     windowOf(
                         rows = listOf(row),
                         rates = Rates(),
-                        listenPort = runtime.listenPort,
+                        listenPort = set.listenPort,
                         dhtNodes = null,
                         heapUsedBytes = 0,
                         heapMaxBytes = 128L * 1024 * 1024,
                     )
                 assertEquals("1 torrent, 1 seeding, 0 paused", window.status.torrents)
-                assertContains(window.status.port, "${runtime.listenPort}")
+                assertContains(window.status.port, "${set.listenPort}")
                 // Null, not "DHT 0 nodes": the runtime opened no DHT socket at all, and the status
                 // bar draws "not asked for" differently from "asked and nothing answered".
                 assertEquals(null, window.status.dht)
                 assertEquals(null, window.degradedSummary, "a healthy session has no banner")
             } finally {
                 runtime.stop()
-                runtime.close()
+                set.close()
                 job.cancelAndJoin()
                 dispatchers.close()
             }
@@ -132,13 +127,8 @@ class AppDownloadTest {
             val dispatchers = EngineDispatchers()
             val job = SupervisorJob()
             val scope = CoroutineScope(coroutineContext + dispatchers.io + job)
-            val runtime =
-                TorrentRuntime.open(
-                    metainfo = local.metainfo,
-                    options = RuntimeOptions(directory = root),
-                    dispatchers = dispatchers,
-                    scope = scope,
-                )
+            val set = TorrentSet(dispatchers, scope)
+            val runtime = set.add(local.metainfo, RuntimeOptions(directory = root))
             try {
                 runtime.restore()
                 runtime.start(scope)
@@ -152,7 +142,7 @@ class AppDownloadTest {
                     windowOf(
                         rows = listOf(rowOf(state, Rates())),
                         rates = Rates(),
-                        listenPort = runtime.listenPort,
+                        listenPort = set.listenPort,
                         dhtNodes = null,
                         heapUsedBytes = 0,
                         heapMaxBytes = 128L * 1024 * 1024,
@@ -162,7 +152,7 @@ class AppDownloadTest {
                 assertEquals(TorrentState.Downloading, window.torrents.single().state)
             } finally {
                 runtime.stop()
-                runtime.close()
+                set.close()
                 job.cancelAndJoin()
                 dispatchers.close()
             }
@@ -182,7 +172,7 @@ class AppDownloadTest {
             val local = LocalSwarm.start(delayPerBlockMillis = 20).also { swarm = it }
             val file = root.resolve("fixture.torrent")
             Files.write(file, local.torrent)
-            setContent { KachokTheme { Torrent(file, root) } }
+            setContent { KachokTheme { Client(file, root) } }
             waitUntil(timeoutMillis = WAIT) {
                 onAllNodesWithText("payload.bin").fetchSemanticsNodes().isNotEmpty()
             }

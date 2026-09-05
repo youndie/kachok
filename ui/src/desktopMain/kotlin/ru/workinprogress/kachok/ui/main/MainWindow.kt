@@ -9,7 +9,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -65,6 +65,7 @@ internal fun MainWindow(
     onSort: (SortColumn) -> Unit = {},
     onAction: (ToolbarAction) -> Unit = {},
     onTab: (DetailsTab) -> Unit = {},
+    onSelect: (Int) -> Unit = {},
     onCancelAdd: () -> Unit = {},
     onConfirmAdd: () -> Unit = {},
     onClipboardAdd: () -> Unit = {},
@@ -85,7 +86,9 @@ internal fun MainWindow(
                     }
                     ColumnHeader(state.sort, onSort = onSort)
                     LazyColumn(Modifier.fillMaxWidth().weight(1f)) {
-                        items(state.torrents) { torrent -> TorrentRow(torrent) }
+                        itemsIndexed(state.torrents) { at, torrent ->
+                            TorrentRow(torrent, onSelect = { onSelect(at) })
+                        }
                     }
                 }
                 state.details?.let { DetailsPanel(it, onTab = onTab) }

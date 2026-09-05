@@ -1,6 +1,7 @@
 package ru.workinprogress.kachok.ui.list
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -215,6 +216,7 @@ private fun ColumnScope.Cells(model: TorrentRowModel) {
 public fun TorrentRow(
     model: TorrentRowModel,
     modifier: Modifier = Modifier,
+    onSelect: (() -> Unit)? = null,
 ) {
     // Selection is a ground, and error is the only *state* allowed to colour a whole row, because
     // it is the only one that is not going to fix itself. Selection wins where they meet: it is
@@ -227,7 +229,12 @@ public fun TorrentRow(
         }
     val hairline =
         if (model.selected) KachokPalette.primaryContainerHigh else KachokPalette.rowHairline
-    Column(modifier.fillMaxWidth().background(tint)) {
+    Column(
+        modifier
+            .fillMaxWidth()
+            .background(tint)
+            .then(if (onSelect == null) Modifier else Modifier.clickable(onClick = onSelect)),
+    ) {
         Cells(model)
         Box(
             Modifier

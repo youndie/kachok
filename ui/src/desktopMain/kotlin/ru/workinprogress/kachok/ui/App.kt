@@ -14,25 +14,30 @@ import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withTimeoutOrNull
 import ru.workinprogress.kachok.engine.io.EngineDispatchers
 import ru.workinprogress.kachok.engine.metainfo.MagnetParser
+import ru.workinprogress.kachok.engine.metainfo.Metainfo
 import ru.workinprogress.kachok.engine.metainfo.MetainfoParser
 import ru.workinprogress.kachok.engine.runtime.RuntimeOptions
 import ru.workinprogress.kachok.engine.runtime.TorrentRuntime
+import ru.workinprogress.kachok.engine.runtime.TorrentSet
 import ru.workinprogress.kachok.ui.add.AddTorrentState
 import ru.workinprogress.kachok.ui.details.DetailsTab
 import ru.workinprogress.kachok.ui.main.MainWindow
 import ru.workinprogress.kachok.ui.main.MainWindowState
 import ru.workinprogress.kachok.ui.session.Lifecycle
 import ru.workinprogress.kachok.ui.session.RateMeter
+import ru.workinprogress.kachok.ui.session.Rates
 import ru.workinprogress.kachok.ui.session.addFrom
 import ru.workinprogress.kachok.ui.session.detailsOf
 import ru.workinprogress.kachok.ui.session.rowOf
 import ru.workinprogress.kachok.ui.session.windowOf
 import ru.workinprogress.kachok.ui.theme.KachokTheme
 import java.awt.FileDialog
+import java.awt.Frame
 import java.awt.Toolkit
 import java.awt.datatransfer.DataFlavor
 import java.awt.datatransfer.UnsupportedFlavorException
@@ -44,25 +49,20 @@ import kotlin.time.Duration.Companion.seconds
 /**
  * The desktop surface, on the same engine the headless one runs.
  *
- * Not a second wiring: `TorrentRuntime` is the factory both use, so a change to how a session is
- * built reaches both clients or neither. What is here is what a window does with the result —
- * sample it once a second, turn it into rows, draw them.
+ * Not a second wiring: `TorrentSet` is the factory both use, so a change to how a session is built
+ * reaches both clients or neither. What is here is what a window does with the result — sample
+ * every session once a second, turn each into a row, draw them.
  *
- * **A torrent arrives on the command line, because there is no dialog yet.** Adding one is
- * [B-50](../../../../../../../docs/backlog/B-50-add-torrent.md); until then this takes the same
- * argument the CLI does, which keeps the two surfaces comparable while they are being compared.
+ * A torrent may arrive on the command line, the way the CLI takes one; the rest arrive through the
+ * toolbar. Both go through the same door.
  */
 public fun main(args: Array<String>) {
-    val torrent = args.firstOrNull()
-    if (torrent == null) {
-        System.err.println("usage: kachok-ui <file.torrent> [directory]")
-        return
-    }
+    val torrent = args.firstOrNull()?.let { Path.of(it) }
     val directory = Path.of(args.getOrElse(1) { "." })
     application {
-        // Closing the window asks the session to stop and waits for it, the way the CLI's signal
-        // handler does — a download is not a thing to drop on the floor because a window went
-        // away, and the design says as much: the row stays until the record is written.
+        // Closing the window asks every session to stop and waits for them, the way the CLI's
+        // signal handler does — a download is not a thing to drop on the floor because a window
+        // went away, and the design says as much: the row stays until the record is written.
         var closing by remember { mutableStateOf(false) }
         Window(
             onCloseRequest = { closing = true },
@@ -70,105 +70,122 @@ public fun main(args: Array<String>) {
             state = rememberWindowState(size = DpSize(WINDOW_WIDTH, WINDOW_HEIGHT)),
         ) {
             KachokTheme {
-                Torrent(Path.of(torrent), directory, stopping = closing, onStopped = ::exitApplication)
+                Client(torrent, directory, stopping = closing, onStopped = ::exitApplication)
             }
         }
     }
 }
 
 /**
- * One torrent, opened and running for as long as this composable is on screen.
+ * A torrent that was recognised and is waiting for a yes.
  *
- * The engine's scope is a child of the effect's, so a composition that goes away takes the session
- * with it; the ordinary way out is [stopping], which is the clean stop rather than the abrupt one.
+ * [metainfo] is null for a magnet: the window has no `MetadataFetcher` in front of a session yet,
+ * so a magnet can be shown and not started
+ * ([B-55](../../../../../../../docs/backlog/B-55-magnets-in-the-window.md)).
+ */
+private class Pending(
+    val metainfo: Metainfo?,
+    val shown: AddTorrentState,
+)
+
+/**
+ * Every torrent this window is running, for as long as the window is.
+ *
+ * The engine's scope is a child of the effect's, so a composition that goes away takes the
+ * sessions with it; the ordinary way out is [stopping], which is the clean stop rather than the
+ * abrupt one.
  */
 @Composable
-internal fun Torrent(
-    torrent: Path,
+internal fun Client(
+    initial: Path?,
     directory: Path,
     stopping: Boolean = false,
     onStopped: () -> Unit = {},
 ) {
     var window by remember { mutableStateOf<MainWindowState?>(null) }
-    // The panel and the tab are the window's, not the session's: they survive every sample, and
-    // the toolbar's toggle reads them rather than keeping an opinion of its own.
     var panelOpen by remember { mutableStateOf(true) }
     var tab by remember { mutableStateOf(DetailsTab.Overview) }
-    var adding by remember { mutableStateOf<AddTorrentState?>(null) }
+    var pending by remember { mutableStateOf<Pending?>(null) }
+    var selected by remember { mutableStateOf(0) }
+    // Read through a state, not captured: the effect is launched once and these change later, so
+    // a plain read inside it would be the value from before the click.
+    val askedToStop by rememberUpdatedState(stopping)
     val showPanel by rememberUpdatedState(panelOpen)
     val shownTab by rememberUpdatedState(tab)
-    val pending by rememberUpdatedState(adding)
-    // Read through a state, not captured: the effect is launched once and `stopping` becomes true
-    // later, so a plain parameter read inside it would be the value from before the close.
-    val askedToStop by rememberUpdatedState(stopping)
-    LaunchedEffect(torrent, directory) {
+    val shownAdd by rememberUpdatedState(pending?.shown)
+    val chosen by rememberUpdatedState(selected)
+    // The dialog runs on the composition and the engine on its own dispatcher; a channel is the
+    // seam, so a click never blocks a frame on a torrent being opened and hashed.
+    val accepted = remember { Channel<Metainfo>(Channel.UNLIMITED) }
+
+    LaunchedEffect(initial, directory) {
         val dispatchers = EngineDispatchers()
         val scope = CoroutineScope(coroutineContext + dispatchers.io + SupervisorJob())
-        val metainfo = MetainfoParser.parse(Files.readAllBytes(torrent))
+        val set = TorrentSet(dispatchers = dispatchers, scope = scope)
+        val meters = mutableMapOf<String, RateMeter>()
         val savedTo = directory.toAbsolutePath().toString()
-        val runtime =
-            TorrentRuntime.open(
-                metainfo = metainfo,
-                options = RuntimeOptions(directory = directory),
-                dispatchers = dispatchers,
-                scope = scope,
-            )
-        val meter = RateMeter()
         try {
-            runtime.restore()
-            val running = runtime.start(scope)
+            initial?.let { open(set, MetainfoParser.parse(Files.readAllBytes(it)), directory, scope) }
             var asked = false
             var stopTicks = 0
             while (true) {
+                while (true) {
+                    val metainfo = accepted.tryReceive().getOrNull() ?: break
+                    open(set, metainfo, directory, scope)
+                }
                 if (askedToStop && !asked) {
                     asked = true
-                    runtime.stop()
+                    set.torrents.forEach { it.stop() }
                 }
-                val state = runtime.state.value
-                val rates = meter.sample(state)
+                val running = set.torrents
+                val lifecycle = if (asked) Lifecycle.Stopping else Lifecycle.Running
+                val samples =
+                    running.map { runtime ->
+                        val state = runtime.state.value
+                        state to meters.getOrPut(runtime.metainfo.name) { RateMeter() }.sample(state)
+                    }
+                val index = chosen.coerceIn(0, maxOf(0, running.lastIndex))
                 window =
                     windowOf(
                         rows =
-                            listOf(
-                                rowOf(
-                                    state,
-                                    rates,
-                                    if (asked) Lifecycle.Stopping else Lifecycle.Running,
-                                    selected = true,
-                                ),
+                            samples.mapIndexed { at, (state, rates) ->
+                                rowOf(state, rates, lifecycle, selected = at == index)
+                            },
+                        // The status bar's two rates are the whole process's, which is what makes
+                        // them different numbers from any one row's.
+                        rates =
+                            Rates(
+                                down = samples.sumOf { it.second.down },
+                                up = samples.sumOf { it.second.up },
                             ),
-                        rates = rates,
-                        listenPort = runtime.listenPort,
-                        dhtNodes = runtime.dhtPort?.let { state.dhtNodes },
+                        listenPort = set.listenPort,
+                        dhtNodes = set.dhtPort?.let { samples.firstOrNull()?.first?.dhtNodes ?: 0 },
                         heapUsedBytes = heapUsed(),
                         heapMaxBytes = Runtime.getRuntime().maxMemory(),
-                        sessionError = state.sessionError,
+                        // The banner names one session because one session failed; which one it is
+                        // is the row that is tinted.
+                        sessionError = samples.firstNotNullOfOrNull { it.first.sessionError },
                         details =
-                            if (showPanel) {
+                            samples.getOrNull(index)?.takeIf { showPanel }?.let { (state, rates) ->
                                 detailsOf(
                                     state = state,
                                     rates = rates,
-                                    pieceLength = metainfo.pieceLength.toLong(),
+                                    pieceLength = running[index].metainfo.pieceLength.toLong(),
                                     directory = savedTo,
-                                    lifecycle = if (asked) Lifecycle.Stopping else Lifecycle.Running,
+                                    lifecycle = lifecycle,
                                     tab = shownTab,
                                 )
-                            } else {
-                                null
                             },
-                        adding = pending,
+                        adding = shownAdd,
                     )
-                // The window stays up while the stop runs — the design's *stopping* row — and is
-                // bounded the way the CLI bounds it: a peer that will not close must not be able
-                // to hold a window open either.
                 if (!asked) {
                     delay(TICK)
-                } else if (withTimeoutOrNull(TICK) { running.join() } != null || ++stopTicks >= STOP_TICKS) {
+                } else if (allStopped(set) || ++stopTicks >= STOP_TICKS) {
                     break
                 }
             }
         } finally {
-            runtime.close()
+            set.close()
             dispatchers.close()
             onStopped()
         }
@@ -179,41 +196,48 @@ internal fun Torrent(
             onAction = { action ->
                 when (action.label) {
                     "Details panel" -> panelOpen = !panelOpen
-                    "Add torrent" -> adding = chooseTorrent(directory)
-                    "Paste magnet" -> adding = magnetFromClipboard(directory)
+                    "Add torrent" -> pending = chooseTorrent(directory)
+                    "Paste magnet" -> pending = magnetFromClipboard(directory)
                     else -> Unit
                 }
             },
-            onTab = { chosen -> tab = chosen },
-            onCancelAdd = { adding = null },
+            onTab = { chosenTab -> tab = chosenTab },
+            onSelect = { row -> selected = row },
+            onCancelAdd = { pending = null },
+            onConfirmAdd = {
+                pending?.metainfo?.let { accepted.trySend(it) }
+                pending = null
+            },
         )
     }
 }
 
-/**
- * The reason *Add* is greyed out.
- *
- * One `Session` per torrent is the engine's shape today, and nothing above it holds several — the
- * finding [B-52](../../../../../../../docs/backlog/B-52-ui-on-the-real-engine.md) opened with. So
- * the dialog recognises what was dropped, says everything it can about it, and admits it cannot
- * start it while another is running.
- */
-private const val ONE_SESSION = "This build runs one torrent at a time."
+private suspend fun open(
+    set: TorrentSet,
+    metainfo: Metainfo,
+    directory: Path,
+    scope: CoroutineScope,
+): TorrentRuntime =
+    set.add(metainfo, RuntimeOptions(directory = directory)).also {
+        it.restore()
+        it.start(scope)
+    }
+
+/** Every session has answered its tracker, closed its peers, flushed and written its record. */
+private suspend fun allStopped(set: TorrentSet): Boolean =
+    withTimeoutOrNull(TICK) { set.torrents.forEach { it.awaitStopped() } } != null
 
 /** The file chooser is the platform's, because a file chooser drawn by hand is always worse. */
-private fun chooseTorrent(directory: Path): AddTorrentState? {
-    val dialog = FileDialog(null as java.awt.Frame?, "Add torrent", FileDialog.LOAD)
+private fun chooseTorrent(directory: Path): Pending? {
+    val dialog = FileDialog(null as Frame?, "Add torrent", FileDialog.LOAD)
     dialog.setFilenameFilter { _, name -> name.endsWith(".torrent") }
     dialog.isVisible = true
     val file = dialog.file ?: return null
     val path = Path.of(dialog.directory, file)
+    val here = directory.toAbsolutePath().toString()
     return try {
-        addFrom(
-            metainfo = MetainfoParser.parse(Files.readAllBytes(path)),
-            fileName = file,
-            saveTo = directory.toAbsolutePath().toString(),
-            defaultDirectory = directory.toAbsolutePath().toString(),
-        ).refused()
+        val metainfo = MetainfoParser.parse(Files.readAllBytes(path))
+        Pending(metainfo, addFrom(metainfo, file, saveTo = here, defaultDirectory = here))
     } catch (unreadable: IOException) {
         System.err.println("kachok: cannot read $path: ${unreadable.message}")
         null
@@ -226,10 +250,11 @@ private fun chooseTorrent(directory: Path): AddTorrentState? {
 /**
  * Reading the clipboard is not consent to download what is in it.
  *
- * The link is shown in the dialog and waits there; nothing is dialled until somebody says so, and
- * in this build nothing is dialled at all.
+ * The link is shown in the dialog and waits there; nothing is dialled until somebody says so — and
+ * in this build nothing is dialled at all, because the window has no `MetadataFetcher` in front of
+ * a session yet. The dialog says that where the file list would be.
  */
-private fun magnetFromClipboard(directory: Path): AddTorrentState? {
+private fun magnetFromClipboard(directory: Path): Pending? {
     val text =
         try {
             Toolkit.getDefaultToolkit().systemClipboard.getData(DataFlavor.stringFlavor) as? String
@@ -239,33 +264,17 @@ private fun magnetFromClipboard(directory: Path): AddTorrentState? {
             null
         } ?: return null
     if (!text.trim().startsWith("magnet:")) return null
+    val here = directory.toAbsolutePath().toString()
     return try {
-        addFrom(
-            link = MagnetParser.parse(text.trim()),
-            saveTo = directory.toAbsolutePath().toString(),
-            defaultDirectory = directory.toAbsolutePath().toString(),
-        ).refused()
+        val shown = addFrom(MagnetParser.parse(text.trim()), saveTo = here, defaultDirectory = here)
+        Pending(metainfo = null, shown = shown.refused(MAGNET_NOT_YET))
     } catch (malformed: IllegalArgumentException) {
         System.err.println("kachok: not a usable magnet link: ${malformed.message}")
         null
     }
 }
 
-private fun AddTorrentState.refused(): AddTorrentState =
-    AddTorrentState(
-        source = source,
-        summary = summary,
-        hash = hash,
-        magnet = magnet,
-        saveTo = saveTo,
-        defaultNote = defaultNote,
-        files = files,
-        wantedSummary = wantedSummary,
-        sequential = sequential,
-        startImmediately = startImmediately,
-        canAdd = false,
-        whyNot = ONE_SESSION,
-    )
+private const val MAGNET_NOT_YET = "The window cannot fetch a magnet's metainfo yet."
 
 private fun heapUsed(): Long = Runtime.getRuntime().let { it.totalMemory() - it.freeMemory() }
 

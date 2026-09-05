@@ -27,7 +27,8 @@ import ru.workinprogress.kachok.engine.metainfo.MetadataFetcher
 import ru.workinprogress.kachok.engine.metainfo.Metainfo
 import ru.workinprogress.kachok.engine.metainfo.MetainfoParser
 import ru.workinprogress.kachok.engine.runtime.RuntimeOptions
-import ru.workinprogress.kachok.engine.runtime.TorrentRuntime
+import ru.workinprogress.kachok.engine.runtime.SetOptions
+import ru.workinprogress.kachok.engine.runtime.TorrentSet
 import ru.workinprogress.kachok.engine.session.Command
 import ru.workinprogress.kachok.engine.session.Session
 import ru.workinprogress.kachok.engine.session.SessionConfig
@@ -142,23 +143,28 @@ class Download(
         dispatchers: EngineDispatchers,
         sessionScope: CoroutineScope,
     ): Int {
+        // A set of one. The port and the DHT belong to the process rather than to a torrent, so
+        // even a client that downloads exactly one thing goes through the same door the window's
+        // several go through.
+        val set =
+            TorrentSet(
+                dispatchers = dispatchers,
+                scope = sessionScope,
+                options = SetOptions(port = options.port, dht = options.dht),
+                onBindFailure = { err.appendLine("kachok: cannot listen: $it") },
+            )
         val runtime =
-            TorrentRuntime.open(
+            set.add(
                 metainfo = metainfo,
                 options =
                     RuntimeOptions(
                         directory = options.directory,
-                        port = options.port,
                         maxPeers = options.maxPeers,
                         pipelineDepth = options.pipelineDepth,
-                        dht = options.dht,
                         uploadLimitBytesPerSecond = options.uploadLimit,
                         downloadLimitBytesPerSecond = options.downloadLimit,
                     ),
-                dispatchers = dispatchers,
-                scope = sessionScope,
                 onResumeFailure = { err.appendLine("kachok: $it") },
-                onBindFailure = { err.appendLine("kachok: cannot listen: $it") },
             )
         val session = runtime.session
         val pool = runtime.pool
@@ -169,9 +175,10 @@ class Download(
                 out.appendLine("resuming with ${state.completedPieces} of ${state.pieceCount} pieces")
             }
         }
-        out.appendLine("listening on port ${runtime.listenPort}")
+        out.appendLine("listening on port ${set.listenPort}")
         val runningJob = runtime.start(sessionScope)
-        runtime.dhtPort?.let { out.appendLine("dht on udp port $it") }
+        set.startDht()
+        set.dhtPort?.let { out.appendLine("dht on udp port $it") }
         val renderer = sessionScope.launch { render(session) }
 
         // A signal is a request to stop, not a reason to lose the download's progress: the handler
@@ -201,7 +208,7 @@ class Download(
                 }
             } finally {
                 renderer.cancel()
-                runtime.close()
+                set.close()
             }
 
         if (finished == null) {

@@ -65,16 +65,32 @@ internal class AddTorrentState(
     val sequential: Boolean = false,
     val startImmediately: Boolean = true,
     /**
-     * Whether *Add* can do anything.
+     * Whether *Add* can do anything, and what to say when it cannot.
      *
-     * False in this build, with [whyNot] saying so: the engine is one `Session` per torrent and
-     * nothing above it holds several, so a window already running one has nowhere to put a second.
-     * A greyed button with a sentence beside it is the dialog admitting that; a live one that
-     * silently did nothing would not be.
+     * A greyed button with a sentence beside it is the dialog admitting a gap; a live one that
+     * silently did nothing would not be. Today the one gap is a magnet, whose metainfo the window
+     * has no `MetadataFetcher` in front of a session to fetch.
      */
     val canAdd: Boolean = true,
     val whyNot: String? = null,
-)
+) {
+    /** The same recognition, with the button off and a reason beside it. */
+    internal fun refused(reason: String): AddTorrentState =
+        AddTorrentState(
+            source = source,
+            summary = summary,
+            hash = hash,
+            magnet = magnet,
+            saveTo = saveTo,
+            defaultNote = defaultNote,
+            files = files,
+            wantedSummary = wantedSummary,
+            sequential = sequential,
+            startImmediately = startImmediately,
+            canAdd = false,
+            whyNot = reason,
+        )
+}
 
 /**
  * One gesture, then one dialog.

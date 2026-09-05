@@ -58,7 +58,8 @@ What exists on `main` today:
 | `.../engine/platform/Sha1.kt` + `engine/src/jvmMain/kotlin/ru/workinprogress/kachok/engine/platform/Sha1.jvm.kt` | the one-shot SHA-1 primitive, `expect`/`actual` |
 | `.../engine/wire/` | `Handshake`, the sealed `Message`, `PeerWire` — framing, the identifier table, in-place `piece` decoding |
 | `.../engine/peer/Peer.kt` | `PeerAddress`, `Block`, `PeerEvent`, `PeerConnection` — what the session is allowed to know about a connection |
-| `.../engine/runtime/TorrentRuntime.kt` (jvmMain) | the one factory: every interface above meets its JVM implementation here, and both surfaces call it |
+| `.../engine/runtime/TorrentSet.kt` (jvmMain) | several torrents in one process: one listener that reads a handshake before it routes it, one DHT, one dispatcher |
+| `.../engine/runtime/TorrentRuntime.kt` (jvmMain) | one torrent, wired: every interface above meets its JVM implementation here, and both surfaces call it |
 | `engine/src/jvmMain/kotlin/ru/workinprogress/kachok/engine/io/BufferPool.kt` | the capped pool of direct 16 KiB buffers and its `PooledBuffer` handle |
 | `.../engine/io/EngineDispatchers.kt` | the virtual-thread dispatcher every coroutine in the engine runs on |
 | `.../engine/io/SocketPeerConnection.kt` | one peer, one blocking `SocketChannel`, one virtual thread; `connect` and `accept`, blocks read straight into pool buffers |

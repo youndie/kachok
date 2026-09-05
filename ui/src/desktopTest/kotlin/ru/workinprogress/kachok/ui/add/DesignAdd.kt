@@ -91,17 +91,6 @@ internal val designMagnetToAdd: AddTorrentState =
 
 private const val PIECES = 1772
 
-/** The same magnet, in a window that already runs a torrent. */
+/** The same magnet, in a window that cannot fetch its metainfo yet. */
 internal val designMagnetRefused: AddTorrentState =
-    AddTorrentState(
-        source = designMagnetToAdd.source,
-        summary = designMagnetToAdd.summary,
-        hash = designMagnetToAdd.hash,
-        magnet = true,
-        saveTo = designMagnetToAdd.saveTo,
-        defaultNote = designMagnetToAdd.defaultNote,
-        files = emptyList(),
-        wantedSummary = "",
-        canAdd = false,
-        whyNot = "This build runs one torrent at a time.",
-    )
+    designMagnetToAdd.refused("The window cannot fetch a magnet's metainfo yet.")

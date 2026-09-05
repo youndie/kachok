@@ -343,14 +343,52 @@ public class SocketPeerConnection private constructor(
             reserved: ByteArray = Handshake.reservedBits(),
         ): SocketPeerConnection {
             try {
+                val handshake = readHandshake(socket)
+                if (!handshake.infoHash.bytes.contentEquals(infoHash.bytes)) {
+                    throw WireException("peer asked for another torrent: ${handshake.infoHash.bytes.toHex()}")
+                }
+                return answer(scope, socket, handshake, infoHash, peerId, pool, reserved)
+            } catch (failure: Throwable) {
+                socket.closeQuietly()
+                throw failure
+            }
+        }
+
+        /**
+         * The peer's half of the handshake, read and not answered.
+         *
+         * Two steps rather than one because a process holding several torrents cannot know which
+         * session a socket belongs to until the peer says: the info hash arrives in *its*
+         * handshake, and answering before reading would mean guessing
+         * ([B-54](../../../../../../../../../docs/backlog/B-54-many-torrents.md)).
+         *
+         * The socket is left open on success and closed on failure, because a caller that has
+         * nothing to route this to still has to close it and should not have to remember.
+         */
+        public fun readHandshake(socket: SocketChannel): Handshake {
+            try {
                 val theirs = ByteBuffer.allocate(Handshake.SIZE)
                 while (theirs.hasRemaining()) {
                     if (socket.read(theirs) < 0) throw EOFException("peer closed during the handshake")
                 }
-                val handshake = Handshake.decode(theirs.array())
-                if (!handshake.infoHash.bytes.contentEquals(infoHash.bytes)) {
-                    throw WireException("peer asked for another torrent: ${handshake.infoHash.bytes.toHex()}")
-                }
+                return Handshake.decode(theirs.array())
+            } catch (failure: Throwable) {
+                socket.closeQuietly()
+                throw failure
+            }
+        }
+
+        /** The other half: our handshake, and a connection reading from then on. */
+        public fun answer(
+            scope: CoroutineScope,
+            socket: SocketChannel,
+            handshake: Handshake,
+            infoHash: InfoHash,
+            peerId: PeerId,
+            pool: BufferPool,
+            reserved: ByteArray = Handshake.reservedBits(),
+        ): SocketPeerConnection {
+            try {
                 val ours = ByteBuffer.wrap(Handshake(infoHash, peerId, reserved).encode())
                 while (ours.hasRemaining()) socket.write(ours)
 

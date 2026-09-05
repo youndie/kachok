@@ -59,31 +59,32 @@ public class RuntimeOptions(
  *
  * **There is one of these and not one per surface.** The headless client and the desktop window
  * both need a buffer pool, a virtual-thread dialer, `FileChannel` storage, a `MessageDigest`
- * hasher, a listener bound before the first announce and a peer id generated exactly once — and
- * two copies of that list mean two clients, of which the second is always the one that is wrong.
- * What each surface writes for itself is what it does with [state], not how the engine is built.
+ * hasher and a peer id generated exactly once — and two copies of that list mean two clients, of
+ * which the second is always the one that is wrong. What each surface writes for itself is what it
+ * does with [state], not how the engine is built.
+ *
+ * **The listener and the DHT belong to [TorrentSet] and not here.** There is one port for the
+ * process and one routing table, and a torrent cannot own either without being the only one. Open
+ * a runtime through a set, even when the set holds one.
  *
  * Still a hand-written factory that reads top to bottom rather than a container. It lives in
  * `jvmMain` because every class it names does; nothing in `commonMain` can see it, which is the
  * point.
  */
-public class TorrentRuntime private constructor(
+public class TorrentRuntime internal constructor(
     public val metainfo: Metainfo,
     public val session: Session,
     public val pool: BufferPool,
     private val hasher: MessageDigestPieceHasher,
     private val files: FileSet,
-    private val listener: PeerListener?,
-    private val dhtTransport: DatagramKrpcTransport?,
-    private val identity: PeerId,
-    private val reserved: ByteArray,
-    /** The port the tracker is told about, which is the one that was actually free. */
+    /** The identity this torrent announced and offers in every handshake. */
+    public val peerId: PeerId,
+    /** The bits its handshakes carry, which the set has to repeat when it answers one. */
+    public val reserved: ByteArray,
+    /** The port the tracker was told about, which is the one the set actually bound. */
     public val listenPort: Int,
 ) : AutoCloseable {
     public val state: StateFlow<SessionState> get() = session.state
-
-    /** Null when the DHT is off, which is also what the status bar says. */
-    public val dhtPort: Int? get() = dhtTransport?.port
 
     /**
      * What is already on disk, before a single peer is dialled.
@@ -94,34 +95,31 @@ public class TorrentRuntime private constructor(
     public suspend fun restore(): Unit = session.restore(hasher)
 
     /**
-     * Starts the session, the DHT reader and the listener in [scope].
+     * Starts the session in [scope].
      *
-     * All three belong to the caller's scope rather than to one held here, so a cancelled scope
-     * takes the whole torrent with it and there is no second lifetime to get wrong.
+     * The scope is the caller's rather than one held here, so a cancelled scope takes the torrent
+     * with it and there is no second lifetime to get wrong. Incoming peers arrive through the
+     * set's listener, which is already accepting.
      */
-    public fun start(scope: CoroutineScope): Job {
-        val running = session.start(scope)
-        dhtTransport?.start(scope)
-        listener?.start(scope) { socket ->
-            val connection =
-                SocketPeerConnection.accept(scope, socket, metainfo.infoHash, identity, pool, reserved)
-            session.send(Command.AcceptPeer(connection))
-        }
-        return running
+    public fun start(scope: CoroutineScope): Job = session.start(scope).also { running = it }
+
+    private var running: Job? = null
+
+    /**
+     * Waits for the session's own job to finish, which is what a clean stop actually is.
+     *
+     * Not `state.first { … }`: `Command.Stop` is a request, and the announce, the closes, the
+     * flush and the record all happen after it and after the last state a reader sees.
+     */
+    public suspend fun awaitStopped() {
+        running?.join()
     }
 
     /** Announce *stopped*, close the peers, flush, record. Bounded by the caller, not here. */
     public suspend fun stop(): Unit = session.send(Command.Stop)
 
-    /**
-     * Closes what this opened, in the order it was opened in.
-     *
-     * The sockets first: a listener still accepting into a closed `FileSet` is a window in which
-     * a peer's first block is written to a channel nobody owns.
-     */
+    /** Closes the files. The sockets are the set's, and outlive one torrent. */
     override fun close() {
-        listener?.close()
-        dhtTransport?.close()
         files.close()
     }
 
@@ -133,28 +131,20 @@ public class TorrentRuntime private constructor(
          * torrent that will re-verify on the next run, which is slow and not fatal, and the surface
          * decides whether that is a line on stderr or a banner.
          */
-        public fun open(
+        internal fun open(
             metainfo: Metainfo,
             options: RuntimeOptions,
             dispatchers: EngineDispatchers,
             scope: CoroutineScope,
+            listenPort: Int,
+            dht: Dht?,
             onResumeFailure: (String) -> Unit = {},
-            onBindFailure: (String) -> Unit = {},
         ): TorrentRuntime {
             Files.createDirectories(options.directory)
             val files = FileSet.open(options.directory, metainfo)
             val pool = BufferPool(capacity = poolCapacity(metainfo, options.maxPeers))
             val hasher = MessageDigestPieceHasher(dispatchers.io)
-            // Bound before the session starts, because announcing a port nothing listens on is how
-            // a client comes to believe it is reachable when it is not.
-            val listener =
-                try {
-                    PeerListener.bind(options.port?.let { it..it } ?: TrackerProtocol.PORT_RANGE)
-                } catch (unavailable: BindException) {
-                    onBindFailure(unavailable.message ?: "the port is in use")
-                    null
-                }
-            val port = listener?.port ?: options.port ?: TrackerProtocol.PORT_RANGE.first
+            val port = listenPort
             // One identity, announced to the tracker and offered in every handshake. Generating it
             // twice would have told the tracker about a peer no swarm member ever meets.
             val identity = randomPeerId()
@@ -162,10 +152,6 @@ public class TorrentRuntime private constructor(
             // session is told about — both extensions are two-sided, and a second place recording
             // "we advertised this" is a second place for it to be wrong.
             val reserved = Handshake.reservedBits(extensionProtocol = true, fastExtension = true)
-            // BEP 5's routing table lives as long as the session and talks to strangers, so it is
-            // built only when it will be used: a private torrent or no `--dht` means no socket.
-            val dhtTransport =
-                if (options.dht && !metainfo.isPrivate) DatagramKrpcTransport(dispatchers.io) else null
             val session =
                 Session(
                     metainfo = metainfo,
@@ -190,14 +176,14 @@ public class TorrentRuntime private constructor(
                             onFailure = onResumeFailure,
                         ),
                     blocking = dispatchers.io,
-                    dht = dhtTransport?.let { Dht(self = NodeId.random(), transport = it) },
+                    dht = dht,
                     config =
                         SessionConfig(
                             maxStartedPieces = STARTED_PIECES,
                             pipelineDepth = options.pipelineDepth,
                             maxPeers = options.maxPeers,
                             reserved = reserved,
-                            dhtBootstrap = if (dhtTransport != null) BOOTSTRAP_NODES else emptyList(),
+                            dhtBootstrap = if (dht != null) BOOTSTRAP_NODES else emptyList(),
                             uploadLimitBytesPerSecond = options.uploadLimitBytesPerSecond,
                             downloadLimitBytesPerSecond = options.downloadLimitBytesPerSecond,
                         ),
@@ -208,11 +194,9 @@ public class TorrentRuntime private constructor(
                 pool = pool,
                 hasher = hasher,
                 files = files,
-                listener = listener,
-                dhtTransport = dhtTransport,
-                identity = identity,
+                peerId = identity,
                 reserved = reserved,
-                listenPort = listener?.port ?: port,
+                listenPort = port,
             )
         }
 
