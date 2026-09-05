@@ -46,12 +46,11 @@ which is also the order of work.
 
 <!-- BEGIN INDEX -->
 
-## Open (34)
+## Open (33)
 
 | Task | | Priority | Size | Blocked by |
 |---|---|---|---|---|
 | [B-11](docs/backlog/B-11-single-writer-with-gathering-writes.md) `[ ]` | One writer coroutine, one gathering positional write per piece | P0 | M | B-08, B-12 |
-| [B-12](docs/backlog/B-12-file-layout-and-sparse-files.md) `[ ]` | Piece-to-file mapping and sparse file creation | P0 | S/M | B-04 |
 | [B-13](docs/backlog/B-13-hashing-dispatcher.md) `[ ]` | Whole-piece SHA-1 on a bounded dispatcher with one MessageDigest per thread | P0 | S | B-08 |
 | [B-15](docs/backlog/B-15-http-tracker-announce.md) `[ ]` | HTTP tracker announce with compact peers | P0 | M | B-03 |
 | [B-16](docs/backlog/B-16-piece-picker.md) `[ ]` | Rarest-first piece picker with strict priority and endgame | P0 | M | - |
@@ -85,7 +84,7 @@ which is also the order of work.
 | [B-41](docs/backlog/B-41-android-and-ios-targets.md) `[ ]` | Phase 3: Android and iOS targets on the engine | P3 | XL | B-39 |
 | [B-02](docs/backlog/B-02-ci-runs-build-and-docs-gates.md) `[ ]` | CI runs the build and the documentation gates on every push | infra | S | B-01 |
 
-## Closed (8)
+## Closed (9)
 
 **M0 — The build and its gates**
 
@@ -103,6 +102,10 @@ which is also the order of work.
 - [B-07](docs/backlog/B-07-virtual-thread-peer-transport.md) `[x]` - One virtual thread per peer on a blocking SocketChannel
 - [B-08](docs/backlog/B-08-direct-buffer-pool.md) `[x]` - A capped pool of 16 KiB direct ByteBuffers
 - [B-42](docs/backlog/B-42-scopedvalue-in-the-reader-loop.md) `[-]` - Is ScopedValue used anywhere, or dropped?
+
+**M3 — Storage**
+
+- [B-12](docs/backlog/B-12-file-layout-and-sparse-files.md) `[x]` - Piece-to-file mapping and sparse file creation
 
 <!-- END INDEX -->
 

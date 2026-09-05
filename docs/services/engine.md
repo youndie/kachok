@@ -61,7 +61,9 @@ What exists on `main` today:
 | `engine/src/jvmMain/kotlin/ru/workinprogress/kachok/engine/io/BufferPool.kt` | the capped pool of direct 16 KiB buffers and its `PooledBuffer` handle |
 | `.../engine/io/EngineDispatchers.kt` | the virtual-thread dispatcher every coroutine in the engine runs on |
 | `.../engine/io/SocketPeerConnection.kt` | one peer, one blocking `SocketChannel`, one virtual thread; blocks read straight into pool buffers |
-| `engine/src/commonTest/kotlin/ru/workinprogress/kachok/engine/` | 58 tests across `bencode`, `metainfo`, `wire`, `io` and the transport; the fixtures are embedded strings, because a KMP test source set has no resources |
+| `.../engine/storage/PieceLayout.kt` | piece and block to file spans, by cumulative offsets |
+| `.../engine/storage/FileSet.kt` (jvmMain) | the torrent's files, created sparse with `setLength` and kept open for positional writes |
+| `engine/src/commonTest/kotlin/ru/workinprogress/kachok/engine/` | 70 tests across `bencode`, `metainfo`, `wire`, `io` and `storage`; the fixtures are embedded strings, because a KMP test source set has no resources |
 
 The layout the backlog builds toward, under `engine/src/commonMain/kotlin/ru/workinprogress/kachok/engine/`
 (a directory appears when its first backlog item lands; none of these exist yet):
@@ -71,7 +73,7 @@ The layout the backlog builds toward, under `engine/src/commonMain/kotlin/ru/wor
 | `peer/` | one peer's state machine on top of the connection: choke/interest flags, pipeline, rates | [B-17](../backlog/B-17-session-orchestrator.md) |
 | `picker/` | rarest-first, strict priority for started pieces, endgame | [B-16](../backlog/B-16-piece-picker.md) |
 | `choke/` | the ten-second choker and the optimistic unchoke | [B-21](../backlog/B-21-choking-algorithm.md) |
-| `storage/` | `Storage` interface, piece → file-span mapping, the writer queue | [B-11](../backlog/B-11-single-writer-with-gathering-writes.md) |
+| `storage/` | the writer queue on top of the mapping that is already there | [B-11](../backlog/B-11-single-writer-with-gathering-writes.md) |
 | `tracker/` | `TrackerClient` interface, announce request/response model | [B-15](../backlog/B-15-http-tracker-announce.md) |
 | `session/` | `Session`, the `StateFlow`, the command channel, the one timer | [B-17](../backlog/B-17-session-orchestrator.md) |
 | `resume/` | the resume record and its atomic persistence | [B-23](../backlog/B-23-atomic-resume-file.md) |
@@ -81,7 +83,7 @@ and under `engine/src/jvmMain/kotlin/ru/workinprogress/kachok/engine/`:
 | Directory | What goes there | Backlog |
 |---|---|---|
 | `io/` | the listener that accepts incoming peers, beside the pool and the connection already there | [B-09](../backlog/B-09-incoming-connections.md) |
-| `storage/` | `FileChannel` storage: positional gathering writes, `transferTo` reads, `force()` timer | [B-11](../backlog/B-11-single-writer-with-gathering-writes.md), [B-20](../backlog/B-20-upload-read-path.md) |
+| `storage/` | gathering writes and `transferTo` reads on top of the open `FileSet` | [B-11](../backlog/B-11-single-writer-with-gathering-writes.md), [B-20](../backlog/B-20-upload-read-path.md) |
 | `hash/` | `MessageDigest` per hashing thread, the `limitedParallelism` dispatcher — bulk piece hashing, not the one-shot primitive above | [B-13](../backlog/B-13-hashing-dispatcher.md) |
 | `tracker/` | `java.net.http` announce | [B-15](../backlog/B-15-http-tracker-announce.md) |
 
@@ -154,6 +156,9 @@ them. Nothing is read from the environment by this module; that is [cli](cli.md)
 * **`-Xno-param-assertions` and `-Xno-call-assertions` are release-only.** They are added when the
   build runs with `-Pkachok.release`; a plain `./gradlew build` keeps the null checks. Both builds
   are green on 2026-09-05.
+* **A file is sized with `setLength`, never by writing past its end.** The two look
+  interchangeable; measured on APFS the second allocates the whole file, which is the
+  preallocation the design refuses (research §1.3a).
 * **An unknown message identifier closes the connection.** `PeerWire.decode` throws on one rather
   than ignoring the frame: a peer should not send what the handshake did not negotiate, and
   ignoring unknown frames would hide a framing bug of ours as "some messages are dropped". The

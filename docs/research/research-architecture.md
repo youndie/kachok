@@ -129,6 +129,33 @@ consistent with that for a headless client; the Compose phase adds `java.desktop
 a run-time image, the application jars on the class path, a launcher script and an AOT cache is
 the whole artefact — [D10](#d10-phase-1-ships-a-jlinked-runtime-plus-jars-jpackage-arrives-with-compose).
 
+### 1.3a Sparse files: the mechanism is not interchangeable
+
+Measured on this machine (macOS 27, APFS, JDK 25.0.2, 2026-09-05) by creating a 4 MB file four
+ways and reading `du -k` and `stat -f %b`:
+
+| How the file was given its length | Reported size | Allocated |
+|---|---|---|
+| one byte written at `position = length - 1` | 4 000 000 | **3 908 KB** |
+| two 4 KiB blocks written with a hole between them | 4 000 000 | **3 908 KB** |
+| `RandomAccessFile.setLength(length)` | 4 000 000 | **0 KB** |
+| written out in full with zeros | 4 000 000 | 3 908 KB |
+
+**Consequence 1 — the obvious trick is preallocation.** Extending a file by writing past its end
+costs exactly as much as writing the whole file, which is the thing D4's sparse-file decision
+exists to avoid. Only `setLength` leaves a hole. `FileSet` therefore sizes every file with
+`RandomAccessFile.setLength` before opening its channel, and the class comment says why, because
+the two calls look interchangeable and are not.
+
+**Consequence 2 — the JDK cannot tell you this.** There is no portable allocated-block count:
+the `unix` attribute view on macOS exposes `size` and not `blocks`, so the test that guards this
+shells out to `du`. A check that quietly skipped would be indistinguishable from one that passed.
+
+**Correction to §1.1, Consequence 3.** That paragraph said `SPARSE` "costs nothing and buys
+nothing on macOS and Linux, where files are sparse by default". The first half stands — the option
+is dropped by `UnixChannelFactory`. The second half was too glib: a file is sparse only if it is
+*extended* rather than *written*, and nothing about the platform makes that choice for you.
+
 ### 1.4 Kotlin, coroutines and the build
 
 Verified against Maven Central (`repo1.maven.org/maven2/<group>/<artifact>/maven-metadata.xml`),
