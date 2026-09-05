@@ -5,6 +5,15 @@ kotlin = "2.4.10"
 # The shared build conventions. One number: every sborka plugin below takes its version from here,
 # and settings.gradle.kts repeats it by hand because a settings plugin cannot read a catalog.
 sborka = "0.2.0.29"
+# Phase 2. Pinned here rather than taken from the shared `wip` catalog, which carries none of these.
+compose-multiplatform = "1.12.0"
+# KSP is versioned independently of the Kotlin compiler since KSP2; viddik's processor runs on it.
+ksp = "2.3.10"
+# viddik ships the plugin, the annotations and the capture engine under one version, which is what
+# keeps the processor and the renderer in step. 0.4.0 is on Maven Central under
+# `io.github.youndie.viddik`; everything up to 0.3.3 is on reposilite under `ru.workinprogress` and
+# needs a repository this project does not have.
+viddik = "0.4.0"
 
 [plugins]
 kotlinMultiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
@@ -13,3 +22,7 @@ sborkaBase = { id = "ru.workinprogress.sborka.base", version.ref = "sborka" }
 sborkaTest = { id = "ru.workinprogress.sborka.test", version.ref = "sborka" }
 sborkaKmp = { id = "ru.workinprogress.sborka.kmp", version.ref = "sborka" }
 sborkaLint = { id = "ru.workinprogress.sborka.lint", version.ref = "sborka" }
+composeMultiplatform = { id = "org.jetbrains.compose", version.ref = "compose-multiplatform" }
+composeCompiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
+viddik = { id = "io.github.youndie.viddik", version.ref = "viddik" }

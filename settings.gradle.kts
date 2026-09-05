@@ -27,3 +27,7 @@ rootProject.name = "kachok"
 // targets to `:engine`. See docs/research/research-architecture.md §4.
 include(":engine")
 include(":cli")
+
+// Phase 2's desktop UI. It reads the engine's one `StateFlow` and sends commands through its one
+// channel — the seam research D7 asked phase 1 to leave, now with something on the other side.
+include(":ui")
