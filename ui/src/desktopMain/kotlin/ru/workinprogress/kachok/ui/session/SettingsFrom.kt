@@ -7,7 +7,13 @@ import ru.workinprogress.kachok.ui.settings.Setting
 import ru.workinprogress.kachok.ui.settings.SettingsSection
 import ru.workinprogress.kachok.ui.settings.SettingsState
 
-/** What a person has actually changed. Everything absent from here is still the default. */
+/**
+ * What a person has actually changed, plus what the process actually did.
+ *
+ * [port] is the port the listener **bound**, not the one somebody asked for: the status bar says
+ * `port 6881 listening` from the same number, and a settings screen that showed the wish while the
+ * status bar showed the fact would be two answers to one question the first time 6881 was busy.
+ */
 internal class Preferences(
     val directory: String,
     val startWhenAdded: Boolean = true,
@@ -43,9 +49,10 @@ internal fun settingsOf(
                     listOf(
                         Setting(
                             label = "Save to",
-                            default = "~/Downloads",
+                            default = DEFAULT_DIRECTORY,
                             value = preferences.directory,
                             folder = true,
+                            changed = preferences.directory != DEFAULT_DIRECTORY,
                         ),
                         Setting(
                             label = "Start torrents when added",
@@ -65,7 +72,7 @@ internal fun settingsOf(
                                     "${TrackerProtocol.PORT_RANGE.last} is taken if this one is busy.",
                             default = "$defaultPort",
                             value = "${preferences.port ?: defaultPort}",
-                            changed = preferences.port != null && preferences.port != defaultPort,
+                            changed = (preferences.port ?: defaultPort) != defaultPort,
                         ),
                         Setting(
                             label = "Connections to keep up",
@@ -122,6 +129,9 @@ internal fun settingsOf(
         footnote = "Changes apply to the running session immediately — no restart, no Apply button.",
     )
 }
+
+/** Where the design says a fresh install saves, and the only string here that is not a measurement. */
+internal const val DEFAULT_DIRECTORY: String = "~/Downloads"
 
 /**
  * A limit of `no limit` is not a limit of zero.

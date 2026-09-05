@@ -46,10 +46,11 @@ which is also the order of work.
 
 <!-- BEGIN INDEX -->
 
-## Open (7)
+## Open (8)
 
 | Task | | Priority | Size | Blocked by |
 |---|---|---|---|---|
+| [B-60](docs/backlog/B-60-two-torrents-one-path.md) `[ ]` | Two torrents saving to the same file, and nothing that notices | P1 | M | B-54 |
 | [B-57](docs/backlog/B-57-a-paused-torrent.md) `[ ]` | A paused torrent, which the engine does not have | P2 | M | B-54 |
 | [B-58](docs/backlog/B-58-remove-a-torrent.md) `[ ]` | Removing a torrent, and the dialog the ellipsis promises | P2 | S | B-54 |
 | [B-37](docs/backlog/B-37-v2-and-hybrid-torrents.md) `[?]` | v2 and hybrid torrents (BEP 52): SHA-256 piece layers | P3 | L | B-04 |

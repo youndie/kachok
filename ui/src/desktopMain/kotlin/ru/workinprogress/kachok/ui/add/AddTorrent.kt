@@ -36,6 +36,7 @@ import ru.workinprogress.kachok.ui.theme.ChromeButton
 import ru.workinprogress.kachok.ui.theme.ChromeText
 import ru.workinprogress.kachok.ui.theme.KachokPalette
 import ru.workinprogress.kachok.ui.theme.MonoSmall
+import ru.workinprogress.kachok.ui.theme.PathText
 import ru.workinprogress.kachok.ui.theme.RowName
 import ru.workinprogress.kachok.ui.theme.warningColors
 
@@ -195,12 +196,12 @@ private fun SaveTo(state: AddTorrentState) {
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 Glyph(Icons.FOLDER, size = FIELD_GLYPH, tint = scheme.onSurfaceVariant)
-                Text(
+                PathText(
                     state.saveTo,
-                    style = MonoSmall.copy(fontSize = 12.sp),
-                    color = scheme.onSurface,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
+                    MonoSmall.copy(fontSize = 12.sp),
+                    scheme.onSurface,
+                    Modifier.weight(1f),
+                    textAlign = TextAlign.Start,
                 )
             }
             Box(

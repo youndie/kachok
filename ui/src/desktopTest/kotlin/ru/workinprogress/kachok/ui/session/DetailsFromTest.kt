@@ -57,6 +57,21 @@ class DetailsFromTest {
         )
     }
 
+    /**
+     * A path is elided from the front, because what identifies a directory is its last component.
+     *
+     * `Save to /private/tmp/claude-501/-Users-youndie-…` is what the panel showed when it was cut
+     * the other way: every character of it is the same for every torrent on the machine.
+     */
+    @Test
+    fun theOnlyPathFieldIsMarkedAsOne() {
+        assertTrue(value("Save to").path)
+        assertTrue(
+            details.sections.flatMap { it.fields }.count { it.path } == 1,
+            "only a path is elided from the front",
+        )
+    }
+
     /** The one field the engine has no counter behind, and the badge that says so. */
     @Test
     fun theSpeedsAreTheOnlyPlannedField() {

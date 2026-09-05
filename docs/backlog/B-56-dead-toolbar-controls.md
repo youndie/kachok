@@ -34,6 +34,25 @@ wrong. `MainWindowTest` clicked the two that worked. The handler was a `when` on
   its `init`. The handler switches on a `ToolbarCommand` enum, so adding a control without handling
   it does not compile, and `ToolbarStateTest` asserts the invariant over every control on the bar.
 
+## What driving the window found next
+
+The five above were found by reading the code. Running it found four more, none of which any test
+or golden could have shown, because all four need a real machine's data:
+
+- **`Save to` ran into its own label and was cut at the wrong end** — `Save to/private/tmp/claude-501/-Users-youndi…`,
+  in all three places a path is drawn. Every visible character was the same for every torrent on the
+  disk. `TextOverflow.StartEllipsis` compiles against Compose Multiplatform 1.12 and truncates at
+  the end anyway, with and without `softWrap = false`; `PathText` measures instead.
+- **Selection was a row number.** Sorting reordered the list under it and left the highlight, and
+  the details panel, on whatever had moved into that position. It is an info hash now.
+- **A directory that is not the default was not marked changed** in settings, where a changed
+  number is — the folder control took a different path through the row and nobody passed it down.
+- **The settings screen showed the port somebody wished for, not the one the listener bound.** The
+  status bar shows the second from the same process; the first time 6881 is busy they disagree.
+
+And one that is not a UI bug and is worse: two different torrents saving to the same file, with
+nothing that notices — [B-60](B-60-two-torrents-one-path.md).
+
 ## Deviation, and why
 
 - **Four toolbar buttons are greyed where the design draws three of them live.** The design shows
@@ -43,8 +62,10 @@ wrong. `MainWindowTest` clicked the two that worked. The handler was a `when` on
 - AC: every enabled control has somewhere for its press to go; every disabled one says which item
   would enable it; the column header sorts the list it heads.
   **Automated:** `ui/src/desktopTest/.../main/ToolbarStateTest.kt` — the invariant over every
-  control — and `ui/src/desktopTest/.../session/SortingTest.kt`, whose every case would pass on
-  strings for one input and fail for another.
+  control — `ui/src/desktopTest/.../session/SortingTest.kt`, whose every case would pass on strings
+  for one input and fail for another, `.../theme/PathTextTest.kt`, and the golden
+  `details_long-path.png`, which exists because `~/Downloads/iso` fits and a real directory does
+  not.
 - Anchors: `ui/src/desktopMain/kotlin/ru/workinprogress/kachok/ui/session/Sorting.kt`,
   `ui/src/desktopMain/kotlin/ru/workinprogress/kachok/ui/main/Toolbar.kt`,
   `ui/src/desktopMain/kotlin/ru/workinprogress/kachok/ui/App.kt`.

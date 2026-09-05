@@ -29,6 +29,7 @@ import ru.workinprogress.kachok.ui.icons.Icons
 import ru.workinprogress.kachok.ui.theme.ChromeText
 import ru.workinprogress.kachok.ui.theme.KachokPalette
 import ru.workinprogress.kachok.ui.theme.MonoSmall
+import ru.workinprogress.kachok.ui.theme.PathText
 import ru.workinprogress.kachok.ui.theme.warningColors
 
 /** What a setting is: a name, why it matters, its measured default, and what it is now. */
@@ -119,7 +120,7 @@ private fun SettingRow(setting: Setting) {
                 Text("default ${setting.default}", style = DEFAULT, color = scheme.onSurfaceVariant)
                 when {
                     setting.toggle != null -> Toggle(setting.toggle)
-                    setting.folder -> FolderField(setting.value)
+                    setting.folder -> FolderField(setting.value, setting.changed)
                     else -> ValueField(setting)
                 }
                 setting.unit?.let {
@@ -161,26 +162,26 @@ private fun ValueField(setting: Setting) {
 }
 
 @Composable
-private fun FolderField(path: String) {
+private fun FolderField(
+    path: String,
+    changed: Boolean,
+) {
     val scheme = MaterialTheme.colorScheme
     Row(horizontalArrangement = Arrangement.spacedBy(7.dp), verticalAlignment = Alignment.CenterVertically) {
         Row(
             Modifier
                 .height(FIELD_HEIGHT)
                 .width(PATH_WIDTH)
-                .border(HAIRLINE, scheme.outline, RoundedCornerShape(4.dp))
-                .padding(horizontal = 9.dp),
+                .border(
+                    HAIRLINE,
+                    if (changed) scheme.primary else scheme.outline,
+                    RoundedCornerShape(4.dp),
+                ).padding(horizontal = 9.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(7.dp),
         ) {
             Glyph(Icons.FOLDER, size = FOLDER_GLYPH, tint = scheme.onSurfaceVariant)
-            Text(
-                path,
-                style = MonoSmall,
-                color = scheme.onSurface,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
+            PathText(path, MonoSmall, scheme.onSurface, Modifier.weight(1f), textAlign = TextAlign.Start)
         }
         Box(
             Modifier

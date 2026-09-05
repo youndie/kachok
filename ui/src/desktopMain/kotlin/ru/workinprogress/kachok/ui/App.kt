@@ -126,7 +126,11 @@ internal fun Client(
     var panelOpen by remember { mutableStateOf(true) }
     var tab by remember { mutableStateOf(DetailsTab.Overview) }
     var pending by remember { mutableStateOf<Pending?>(null) }
-    var selected by remember { mutableStateOf(0) }
+    // The torrent that is selected, by info hash — not the row it is in. Sorting reorders the
+    // rows under the selection, and an index would leave the highlight on a different torrent
+    // than the one the person clicked.
+    var selected by remember { mutableStateOf<String?>(null) }
+    var order by remember { mutableStateOf<List<String>>(emptyList()) }
     var settingsOpen by remember { mutableStateOf(false) }
     var sort by remember { mutableStateOf(SortOrder()) }
     // Read through a state, not captured: the effect is launched once and these change later, so
@@ -137,7 +141,7 @@ internal fun Client(
     val shownAdd by rememberUpdatedState(pending?.shown)
     val chosen by rememberUpdatedState(selected)
     val showSettings by rememberUpdatedState(settingsOpen)
-    val order by rememberUpdatedState(sort)
+    val sortedBy by rememberUpdatedState(sort)
     // The dialog runs on the composition and the engine on its own dispatcher; a channel is the
     // seam, so a click never blocks a frame on a torrent being opened and hashed.
     val accepted = remember { Channel<Pending>(Channel.UNLIMITED) }
@@ -193,12 +197,18 @@ internal fun Client(
                         .map { runtime ->
                             val state = runtime.state.value
                             Sample(state, meters.getOrPut(runtime.metainfo.name) { RateMeter() }.sample(state))
-                        }.inOrder(order)
-                val byName = running.associateBy { it.metainfo.name }
+                        }.inOrder(sortedBy)
+                val byHash = running.associateBy { it.metainfo.infoHash.hex() }
                 // A magnet's row comes first: it is the one the person just asked for, and the
                 // one with the least to say about itself.
                 val waiting = fetching.toList()
-                val index = chosen.coerceIn(0, maxOf(0, waiting.size + ordered.size - 1))
+                // Every row on the screen, in the order it is drawn — magnets first, then the
+                // sorted torrents. A click carries a row number and this is what turns it back
+                // into a torrent.
+                order = waiting.map { it.link.infoHash.hex() } + ordered.map { it.state.infoHash.hex() }
+                // The selected torrent's row, or the first one when it has gone or none was
+                // chosen. Never a stale number.
+                val index = order.indexOf(chosen).coerceAtLeast(0)
                 window =
                     windowOf(
                         rows =
@@ -231,15 +241,25 @@ internal fun Client(
                                     state = sample.state,
                                     rates = sample.rates,
                                     pieceLength =
-                                        byName[sample.state.name]?.metainfo?.pieceLength?.toLong() ?: 0,
+                                        byHash[sample.state.infoHash.hex()]
+                                            ?.metainfo
+                                            ?.pieceLength
+                                            ?.toLong() ?: 0,
                                     directory = savedTo,
                                     lifecycle = lifecycle,
                                     tab = shownTab,
                                 )
                             },
                         adding = shownAdd,
-                        settings = if (showSettings) settingsOf(Preferences(directory = savedTo)) else null,
-                        sort = order,
+                        settings =
+                            if (showSettings) {
+                                settingsOf(
+                                    Preferences(directory = savedTo, port = set.listenPort),
+                                )
+                            } else {
+                                null
+                            },
+                        sort = sortedBy,
                     )
                 if (!asked) {
                     delay(TICK)
@@ -269,7 +289,7 @@ internal fun Client(
             },
             onSort = { column -> sort = sort.clicked(column) },
             onTab = { chosenTab -> tab = chosenTab },
-            onSelect = { row -> selected = row },
+            onSelect = { row -> order.getOrNull(row)?.let { selected = it } },
             onAddTorrent = { pending = chooseTorrent(directory) },
             onCancelAdd = { pending = null },
             onConfirmAdd = {
@@ -341,6 +361,9 @@ private fun magnetFromClipboard(directory: Path): Pending? {
         null
     }
 }
+
+private fun ru.workinprogress.kachok.engine.InfoHash.hex(): String =
+    bytes.joinToString("") { (it.toInt() and 0xFF).toString(16).padStart(2, '0') }
 
 private fun heapUsed(): Long = Runtime.getRuntime().let { it.totalMemory() - it.freeMemory() }
 

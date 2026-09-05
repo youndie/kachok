@@ -54,6 +54,7 @@ compared.
 | `.../ui/session/SettingsFrom.kt` | those defaults, read out of `SessionConfig` rather than repeated |
 | `.../ui/main/EmptyState.kt` | what a new install looks like: three ways in, all of them named |
 | `.../ui/session/Sorting.kt` | the column header's order, taken on the values and never on the cells |
+| `.../ui/theme/PathText.kt` | a directory cut from the front, measured rather than guessed |
 | `.../ui/session/Figures.kt` | three significant figures for a size, grouped thousands for a rate |
 | `.../ui/session/SessionRow.kt` | `SessionState` as a row, plus the lifecycle the engine has no field for |
 | `ui/src/desktopTest/.../session/AppDownloadTest.kt` | a real download from `:swarm`, sampled the way the window samples it |
@@ -142,6 +143,13 @@ None. Two command-line arguments and nothing read from the environment; the sett
 * **A control either has a command or a reason, never neither.** `ToolbarAction` refuses to be
   built without one of the two and the handler switches on an enum, because four buttons that
   looked available and fell into an `else ->` shipped once ([B-56](../backlog/B-56-dead-toolbar-controls.md)).
+* **`TextOverflow.StartEllipsis` type-checks and does nothing.** Compose Multiplatform 1.12
+  truncates at the end whatever it says, with and without `softWrap = false` — checked twice
+  against a golden. A path is elided by measuring it (`PathText`), which is also why the golden
+  `details_long-path.png` exists: a real machine's directory does not fit and `~/Downloads/iso`
+  does, so nothing before it showed the fault.
+* **Selection is a torrent, not a row number.** Sorting reorders the list under it, and an index
+  would leave the highlight on whatever moved into that position.
 * **Sorting is on the values, not the cells.** Every column but the name is a number wearing a
   unit; `14.6 GiB` sorts before `3.70 GiB` as text.
 * **A settings default is never typed twice.** `settingsOf` constructs `SessionConfig()` for its

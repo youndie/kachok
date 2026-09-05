@@ -23,6 +23,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -36,6 +37,7 @@ import ru.workinprogress.kachok.ui.list.stateLabelColor
 import ru.workinprogress.kachok.ui.theme.ChromeText
 import ru.workinprogress.kachok.ui.theme.KachokPalette
 import ru.workinprogress.kachok.ui.theme.MonoSmall
+import ru.workinprogress.kachok.ui.theme.PathText
 import ru.workinprogress.kachok.ui.theme.RowName
 import ru.workinprogress.kachok.ui.theme.RowStateLabel
 import ru.workinprogress.kachok.ui.theme.warningColors
@@ -74,6 +76,8 @@ internal class DetailsField(
     /** The design's own badge: the field is drawn, and it says where the number came from. */
     val planned: Boolean = false,
     val copyable: Boolean = false,
+    /** A path: identified by its end, so it is elided from the front rather than the back. */
+    val path: Boolean = false,
 )
 
 internal class DetailsSection(
@@ -277,7 +281,7 @@ private fun Field(field: DetailsField) {
         Row(
             Modifier.fillMaxWidth().height(Details.rowHeight),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -287,21 +291,30 @@ private fun Field(field: DetailsField) {
                 if (field.planned) PlannedBadge()
             }
             Row(
+                // The value takes the slack and the label keeps its width, so the two can never
+                // run together — `Save to /private/tmp/...` with no gap was what they did.
+                Modifier.weight(1f),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(5.dp),
+                horizontalArrangement = Arrangement.spacedBy(5.dp, Alignment.End),
             ) {
-                Text(
-                    field.value,
-                    style = MonoSmall,
-                    color =
-                        when (field.tone) {
-                            FieldTone.Plain -> MaterialTheme.colorScheme.onSurface
-                            FieldTone.Good -> MaterialTheme.colorScheme.primary
-                            FieldTone.Warning -> MaterialTheme.warningColors.warning
-                        },
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
+                val tone =
+                    when (field.tone) {
+                        FieldTone.Plain -> MaterialTheme.colorScheme.onSurface
+                        FieldTone.Good -> MaterialTheme.colorScheme.primary
+                        FieldTone.Warning -> MaterialTheme.warningColors.warning
+                    }
+                if (field.path) {
+                    PathText(field.value, MonoSmall, tone, Modifier.weight(1f, fill = false))
+                } else {
+                    Text(
+                        field.value,
+                        style = MonoSmall,
+                        color = tone,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        textAlign = TextAlign.End,
+                    )
+                }
                 if (field.copyable) {
                     Glyph(Icons.CONTENT_COPY, size = COPY_GLYPH, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 }

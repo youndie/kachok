@@ -164,6 +164,15 @@ toolbar ── Add torrent ──▶ file chooser ──▶ MetainfoParser ─�
 * **Automated:** `ui ToolbarStateTest#everyControlEitherDoesSomethingOrSaysWhyItDoesNot`,
   `#everyDisabledControlNamesTheItemThatWouldEnableIt`
 
+### Scenario: A path too long for its cell keeps the end that identifies it
+* **Given:** a save directory longer than the cell it is drawn in.
+* **When:** the details panel draws it.
+* **Then:** the front is replaced by an ellipsis and the last components are visible; a path that
+  fits is untouched; a wider cell shows more of it.
+* **Automated:** `ui PathTextTest#aPathThatDoesNotFitLosesItsFrontAndKeepsItsEnd`,
+  `#aPathThatFitsIsLeftAlone`, `#aWiderCellShowsMoreOfTheSamePath`, and the golden
+  `details_long-path.png`.
+
 ### Scenario: Nothing to show is a place to start
 * **Given:** a window with no torrents.
 * **When:** it is drawn.

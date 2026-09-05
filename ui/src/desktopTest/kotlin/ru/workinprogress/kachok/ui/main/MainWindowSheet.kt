@@ -10,6 +10,8 @@ import androidx.compose.ui.Modifier
 import io.github.youndie.viddik.annotations.ViddikScreenshot
 import ru.workinprogress.kachok.ui.details.DetailsPanel
 import ru.workinprogress.kachok.ui.details.DetailsTab
+import ru.workinprogress.kachok.ui.session.Rates
+import ru.workinprogress.kachok.ui.session.detailsOf
 import ru.workinprogress.kachok.ui.theme.KachokTheme
 
 /**
@@ -54,5 +56,27 @@ internal fun DetailsTabsSheet() {
                 DetailsPanel(designDetails(tab))
             }
         }
+    }
+}
+
+/**
+ * The one row whose value is longer than its cell, at a length a real machine produces.
+ *
+ * `Save to` was drawn touching its own label and cut at the end — `Save to/private/tmp/claude-501/…`
+ * — where every visible character is the same for every torrent on the machine. Neither fault shows
+ * at `~/Downloads/iso`, which is why the window had to be run to find them.
+ */
+@ViddikScreenshot(name = "long-path", group = "details", width = 341, height = 250)
+@Composable
+internal fun DetailsLongPathSheet() {
+    KachokTheme {
+        DetailsPanel(
+            detailsOf(
+                state = designSession,
+                rates = Rates(),
+                pieceLength = 2L * 1024 * 1024,
+                directory = "/private/tmp/claude-501/-Users-youndie-Documents-GitHub/scratchpad/live/downloads",
+            ),
+        )
     }
 }

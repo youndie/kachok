@@ -41,7 +41,7 @@ internal fun detailsOf(
                         DetailsField("Info hash", shortHash(state), copyable = true),
                         DetailsField("Total length", Figures.bytes(state.totalLength)),
                         DetailsField("Piece length", Figures.bytes(pieceLength)),
-                        DetailsField("Save to", directory),
+                        DetailsField("Save to", directory, path = true),
                     ),
                 ),
                 DetailsSection(

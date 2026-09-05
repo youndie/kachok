@@ -81,6 +81,37 @@ class SettingsFromTest {
         )
     }
 
+    /**
+     * A directory that is not the default is marked like any other changed field.
+     *
+     * It was not, because the folder control took a different path through the row and nobody
+     * passed `changed` down it — visible the moment the window ran anywhere but `~/Downloads`.
+     */
+    @Test
+    fun aDirectoryThatIsNotTheDefaultIsMarkedLikeAnyOtherChangedField() {
+        assertTrue(!setting("Save to").changed, "the default is not a change")
+        val moved = settingsOf(Preferences(directory = "/Volumes/big/torrents"))
+        val saveTo = moved.sections.flatMap { it.settings }.single { it.label == "Save to" }
+        assertTrue(saveTo.changed)
+        assertEquals("/Volumes/big/torrents", saveTo.value)
+        assertEquals(DEFAULT_DIRECTORY, saveTo.default)
+    }
+
+    /**
+     * The port shown is the one the listener bound, not the one somebody wished for.
+     *
+     * The status bar says `port N listening` from the same number; two screens disagreeing about
+     * which port this process is on is worse than either being wrong.
+     */
+    @Test
+    fun thePortShownIsTheOneThatWasActuallyBound() {
+        val busy = settingsOf(Preferences(directory = DEFAULT_DIRECTORY, port = 6884))
+        val port = busy.sections.flatMap { it.settings }.single { it.label == "Listening port" }
+        assertEquals("6884", port.value)
+        assertEquals("${TrackerProtocol.PORT_RANGE.first}", port.default)
+        assertTrue(port.changed, "6884 is not 6881, whoever decided it")
+    }
+
     /** The one setting with a paragraph, and the reason it has one. */
     @Test
     fun theDhtToggleCarriesItsExplanation() {
