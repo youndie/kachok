@@ -350,6 +350,10 @@ feature document quotes comes from here.
 | The fast extension is advertised by `reserved[7] |= 0x04` and adds Have All / Have None, Reject Request, Suggest, Allowed Fast | BEP 6 |
 | Metadata over the wire (`ut_metadata`) moves in 16 KiB (16384-byte) blocks | BEP 9 |
 | UDP trackers use a `connect` / `announce` handshake with a `connection_id` | BEP 15 |
+| BEP 15's connect is 16 bytes (magic `0x41727101980`, action, transaction) and its announce is 98, with the action at offset 8 and the transaction id at 12 in both | BEP 15, *connect* and *announce* |
+| BEP 15 numbers events `none` 0, `completed` 1, `started` 2, `stopped` 3 — not the order BEP 3 lists the words in | BEP 15, *announce* |
+| A connection id is valid for one minute; a reply whose transaction id does not match is to be ignored | BEP 15, *time outs* |
+| The retransmit schedule is 15 · 2ⁿ seconds for n = 0…8, so 64 minutes before giving up | BEP 15, *time outs* |
 | DHT is a UDP protocol (KRPC) | BEP 5 |
 | v2 torrents use SHA-256, a `piece layers` dictionary and 16 KiB leaf blocks; the request limit is the same `2^14` | BEP 52 |
 | Peer id convention `-XX0000-` (Azureus style) | BEP 20 |
@@ -364,6 +368,35 @@ suffices ([D1](#d1-one-virtual-thread-dispatcher-blocking-io-inside-it-coroutine
 **Consequence 3.** v1 and v2 share the 16 KiB block and the request shape but not the hash function
 or the piece verification; phase 1 is v1, and the seam is the hasher —
 [Open question 3](#3-risks-and-open-questions).
+
+### 1.5a BEP 15 against a tracker this project did not write
+
+The fake tracker in `engine/src/jvmTest/.../FakeUdpTracker.kt` and the client that talks to it were
+written in the same hour from the same reading of BEP 15, so they agree by construction and a
+mistake shared by both is invisible. One announce to a real tracker is the independent
+implementation ([B-32](../backlog/B-32-udp-tracker.md), 2026-09-05, the Debian 13.6.0 netinst info
+hash):
+
+| Tracker | Answer |
+|---|---|
+| `udp://tracker.opentrackr.org:1337/announce` | `interval` 3 473, 60 seeders, 43 leechers, **10 peers** for `numwant=10`, first `114.224.221.212:20005` |
+| `udp://bttracker.debian.org:6969/announce` | `action = 3`, "torrent not found" |
+
+**Consequence 1 — the layout is right where a fake cannot vouch for it.** Ten peers back for a
+`numwant` of ten means offset 92 is the field BEP 15 says it is; plausible seeder and leecher counts
+mean 12 and 16 are theirs; decodable addresses mean the reply's peers are six bytes each from offset
+20. A tracker that disagreed with any of that would have answered nothing, and nothing is what a
+dropped datagram also looks like.
+
+**Consequence 2 — Debian's UDP port is not Debian's HTTP tracker.** The same info hash that
+downloads over `http://bttracker.debian.org:6969/announce` (§1.2b) is "not found" on the UDP port of
+the same host and port number. This is a fact about that tracker's whitelist, not about the client:
+the refusal came back with a matching transaction id and BEP 15's error action, so the exchange
+worked and the answer was no. It is also why a torrent's announce list is walked in order rather
+than trusted at its first entry.
+
+*The probe itself was a temporary test and was deleted; redoing it is twenty lines against
+`UdpTrackerClient` and any torrent file.*
 
 ---
 

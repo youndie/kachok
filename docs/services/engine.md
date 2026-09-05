@@ -6,7 +6,7 @@ module: engine
 tech_stack: [Kotlin 2.4 Multiplatform, kotlinx.coroutines 1.11, JDK 25 (jvm target)]
 owner: unassigned
 depends_on:
-  - BitTorrent trackers (HTTP; UDP later)
+  - BitTorrent trackers (HTTP and UDP)
   - BitTorrent peers (TCP)
 publishes:
   - "engine-jvm.jar (consumed by :cli only; not published to a Maven repository)"
@@ -40,8 +40,8 @@ The engine has no HTTP surface. Its contracts are:
   declaration is deliberate. The entry point will be a `Session` factory taking the I/O
   implementations and a configuration; today the public API is the three id value classes in
   `Ids.kt`.
-* **Outbound, external:** BEP 3 (peer wire, HTTP tracker), BEP 23 (compact peers), later BEP 15
-  (UDP tracker), BEP 10/9/11 (extensions), BEP 5 (DHT). The facts the code relies on are in
+* **Outbound, external:** BEP 3 (peer wire, HTTP tracker), BEP 23 (compact peers), BEP 15 (UDP
+  tracker), later BEP 10/9/11 (extensions), BEP 5 (DHT). The facts the code relies on are in
   research [§1.5](../research/research-architecture.md#15-the-protocol-from-the-specifications).
 
 ## 2a. Code anchors
@@ -75,7 +75,10 @@ What exists on `main` today:
 | `.../engine/resume/FileResumeStore.kt` (jvmMain) | a temporary sibling and an `ATOMIC_MOVE` |
 | `.../engine/resume/StartupVerifier.kt` | what is already on the disk, before a peer is dialled |
 | `.../engine/tracker/Tracker.kt`, `TrackerProtocol.kt` | the announce model, the query string and the response parsing — both peer encodings |
+| `.../engine/tracker/UdpTrackerProtocol.kt` | BEP 15's two requests, three replies and retransmit schedule, without a socket |
+| `.../engine/tracker/TrackerClientByScheme.kt` | which transport a tracker URL goes to |
 | `.../engine/tracker/HttpTrackerClient.kt` (jvmMain) | the GET, blocking on a virtual thread |
+| `.../engine/tracker/UdpTrackerClient.kt` (jvmMain) | the connect/announce exchange on a `DatagramSocket`, with BEP 15's retransmits |
 | `.../engine/session/SessionState.kt` | the state a UI reads, the commands it sends, and every knob with what it trades |
 | `.../engine/session/Session.kt` | the orchestrator: peers, tracker loop, writer, one timer, all under one `SupervisorJob` |
 | `.../engine/hash/MessageDigestPieceHasher.kt` (jvmMain) | SHA-1 on a bounded dispatcher, with a pool of digests and the `JvmBlock` seam |
@@ -94,7 +97,7 @@ and under `engine/src/jvmMain/kotlin/ru/workinprogress/kachok/engine/`:
 | Directory | What goes there | Backlog |
 |---|---|---|
 | `storage/` | the `transferTo` read path for uploads, beside the writer already there | [B-20](../backlog/B-20-upload-read-path.md) |
-| `tracker/` | the UDP announce, beside the HTTP one already there | [B-32](../backlog/B-32-udp-tracker.md) |
+| `tracker/` | trackers reached some other way: BEP 5's DHT is a third transport behind the same interface | [B-35](../backlog/B-35-dht.md) |
 
 ## 3. How it is built
 
@@ -128,7 +131,7 @@ says why.
 |---|---|---|
 | Library | `kotlinx-coroutines-core` 1.11.0 (from the shared `wip` catalog) | dispatchers, `Channel`, `select`, `StateFlow` |
 | Library | `kotlin-test`, `kotlinx-coroutines-test` | tests |
-| External | HTTP trackers | announces (BEP 3) |
+| External | HTTP and UDP trackers | announces (BEP 3, BEP 15) |
 | External | peers over TCP | the wire protocol |
 | JDK | `java.base` (`java.nio.channels`, `java.security.MessageDigest`, `java.lang.foreign` later) and `java.net.http` | the `jvmMain` implementations |
 
@@ -202,5 +205,16 @@ them. Nothing is read from the environment by this module; that is [cli](cli.md)
 * **A `.torrent` is input from a stranger, and `MetainfoParser` treats it as one.** Path
   components that are empty, `.`, `..`, or that contain a separator are refused at parse time, so
   no code below has to remember that a torrent can ask to be written outside its own directory.
+* **A UDP announce uses `DatagramSocket`, not `DatagramChannel`.** BEP 15 is a protocol of
+  timeouts, and a channel in blocking mode has no receive timeout — `withTimeout` would cancel the
+  coroutine and leave the read blocked underneath it. Measured before choosing: 200 virtual threads
+  parked in `DatagramSocket.receive` cost 12 platform threads, so it parks like a socket read.
+* **The UDP client connects its socket and still checks the transaction id.** Connecting makes the
+  kernel drop datagrams from anyone but the tracker; the transaction id is what survives somebody
+  who knows the tracker's address. A datagram that fails either test is a non-event, not a failure,
+  and the announce keeps waiting out its window.
+* **A tracker URL with an unknown scheme is a `TrackerException`, not an `IllegalArgumentException`.**
+  The session catches the first and walks to the next tracker; the second used to end the announce
+  loop, which is what a `udp://` entry did before `TrackerClientByScheme` existed.
 * **`explicitApi()` and warnings-as-errors come from `sborka.kmp`**, not from this file. A new
   public declaration without a visibility modifier fails the build; that is intended.

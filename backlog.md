@@ -46,11 +46,10 @@ which is also the order of work.
 
 <!-- BEGIN INDEX -->
 
-## Open (18)
+## Open (17)
 
 | Task | | Priority | Size | Blocked by |
 |---|---|---|---|---|
-| [B-32](docs/backlog/B-32-udp-tracker.md) `[ ]` | UDP tracker protocol (BEP 15) | P1 | M | B-15 |
 | [B-10](docs/backlog/B-10-extension-protocol-handshake.md) `[ ]` | Extension protocol (BEP 10): reserved bit and the handshake dictionary | P2 | S | B-06 |
 | [B-22](docs/backlog/B-22-rate-limits.md) `[ ]` | Upload and download rate limits | P2 | S/M | B-21 |
 | [B-28](docs/backlog/B-28-aot-cache-in-the-distribution.md) `[ ]` | Build the AOT cache with the launcher's flags and prove it maps | P2 | M | B-29 |
@@ -69,7 +68,7 @@ which is also the order of work.
 | [B-41](docs/backlog/B-41-android-and-ios-targets.md) `[ ]` | Phase 3: Android and iOS targets on the engine | P3 | XL | B-39 |
 | [B-02](docs/backlog/B-02-ci-runs-build-and-docs-gates.md) `[ ]` | CI runs the build and the documentation gates on every push | infra | S | B-01 |
 
-## Closed (25)
+## Closed (26)
 
 **M0 — The build and its gates**
 
@@ -119,6 +118,10 @@ which is also the order of work.
 
 - [B-26](docs/backlog/B-26-jfr-baseline-of-the-hot-path.md) `[x]` - A JFR baseline: allocations on the hot path, pinned threads, carrier count
 - [B-27](docs/backlog/B-27-measure-heap-and-collector.md) `[x]` - Measure the heap the engine needs, with G1 and with ZGC
+
+**M8 — Extensions**
+
+- [B-32](docs/backlog/B-32-udp-tracker.md) `[x]` - UDP tracker protocol (BEP 15)
 
 <!-- END INDEX -->
 

@@ -30,7 +30,9 @@ import ru.workinprogress.kachok.engine.storage.FileSet
 import ru.workinprogress.kachok.engine.storage.FileStorage
 import ru.workinprogress.kachok.engine.storage.PieceLayout
 import ru.workinprogress.kachok.engine.tracker.HttpTrackerClient
+import ru.workinprogress.kachok.engine.tracker.TrackerClientByScheme
 import ru.workinprogress.kachok.engine.tracker.TrackerProtocol
+import ru.workinprogress.kachok.engine.tracker.UdpTrackerClient
 import ru.workinprogress.kachok.engine.wire.PeerWire
 import java.nio.file.Files
 import kotlin.random.Random
@@ -106,7 +108,13 @@ class Download(
                 peerId = identity,
                 listenPort = port,
                 dialer = SocketPeerDialer(sessionScope, metainfo.infoHash, identity, pool),
-                trackerClient = HttpTrackerClient(dispatchers.io),
+                // Most public torrents announce over UDP; the scheme in the URL decides,
+                // tracker by tracker, and an announce list may mix them.
+                trackerClient =
+                    TrackerClientByScheme(
+                        http = HttpTrackerClient(dispatchers.io),
+                        udp = UdpTrackerClient(dispatchers.io),
+                    ),
                 hasher = hasher,
                 storage = FileStorage(PieceLayout(metainfo), files, pool),
                 resume =
