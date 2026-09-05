@@ -76,6 +76,7 @@ What exists on `main` today:
 | `.../engine/resume/StartupVerifier.kt` | what is already on the disk, before a peer is dialled |
 | `engine/src/jvmTest/kotlin/ru/workinprogress/kachok/engine/storage/UploadPathBench.kt` | `transferTo` against a mapped segment on real sockets — research §1.3c |
 | `.../engine/choke/TokenBucket.kt` | the upload and download rate limits, spent by bytes and refilled by the timer |
+| `.../engine/wire/Message.kt` | the wire's messages, BEP 3's and BEP 6's `suggest` / `have all` / `have none` / `reject` / `allowed fast` |
 | `.../engine/wire/ExtensionHandshake.kt` | BEP 10's `m` dictionary: what a peer can do and the id it wants each extension sent under |
 | `.../engine/tracker/Tracker.kt`, `TrackerProtocol.kt` | the announce model, the query string and the response parsing — both peer encodings |
 | `.../engine/tracker/UdpTrackerProtocol.kt` | BEP 15's two requests, three replies and retransmit schedule, without a socket |
@@ -217,6 +218,22 @@ them. Nothing is read from the environment by this module; that is [cli](cli.md)
 * **A throttled download would stall without the timer.** Requests are normally issued when a block
   arrives, and no block arrives while nothing is asked for; the tick that refills the budget is
   also what asks every peer for more.
+* **BEP 6 is worth having for `reject` alone.** Without it a choke leaves both pickers guessing
+  which of their outstanding requests died, and the answer arrives as a thirty-second timeout. With
+  it the block is free in one round trip, and `PiecePicker.requestRejected` frees exactly the one
+  block rather than everything that peer was asked for.
+* **`have all` and `have none` are not decoration.** A bitfield for two million pieces is 250 KiB,
+  and a client with nothing sends the same 250 KiB of zeros. On a fast connection the first message
+  is one of bitfield / have all / have none and is never omitted — which is what a BEP 3 client
+  with no pieces does.
+* **`allowed fast` is the one message that changes what may be *sent*.** Everything else in the
+  protocol changes what is known; this one is why "choked means ask for nothing" has an exception
+  in it, and why the picker has `nextFrom`, which asks for blocks of a named piece rather than of
+  the piece the ordering rules would have chosen.
+* **A suggestion is honoured as a `have` and not as a preference.** BEP 6 says a peer only suggests
+  what it has, so that much is free. Putting one peer's hint above rarest-first and above the
+  pieces already started needs a rule for two peers suggesting different pieces, and there is no
+  measurement here to write one from.
 * **An extension id belongs to the peer that published it.** BEP 10's `m` maps a name to the id
   *that peer* wants messages sent under, and the two sides need not agree: `ut_pex` may be 1 here
   and 3 there. A client that hard-codes an id talks only to peers that happen to match it.

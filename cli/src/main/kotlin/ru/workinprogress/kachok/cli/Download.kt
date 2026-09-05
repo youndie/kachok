@@ -103,10 +103,14 @@ class Download(
         // One identity, announced to the tracker and offered in every handshake. Generating it
         // twice would have told the tracker about a peer no swarm member ever meets.
         val identity = randomPeerId()
-        // BEP 10's bit, in every handshake this client sends and accepts. Without it peers never
-        // send their own extension handshake, so the ids PEX and metadata exchange need never
-        // arrive — the bit is what asks for them.
-        val reserved = Handshake.reservedBits(extensionProtocol = true)
+        // The bits in every handshake this client sends and accepts, and the same array the
+        // session is told about — both extensions are two-sided, and a second place recording
+        // "we advertised this" is a second place for it to be wrong.
+        //
+        // BEP 10: without the bit no peer sends its extension handshake, so the ids PEX and
+        // metadata exchange are addressed with never arrive. BEP 6: without it a choke leaves
+        // both pickers guessing which requests died.
+        val reserved = Handshake.reservedBits(extensionProtocol = true, fastExtension = true)
         val session =
             Session(
                 metainfo = metainfo,
@@ -136,6 +140,7 @@ class Download(
                         maxStartedPieces = STARTED_PIECES,
                         pipelineDepth = options.pipelineDepth,
                         maxPeers = options.maxPeers,
+                        reserved = reserved,
                         uploadLimitBytesPerSecond = options.uploadLimit,
                         downloadLimitBytesPerSecond = options.downloadLimit,
                     ),

@@ -17,11 +17,11 @@ public class Handshake(
 ) {
     /** BEP 10: `reserved[5] & 0x10`. */
     public val supportsExtensionProtocol: Boolean
-        get() = (reserved[EXTENSION_BYTE].toInt() and EXTENSION_BIT) != 0
+        get() = hasExtensionProtocol(reserved)
 
     /** BEP 6: `reserved[7] |= 0x04`. */
     public val supportsFastExtension: Boolean
-        get() = (reserved[FAST_BYTE].toInt() and FAST_BIT) != 0
+        get() = hasFastExtension(reserved)
 
     public fun encode(): ByteArray {
         val out = ByteArray(SIZE)
@@ -37,6 +37,19 @@ public class Handshake(
         public const val PROTOCOL: String = "BitTorrent protocol"
         public const val RESERVED_SIZE: Int = 8
         public const val SIZE: Int = 1 + PROTOCOL.length + RESERVED_SIZE + InfoHash.SIZE + PeerId.SIZE
+
+        /**
+         * The same two questions asked of bare reserved bytes.
+         *
+         * BEP 6's and BEP 10's messages are legal only when **both** sides advertised, so the
+         * session has to ask them of what it sends as well as of what it received — and asking
+         * them of one array rather than storing a second boolean is what keeps the two answers
+         * from drifting apart.
+         */
+        public fun hasExtensionProtocol(reserved: ByteArray): Boolean =
+            (reserved[EXTENSION_BYTE].toInt() and EXTENSION_BIT) != 0
+
+        public fun hasFastExtension(reserved: ByteArray): Boolean = (reserved[FAST_BYTE].toInt() and FAST_BIT) != 0
 
         private const val EXTENSION_BYTE = 5
         private const val EXTENSION_BIT = 0x10

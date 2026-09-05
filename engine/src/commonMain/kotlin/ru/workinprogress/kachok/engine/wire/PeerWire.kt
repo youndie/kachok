@@ -43,6 +43,14 @@ public object PeerWire {
     public const val REQUEST: Int = 6
     public const val PIECE: Int = 7
     public const val CANCEL: Int = 8
+
+    /** BEP 6, and only legal when both sides set `reserved[7] |= 0x04`. */
+    public const val SUGGEST: Int = 0x0D
+    public const val HAVE_ALL: Int = 0x0E
+    public const val HAVE_NONE: Int = 0x0F
+    public const val REJECT: Int = 0x10
+    public const val ALLOWED_FAST: Int = 0x11
+
     public const val EXTENDED: Int = 20
 
     private const val PIECE_HEADER_SIZE = 9
@@ -120,6 +128,33 @@ public object PeerWire {
                 )
             }
 
+            SUGGEST -> {
+                expectSize(payloadSize, Int.SIZE_BYTES, "suggest")
+                Message.Suggest(PieceIndex(readInt(frame, from + 1)))
+            }
+
+            HAVE_ALL -> {
+                Message.HaveAll.also { expectEmpty(payloadSize, "have all") }
+            }
+
+            HAVE_NONE -> {
+                Message.HaveNone.also { expectEmpty(payloadSize, "have none") }
+            }
+
+            REJECT -> {
+                expectSize(payloadSize, REQUEST_PAYLOAD_SIZE, "reject")
+                Message.Reject(
+                    piece = PieceIndex(readInt(frame, from + 1)),
+                    begin = readInt(frame, from + 1 + Int.SIZE_BYTES),
+                    length = readInt(frame, from + 1 + Int.SIZE_BYTES * 2),
+                )
+            }
+
+            ALLOWED_FAST -> {
+                expectSize(payloadSize, Int.SIZE_BYTES, "allowed fast")
+                Message.AllowedFast(PieceIndex(readInt(frame, from + 1)))
+            }
+
             EXTENDED -> {
                 if (payloadSize < 1) throw WireException("an extended message carries no extension id")
                 Message.Extended(
@@ -185,6 +220,32 @@ public object PeerWire {
 
             is Message.Cancel -> {
                 blockFrame(CANCEL, message.piece, message.begin, message.length)
+            }
+
+            Message.HaveAll -> {
+                frame(1) { it[LENGTH_PREFIX_SIZE] = HAVE_ALL.toByte() }
+            }
+
+            Message.HaveNone -> {
+                frame(1) { it[LENGTH_PREFIX_SIZE] = HAVE_NONE.toByte() }
+            }
+
+            is Message.Reject -> {
+                blockFrame(REJECT, message.piece, message.begin, message.length)
+            }
+
+            is Message.Suggest -> {
+                frame(1 + Int.SIZE_BYTES) {
+                    it[LENGTH_PREFIX_SIZE] = SUGGEST.toByte()
+                    writeInt(it, LENGTH_PREFIX_SIZE + 1, message.piece.value)
+                }
+            }
+
+            is Message.AllowedFast -> {
+                frame(1 + Int.SIZE_BYTES) {
+                    it[LENGTH_PREFIX_SIZE] = ALLOWED_FAST.toByte()
+                    writeInt(it, LENGTH_PREFIX_SIZE + 1, message.piece.value)
+                }
             }
 
             is Message.Extended -> {

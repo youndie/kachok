@@ -144,6 +144,35 @@ public class PiecePicker(
     }
 
     /**
+     * Blocks of one named piece, whatever the ordering rules would have chosen.
+     *
+     * For BEP 6's `allowed fast`, which is the one case where *which* piece is not this class's
+     * decision: the peer named it, and the alternative to asking for it is asking for nothing at
+     * all, because the peer is choking us. Everything else — rarest first, strict priority,
+     * endgame — is untouched and stays [next]'s business.
+     */
+    public fun nextFrom(
+        peer: PeerAddress,
+        piece: PieceIndex,
+        count: Int,
+        nowMillis: Long = 0L,
+    ): List<BlockRequest> {
+        if (count <= 0 || have[piece.value]) return emptyList()
+        val bitfield = peers[peer] ?: return emptyList()
+        if (!bitfield[piece.value]) return emptyList()
+        this.now = nowMillis
+        val requests = ArrayList<BlockRequest>(count)
+        // A piece begun this way counts against the same bound as any other: the blocks it holds
+        // are the same pooled buffers.
+        if (piece.value !in started) {
+            if (started.size >= maxStartedPieces) return emptyList()
+            started[piece.value] = PieceProgress(blockCount(piece.value))
+        }
+        fillFrom(peer, piece.value, requests, count)
+        return requests
+    }
+
+    /**
      * A block arrived. Returns the **other** peers it was asked of, so the session can cancel it
      * with them — the endgame's other half.
      */
@@ -170,6 +199,22 @@ public class PiecePicker(
         val expired = mutableListOf<ExpiredRequest>()
         started.forEach { (index, progress) -> progress.expire(beforeMillis, index, expired) }
         return expired
+    }
+
+    /**
+     * BEP 6: this peer said it will not answer one particular request, so the block is free now.
+     *
+     * The difference from [expireRequests] is thirty seconds. Without the fast extension the only
+     * way to learn that a request died is to wait out the timeout, and a choke kills every
+     * outstanding request at once; with it the picker is told, one block at a time, and can give
+     * that block to somebody else on the next pass.
+     */
+    public fun requestRejected(
+        peer: PeerAddress,
+        piece: PieceIndex,
+        begin: Int,
+    ) {
+        started[piece.value]?.forgetBlock(peer, begin / PeerWire.BLOCK_SIZE)
     }
 
     /** A peer choked us or went away: its outstanding requests are gone and may be asked again. */
@@ -318,6 +363,17 @@ public class PiecePicker(
             val others = askedOf[block].orEmpty().keys.filter { it != from }
             askedOf[block] = null
             return others
+        }
+
+        /** One block un-asked, rather than all of this peer's. */
+        fun forgetBlock(
+            peer: PeerAddress,
+            block: Int,
+        ) {
+            if (block !in 0 until blocks) return
+            val asked = askedOf[block] ?: return
+            asked.remove(peer)
+            if (asked.isEmpty()) askedOf[block] = null
         }
 
         fun forget(peer: PeerAddress) {

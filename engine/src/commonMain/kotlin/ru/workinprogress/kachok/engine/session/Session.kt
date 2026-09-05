@@ -22,6 +22,7 @@ import ru.workinprogress.kachok.engine.peer.PeerAddress
 import ru.workinprogress.kachok.engine.peer.PeerConnection
 import ru.workinprogress.kachok.engine.peer.PeerDialer
 import ru.workinprogress.kachok.engine.peer.PeerEvent
+import ru.workinprogress.kachok.engine.picker.Bitfield
 import ru.workinprogress.kachok.engine.picker.PiecePicker
 import ru.workinprogress.kachok.engine.resume.ResumeRecord
 import ru.workinprogress.kachok.engine.resume.ResumeStore
@@ -35,10 +36,12 @@ import ru.workinprogress.kachok.engine.tracker.AnnounceRequest
 import ru.workinprogress.kachok.engine.tracker.TrackerClient
 import ru.workinprogress.kachok.engine.tracker.TrackerException
 import ru.workinprogress.kachok.engine.wire.ExtensionHandshake
+import ru.workinprogress.kachok.engine.wire.Handshake
 import ru.workinprogress.kachok.engine.wire.Message
 import ru.workinprogress.kachok.engine.wire.PeerWire
 import ru.workinprogress.kachok.engine.wire.WireException
 import kotlin.coroutines.ContinuationInterceptor
+import kotlin.random.Random
 import kotlin.time.TimeSource
 
 /**
@@ -83,9 +86,17 @@ public class Session(
      * want: a single-threaded test dispatcher is the point of them.
      */
     private val blocking: CoroutineDispatcher? = null,
+    /**
+     * The one source of chance in the session: the optimistic unchoke, and the first piece.
+     *
+     * Injectable because BEP 3's optimistic slot is chosen at random among *all* peers, interested
+     * or not — so with a seeded source a test can say which peer loses its slot, and without one it
+     * can only say that somebody did.
+     */
+    private val random: Random = Random.Default,
 ) {
-    private val picker = PiecePicker(metainfo, config.maxStartedPieces)
-    private val choker = Choker(config.maxUnchoked)
+    private val picker = PiecePicker(metainfo, config.maxStartedPieces, random)
+    private val choker = Choker(config.maxUnchoked, random = random)
     private val writer = BlockWriter(metainfo, hasher, storage)
     private val commands = Channel<Command>(Channel.BUFFERED)
 
@@ -370,8 +381,28 @@ public class Session(
             if (connection.handshake.supportsExtensionProtocol) {
                 link.send(Message.Extended(ExtensionHandshake.HANDSHAKE_ID, ourExtensionHandshake().encode()))
             }
-            if (picker.completed.cardinality > 0) {
-                link.send(Message.Bitfield(picker.completed.toBytes()))
+            link.fast = ourFastExtension && connection.handshake.supportsFastExtension
+            // BEP 6: on a fast connection the first message is one of these three and is never
+            // omitted. `have all` and `have none` exist because the alternative is 250 KiB of ones
+            // or of zeros for a torrent with two million pieces.
+            when {
+                !link.fast -> {
+                    if (picker.completed.cardinality > 0) {
+                        link.send(Message.Bitfield(picker.completed.toBytes()))
+                    }
+                }
+
+                picker.isComplete -> {
+                    link.send(Message.HaveAll)
+                }
+
+                picker.completed.cardinality == 0 -> {
+                    link.send(Message.HaveNone)
+                }
+
+                else -> {
+                    link.send(Message.Bitfield(picker.completed.toBytes()))
+                }
             }
             for (event in connection.events) {
                 handle(link, event) ?: break
@@ -460,6 +491,39 @@ public class Session(
                         receiveExtended(link, message)
                     }
 
+                    Message.HaveAll -> {
+                        picker.setBitfield(address, everyPiece())
+                        updateInterest(link)
+                        requestMore(link)
+                    }
+
+                    Message.HaveNone -> {
+                        picker.setBitfield(address, ByteArray((metainfo.pieceCount + 7) / 8))
+                        updateInterest(link)
+                    }
+
+                    is Message.Reject -> {
+                        // The whole point of BEP 6: the block is free now rather than in thirty
+                        // seconds, and somebody else can be asked for it on this pass.
+                        picker.requestRejected(address, message.piece, message.begin)
+                        if (link.outstanding > 0) link.outstanding--
+                        requestMore(link)
+                    }
+
+                    is Message.Suggest -> {
+                        // BEP 6: a peer only suggests a piece it has. Honoured as a `have` and not
+                        // as a preference — the picker orders by rarity and by what is already
+                        // started, and putting one peer's hint above both needs a rule for two
+                        // peers suggesting different pieces that this item has no data for.
+                        picker.addHave(address, message.piece)
+                        updateInterest(link)
+                    }
+
+                    is Message.AllowedFast -> {
+                        link.allowedFast += message.piece.value
+                        if (link.choked) requestMore(link)
+                    }
+
                     // `cancel` is honoured by the connection's queue order; a block already handed
                     // to the writer is on its way out. Dropping a queued one arrives with B-33's
                     // reject, which is where the bookkeeping to do it properly lives.
@@ -468,6 +532,58 @@ public class Session(
             }
         }
         return Unit
+    }
+
+    /**
+     * BEP 6: a choke kills every request this peer had outstanding with us, and each one is said
+     * out loud.
+     *
+     * Without the extension the peer learns it from a timeout, thirty seconds later, and cannot
+     * tell "choked" from "went away". The queue here is the one the upload limit builds; with no
+     * limit a request is answered as it arrives and there is nothing left to reject, which is the
+     * same statement about outstanding work rather than a different one.
+     */
+    private suspend fun rejectWaiting(link: PeerLink) {
+        if (!link.fast) {
+            link.waiting.clear()
+            return
+        }
+        while (link.waiting.isNotEmpty()) {
+            val dropped = link.waiting.removeFirst()
+            link.send(Message.Reject(dropped.piece, dropped.begin, dropped.length))
+        }
+    }
+
+    /** Whether this client's own handshake carries BEP 6's bit. Read once, from what it sends. */
+    private val ourFastExtension: Boolean = Handshake.hasFastExtension(config.reserved)
+
+    private fun everyPiece(): ByteArray {
+        val all = Bitfield(metainfo.pieceCount)
+        (0 until metainfo.pieceCount).forEach { all.set(it) }
+        return all.toBytes()
+    }
+
+    /**
+     * Asks a choking peer for the pieces it said it would serve anyway.
+     *
+     * Bounded by the same pipeline depth as anything else: `allowed fast` changes which pieces may
+     * be asked for, not how many.
+     */
+    private suspend fun requestAllowedFast(link: PeerLink) {
+        val room = config.pipelineDepth - link.outstanding
+        if (room <= 0) return
+        var left = room
+        for (index in link.allowedFast.toList()) {
+            if (left <= 0) return
+            if (picker.completed[index]) continue
+            val requests = picker.nextFrom(link.connection.address, PieceIndex(index), left, elapsedMillis())
+            for (request in requests) {
+                if (!downloadBudget.take(request.length.toLong())) return
+                if (!link.send(Message.Request(request.piece, request.begin, request.length))) return
+                link.outstanding++
+                left--
+            }
+        }
     }
 
     /** What this client tells a peer it can do. Its `m` is empty in phase 1 and that is a fact. */
@@ -520,7 +636,13 @@ public class Session(
             link.connection.close()
             return
         }
-        if (link.choking || !picker.completed[request.piece.value]) return
+        if (link.choking || !picker.completed[request.piece.value]) {
+            // BEP 6: a request that will not be answered is answered anyway, so that the peer's
+            // picker can free the block instead of waiting out its own timeout. Without the
+            // extension the only honest thing to do is nothing.
+            if (link.fast) link.send(Message.Reject(request.piece, request.begin, request.length))
+            return
+        }
         if (uploadBudget.take(request.length.toLong())) {
             serveNow(link, request)
             return
@@ -602,6 +724,7 @@ public class Session(
             if (shouldChoke == link.choking) return@forEach
             link.choking = shouldChoke
             link.send(if (shouldChoke) Message.Choke else Message.Unchoke)
+            if (shouldChoke) rejectWaiting(link) else drainWaitingUploads()
         }
     }
 
@@ -614,7 +737,14 @@ public class Session(
     }
 
     private suspend fun requestMore(link: PeerLink) {
-        if (link.choked || !link.interested || stopping) return
+        if (stopping) return
+        // BEP 6: a choked peer will still serve the pieces it named as `allowed fast`, and asking
+        // for them is the difference between a cold start and waiting for an unchoke.
+        if (link.choked) {
+            if (link.fast && link.allowedFast.isNotEmpty()) requestAllowedFast(link)
+            return
+        }
+        if (!link.interested) return
         val room = config.pipelineDepth - link.outstanding
         if (room <= 0) return
         // Asked of the budget *before* the picker, because `next` marks the blocks it hands back as
@@ -866,6 +996,12 @@ public class Session(
          * and never queues one.
          */
         val waiting: ArrayDeque<Message.Request> = ArrayDeque()
+
+        /** BEP 6, and only when *both* sides advertised it. */
+        var fast: Boolean = false
+
+        /** Pieces this peer will serve while it is choking us (BEP 6's `allowed fast`). */
+        val allowedFast: MutableSet<Int> = LinkedHashSet()
     }
 
     private companion object {

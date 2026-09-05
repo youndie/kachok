@@ -29,6 +29,8 @@ class SeedingPeer(
     private val delayPerBlockMillis: Long = 0,
     /** BEP 10's reserved bit, so a test can see what this client sends a peer that asks for it. */
     private val extensionProtocol: Boolean = false,
+    /** BEP 6's, for the same reason. */
+    private val fastExtension: Boolean = false,
     /**
      * Loopback for the tests. A run-time image being checked from inside a container has to reach
      * this seed from outside this machine's loopback, and nothing else does.
@@ -45,6 +47,9 @@ class SeedingPeer(
 
     /** Extended messages received, in order: the first one is BEP 10's handshake or nothing is. */
     val extended: ConcurrentLinkedQueue<Message.Extended> = ConcurrentLinkedQueue()
+
+    /** Everything the client said, so a test can ask what it opened with. */
+    val received: ConcurrentLinkedQueue<Message> = ConcurrentLinkedQueue()
 
     private val sockets = ConcurrentLinkedQueue<SocketChannel>()
 
@@ -81,10 +86,15 @@ class SeedingPeer(
             Handshake(
                 infoHash,
                 PeerId("-SEED01-000000000000".encodeToByteArray()),
-                Handshake.reservedBits(extensionProtocol = extensionProtocol),
+                Handshake.reservedBits(
+                    extensionProtocol = extensionProtocol,
+                    fastExtension = fastExtension,
+                ),
             ).encode(),
         )
-        // A seed has everything, and says so before anything else (BEP 3).
+        // A seed has everything, and says so before anything else (BEP 3; BEP 6 lets it be one
+        // byte instead of a bitfield, and this fake keeps sending the bitfield on purpose — what
+        // is under test is what the *client* opens with).
         val bitfield = ByteArray((pieces + 7) / 8)
         (0 until pieces).forEach { bitfield[it / 8] = (bitfield[it / 8].toInt() or (0x80 ushr (it % 8))).toByte() }
         write(socket, PeerWire.encode(Message.Bitfield(bitfield)))
@@ -99,6 +109,7 @@ class SeedingPeer(
             val frame = ByteBuffer.allocate(size)
             while (frame.hasRemaining()) if (socket.read(frame) < 0) return
             val message = PeerWire.decode(frame.array())
+            received += message
             if (message is Message.Extended) extended += message
             if (message is Message.Request) {
                 if (delayPerBlockMillis > 0) Thread.sleep(delayPerBlockMillis)

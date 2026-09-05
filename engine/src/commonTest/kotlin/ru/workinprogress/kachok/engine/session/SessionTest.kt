@@ -502,6 +502,347 @@ class SessionTest {
             job.cancelAndJoin()
         }
 
+    /** Both sides advertising BEP 6, which is the only way its messages are legal. */
+    private fun fastConfig(
+        started: Int = 4,
+        pipeline: Int = 2,
+        uploadLimit: Long = 0,
+    ) = SessionConfig(
+        maxStartedPieces = started,
+        pipelineDepth = pipeline,
+        maxPeers = 10,
+        maxUnchoked = 1,
+        uploadLimitBytesPerSecond = uploadLimit,
+        reserved = Handshake.reservedBits(fastExtension = true),
+    )
+
+    private fun fastDialer(metainfo: Metainfo) =
+        FakeDialer(metainfo.infoHash, reserved = Handshake.reservedBits(fastExtension = true))
+
+    @Test
+    fun aSeedOpensWithHaveAllAndAnEmptyClientWithHaveNone() =
+        runTest {
+            // BEP 6: on a fast connection the first message is one of bitfield / have all / have
+            // none, and never nothing — which is what a BEP 3 client with no pieces sends.
+            val metainfo = torrent(pieces = 1)
+            val empty = fastDialer(metainfo)
+            val session =
+                session(
+                    metainfo,
+                    empty,
+                    FakeTracker(listOf(peerA)),
+                    FakeStorage(),
+                    AgreeableHasher(metainfo),
+                    fastConfig(),
+                )
+            val job = session.start(kotlinx.coroutines.CoroutineScope(coroutineContext + handler))
+            testScheduler.runCurrent()
+
+            assertTrue(
+                empty.connections
+                    .getValue(peerA)
+                    .sent
+                    .first() === Message.HaveNone,
+                "a client with nothing must still say so: ${empty.connections.getValue(peerA).sent}",
+            )
+            // And the other end of it: a session that has the whole torrent by the time a peer
+            // arrives. It comes in through the accepting door, which is the only way to reach
+            // `serve` after the opening announce.
+            val connection = empty.connections.getValue(peerA)
+            connection.incoming.send(PeerEvent.BlockReceived(FakeBlock(PieceIndex(0), 0, PeerWire.BLOCK_SIZE)))
+            testScheduler.runCurrent()
+            assertTrue(session.state.value.isComplete, "the fixture did not complete, so nothing has everything")
+
+            val arriving = FakeConnection(peerB, metainfo.infoHash, Handshake.reservedBits(fastExtension = true))
+            session.send(Command.AcceptPeer(arriving))
+            testScheduler.runCurrent()
+
+            assertTrue(
+                arriving.sent.first() === Message.HaveAll,
+                "a seed sends one byte, not a bitfield of ones: ${arriving.sent}",
+            )
+            job.cancelAndJoin()
+        }
+
+    @Test
+    fun haveAllFromAPeerMakesEveryPieceAskable() =
+        runTest {
+            val metainfo = torrent(pieces = 4)
+            val dialer = fastDialer(metainfo)
+            val session =
+                session(
+                    metainfo,
+                    dialer,
+                    FakeTracker(listOf(peerA)),
+                    FakeStorage(),
+                    AgreeableHasher(metainfo),
+                    fastConfig(),
+                )
+            val job = session.start(kotlinx.coroutines.CoroutineScope(coroutineContext + handler))
+            testScheduler.runCurrent()
+
+            val connection = dialer.connections.getValue(peerA)
+            connection.incoming.send(PeerEvent.Received(Message.HaveAll))
+            connection.incoming.send(PeerEvent.Received(Message.Unchoke))
+            testScheduler.runCurrent()
+
+            assertTrue(connection.sent.any { it is Message.Interested }, "a peer that has everything is interesting")
+            assertTrue(
+                connection.sent.filterIsInstance<Message.Request>().isNotEmpty(),
+                "have all was read as a bitfield of ones or nothing was asked for",
+            )
+            job.cancelAndJoin()
+        }
+
+    @Test
+    fun aRejectFreesItsBlockAtOnceRatherThanInThirtySeconds() =
+        runTest {
+            val metainfo = torrent(pieces = 4)
+            val dialer = fastDialer(metainfo)
+            val session =
+                session(
+                    metainfo,
+                    dialer,
+                    FakeTracker(listOf(peerA)),
+                    FakeStorage(),
+                    AgreeableHasher(metainfo),
+                    fastConfig(),
+                )
+            val job = session.start(kotlinx.coroutines.CoroutineScope(coroutineContext + handler))
+            testScheduler.runCurrent()
+
+            val connection = dialer.connections.getValue(peerA)
+            connection.incoming.send(PeerEvent.Received(Message.HaveAll))
+            connection.incoming.send(PeerEvent.Received(Message.Unchoke))
+            testScheduler.runCurrent()
+            val asked = connection.sent.filterIsInstance<Message.Request>()
+            assertTrue(asked.isNotEmpty())
+
+            val refused = asked.first()
+            connection.incoming.send(
+                PeerEvent.Received(Message.Reject(refused.piece, refused.begin, refused.length)),
+            )
+            testScheduler.runCurrent()
+
+            // The block must be asked for again without the request timeout expiring first. The
+            // clock has not moved, so an expiry-based recovery could not have produced this.
+            val askedAgain =
+                connection.sent
+                    .filterIsInstance<Message.Request>()
+                    .drop(asked.size)
+                    .any { it.piece.value == refused.piece.value && it.begin == refused.begin }
+            assertTrue(askedAgain, "the rejected block was not offered to anyone again: ${connection.sent}")
+            job.cancelAndJoin()
+        }
+
+    @Test
+    fun aRequestThisClientWillNotAnswerIsRejectedRatherThanDropped() =
+        runTest {
+            val metainfo = torrent(pieces = 4)
+            val dialer = fastDialer(metainfo)
+            val session =
+                session(
+                    metainfo,
+                    dialer,
+                    FakeTracker(listOf(peerA)),
+                    FakeStorage(),
+                    AgreeableHasher(metainfo),
+                    fastConfig(),
+                )
+            val job = session.start(kotlinx.coroutines.CoroutineScope(coroutineContext + handler))
+            testScheduler.runCurrent()
+
+            val connection = dialer.connections.getValue(peerA)
+            // Choked, and for a piece this client does not have either.
+            connection.incoming.send(PeerEvent.Received(Message.Request(PieceIndex(2), 0, PeerWire.BLOCK_SIZE)))
+            testScheduler.runCurrent()
+
+            val rejected = connection.sent.filterIsInstance<Message.Reject>()
+            assertEquals(1, rejected.size, "sent: ${connection.sent}")
+            assertEquals(2, rejected.first().piece.value)
+            assertEquals(PeerWire.BLOCK_SIZE, rejected.first().length)
+            assertTrue(connection.servedBlocks.isEmpty())
+            job.cancelAndJoin()
+        }
+
+    @Test
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    fun aChokeRejectsEveryRequestItLeavesUnanswered() =
+        runTest {
+            // The requests genuinely outstanding are the ones the upload limit made wait. A limit
+            // below one block — a kibibyte a second, which a user may well set — means none of
+            // them can ever be paid for, so all five are still waiting when the slot is taken away.
+            val metainfo = torrent(pieces = 4)
+            val dialer = fastDialer(metainfo)
+            val session =
+                session(
+                    metainfo,
+                    dialer,
+                    FakeTracker(listOf(peerA, peerB)),
+                    FakeStorage(),
+                    AgreeableHasher(metainfo),
+                    fastConfig(uploadLimit = 1024).let {
+                        SessionConfig(
+                            maxStartedPieces = 4,
+                            pipelineDepth = 2,
+                            maxPeers = 10,
+                            maxUnchoked = 1,
+                            // Rotating every pass, so the second pass is the one that takes the
+                            // slot back rather than the fourth.
+                            optimisticInterval = 10.seconds,
+                            uploadLimitBytesPerSecond = 1024,
+                            reserved = Handshake.reservedBits(fastExtension = true),
+                        )
+                    },
+                    // First pick peers[0], then peers[1]: BEP 3's optimistic slot is chosen at
+                    // random, and a test about losing it has to be able to say who loses it.
+                    random = alternating(),
+                )
+            val job = session.start(kotlinx.coroutines.CoroutineScope(coroutineContext + handler))
+            testScheduler.runCurrent()
+
+            val first = dialer.connections.getValue(peerA)
+            val second = dialer.connections.getValue(peerB)
+            first.incoming.send(PeerEvent.BlockReceived(FakeBlock(PieceIndex(1), 0, PeerWire.BLOCK_SIZE)))
+            first.incoming.send(PeerEvent.Received(Message.Interested))
+            second.incoming.send(PeerEvent.Received(Message.Interested))
+            testScheduler.advanceTimeBy(11_000)
+            testScheduler.runCurrent()
+            assertTrue(first.sent.any { it === Message.Unchoke }, "the first peer never got the slot")
+
+            repeat(5) {
+                first.incoming.send(PeerEvent.Received(Message.Request(PieceIndex(1), 0, PeerWire.BLOCK_SIZE)))
+            }
+            testScheduler.runCurrent()
+            assertTrue(first.servedBlocks.isEmpty(), "a kibibyte a second cannot pay for a 16 KiB block")
+
+            // The next pass rotates the slot to the other peer, and every waiting request is
+            // answered rather than dropped.
+            testScheduler.advanceTimeBy(11_000)
+            testScheduler.runCurrent()
+
+            assertTrue(first.sent.any { it === Message.Choke }, "the peer was never choked: ${first.sent}")
+            assertEquals(
+                5,
+                first.sent.filterIsInstance<Message.Reject>().size,
+                "one reject per request left unanswered, and no more",
+            )
+            job.cancelAndJoin()
+        }
+
+    @Test
+    fun anAllowedFastPieceIsAskedForWhileThePeerIsStillChoking() =
+        runTest {
+            val metainfo = torrent(pieces = 4)
+            val dialer = fastDialer(metainfo)
+            val session =
+                session(
+                    metainfo,
+                    dialer,
+                    FakeTracker(listOf(peerA)),
+                    FakeStorage(),
+                    AgreeableHasher(metainfo),
+                    fastConfig(),
+                )
+            val job = session.start(kotlinx.coroutines.CoroutineScope(coroutineContext + handler))
+            testScheduler.runCurrent()
+
+            val connection = dialer.connections.getValue(peerA)
+            connection.incoming.send(PeerEvent.Received(Message.HaveAll))
+            testScheduler.runCurrent()
+            assertTrue(
+                connection.sent.filterIsInstance<Message.Request>().isEmpty(),
+                "a choking peer is asked for nothing until it names a piece it will serve anyway",
+            )
+
+            connection.incoming.send(PeerEvent.Received(Message.AllowedFast(PieceIndex(3))))
+            testScheduler.runCurrent()
+
+            val asked = connection.sent.filterIsInstance<Message.Request>()
+            assertTrue(asked.isNotEmpty(), "allowed fast was recorded and never used")
+            assertTrue(asked.all { it.piece.value == 3 }, "only the named piece may be asked for: $asked")
+            job.cancelAndJoin()
+        }
+
+    @Test
+    fun aSuggestionIsReadAsAHaveBecauseThatIsWhatItImplies() =
+        runTest {
+            val metainfo = torrent(pieces = 4)
+            val dialer = fastDialer(metainfo)
+            val session =
+                session(
+                    metainfo,
+                    dialer,
+                    FakeTracker(listOf(peerA)),
+                    FakeStorage(),
+                    AgreeableHasher(metainfo),
+                    fastConfig(),
+                )
+            val job = session.start(kotlinx.coroutines.CoroutineScope(coroutineContext + handler))
+            testScheduler.runCurrent()
+
+            val connection = dialer.connections.getValue(peerA)
+            connection.incoming.send(PeerEvent.Received(Message.HaveNone))
+            connection.incoming.send(PeerEvent.Received(Message.Unchoke))
+            testScheduler.runCurrent()
+            assertTrue(connection.sent.none { it is Message.Interested }, "a peer with nothing is not interesting")
+
+            connection.incoming.send(PeerEvent.Received(Message.Suggest(PieceIndex(2))))
+            testScheduler.runCurrent()
+
+            assertTrue(
+                connection.sent.any { it is Message.Interested },
+                "a suggestion means the peer has that piece, so it became interesting",
+            )
+            job.cancelAndJoin()
+        }
+
+    @Test
+    fun aPeerWithoutTheBitIsNeverSentAFastMessage() =
+        runTest {
+            // Both sides must advertise. This session does; the peer does not.
+            val metainfo = torrent(pieces = 4)
+            val dialer = FakeDialer(metainfo.infoHash)
+            val session =
+                session(
+                    metainfo,
+                    dialer,
+                    FakeTracker(listOf(peerA)),
+                    FakeStorage(),
+                    AgreeableHasher(metainfo),
+                    fastConfig(),
+                )
+            val job = session.start(kotlinx.coroutines.CoroutineScope(coroutineContext + handler))
+            testScheduler.runCurrent()
+
+            val connection = dialer.connections.getValue(peerA)
+            connection.incoming.send(PeerEvent.Received(Message.Request(PieceIndex(2), 0, PeerWire.BLOCK_SIZE)))
+            testScheduler.runCurrent()
+
+            assertTrue(
+                connection.sent.none {
+                    it is Message.Reject || it === Message.HaveAll || it === Message.HaveNone
+                },
+                "a BEP 3 peer was sent a BEP 6 message: ${connection.sent}",
+            )
+            job.cancelAndJoin()
+        }
+
+    /** 0, 1, 0, 1 …: the optimistic slot moves to the next peer on every rotation. */
+    private fun alternating(): kotlin.random.Random =
+        object : kotlin.random.Random() {
+            private var next = 0
+            private val bits = kotlin.random.Random(1)
+
+            override fun nextBits(bitCount: Int): Int = bits.nextBits(bitCount)
+
+            override fun nextInt(until: Int): Int {
+                val value = next % until
+                next++
+                return value
+            }
+        }
+
     /** A bitfield claiming every piece, with BEP 3's spare bits left at zero. */
     private fun allOf(pieces: Int): ByteArray =
         Bitfield(pieces).also { bits -> (0 until pieces).forEach { bits.set(it) } }.toBytes()
@@ -513,6 +854,7 @@ class SessionTest {
         storage: Storage,
         hasher: PieceHasher,
         config: SessionConfig = SessionConfig(maxStartedPieces = 4, pipelineDepth = 2, maxPeers = 10),
+        random: kotlin.random.Random = kotlin.random.Random(1),
     ) = Session(
         metainfo = metainfo,
         peerId = ourPeerId,
@@ -522,6 +864,7 @@ class SessionTest {
         hasher = hasher,
         storage = storage,
         config = config,
+        random = random,
     ).also { sessions += it }
 
     @Test

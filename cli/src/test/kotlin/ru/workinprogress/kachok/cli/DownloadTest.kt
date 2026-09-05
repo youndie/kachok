@@ -9,6 +9,7 @@ import ru.workinprogress.kachok.engine.bencode.Bencode
 import ru.workinprogress.kachok.engine.metainfo.Metainfo
 import ru.workinprogress.kachok.engine.metainfo.MetainfoParser
 import ru.workinprogress.kachok.engine.wire.ExtensionHandshake
+import ru.workinprogress.kachok.engine.wire.Message
 import ru.workinprogress.kachok.engine.wire.PeerWire
 import java.net.InetSocketAddress
 import java.nio.file.Files
@@ -189,6 +190,37 @@ class DownloadTest {
             "phase 1 offers no extensions, and an empty `m` is what says so",
         )
         assertContains(read.clientVersion ?: "", "kachok")
+    }
+
+    @Test
+    fun aPeerThatAdvertisesBep6IsToldWhatThisClientHasInOneByte() {
+        // The client starts with nothing, so BEP 6's answer is `have none` — which a BEP 3 client
+        // does not send at all. Over a real socket, so the reserved byte is the one that went out.
+        val placeholder = startTracker(peerPort = 1)
+        val peer =
+            SeedingPeer(
+                infoHash = MetainfoParser.parse(torrentBytes(placeholder)).infoHash,
+                content = content,
+                pieceLength = PeerWire.BLOCK_SIZE,
+                fastExtension = true,
+            )
+        seed = peer
+        server?.stop(0)
+        val trackerUrl = startTracker(peerPort = peer.port)
+        val torrent = root.resolve("fixture.torrent")
+        Files.write(torrent, torrentBytes(trackerUrl))
+
+        val err = StringBuilder()
+        val exit =
+            Cli.run(
+                listOf("download", torrent.toString(), "--dir", root.resolve("out").toString()),
+                StringBuilder(),
+                err,
+            )
+
+        assertEquals(Download.EXIT_OK, exit, "stderr was: $err")
+        val opening = peer.received.firstOrNull { it !is Message.Extended }
+        assertTrue(opening === Message.HaveNone, "the client opened with $opening, not `have none`")
     }
 
     @Test

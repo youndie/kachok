@@ -1,6 +1,7 @@
 package ru.workinprogress.kachok.engine.session
 
 import ru.workinprogress.kachok.engine.InfoHash
+import ru.workinprogress.kachok.engine.wire.Handshake
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
@@ -151,4 +152,13 @@ public class SessionConfig(
     public val extensions: Map<String, Int> = emptyMap(),
     /** BEP 10's `v`, which is what a peer shows a user about who it is talking to. */
     public val clientVersion: String = "kachok 0.1",
+    /**
+     * The reserved bytes this client's own handshake carries.
+     *
+     * The *same array* the dialer and the listener send, not a copy of the decision to send it.
+     * BEP 6 and BEP 10 are both two-sided — their messages are legal only when both ends
+     * advertised — so the session needs to know what it advertised, and a second boolean saying so
+     * is a second place for that fact to be wrong.
+     */
+    public val reserved: ByteArray = Handshake.reservedBits(),
 )
