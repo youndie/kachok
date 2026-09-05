@@ -37,7 +37,14 @@ kotlin {
 }
 
 viddik {
-    // The goldens are the comparison this module exists to make, so a `check` that skipped them
-    // would be a check that says nothing about what the UI looks like.
-    verifyOnCheck.set(true)
+    // **Only where the goldens were recorded.**
+    //
+    // A golden is a picture of one rasteriser's output. Recording on macOS and verifying on the
+    // Linux build machine compares two renderers and calls the difference a regression — which is
+    // what `check` did the first time this said `true` unconditionally.
+    //
+    // Not a silent skip, either: the goldens are a gate, and `make check` runs
+    // `:ui:viddikVerify` on the mac where it means something. What is off here is the *duplicate*
+    // that would run in the wrong place.
+    verifyOnCheck.set(System.getProperty("os.name").orEmpty().startsWith("Mac"))
 }

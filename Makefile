@@ -24,6 +24,11 @@ gate:
 	$(PY) scripts/backlog_index.py --check --docs $(DOCS) --backlog $(BACKLOG)
 	$(PY) scripts/docs_check.py --docs $(DOCS) --backlog $(BACKLOG)
 	$(PY) scripts/coverage_map.py --check --docs $(DOCS)
+	@# The UI's goldens, on the machine that recorded them. They are a gate — a screen that stopped
+	@# looking like the design is a defect — and they cannot run on the Linux build machine, whose
+	@# rasteriser is not the one the pictures came from. `LOCAL=1` is the prefer-wsl hook's own
+	@# escape for exactly this: a target that must run here.
+	@if [ -d ui/src/desktopTest/snapshots ]; then LOCAL=1 ./gradlew --quiet --console=plain :ui:viddikVerify; fi
 
 # Non-blocking, on purpose. bdd_report counts scenarios; demanding a percentage is meaningless while
 # acceptance is done by hand. code_anchors cannot tell a live path from one quoted as a target that

@@ -46,11 +46,10 @@ which is also the order of work.
 
 <!-- BEGIN INDEX -->
 
-## Open (11)
+## Open (10)
 
 | Task | | Priority | Size | Blocked by |
 |---|---|---|---|---|
-| [B-46](docs/backlog/B-46-ui-theme-and-calibration.md) `[ ]` | The theme: colour roles, type, and the desktop calibration | P1 | S/M | B-39 |
 | [B-47](docs/backlog/B-47-torrent-row-and-states.md) `[ ]` | The torrent row and its seven states | P1 | M | B-46 |
 | [B-48](docs/backlog/B-48-main-window-shell.md) `[ ]` | The main window: toolbar, column header, status bar, degraded banner | P1 | M | B-47 |
 | [B-52](docs/backlog/B-52-ui-on-the-real-engine.md) `[ ]` | The UI on the real engine, not on a fixture | P1 | M | B-48 |
@@ -62,7 +61,7 @@ which is also the order of work.
 | [B-41](docs/backlog/B-41-android-and-ios-targets.md) `[ ]` | Phase 3: Android and iOS targets on the engine | P3 | XL | B-39 |
 | [B-02](docs/backlog/B-02-ci-runs-build-and-docs-gates.md) `[ ]` | CI runs the build and the documentation gates on every push | infra | S | B-01 |
 
-## Closed (41)
+## Closed (42)
 
 **M0 — The build and its gates**
 
@@ -134,6 +133,7 @@ which is also the order of work.
 **Phase 2 — UI**
 
 - [B-39](docs/backlog/B-39-compose-ui-desktop.md) `[x]` - Phase 2: a Compose Multiplatform desktop UI on the engine's StateFlow
+- [B-46](docs/backlog/B-46-ui-theme-and-calibration.md) `[x]` - The theme: colour roles, type, and the desktop calibration
 
 <!-- END INDEX -->
 
