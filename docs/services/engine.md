@@ -56,14 +56,14 @@ What exists on `main` today:
 | `.../engine/bencode/` | the codec: `BValue`, the strict decoder that records source byte ranges, the canonical encoder |
 | `.../engine/metainfo/` | `Metainfo`, `TorrentFile`, and the parser that hashes `info` from its source bytes |
 | `.../engine/platform/Sha1.kt` + `engine/src/jvmMain/kotlin/ru/workinprogress/kachok/engine/platform/Sha1.jvm.kt` | the one-shot SHA-1 primitive, `expect`/`actual` |
-| `engine/src/commonTest/kotlin/ru/workinprogress/kachok/engine/bencode/BencodeTest.kt`, `.../metainfo/MetainfoParserTest.kt` | 18 tests; the fixtures are embedded strings, because a KMP test source set has no resources |
+| `.../engine/wire/` | `Handshake`, the sealed `Message`, `PeerWire` — framing, the identifier table, in-place `piece` decoding |
+| `engine/src/commonTest/kotlin/ru/workinprogress/kachok/engine/` | 44 tests across `bencode`, `metainfo` and `wire`; the fixtures are embedded strings, because a KMP test source set has no resources |
 
 The layout the backlog builds toward, under `engine/src/commonMain/kotlin/ru/workinprogress/kachok/engine/`
 (a directory appears when its first backlog item lands; none of these exist yet):
 
 | Directory | What goes there | Backlog |
 |---|---|---|
-| `wire/` | handshake, message ids, in-place `piece`/`request` parsing, the sealed `Message` for the rest | [B-06](../backlog/B-06-peer-wire-codec.md) |
 | `peer/` | one peer's state machine: choke/interest flags, pipeline, rates | [B-07](../backlog/B-07-virtual-thread-peer-transport.md) |
 | `picker/` | rarest-first, strict priority for started pieces, endgame | [B-16](../backlog/B-16-piece-picker.md) |
 | `choke/` | the ten-second choker and the optimistic unchoke | [B-21](../backlog/B-21-choking-algorithm.md) |
@@ -148,6 +148,10 @@ them. Nothing is read from the environment by this module; that is [cli](cli.md)
 * **`-Xno-param-assertions` and `-Xno-call-assertions` are release-only.** They are added when the
   build runs with `-Pkachok.release`; a plain `./gradlew build` keeps the null checks. Both builds
   are green on 2026-09-05.
+* **An unknown message identifier closes the connection.** `PeerWire.decode` throws on one rather
+  than ignoring the frame: a peer should not send what the handshake did not negotiate, and
+  ignoring unknown frames would hide a framing bug of ours as "some messages are dropped". The
+  interoperability cost is real and is paid deliberately.
 * **A `.torrent` is input from a stranger, and `MetainfoParser` treats it as one.** Path
   components that are empty, `.`, `..`, or that contain a separator are refused at parse time, so
   no code below has to remember that a torrent can ask to be written outside its own directory.

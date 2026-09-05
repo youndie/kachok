@@ -46,11 +46,10 @@ which is also the order of work.
 
 <!-- BEGIN INDEX -->
 
-## Open (38)
+## Open (37)
 
 | Task | | Priority | Size | Blocked by |
 |---|---|---|---|---|
-| [B-06](docs/backlog/B-06-peer-wire-codec.md) `[ ]` | Peer wire codec: handshake, message ids, in-place piece and request | P0 | M | - |
 | [B-07](docs/backlog/B-07-virtual-thread-peer-transport.md) `[ ]` | One virtual thread per peer on a blocking SocketChannel | P0 | M | B-06, B-08 |
 | [B-08](docs/backlog/B-08-direct-buffer-pool.md) `[ ]` | A capped pool of 16 KiB direct ByteBuffers | P0 | S | - |
 | [B-11](docs/backlog/B-11-single-writer-with-gathering-writes.md) `[ ]` | One writer coroutine, one gathering positional write per piece | P0 | M | B-08, B-12 |
@@ -89,7 +88,7 @@ which is also the order of work.
 | [B-42](docs/backlog/B-42-scopedvalue-in-the-reader-loop.md) `[?]` | Is ScopedValue used anywhere, or dropped? | P3 | XS | B-07 |
 | [B-02](docs/backlog/B-02-ci-runs-build-and-docs-gates.md) `[ ]` | CI runs the build and the documentation gates on every push | infra | S | B-01 |
 
-## Closed (4)
+## Closed (5)
 
 **M0 — The build and its gates**
 
@@ -100,6 +99,10 @@ which is also the order of work.
 - [B-03](docs/backlog/B-03-bencode-codec.md) `[x]` - Bencode encoder and decoder in common code
 - [B-04](docs/backlog/B-04-metainfo-parser-and-info-hash.md) `[x]` - Metainfo parser and the v1 info hash
 - [B-05](docs/backlog/B-05-magnet-link-parsing.md) `[x]` - Parse magnet links into an info hash and tracker list
+
+**M2 — The wire**
+
+- [B-06](docs/backlog/B-06-peer-wire-codec.md) `[x]` - Peer wire codec: handshake, message ids, in-place piece and request
 
 <!-- END INDEX -->
 
