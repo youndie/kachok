@@ -175,6 +175,10 @@ class Download(
             }
 
         if (finished == null) {
+            out.appendLine(
+                "buffer pool: ${pool.peakOutstanding} of ${pool.capacity} used at peak, " +
+                    "${pool.allocated} allocated",
+            )
             out.appendLine("stopping")
             session.send(Command.Stop)
             val clean = withTimeoutOrNull(SHUTDOWN_TIMEOUT) { runningJob.join() } != null
@@ -190,6 +194,10 @@ class Download(
             finished.isComplete -> {
                 out.appendLine(progress(finished))
                 out.appendLine("${metainfo.name}: complete")
+                out.appendLine(
+                    "buffer pool: ${pool.peakOutstanding} of ${pool.capacity} used at peak, " +
+                        "${pool.allocated} allocated",
+                )
                 if (options.seedAfterCompletion) {
                     out.appendLine("seeding; stop with Ctrl-C")
                     session.state.first { false }
@@ -258,13 +266,17 @@ class Download(
     }
 
     /**
-     * Buffers enough for every piece the picker may start at once, plus slack for blocks in flight
-     * that belong to none of them yet. A pool smaller than the picker's working set deadlocks the
-     * writer, so the two numbers are chosen together (research Risk 2).
+     * Buffers for every block of every piece in flight, plus one read in progress per peer.
+     *
+     * **The second term is the number of peers, not one peer's pipeline**, and getting that wrong
+     * is measurable: a block occupies a buffer from the moment its read begins, so every connected
+     * peer can hold one that belongs to no started piece yet. With the old formula the pool peaked
+     * at 117 of 144 against a real swarm — 81 % of a cap a faster link would have hit, and hitting
+     * it throttles the download silently rather than breaking anything (research §1.2c).
      */
     private fun poolCapacity(metainfo: Metainfo): Int {
         val blocksPerPiece = (metainfo.pieceLength + PeerWire.BLOCK_SIZE - 1) / PeerWire.BLOCK_SIZE
-        return (STARTED_PIECES * blocksPerPiece + options.pipelineDepth).coerceAtLeast(MIN_POOL)
+        return (STARTED_PIECES * blocksPerPiece + options.maxPeers).coerceAtLeast(MIN_POOL)
     }
 
     /** BEP 20's Azureus style: `-KA0001-` and twelve random bytes. */

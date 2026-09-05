@@ -152,6 +152,45 @@ place in this engine that allocates per decision. It is not on the byte path and
 anything measurable here; it will at a hundred thousand pieces
 ([B-43](../backlog/B-43-picker-allocates-per-decision.md)).
 
+### 1.2c The baseline profile
+
+The Debian swarm again, two runs — one to completion (§1.2b) and one of 449 pieces stopped
+deliberately — with `settings=profile` and `-Xlog:gc`. The two agree, which is the only reason to
+believe either.
+
+| Measurement | Completed run | Partial run |
+|---|---|---|
+| `jdk.VirtualThreadPinned` | 0 of 80 496 socket reads | 0 of 9 080 |
+| Peak **platform** threads | 25 | 25 |
+| Live heap after collection | 8 MB | 6 MB |
+| Young collections / full | 4 (max 14.8 ms) / 0 | 1 (3.3 ms) / 0 |
+| Buffer pool peak | not instrumented | **117 of 144** |
+| Top allocated type | `java.lang.Integer` | `java.lang.Integer` |
+| Top allocation site | `PiecePicker.rarestUnstarted` | `PiecePicker.rarestUnstarted` |
+
+**Consequence 1 — the pool cap formula was wrong, and the measurement is what showed it.** It was
+`maxStartedPieces × blocksPerPiece + pipelineDepth`, which reads as "the blocks of the pieces in
+flight, plus one peer's worth of reads in progress". There is not one peer; a block occupies a
+buffer from the moment its read begins, so the transient term is bounded by the number of *peers*,
+not by one peer's pipeline. At 19 unchoked peers the pool peaked at 117 of 144 — 81 % of a cap that
+a faster link would have hit, and hitting it does not break anything but silently throttles the
+download. The formula is now `maxStartedPieces × blocksPerPiece + maxPeers`.
+
+**Consequence 2 — the allocation that remains is boxing, and it is in one place.** `Integer` is the
+most-allocated type in both runs, from `PiecePicker.rarestUnstarted` building a `List<Int>` of
+candidate pieces on every request. Nothing on the block path appears at all. That is
+[B-43](../backlog/B-43-picker-allocates-per-decision.md), and the profile has now named not just
+the method but the mechanism.
+
+**Consequence 3 — Open question 2 is answered.** The engine's heap is 6–8 MB live under load. The
+launcher's `-Xmx256m` is thirty times what the engine needs; it stays for now because the second
+phase puts a Compose UI in the same process, and lowering it is a decision that belongs with that
+UI rather than with this measurement ([B-27](../backlog/B-27-measure-heap-and-collector.md)).
+
+**Consequence 4 — writes are rare because they are gathered.** 20 sampled `jdk.FileWrite` events
+against 449 pieces, and 9 `FileRead`. The gathering write and the deferred `force()` are visible in
+the profile rather than only in the design.
+
 ### 1.3 A trimmed run-time image, measured
 
 `jlink --add-modules java.base,java.net.http,jdk.jfr,java.management --strip-debug --no-man-pages

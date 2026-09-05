@@ -7,6 +7,7 @@ import ru.workinprogress.kachok.engine.tracker.TrackerProtocol
 import java.io.IOException
 import java.net.BindException
 import java.net.InetSocketAddress
+import java.net.StandardSocketOptions
 import java.nio.channels.ServerSocketChannel
 import java.nio.channels.SocketChannel
 
@@ -74,6 +75,11 @@ public class PeerListener private constructor(
             ports.forEach { port ->
                 val server = ServerSocketChannel.open()
                 try {
+                    // Without this a port this client used a minute ago cannot be taken again:
+                    // its old connections sit in TIME_WAIT and `bind` answers "address already in
+                    // use". A restarted client would then announce a different port every time,
+                    // and peers holding the old address would find nobody there.
+                    server.setOption(StandardSocketOptions.SO_REUSEADDR, true)
                     server.bind(InetSocketAddress(host, port), BACKLOG)
                     return PeerListener(server, port)
                 } catch (taken: BindException) {

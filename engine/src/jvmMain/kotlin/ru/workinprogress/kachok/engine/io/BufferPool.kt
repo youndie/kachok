@@ -58,9 +58,19 @@ public class BufferPool(
     private val free = ConcurrentLinkedQueue<PooledBuffer>()
     private val allocatedCount = AtomicInteger()
     private val outstandingCount = AtomicInteger()
+    private val peakCount = AtomicInteger()
 
     /** How many buffers are out on loan right now. Part of the session state a UI renders. */
     public val outstanding: Int get() = outstandingCount.get()
+
+    /**
+     * The most that were ever out at once.
+     *
+     * The number that decides the cap: a pool sized well above its own peak is off-heap memory
+     * nobody used, and one sized at its peak has no room for a faster link. Measured rather than
+     * guessed — see research §1.2c.
+     */
+    public val peakOutstanding: Int get() = peakCount.get()
 
     /** How many buffers have ever been allocated; never more than [capacity], never decreases. */
     public val allocated: Int get() = allocatedCount.get()
@@ -87,7 +97,8 @@ public class BufferPool(
         check(!pooled.inUse) { "the pool handed out a buffer that was already on loan" }
         pooled.inUse = true
         pooled.buffer.clear()
-        outstandingCount.incrementAndGet()
+        val now = outstandingCount.incrementAndGet()
+        peakCount.updateAndGet { maxOf(it, now) }
         return pooled
     }
 

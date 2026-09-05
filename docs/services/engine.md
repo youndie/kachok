@@ -80,7 +80,7 @@ What exists on `main` today:
 | `.../engine/session/Session.kt` | the orchestrator: peers, tracker loop, writer, one timer, all under one `SupervisorJob` |
 | `.../engine/hash/MessageDigestPieceHasher.kt` (jvmMain) | SHA-1 on a bounded dispatcher, with a pool of digests and the `JvmBlock` seam |
 | `.../engine/storage/FileSet.kt` (jvmMain) | the torrent's files, created sparse with `setLength` and kept open for positional writes |
-| `engine/src/commonTest/kotlin/ru/workinprogress/kachok/engine/` | 167 tests across every package; the session's nine run entirely on fakes; the fixtures are embedded strings, because a KMP test source set has no resources |
+| `engine/src/commonTest/kotlin/ru/workinprogress/kachok/engine/` | 169 tests across every package; the session's nine run entirely on fakes; the fixtures are embedded strings, because a KMP test source set has no resources |
 
 The layout the backlog builds toward, under `engine/src/commonMain/kotlin/ru/workinprogress/kachok/engine/`
 (a directory appears when its first backlog item lands; none of these exist yet):
@@ -165,6 +165,9 @@ them. Nothing is read from the environment by this module; that is [cli](cli.md)
 * **`-Xno-param-assertions` and `-Xno-call-assertions` are release-only.** They are added when the
   build runs with `-Pkachok.release`; a plain `./gradlew build` keeps the null checks. Both builds
   are green on 2026-09-05.
+* **The listener sets `SO_REUSEADDR`.** Without it a port this client used a minute ago cannot be
+  taken again while its old connections sit in `TIME_WAIT`, and a restarted client announces a
+  different port than the one peers remember.
 * **An uploaded byte never enters this process.** `FileChannel.transferTo` moves it from the page
   cache to the socket inside the kernel; the storage interface therefore has no `read` returning
   bytes, because one would make the copy compulsory.

@@ -104,7 +104,14 @@ public class SessionConfig(
     public val keepAliveInterval: Duration = 2.minutes,
     /** How often the timer wakes. Everything periodic is a multiple of this. */
     public val tick: Duration = 1.seconds,
-    /** `force()` runs on this schedule rather than per piece (research D4). */
+    /**
+     * `force()` runs on this schedule rather than per piece (research D4).
+     *
+     * Thirty seconds because the profile shows writes are already rare — twenty sampled
+     * `FileWrite` events against 449 pieces, since a piece is one gathering write — so the flush
+     * is not what costs anything here. What it bounds is how much of the page cache a crash can
+     * take, and the resume record makes that a re-hash rather than a loss (research §1.2c).
+     */
     public val flushInterval: Duration = 30.seconds,
     /**
      * How often progress is recorded. Rarely, because the cost of losing the last N seconds of it

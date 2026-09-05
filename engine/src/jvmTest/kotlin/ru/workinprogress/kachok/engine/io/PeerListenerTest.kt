@@ -51,6 +51,21 @@ class PeerListenerTest {
     private val range = 43_881..43_889
 
     @Test
+    fun aPortLeftInTimeWaitIsStillOurs() {
+        // Not a test-only concern: a client restarted inside the two-minute TIME_WAIT window would
+        // otherwise skip its own port and announce a different one, and peers holding the old
+        // address would find nobody there. This test was written because the failure happened.
+        val first = PeerListener.bind(range, host = "127.0.0.1")
+        val port = first.port
+        val client = SocketChannel.open(InetSocketAddress("127.0.0.1", port))
+        client.close()
+        first.close()
+
+        val again = PeerListener.bind(port..port, host = "127.0.0.1").also { listener = it }
+        assertEquals(port, again.port, "a port this client just used must still be bindable")
+    }
+
+    @Test
     fun theListenerTakesTheFirstFreePortOfTheRange() {
         occupy(range.first)
         val bound = PeerListener.bind(range, host = "127.0.0.1").also { listener = it }
