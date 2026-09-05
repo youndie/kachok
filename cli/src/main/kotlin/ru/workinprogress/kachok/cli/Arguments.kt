@@ -13,6 +13,17 @@ class DownloadOptions(
     /** Bytes a second, across every peer. Zero means no limit, which is the default. */
     val uploadLimit: Long,
     val downloadLimit: Long,
+    /**
+     * BEP 5, and **off** unless asked for.
+     *
+     * Mainstream clients join the DHT by default and this one will too, once there is a torrent
+     * that needs it — a magnet link, which is
+     * [B-36](../../../../../../../docs/backlog/B-36-ut-metadata-and-magnets.md). Until then every
+     * torrent this client can open names a tracker, so joining would be contacting three public
+     * routers and announcing this machine's address to strangers for no gain. It would also mean
+     * every run of the test suite doing it.
+     */
+    val dht: Boolean,
 )
 
 /** A command line that does not parse, with the reason a user can act on. */
@@ -36,7 +47,8 @@ object Arguments {
   --pipeline <n>      requests outstanding per peer (default: 16)
   --seed              keep seeding after the download completes
   --up <KiB/s>        upload limit across all peers (default: no limit)
-  --down <KiB/s>      download limit across all peers (default: no limit)"""
+  --down <KiB/s>      download limit across all peers (default: no limit)
+  --dht               join the DHT (BEP 5); a private torrent never does"""
 
     fun parseDownload(arguments: List<String>): DownloadOptions {
         if (arguments.isEmpty()) throw UsageException("download needs a .torrent file")
@@ -48,6 +60,7 @@ object Arguments {
         var seed = false
         var upload = 0L
         var download = 0L
+        var dht = false
 
         var index = 0
         while (index < arguments.size) {
@@ -79,6 +92,10 @@ object Arguments {
                     upload = number(value(arguments, ++index, argument), argument).toLong() * BYTES_PER_KIB
                 }
 
+                "--dht" -> {
+                    dht = true
+                }
+
                 "--down" -> {
                     download = number(value(arguments, ++index, argument), argument).toLong() * BYTES_PER_KIB
                 }
@@ -101,6 +118,7 @@ object Arguments {
             seedAfterCompletion = seed,
             uploadLimit = upload,
             downloadLimit = download,
+            dht = dht,
         )
     }
 

@@ -17,6 +17,7 @@ import ru.workinprogress.kachok.engine.choke.Choker
 import ru.workinprogress.kachok.engine.choke.PeerRates
 import ru.workinprogress.kachok.engine.choke.RateMeter
 import ru.workinprogress.kachok.engine.choke.TokenBucket
+import ru.workinprogress.kachok.engine.dht.Dht
 import ru.workinprogress.kachok.engine.metainfo.Metainfo
 import ru.workinprogress.kachok.engine.peer.CompactPeers
 import ru.workinprogress.kachok.engine.peer.PeerAddress
@@ -88,6 +89,13 @@ public class Session(
      * want: a single-threaded test dispatcher is the point of them.
      */
     private val blocking: CoroutineDispatcher? = null,
+    /**
+     * The DHT, or null for a client that does not speak it.
+     *
+     * Null and not a flag: a session with no DHT has no socket, no routing table and no bootstrap
+     * traffic, which is what "off" has to mean for something that talks to strangers.
+     */
+    private val dht: Dht? = null,
     /**
      * The one source of chance in the session: the optimistic unchoke, and the first piece.
      *
@@ -202,6 +210,9 @@ public class Session(
         sessionScope.launchGuarded("writer") { writer.run() }
         sessionScope.launchGuarded("outcomes") { consumeOutcomes(sessionScope) }
         sessionScope.launchGuarded("tracker") { announceLoop(sessionScope) }
+        if (dht != null && !metainfo.isPrivate && config.dhtBootstrap.isNotEmpty()) {
+            sessionScope.launchGuarded("dht") { dhtLoop(sessionScope) }
+        }
         sessionScope.launchGuarded("timer") { timerLoop() }
         sessionScope.launchGuarded("commands") { commandLoop(sessionScope, sessionJob) }
         return sessionJob
@@ -286,6 +297,37 @@ public class Session(
                 connectMore(scope)
             }
             delay(announceInterval * MILLIS_PER_SECOND)
+        }
+    }
+
+    /**
+     * BEP 5: find the torrent in the DHT, and say this client has it.
+     *
+     * A loop and not a one-off. A lookup is a snapshot of a network that changes, an announce is
+     * forgotten after a day, and a client that did both once at start-up would be unfindable an
+     * hour later — which is exactly the case a trackerless torrent depends on.
+     *
+     * **Not for a private torrent** (BEP 27), and the check is at the door in [start] rather than
+     * here: the difference is a session that never opens a socket.
+     */
+    private suspend fun dhtLoop(scope: CoroutineScope) {
+        val node = dht ?: return
+        node.bootstrap(scope, config.dhtBootstrap)
+        while (!stopping) {
+            tick("dht lookup") {
+                val found = node.lookup(scope, metainfo.infoHash)
+                if (found.peers.isNotEmpty()) {
+                    val before = known.size
+                    found.peers.forEach { known += it }
+                    if (known.size != before) {
+                        publish { it.copy(knownPeers = known.size) }
+                        connectMore(scope)
+                    }
+                }
+                publish { it.copy(dhtNodes = node.table.size) }
+                node.announce(scope, metainfo.infoHash, listenPort, found.tokens)
+            }
+            delay(config.dhtInterval)
         }
     }
 
@@ -1143,6 +1185,7 @@ private fun SessionState.copy(
     unchokedPeers: Int = this.unchokedPeers,
     outstandingRequests: Int = this.outstandingRequests,
     knownPeers: Int = this.knownPeers,
+    dhtNodes: Int = this.dhtNodes,
     extendedPeers: Int = this.extendedPeers,
     hashFailures: Int = this.hashFailures,
     verifiedPieces: Int = this.verifiedPieces,
@@ -1165,6 +1208,7 @@ private fun SessionState.copy(
         unchokedPeers = unchokedPeers,
         outstandingRequests = outstandingRequests,
         knownPeers = knownPeers,
+        dhtNodes = dhtNodes,
         extendedPeers = extendedPeers,
         hashFailures = hashFailures,
         verifiedPieces = verifiedPieces,

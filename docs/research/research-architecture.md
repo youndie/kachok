@@ -481,6 +481,11 @@ feature document quotes comes from here.
 | A connection id is valid for one minute; a reply whose transaction id does not match is to be ignored | BEP 15, *time outs* |
 | The retransmit schedule is 15 · 2ⁿ seconds for n = 0…8, so 64 minutes before giving up | BEP 15, *time outs* |
 | DHT is a UDP protocol (KRPC) | BEP 5 |
+| KRPC has three shapes — `y` of `q`, `r` or `e` — and the transaction id `t` is the asker's, echoed verbatim | BEP 5, *KRPC protocol* |
+| `nodes` is 26 bytes per node (20-byte id + compact address); `values` is a **list of strings**, one peer each — not one string of many, which is what BEP 23's `peers` is | BEP 5, *find_node* and *get_peers* |
+| `announce_peer` carries a `token` from a previous `get_peers` to the same node; `implied_port` non-zero tells the node to use the datagram's source port instead of the `port` argument | BEP 5, *announce_peer* |
+| A node becomes questionable after 15 idle minutes and bad after failing to answer "multiple" queries; `k` is 8 | BEP 5, *routing table* |
+| A private torrent uses no DHT, no PEX and no local discovery | BEP 27 |
 | v2 torrents use SHA-256, a `piece layers` dictionary and 16 KiB leaf blocks; the request limit is the same `2^14` | BEP 52 |
 | Peer id convention `-XX0000-` (Azureus style) | BEP 20 |
 
@@ -530,6 +535,22 @@ than trusted at its first entry.
 
 *The probe itself was a temporary test and was deleted; redoing it is twenty lines against
 `UdpTrackerClient` and any torrent file.*
+
+### 1.6 The DHT's two shapes of compact data
+
+BEP 5 uses two packed formats that look alike and are not, and both sit next to BEP 23's, which is
+a third. Written down because the tracker code was in this repository first and sets the wrong
+expectation:
+
+| Field | Shape |
+|---|---|
+| the tracker's `peers` (BEP 23) | **one** string, six bytes per peer |
+| the DHT's `values` (BEP 5) | a **list** of strings, one peer each |
+| the DHT's `nodes` (BEP 5) | **one** string, twenty-six bytes per node — id then address |
+
+**Consequence.** A reader written from the tracker's shape decodes `values` as one long string and
+finds nothing, or worse finds peers whose addresses are made of two other peers' halves. The three
+share only `CompactPeers`, which is the six bytes and nothing above them.
 
 ---
 

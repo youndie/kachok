@@ -77,6 +77,11 @@ What exists on `main` today:
 | `engine/src/jvmTest/kotlin/ru/workinprogress/kachok/engine/storage/UploadPathBench.kt` | `transferTo` against a mapped segment on real sockets — research §1.3c |
 | `.../engine/choke/TokenBucket.kt` | the upload and download rate limits, spent by bytes and refilled by the timer |
 | `.../engine/wire/Message.kt` | the wire's messages, BEP 3's and BEP 6's `suggest` / `have all` / `have none` / `reject` / `allowed fast` |
+| `.../engine/dht/NodeId.kt` | 160-bit ids, XOR distance, and what a bucket is |
+| `.../engine/dht/Krpc.kt` | BEP 5's three message shapes and four queries, on this project's bencode |
+| `.../engine/dht/RoutingTable.kt` | buckets by common prefix, eviction by failure |
+| `.../engine/dht/Dht.kt` | bootstrap, the iterative `get_peers` lookup, `announce_peer` |
+| `.../engine/io/DatagramKrpcTransport.kt` (jvmMain) | one socket for the whole DHT, multiplexed by transaction id |
 | `.../engine/wire/PexMessage.kt` | BEP 11's `added` / `dropped` delta |
 | `.../engine/peer/CompactPeers.kt` | BEP 23's six bytes, shared by both trackers and by peer exchange |
 | `.../engine/wire/ExtensionHandshake.kt` | BEP 10's `m` dictionary: what a peer can do and the id it wants each extension sent under |
@@ -220,6 +225,23 @@ them. Nothing is read from the environment by this module; that is [cli](cli.md)
 * **A throttled download would stall without the timer.** Requests are normally issued when a block
   arrives, and no block arrives while nothing is asked for; the tick that refills the budget is
   also what asks every peer for more.
+* **`NodeId` is not a value class**, unlike the torrent's other twenty-byte identifiers. A value
+  class around a `ByteArray` inherits the array's equality, which is identity; the routing table
+  keys maps by node id, so every lookup would miss and the table would fill with duplicates of the
+  same node.
+* **The DHT's `values` is a list of strings and the tracker's `peers` is one string.** They carry
+  the same six bytes per peer and are not the same field. `nodes` is a third shape again —
+  twenty-six bytes, id first (research §1.6).
+* **One socket for the whole DHT, not one per query.** `announce_peer`'s `implied_port` tells a
+  node to remember the port a query arrived from, so the port has to be the same one every time or
+  the announce points at nothing. That makes the transport a multiplexer, and `t` is what
+  multiplexes.
+* **Eviction is by failure, never to make room.** A full bucket of good nodes refuses a new one:
+  a known-good node is worth more than an unknown one, and one lost datagram is normal on UDP —
+  two failures make a node replaceable.
+* **The DHT is off unless asked for.** Joining means contacting three public routers and
+  announcing this machine to strangers; nothing in phase 1 needs it, because every torrent this
+  client can open names a tracker. Magnets change that.
 * **`ut_pex` is a delta, and that is the easy thing to get wrong.** A message repeating the whole
   swarm every minute is still well formed and still parses. Each peer's link remembers what it was
   last told, and an unchanged swarm produces no message at all.

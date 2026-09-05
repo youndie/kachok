@@ -13,8 +13,11 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.selects.select
 import kotlinx.coroutines.withTimeoutOrNull
 import ru.workinprogress.kachok.engine.PeerId
+import ru.workinprogress.kachok.engine.dht.Dht
+import ru.workinprogress.kachok.engine.dht.NodeId
 import ru.workinprogress.kachok.engine.hash.MessageDigestPieceHasher
 import ru.workinprogress.kachok.engine.io.BufferPool
+import ru.workinprogress.kachok.engine.io.DatagramKrpcTransport
 import ru.workinprogress.kachok.engine.io.EngineDispatchers
 import ru.workinprogress.kachok.engine.io.PeerListener
 import ru.workinprogress.kachok.engine.io.SocketPeerConnection
@@ -111,6 +114,10 @@ class Download(
         // metadata exchange are addressed with never arrive. BEP 6: without it a choke leaves
         // both pickers guessing which requests died.
         val reserved = Handshake.reservedBits(extensionProtocol = true, fastExtension = true)
+        // BEP 5's routing table lives for as long as the session and talks to strangers, so it is
+        // built only when it will be used: a private torrent or `--no-dht` means no socket at all.
+        val dhtTransport =
+            if (options.dht && !metainfo.isPrivate) DatagramKrpcTransport(dispatchers.io) else null
         val session =
             Session(
                 metainfo = metainfo,
@@ -135,12 +142,14 @@ class Download(
                         onFailure = { err.appendLine("kachok: $it") },
                     ),
                 blocking = dispatchers.io,
+                dht = dhtTransport?.let { Dht(self = NodeId.random(), transport = it) },
                 config =
                     SessionConfig(
                         maxStartedPieces = STARTED_PIECES,
                         pipelineDepth = options.pipelineDepth,
                         maxPeers = options.maxPeers,
                         reserved = reserved,
+                        dhtBootstrap = if (dhtTransport != null) BOOTSTRAP_NODES else emptyList(),
                         uploadLimitBytesPerSecond = options.uploadLimit,
                         downloadLimitBytesPerSecond = options.downloadLimit,
                     ),
@@ -157,6 +166,9 @@ class Download(
         }
         listener?.let { out.appendLine("listening on port ${it.port}") }
         val runningJob = session.start(sessionScope)
+        // The reader belongs to the session's scope, so a cancelled session takes it with it.
+        dhtTransport?.start(sessionScope)
+        dhtTransport?.let { out.appendLine("dht on udp port ${it.port}") }
         listener?.start(sessionScope) { socket ->
             val connection =
                 SocketPeerConnection.accept(sessionScope, socket, metainfo.infoHash, identity, pool, reserved)
@@ -192,6 +204,7 @@ class Download(
             } finally {
                 renderer.cancel()
                 listener?.close()
+                dhtTransport?.close()
             }
 
         if (finished == null) {
@@ -311,6 +324,22 @@ class Download(
         const val EXIT_OK = 0
         const val EXIT_FAILED = 1
         const val EXIT_USAGE = 2
+
+        /**
+         * BEP 5's public bootstrap nodes: where a client with an empty routing table starts.
+         *
+         * Three of them because any one may be down, and they are the addresses every mainstream
+         * client ships. A DHT with no way in is a DHT that is off.
+         */
+        private val BOOTSTRAP_NODES =
+            listOf(
+                ru.workinprogress.kachok.engine.peer
+                    .PeerAddress("router.bittorrent.com", 6881),
+                ru.workinprogress.kachok.engine.peer
+                    .PeerAddress("dht.transmissionbt.com", 6881),
+                ru.workinprogress.kachok.engine.peer
+                    .PeerAddress("router.utorrent.com", 6881),
+            )
 
         private const val STARTED_PIECES = 8
         private const val MIN_POOL = 64

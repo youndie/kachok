@@ -262,6 +262,15 @@ class DownloadTest {
     }
 
     @Test
+    fun theDhtIsOffUnlessAskedFor() {
+        // Joining it means contacting three public routers and announcing this machine to
+        // strangers. Nothing in phase 1 needs that — every torrent this client can open names a
+        // tracker — and a default of "on" would also mean every run of this suite doing it.
+        assertTrue(!Arguments.parseDownload(listOf("x.torrent")).dht)
+        assertTrue(Arguments.parseDownload(listOf("x.torrent", "--dht")).dht)
+    }
+
+    @Test
     fun rateLimitsAreGivenInKibibytesAndZeroIsTheDefault() {
         val plain = Arguments.parseDownload(listOf("x.torrent"))
         assertEquals(0L, plain.uploadLimit, "no limit is the default, and it is not zero bytes a second")

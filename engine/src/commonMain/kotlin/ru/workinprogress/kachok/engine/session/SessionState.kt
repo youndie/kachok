@@ -37,6 +37,8 @@ public class SessionState(
     public val knownPeers: Int = 0,
     /** Connected peers that completed BEP 10's handshake, so their extension ids are known. */
     public val extendedPeers: Int = 0,
+    /** Nodes in the DHT routing table. Zero means the DHT is off or has not bootstrapped. */
+    public val dhtNodes: Int = 0,
     public val hashFailures: Int = 0,
     /** Pieces checked so far by the start-up pass, and of how many. Equal when it is finished. */
     public val verifiedPieces: Int = 0,
@@ -129,6 +131,16 @@ public class SessionConfig(
      * wait a minute longer to hear about a swarm this client already knows.
      */
     public val pexInterval: Duration = 60.seconds,
+    /**
+     * BEP 5: how often to look the torrent up in the DHT and announce this client to it again.
+     *
+     * Fifteen minutes because a node forgets an announce after a day and because a lookup is
+     * dozens of datagrams to strangers — often enough that a client restarted an hour ago is still
+     * findable, rare enough that it is not a load on the network.
+     */
+    public val dhtInterval: Duration = 15.minutes,
+    /** Where to start from when the routing table is empty. Empty means the DHT is off. */
+    public val dhtBootstrap: List<ru.workinprogress.kachok.engine.peer.PeerAddress> = emptyList(),
     /** Wait before dialling a peer that just failed. */
     public val reconnectDelay: Duration = 30.seconds,
     /**
