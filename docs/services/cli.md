@@ -43,13 +43,14 @@ kachok download <file.torrent> [--dir <path>] [--port <n>] [--peers <n>] [--pipe
 
 | File | What is there |
 |---|---|
-| `cli/build.gradle.kts` | `application` main class, `applicationDefaultJvmArgs` — the flags of research D6 |
+| `cli/build.gradle.kts` | `application` main class, `applicationDefaultJvmArgs` — the flags of research D6 and §1.2d; the `collectorBench` task |
 | `cli/src/main/kotlin/ru/workinprogress/kachok/cli/Main.kt` | the entry point and the exit codes; takes its streams so a test can read them |
 | `.../cli/Arguments.kt` | the hand-written parser and the usage text |
 | `.../cli/Download.kt` | the factory: every interface the engine needs meets its JVM implementation here, and the shutdown hook |
 | `cli/src/test/kotlin/ru/workinprogress/kachok/cli/ShutdownTest.kt` | a real subprocess, a real `SIGINT`, and the record it leaves behind |
 | `cli/src/test/kotlin/ru/workinprogress/kachok/cli/DownloadTest.kt` | the end-to-end download against a local tracker and a real seeding peer |
 | `.../cli/SeedingPeer.kt` | that peer: BEP 3 over a socket, serving the bytes it claims to have |
+| `cli/src/test/kotlin/ru/workinprogress/kachok/cli/CollectorBench.kt` | the collector comparison of research §1.2d, and the only way to redo it |
 
 ## 3. How it is built
 
@@ -89,8 +90,17 @@ per-message events, which is what conflation is for.
 ```
 
 Runs with the JVM flags from `cli/build.gradle.kts`
-(`-XX:+UseCompactObjectHeaders -Xmx256m`). JDK 25 is resolved by the toolchain (foojay resolver in
-`settings.gradle.kts`), so a machine without it downloads one.
+(`-XX:+UseG1GC -XX:+UseCompactObjectHeaders -Xmx128m`), each of them measured in research §1.2d.
+JDK 25 is resolved by the toolchain (foojay resolver in `settings.gradle.kts`), so a machine
+without it downloads one.
+
+```bash
+./gradlew :cli:collectorBench
+```
+
+Re-runs that measurement: the same 1 GB local-swarm download under G1 and ZGC, with and without
+compact headers, at three heap sizes. It takes a few minutes and it measures the machine as much as
+the code, which is why nothing in `build` calls it.
 
 ## 7. Configuration
 
@@ -111,7 +121,10 @@ defaults to the first of BEP 3's 6881–6889 (the probe itself arrives with
   a failed download, and a client that gives up on one is worse than a client that waits.
 * **The JVM flags live in the build file, not in a script.** `applicationDefaultJvmArgs` is read by
   `run` and by `installDist`'s start scripts alike, so there is one place to change a flag and no
-  way to measure a VM the distribution would not ship. The AOT cache flag is *not* there yet: the
+  way to measure a VM the distribution would not ship.
+* **`-XX:+UseG1GC` is redundant today and is there anyway.** G1 is this JDK's default; the flag
+  exists because an AOT cache built under one collector is refused under another without an error
+  anyone sees (research §1.2), so the collector this cache is built with may not be inherited. The AOT cache flag is *not* there yet: the
   cache does not exist, and pointing `-XX:AOTCache` at a missing file is a warning on every start.
 * **Windows is not tested** (research Risk 6). Nothing here is Unix-specific by intent, and
   nothing here has been run on Windows.

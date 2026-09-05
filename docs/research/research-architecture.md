@@ -183,13 +183,80 @@ candidate pieces on every request. Nothing on the block path appears at all. Tha
 the method but the mechanism.
 
 **Consequence 3 — Open question 2 is answered.** The engine's heap is 6–8 MB live under load. The
-launcher's `-Xmx256m` is thirty times what the engine needs; it stays for now because the second
-phase puts a Compose UI in the same process, and lowering it is a decision that belongs with that
-UI rather than with this measurement ([B-27](../backlog/B-27-measure-heap-and-collector.md)).
+launcher's `-Xmx256m` is thirty times what the engine needs. *(§1.2d, later: this paragraph then
+left the setting alone on the grounds that phase 2's UI would want the room. Measured, 128m keeps
+the same live set, pauses less in total, and costs 80 MB less resident memory, and phase 2 will set
+its own flags for its own process. The launcher sets `-Xmx128m`.)*
 
 **Consequence 4 — writes are rare because they are gathered.** 20 sampled `jdk.FileWrite` events
 against 449 pieces, and 9 `FileRead`. The gathering write and the deferred `force()` are visible in
 the profile rather than only in the design.
+
+### 1.2d The collector, the headers and the heap, measured against each other
+
+Six configurations, the same 1 GB download three times each, round robin so that whatever else the
+machine did during those minutes landed on all six. The swarm is local — one seed in the harness
+process, serving from memory — because a collector is chosen on its behaviour at this engine's
+allocation rate, and the public swarm sets that rate by whatever the internet gives on the day: two
+runs of one configuration would have differed more than two configurations do. Pauses and heap come
+from the run's own flight recording (`jdk.GCPhasePause`, `jdk.GCHeapSummary`) rather than from
+`-Xlog:gc`, whose shape differs per collector; resident memory is sampled every 100 ms. Every run's
+output was checked against the SHA-256 of the payload, so no row is a configuration that was fast
+because it was wrong. macOS 27/aarch64, JDK 25.0.2, 2026-09-05,
+`./gradlew :cli:collectorBench -PbenchArgs="--megabytes 1024 --runs 3"`.
+
+| Configuration | Wall (s) | Heap after GC | Max pause | Total pause | Collections | Peak RSS |
+|---|---|---|---|---|---|---|
+| G1 + compact headers, 256m | 3.6–3.9 | 8 MB | 3.39–4.10 ms | 13.9–16.2 ms | 5 | 257–265 MB |
+| G1, 256m | 3.5–3.9 | 8 MB | 3.12–4.30 ms | 14.6–16.4 ms | 5 | 262–263 MB |
+| ZGC + compact headers, 256m | 3.6–4.0 | 68–74 MB | 0.03–0.05 ms | 0.2–0.4 ms | 9–10 | 349–354 MB |
+| ZGC, 256m | 3.7–4.4 | 78–88 MB | 0.01–0.04 ms | 0.3–0.4 ms | 9–11 | 342–343 MB |
+| **G1 + compact headers, 128m** | 3.6–3.9 | 7–8 MB | 3.73–3.86 ms | **12.3–13.2 ms** | 9 | **180–186 MB** |
+| G1 + compact headers, 64m | 3.6–3.7 | 8 MB | 4.70–5.38 ms | 28.3–30.9 ms | 18 | 144–147 MB |
+| ZGC + compact headers, 64m | 4.1–4.6 | 62–64 MB | 0.03–0.05 ms | 1.7–1.9 ms | 65–75 | 183–191 MB |
+
+Each cell is the range over three runs. **Wall time decides nothing here** and is in the table only
+to show that: the spread within a configuration covers the spread between configurations, because
+the download is bounded by the local seed, the disk and the SHA-1 of a gigabyte, not by garbage
+collection. What separates the rows is the other five columns, and those are tight.
+
+"Heap after GC" is not the same quantity in the G1 rows and the ZGC ones, and the table would
+assert more than was measured if that went unsaid. The live set is a property of the program, not
+of the collector: G1's 8 MB is that. ZGC's 62–88 MB is what its heap holds when its own summary is
+written — it lets the heap fill further before collecting and reclaims after the summary. ZGC is
+not keeping ten times the data alive; it is keeping ten times the memory occupied, which is
+precisely why its resident set is 90 MB larger.
+
+**Consequence 1 — G1, and now for a reason rather than by elimination.** ZGC delivers what it
+promises: pauses of 10–50 µs against G1's 3–5 ms, a hundredfold. It charges 90 MB of resident
+memory for them at the same heap setting. A headless BitTorrent client has no frame to miss and no
+request to answer; its own timers are in seconds, and five four-millisecond pauses per gigabyte
+downloaded are invisible in a run whose pieces arrive over the network. Ninety megabytes on a
+process whose live set is eight is not invisible. This is the opposite trade from the one ZGC is
+built for, and it is the trade this program makes.
+
+**Consequence 2 — compact object headers are not measurable here, and the reason to keep them
+changes.** D6 took the brief's "10–20 % of heap" as the argument. With and without, at 256m: 8 MB
+live either way, 257–265 MB against 262–263 MB resident, pause ranges that overlap. The claim is
+not wrong about headers; it is irrelevant at a live set of 8 MB, where a fifth of the object
+headers is well under a megabyte and the resident set is dominated by *committed* heap. The flag
+stays because it costs nothing, because the AOT cache is already built with it (§1.2), and because
+phase 2 puts a UI in this process where the live set will be large enough for the number to
+reappear — and now there is a row to compare it against.
+
+**Consequence 3 — the heap setting mattered more than the collector, and it was never measured.**
+`-Xmx256m` came from the brief and survived two milestones unexamined. At 128m the engine sees the
+same 8 MB live set, spends *fewer* total milliseconds paused (12.3–13.2 against 13.9–16.2 — more
+collections, each of a smaller young generation), and the process is 80 MB smaller. At 64m the
+curve turns: total pause more than doubles to 28–31 ms and the longest grows to 5.4 ms. 128m is
+where the measurement points, and it is what the launcher now sets. This also retires the last
+piece of Open question 2: not "is 256 enough" but "256 was three times more than it should have
+been".
+
+**Consequence 4 — the flags are pinned, not inherited.** `-XX:+UseG1GC` is now explicit. G1 is this
+JDK's default on this machine, so the flag changes nothing today; it exists because §1.2 measured
+that an AOT cache built under one collector is refused under another *silently*, and a JDK that
+changes its default would turn the distribution's cache into a warning nobody reads.
 
 ### 1.3 A trimmed run-time image, measured
 
@@ -436,7 +503,7 @@ Why:
   which bounds the concurrent `transferTo` calls to five per torrent. Measured in M7 with
   `jdk.VirtualThreadPinned` and thread counts before the cap is raised.
 
-### D6. G1 with compact object headers for phase 1; ZGC is a measured alternative *(deviation from the brief)*
+### D6. G1, compact object headers, and a 128 MB heap — all three measured *(deviation from the brief)*
 
 Brief: Generational ZGC, or G1 with `-Xmx` 128–256 MB.
 Decision: G1, `-XX:+UseCompactObjectHeaders`, `-Xmx256m` as the *starting* value, all three in
@@ -454,6 +521,21 @@ Why:
 - the price: "128–256 MB is enough" is the brief's estimate and this document's hypothesis. It is
   measured in M7 (`-Xlog:gc`, JFR allocation profile) on a real swarm before it becomes a number in
   the README.
+
+**Amended after §1.2d (M7, B-27).** Two of the three flags above did not survive the measurement in
+the form they were written.
+
+- The collector is G1, and the reasoning above was right for the wrong reason. It guessed that
+  ZGC's advantage is pause time on large heaps and its cost is memory overhead per byte of heap.
+  Measured, ZGC's pauses here are a hundred times shorter than G1's, not comparable to them, and
+  its cost is 90 MB of resident set. The decision is the same and the trade is not the one this
+  paragraph described.
+- `-Xmx256m` is now **`-Xmx128m`**. It was never anything but the brief's number; at 128m the live
+  set is unchanged, the total pause is *lower*, and the process is 80 MB smaller.
+- `-XX:+UseCompactObjectHeaders` buys nothing measurable at phase-1 scale. It is kept, but on the
+  grounds of costing nothing and of the AOT cache already being built with it, not on the brief's
+  "10–20 % of heap" — which is true of a header and irrelevant to an 8 MB live set.
+- `-XX:+UseG1GC` was added, because the AOT cache is refused in silence under another collector.
 
 ### D7. Two modules now, and the phases are seams, not stubs
 
@@ -588,10 +670,12 @@ a scenario for the last block of the last piece.
 saturates a home uplink with five unchoked peers. Settled in M7 by measuring upload throughput and
 carrier occupancy; the mmap implementation is written only if the hypothesis is refuted.
 
-**Open question 2. What heap does the engine need?** Hypothesis: under 256 MB with compact
-headers for a hundred peers across ten torrents, because the data lives off-heap (D3). Settled in
-M7 with a JFR allocation profile; the number then goes into the launcher and the README together,
-and nowhere else.
+**Open question 2. What heap does the engine need?** ~~Hypothesis: under 256 MB with compact
+headers for a hundred peers across ten torrents, because the data lives off-heap (D3).~~
+**Answered** in M7 (§1.2b, §1.2c, §1.2d): 6–8 MB live for one torrent at 24 peers, unchanged
+whether the heap is 256, 128 or 64 MB. The launcher sets `-Xmx128m`, which is where total pause
+time is lowest and resident memory is 180 MB. The hypothesis's own case — a hundred peers across
+ten torrents — remains unmeasured, because phase 1 downloads one torrent at a time.
 
 **Open question 3. v2 and hybrid torrents (BEP 52).** Hypothesis: phase 1 handles v1 and reads
 hybrid torrents through their v1 info dictionary; v2's SHA-256 piece layers are a second `Hasher`
