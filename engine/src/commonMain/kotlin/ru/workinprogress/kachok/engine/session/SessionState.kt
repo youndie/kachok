@@ -91,11 +91,12 @@ public class SessionConfig(
     public val pipelineDepth: Int = 16,
     /** Connections to keep up. */
     public val maxPeers: Int = 50,
-    /**
-     * Peers served at once. BEP 3's reference algorithm unchokes four plus one optimistic; until
-     * [B-21] implements the choice, this is the cap on a first-come policy.
-     */
-    public val maxUnchoked: Int = 5,
+    /** BEP 3's four regular slots; the optimistic peer takes one of them when it is interested. */
+    public val maxUnchoked: Int = 4,
+    /** BEP 3: "only changing who's choked once every ten seconds". */
+    public val chokeInterval: Duration = 10.seconds,
+    /** BEP 3: "which peer is optimistically unchoked rotates every 30 seconds". */
+    public val optimisticInterval: Duration = 30.seconds,
     /** BEP 3: "Keepalives are generally sent once every two minutes". */
     public val keepAliveInterval: Duration = 2.minutes,
     /** How often the timer wakes. Everything periodic is a multiple of this. */

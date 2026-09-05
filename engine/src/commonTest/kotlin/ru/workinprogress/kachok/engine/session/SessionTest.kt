@@ -455,6 +455,7 @@ class SessionTest {
         }
 
     @Test
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     fun anInterestedPeerIsUnchokedAndServedThePiecesWeHave() =
         runTest {
             val metainfo = torrent(pieces = 4)
@@ -469,10 +470,16 @@ class SessionTest {
             connection.incoming.send(PeerEvent.BlockReceived(FakeBlock(PieceIndex(1), 0, PeerWire.BLOCK_SIZE)))
             connection.incoming.send(PeerEvent.Received(Message.Interested))
             testScheduler.runCurrent()
+            assertTrue(
+                connection.sent.none { it === Message.Unchoke },
+                "interest alone unchokes nobody: the algorithm runs on the timer, not on a peer's word",
+            )
 
+            testScheduler.advanceTimeBy(11_000)
+            testScheduler.runCurrent()
             assertTrue(
                 connection.sent.any { it === Message.Unchoke },
-                "an interested peer was never unchoked, so nothing can be served",
+                "the ten-second pass never unchoked an interested peer, so nothing can be served",
             )
 
             connection.incoming.send(PeerEvent.Received(Message.Request(PieceIndex(1), 0, PeerWire.BLOCK_SIZE)))
@@ -512,6 +519,7 @@ class SessionTest {
         }
 
     @Test
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     fun onlySoManyPeersAreServedAtOnce() =
         runTest {
             val metainfo = torrent(pieces = 2)
@@ -524,16 +532,26 @@ class SessionTest {
                     FakeStorage(),
                     AgreeableHasher(metainfo),
                     config =
-                        SessionConfig(maxStartedPieces = 4, pipelineDepth = 2, maxPeers = 10, maxUnchoked = 1),
+                        SessionConfig(
+                            maxStartedPieces = 4,
+                            pipelineDepth = 2,
+                            maxPeers = 10,
+                            maxUnchoked = 1,
+                        ),
                 )
             val job = session.start(kotlinx.coroutines.CoroutineScope(coroutineContext + handler))
             testScheduler.runCurrent()
 
             dialer.connections.values.forEach { it.incoming.send(PeerEvent.Received(Message.Interested)) }
+            testScheduler.advanceTimeBy(11_000)
             testScheduler.runCurrent()
 
             val unchoked = dialer.connections.values.count { peer -> peer.sent.any { it === Message.Unchoke } }
-            assertEquals(1, unchoked, "the cap is one peer served at a time")
+            assertEquals(
+                1,
+                unchoked,
+                "one regular slot taken by an interested optimistic peer leaves room for nobody else",
+            )
             job.cancelAndJoin()
         }
 

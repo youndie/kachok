@@ -12,6 +12,9 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import ru.workinprogress.kachok.engine.PeerId
+import ru.workinprogress.kachok.engine.choke.Choker
+import ru.workinprogress.kachok.engine.choke.PeerRates
+import ru.workinprogress.kachok.engine.choke.RateMeter
 import ru.workinprogress.kachok.engine.metainfo.Metainfo
 import ru.workinprogress.kachok.engine.peer.PeerAddress
 import ru.workinprogress.kachok.engine.peer.PeerConnection
@@ -68,6 +71,7 @@ public class Session(
     private val blocking: CoroutineDispatcher? = null,
 ) {
     private val picker = PiecePicker(metainfo, config.maxStartedPieces)
+    private val choker = Choker(config.maxUnchoked)
     private val writer = BlockWriter(metainfo, hasher, storage)
     private val commands = Channel<Command>(Channel.BUFFERED)
 
@@ -322,6 +326,7 @@ public class Session(
             is PeerEvent.BlockReceived -> {
                 link.outstanding--
                 val block = event.block
+                link.download.add(block.length.toLong(), elapsedMillis())
                 picker.blockReceived(address, block.piece, block.begin).forEach { other ->
                     connected[other]?.send(Message.Cancel(block.piece, block.begin, block.length))
                 }
@@ -356,9 +361,10 @@ public class Session(
                         serveRequest(link, message)
                     }
 
+                    // Interest changes what the next choke pass will decide; it does not unchoke
+                    // anyone on its own. The algorithm runs on the timer, not on the peer's word.
                     Message.Interested -> {
                         link.peerInterested = true
-                        considerUnchoking(link)
                     }
 
                     Message.NotInterested -> {
@@ -392,23 +398,43 @@ public class Session(
         }
         if (link.choking || !picker.completed[request.piece.value]) return
         link.connection.sendBlock(request.piece, request.begin, request.length)
+        link.upload.add(request.length.toLong(), elapsedMillis())
         publish { it.copy(uploaded = connected.values.sumOf { peer -> peer.connection.uploaded }) }
     }
 
     /**
-     * Whether to serve this peer at all.
+     * Runs BEP 3's choking algorithm and tells the peers whose answer changed.
      *
-     * A placeholder policy on purpose: unchoke interested peers up to a cap, first come first
-     * served. It exists because the serving machinery above would otherwise be code nobody calls —
-     * the mechanism needs *a* policy to be exercised. BEP 3's actual algorithm, which ranks peers
-     * by what they give back and rotates an optimistic unchoke, replaces the choice here and
-     * nothing else: [B-21](../backlog/B-21-choking-algorithm.md).
+     * From the one timer, every ten seconds, with the optimistic choice rotating every thirty —
+     * "the currently deployed choking algorithm avoids fibrillation by only changing who's choked
+     * once every ten seconds", and a peer given an optimistic chance needs long enough to use it.
+     *
+     * Only the differences are sent. A `choke` to a peer that is already choked is a byte that
+     * says nothing, and fifty of them every ten seconds is a client that talks more than it
+     * listens.
      */
-    private suspend fun considerUnchoking(link: PeerLink) {
-        if (!link.choking || !link.peerInterested) return
-        if (connected.values.count { !it.choking } >= config.maxUnchoked) return
-        link.choking = false
-        link.send(Message.Unchoke)
+    private suspend fun chokePass(rotateOptimistic: Boolean) {
+        val now = elapsedMillis()
+        val links = connected.snapshot()
+        val decision =
+            choker.pass(
+                links.map { link ->
+                    PeerRates(
+                        peer = link.connection.address,
+                        interested = link.peerInterested,
+                        downloadRate = link.download.bytesPerSecond(now),
+                        uploadRate = link.upload.bytesPerSecond(now),
+                    )
+                },
+                seeding = picker.isComplete,
+                rotateOptimistic = rotateOptimistic,
+            )
+        links.forEach { link ->
+            val shouldChoke = link.connection.address !in decision.unchoked
+            if (shouldChoke == link.choking) return@forEach
+            link.choking = shouldChoke
+            link.send(if (shouldChoke) Message.Choke else Message.Unchoke)
+        }
     }
 
     private suspend fun updateInterest(link: PeerLink) {
@@ -464,6 +490,8 @@ public class Session(
     private suspend fun timerLoop() {
         var sinceKeepAlive = kotlin.time.Duration.ZERO
         var sinceFlush = kotlin.time.Duration.ZERO
+        var sinceChoke = kotlin.time.Duration.ZERO
+        var sinceOptimistic = config.optimisticInterval
         while (!stopping) {
             delay(config.tick)
             sinceKeepAlive += config.tick
@@ -477,6 +505,14 @@ public class Session(
                 tick("flush") { storage.flush() }
             }
             tick("expiry") { expireRequests() }
+            sinceChoke += config.tick
+            if (sinceChoke >= config.chokeInterval) {
+                sinceChoke = kotlin.time.Duration.ZERO
+                sinceOptimistic += config.chokeInterval
+                val rotate = sinceOptimistic >= config.optimisticInterval
+                if (rotate) sinceOptimistic = kotlin.time.Duration.ZERO
+                tick("choking") { chokePass(rotate) }
+            }
             publishPeerCounts()
         }
     }
@@ -609,6 +645,10 @@ public class Session(
         var choking: Boolean = true
         var peerInterested: Boolean = false
         var outstanding: Int = 0
+
+        /** What this peer is doing for us, and we for it, over the choker's window. */
+        val download: RateMeter = RateMeter()
+        val upload: RateMeter = RateMeter()
     }
 
     private companion object {

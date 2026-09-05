@@ -46,11 +46,10 @@ which is also the order of work.
 
 <!-- BEGIN INDEX -->
 
-## Open (24)
+## Open (23)
 
 | Task | | Priority | Size | Blocked by |
 |---|---|---|---|---|
-| [B-21](docs/backlog/B-21-choking-algorithm.md) `[ ]` | The ten-second choker with optimistic unchoke | P1 | M | B-20 |
 | [B-23](docs/backlog/B-23-atomic-resume-file.md) `[ ]` | A resume record written atomically and rarely | P1 | M | B-17 |
 | [B-24](docs/backlog/B-24-startup-verification-of-existing-data.md) `[ ]` | Re-hash what the resume file does not vouch for | P1 | M | B-23, B-13 |
 | [B-25](docs/backlog/B-25-graceful-shutdown.md) `[ ]` | SIGINT: stop announces, close peers, flush, write resume, exit | P1 | S | B-17 |
@@ -75,7 +74,7 @@ which is also the order of work.
 | [B-41](docs/backlog/B-41-android-and-ios-targets.md) `[ ]` | Phase 3: Android and iOS targets on the engine | P3 | XL | B-39 |
 | [B-02](docs/backlog/B-02-ci-runs-build-and-docs-gates.md) `[ ]` | CI runs the build and the documentation gates on every push | infra | S | B-01 |
 
-## Closed (19)
+## Closed (20)
 
 **M0 — The build and its gates**
 
@@ -113,6 +112,7 @@ which is also the order of work.
 **M5 — Seeding**
 
 - [B-20](docs/backlog/B-20-upload-read-path.md) `[x]` - Serve requests with FileChannel.transferTo
+- [B-21](docs/backlog/B-21-choking-algorithm.md) `[x]` - The ten-second choker with optimistic unchoke
 
 <!-- END INDEX -->
 
