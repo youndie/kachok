@@ -61,15 +61,37 @@ class PeerListenerTest {
     }
 
     /**
-     * A range nobody else on this machine is likely to be using.
+     * Nine consecutive ports this machine will actually give us, found rather than hoped for.
      *
-     * "Likely" is doing real work: the build machine's `ip_local_port_range` is 40525-44620, which
-     * contains this, so the kernel can hand one of these out as an ephemeral client port to
-     * anything on the box. There is no range that is safe everywhere — the reserved ones need root
-     * — so this stays a probability, and the `SO_REUSEADDR` above removes the one failure this
-     * class was causing itself.
+     * The fixed range this used to be was wrong on the build machine: its `ip_local_port_range` is
+     * 40525-44620 and contained it, so the kernel could hand one of those out as an ephemeral
+     * client port to anything on the box — and `aFullyOccupiedRangeIsAnErrorNamingIt`, whose whole
+     * job is to occupy all nine, then failed inside its own fixture with a `BindException` that
+     * read like the listener misbehaving.
+     *
+     * There is no range that is safe everywhere; the reserved ones need root. So this claims one,
+     * from candidates well above the usual ephemeral window, and keeps it bound for the life of the
+     * test — which is also what makes it a range nobody else can take mid-test.
      */
-    private val range = 43_881..43_889
+    private val range: IntRange by lazy {
+        CANDIDATES.firstNotNullOfOrNull { first ->
+            val claimed = mutableListOf<ServerSocketChannel>()
+            try {
+                (first..first + RANGE_SIZE - 1).forEach { port ->
+                    claimed +=
+                        ServerSocketChannel.open().apply {
+                            setOption(StandardSocketOptions.SO_REUSEADDR, true)
+                            bind(InetSocketAddress("127.0.0.1", port), 1)
+                        }
+                }
+                claimed.forEach { it.close() }
+                first..first + RANGE_SIZE - 1
+            } catch (taken: BindException) {
+                claimed.forEach { it.close() }
+                null
+            }
+        } ?: throw AssertionError("no free range of $RANGE_SIZE ports among $CANDIDATES")
+    }
 
     @Test
     fun aPortLeftInTimeWaitIsStillOurs() {
@@ -189,6 +211,11 @@ class PeerListenerTest {
         }
 
     private companion object {
+        const val RANGE_SIZE = 9
+
+        /** Tried in order. Nine consecutive ports is not much to ask of any of them. */
+        val CANDIDATES = listOf(47_881, 49_881, 51_881, 53_881)
+
         const val TIMEOUT = 10_000L
     }
 }

@@ -70,7 +70,7 @@ public class Session(
     private val listenPort: Int,
     private val dialer: PeerDialer,
     private val trackerClient: TrackerClient,
-    hasher: PieceHasher,
+    private val hasher: PieceHasher,
     private val storage: Storage,
     /**
      * Where progress is recorded, or null for a session that keeps none.
@@ -166,7 +166,20 @@ public class Session(
      * swarm for it first.
      */
     public suspend fun restore(hasher: PieceHasher) {
-        val record = resume?.load()
+        verify(resume?.load(), hasher)
+    }
+
+    /**
+     * The pass itself, shared by the start-up check and [Command.Recheck].
+     *
+     * The record is the only difference between them: at start-up it says which pieces need not be
+     * read, and a re-check passes null because "trust nothing" is the entire reason somebody asked
+     * for one.
+     */
+    private suspend fun verify(
+        record: ResumeRecord?,
+        hasher: PieceHasher,
+    ) {
         val verified =
             StartupVerifier(metainfo, storage, hasher).verify(record) { checked, total ->
                 publish { it.copy(verifiedPieces = checked, verifyingOf = total) }
@@ -261,12 +274,62 @@ public class Session(
                     resume(scope)
                 }
 
+                Command.Recheck -> {
+                    recheck(scope)
+                }
+
                 Command.Stop -> {
                     shutDown()
                     sessionJob.cancel()
                     return
                 }
             }
+        }
+    }
+
+    /**
+     * Check the disk again, from nothing.
+     *
+     * **Transfers stop; the session does not.** The pass reads the same files the writer appends
+     * to, so the peers go for the duration — but the tracker is never told, because a `stopped`
+     * followed by a `started` for a disk check is announce churn about something the swarm cannot
+     * act on, and it is why the item rejected doing this as stop-recheck-start.
+     *
+     * **Off the confined dispatcher.** Hashing a large torrent is minutes of blocking reads, and
+     * under the session's `limitedParallelism(1)` that would stop the timer, the tracker and every
+     * peer coroutine along with it. The same escape a dial uses.
+     *
+     * A torrent that was paused before is still paused after: a re-check is a question, not a
+     * decision to start.
+     */
+    private suspend fun recheck(scope: CoroutineScope) {
+        if (stopping) return
+        val wasPaused = paused
+        paused = true
+        publish {
+            it.copy(paused = true, connectedPeers = 0, unchokedPeers = 0, outstandingRequests = 0)
+        }
+        connected.snapshot().forEach { it.connection.close() }
+        connected.clear()
+        storage.flush()
+        // The picker refuses to be restored into while it is in use, and rightly: at start-up that
+        // guard catches a check running after the first request went out. A re-check is the one
+        // caller that legitimately empties it first — every peer is closed by the lines above, so
+        // there is nothing in flight to hand out twice.
+        picker.forget()
+        if (blocking != null) {
+            kotlinx.coroutines.withContext(blocking) { verify(record = null, hasher = hasher) }
+        } else {
+            verify(record = null, hasher = hasher)
+        }
+        // Recorded straight away: the pass just spent minutes learning what is on the disk, and
+        // losing that to a crash would mean spending them again.
+        saveResume()
+        if (!wasPaused) {
+            paused = false
+            publish { it.copy(paused = false) }
+            failed.clear()
+            connectMore(scope)
         }
     }
 

@@ -236,10 +236,25 @@ public class PiecePicker(
     }
 
     /**
+     * Throw away every piece this picker thinks it has, and every piece it has begun.
+     *
+     * For a re-check, which then [restore]s the answer the disk gave. The peer table and the
+     * availability counts are deliberately kept: which peers hold what has not changed because this
+     * client checked its own files, and the caller is responsible for having closed the connections
+     * first — a `forget` with requests still in flight would hand out blocks somebody is already
+     * sending.
+     */
+    public fun forget() {
+        started.clear()
+        isStarted.fill(false)
+        have.clear()
+    }
+
+    /**
      * Seeds the picker with what a start-up check found on the disk.
      *
-     * Only before anything else happens: a picker that has already handed out requests would be
-     * told it has pieces those requests are for.
+     * Only before anything else happens, or straight after a [forget]: a picker that has already
+     * handed out requests would be told it has pieces those requests are for.
      */
     public fun restore(verified: Bitfield) {
         require(verified.size == metainfo.pieceCount) {

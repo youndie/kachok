@@ -136,6 +136,14 @@ public class TorrentRuntime internal constructor(
 
     public suspend fun resume(): Unit = session.send(Command.Resume)
 
+    /**
+     * Read the whole torrent off the disk again and hash it, trusting no record.
+     *
+     * Transfers stop for the length of the pass and start again after it; the tracker is not told,
+     * and a torrent that was paused stays paused.
+     */
+    public suspend fun recheck(): Unit = session.send(Command.Recheck)
+
     /** Announce *stopped*, close the peers, flush, record. Bounded by the caller, not here. */
     public suspend fun stop(): Unit = session.send(Command.Stop)
 

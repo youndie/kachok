@@ -227,6 +227,10 @@ internal fun Client(
                             runtime.resume()
                         }
 
+                        TorrentCommand.Kind.Recheck -> {
+                            runtime.recheck()
+                        }
+
                         TorrentCommand.Kind.Remove -> {
                             set.remove(runtime)
                         }
@@ -409,6 +413,12 @@ internal fun Client(
                     }
                 }
 
+                ToolbarCommand.Recheck -> {
+                    rowKeys.getOrNull(index)?.let {
+                        commanded.trySend(TorrentCommand(it, TorrentCommand.Kind.Recheck))
+                    }
+                }
+
                 ToolbarCommand.Remove -> {
                     // Built from the row that is highlighted, so the dialog names the torrent the
                     // person is looking at rather than one it went and found.
@@ -529,7 +539,7 @@ private class TorrentCommand(
     val infoHash: String,
     val kind: Kind,
 ) {
-    enum class Kind { Pause, Resume, Remove, RemoveWithData }
+    enum class Kind { Pause, Resume, Recheck, Remove, RemoveWithData }
 }
 
 /**

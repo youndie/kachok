@@ -43,6 +43,7 @@ internal enum class ToolbarCommand {
     Pause,
     Resume,
     Remove,
+    Recheck,
     ToggleDetails,
     ToggleSettings,
 }
@@ -161,10 +162,10 @@ private fun FilterField(text: String) {
 internal class ToolbarState(
     val addTorrent: ToolbarAction = ToolbarAction(Icons.ADD, "Add torrent", ToolbarCommand.AddTorrent),
     val pasteMagnet: ToolbarAction = ToolbarAction(Icons.LINK, "Paste magnet", ToolbarCommand.PasteMagnet),
-    // Pause, Resume and Remove are decided by [forSelection]; they default to the state a window
-    // with nothing selected is in. Force re-check is still waiting on the engine, and is greyed
-    // rather than hidden — which is what the design does with *Resume* — and greyed rather than
-    // live-and-inert, which is what all four of these were.
+    // All four are decided by [forSelection]; they default to the state a window with nothing
+    // selected is in. They used to be greyed with an engine gap named on each — greyed rather than
+    // hidden, which is what the design does with *Resume*, and greyed rather than live-and-inert,
+    // which is what all four of them were.
     val pause: ToolbarAction =
         ToolbarAction(Icons.PAUSE, "Pause", disabledBecause = NOTHING_SELECTED),
     val resume: ToolbarAction =
@@ -172,7 +173,7 @@ internal class ToolbarState(
     val remove: ToolbarAction =
         ToolbarAction(Icons.DELETE, "Remove…", disabledBecause = NOTHING_SELECTED),
     val recheck: ToolbarAction =
-        ToolbarAction(Icons.RESTART_ALT, "Force re-check", disabledBecause = NO_RECHECK_COMMAND),
+        ToolbarAction(Icons.RESTART_ALT, "Force re-check", disabledBecause = NOTHING_SELECTED),
     val filter: String = "Filter",
     val details: ToolbarAction =
         ToolbarAction(Icons.RIGHT_PANEL_OPEN, "Details panel", ToolbarCommand.ToggleDetails),
@@ -235,7 +236,26 @@ internal class ToolbarState(
                     // what a person wants to do about it.
                     ToolbarAction(Icons.DELETE, "Remove…", ToolbarCommand.Remove)
                 },
-            recheck = recheck,
+            recheck =
+                when (selected) {
+                    null -> {
+                        ToolbarAction(Icons.RESTART_ALT, "Force re-check", disabledBecause = NOTHING_SELECTED)
+                    }
+
+                    // Not for a magnet: there is no torrent yet, so there is nothing to check the
+                    // disk against.
+                    TorrentState.Metadata -> {
+                        ToolbarAction(Icons.RESTART_ALT, "Force re-check", disabledBecause = NO_METAINFO_YET)
+                    }
+
+                    TorrentState.Checking -> {
+                        ToolbarAction(Icons.RESTART_ALT, "Force re-check", disabledBecause = ALREADY_CHECKING)
+                    }
+
+                    else -> {
+                        ToolbarAction(Icons.RESTART_ALT, "Force re-check", ToolbarCommand.Recheck)
+                    }
+                },
             filter = filter,
             details = details,
             settings = settings,
@@ -248,8 +268,10 @@ internal class ToolbarState(
             "This torrent is already paused."
         const val NOT_PAUSED =
             "This torrent is running; there is nothing to resume."
-        const val NO_RECHECK_COMMAND =
-            "The engine verifies on start-up and has no command to do it again (B-59)."
+        const val NO_METAINFO_YET =
+            "There is no torrent yet, so there is nothing to check the disk against."
+        const val ALREADY_CHECKING =
+            "This torrent is being checked right now."
     }
 }
 

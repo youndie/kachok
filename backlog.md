@@ -46,7 +46,7 @@ which is also the order of work.
 
 <!-- BEGIN INDEX -->
 
-## Open (17)
+## Open (16)
 
 | Task | | Priority | Size | Blocked by |
 |---|---|---|---|---|
@@ -62,13 +62,12 @@ which is also the order of work.
 | [B-37](docs/backlog/B-37-v2-and-hybrid-torrents.md) `[?]` | v2 and hybrid torrents (BEP 52): SHA-256 piece layers | P3 | L | B-04 |
 | [B-40](docs/backlog/B-40-wasmjs-ui-is-a-client-of-the-headless-engine.md) `[ ]` | Phase 2: the wasmJs UI is a client of the JVM headless engine | P3 | L | B-39 |
 | [B-41](docs/backlog/B-41-android-and-ios-targets.md) `[ ]` | Phase 3: Android and iOS targets on the engine | P3 | XL | B-39 |
-| [B-59](docs/backlog/B-59-force-re-check.md) `[ ]` | Force re-check: verifying a torrent that is already running | P3 | M | B-54 |
 | [B-65](docs/backlog/B-65-sequential-download.md) `[ ]` | Sequential download, which the add dialog offers and the picker does not do | P3 | M | B-54 |
 | [B-74](docs/backlog/B-74-resizing-the-details-panel.md) `[ ]` | Dragging the details panel's edge | P3 | S | B-49 |
 | [B-75](docs/backlog/B-75-the-window-below-800dp.md) `[ ]` | The window below 800 dp | P3 | S | B-49 |
 | [B-02](docs/backlog/B-02-ci-runs-build-and-docs-gates.md) `[ ]` | CI runs the build and the documentation gates on every push | infra | S | B-01 |
 
-## Closed (59)
+## Closed (60)
 
 **M0 — The build and its gates**
 
@@ -153,6 +152,7 @@ which is also the order of work.
 - [B-56](docs/backlog/B-56-dead-toolbar-controls.md) `[x]` - Controls that reported themselves and nobody listened
 - [B-57](docs/backlog/B-57-a-paused-torrent.md) `[x]` - A paused torrent, which the engine does not have
 - [B-58](docs/backlog/B-58-remove-a-torrent.md) `[x]` - Removing a torrent, and the dialog the ellipsis promises
+- [B-59](docs/backlog/B-59-force-re-check.md) `[x]` - Force re-check: verifying a torrent that is already running
 - [B-61](docs/backlog/B-61-appframe-title-bar.md) `[x]` - The title bar the design draws, which is not the operating system's
 - [B-62](docs/backlog/B-62-dead-controls-on-two-more-screens.md) `[x]` - Controls on two more screens that reported nothing, and the guard that missed them
 - [B-63](docs/backlog/B-63-joining-the-dht-at-runtime.md) `[x]` - Joining the DHT from the settings screen, not from a restart

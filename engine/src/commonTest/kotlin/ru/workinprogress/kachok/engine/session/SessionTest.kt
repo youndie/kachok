@@ -223,6 +223,24 @@ class SessionTest {
         }
     }
 
+    /** Agrees until [turn], and lies afterwards: a byte flipped on the disk, from inside. */
+    private class TurncoatHasher(
+        private val metainfo: Metainfo,
+    ) : PieceHasher {
+        private var honest = true
+
+        fun turn() {
+            honest = false
+        }
+
+        override suspend fun hash(blocks: List<Block>): ByteArray =
+            if (honest) {
+                metainfo.pieceHash(blocks.first().piece)
+            } else {
+                ByteArray(Metainfo.HASH_SIZE) { 0xFF.toByte() }
+            }
+    }
+
     /** Returns something the torrent never claimed, so every piece fails. */
     private class DisagreeableHasher : PieceHasher {
         override suspend fun hash(blocks: List<Block>): ByteArray = ByteArray(Metainfo.HASH_SIZE) { 0xFF.toByte() }
@@ -1505,6 +1523,113 @@ class SessionTest {
             )
             assertEquals(hashedWhilePaused, hasher.hashed, "resuming re-verified pieces")
 
+            job.cancelAndJoin()
+        }
+
+    /**
+     * A re-check reads the whole disk again and says nothing to the tracker.
+     *
+     * The three assertions are the three halves of the decision: the hasher ran over every piece
+     * (the record was not trusted), the tracker heard nothing (a disk check is not the swarm's
+     * business), and the session came back to what it was doing.
+     */
+    @Test
+    fun aRecheckHashesEveryPieceAndTellsTheTrackerNothing() =
+        runTest {
+            val metainfo = torrent(pieces = 2)
+            val dialer = FakeDialer(metainfo.infoHash)
+            val tracker = FakeTracker(listOf(peerA, peerB))
+            val hasher = AgreeableHasher(metainfo)
+            val storage = FakeStorage()
+            val session = session(metainfo, dialer, tracker, storage, hasher)
+
+            val job = session.start(kotlinx.coroutines.CoroutineScope(coroutineContext + handler))
+            testScheduler.runCurrent()
+            val announcesBefore = tracker.events.size
+
+            session.send(Command.Recheck)
+            testScheduler.runCurrent()
+
+            assertEquals(
+                announcesBefore,
+                tracker.events.size,
+                "a disk check announced itself to the swarm",
+            )
+            assertEquals(
+                metainfo.pieceCount,
+                session.state.value.verifyingOf,
+                "the pass did not cover the whole torrent",
+            )
+            assertEquals(false, session.state.value.paused, "a running torrent stayed paused after its re-check")
+            // Written after the first version of this test passed while the running application
+            // showed "the picker is already in use" on its banner: the pass publishes its progress
+            // *before* it seeds the picker, so every assertion above held on a session that had
+            // already failed.
+            assertEquals(null, session.state.value.sessionError, "the re-check degraded the session")
+            assertTrue(job.isActive)
+
+            job.cancelAndJoin()
+        }
+
+    /**
+     * A piece that went bad on the disk is found, and the torrent stops claiming it.
+     *
+     * The hasher is the corruption: it agrees while the torrent is being served and disagrees when
+     * the re-check reads the file, which is what a byte flipped under the client looks like from
+     * inside the session.
+     */
+    @Test
+    fun aRecheckFindsAPieceThatWentBadOnTheDisk() =
+        runTest {
+            val metainfo = torrent(pieces = 2)
+            val hasher = TurncoatHasher(metainfo)
+            // Both pieces are on the "disk", so the start-up pass reads them and believes them.
+            val storage =
+                FakeStorage().apply {
+                    present += 0
+                    present += 1
+                }
+            val session =
+                session(metainfo, FakeDialer(metainfo.infoHash), FakeTracker(listOf(peerA)), storage, hasher)
+            session.restore(hasher)
+            assertEquals(metainfo.pieceCount, session.state.value.completedPieces, "the disk started sound")
+
+            val job = session.start(kotlinx.coroutines.CoroutineScope(coroutineContext + handler))
+            testScheduler.runCurrent()
+            hasher.turn()
+            session.send(Command.Recheck)
+            testScheduler.runCurrent()
+
+            assertEquals(0, session.state.value.completedPieces, "the torrent still claims pieces the disk lost")
+            assertEquals(metainfo.totalLength, session.state.value.left)
+            assertEquals(false, session.state.value.isComplete)
+            assertEquals(null, session.state.value.sessionError)
+
+            job.cancelAndJoin()
+        }
+
+    /** And a paused torrent is still paused when the pass ends. */
+    @Test
+    fun aRecheckLeavesAPausedTorrentPaused() =
+        runTest {
+            val metainfo = torrent(pieces = 2)
+            val session =
+                session(
+                    metainfo,
+                    FakeDialer(metainfo.infoHash),
+                    FakeTracker(listOf(peerA)),
+                    FakeStorage(),
+                    AgreeableHasher(metainfo),
+                )
+            val job = session.start(kotlinx.coroutines.CoroutineScope(coroutineContext + handler))
+            testScheduler.runCurrent()
+            session.send(Command.Pause)
+            testScheduler.runCurrent()
+
+            session.send(Command.Recheck)
+            testScheduler.runCurrent()
+
+            assertTrue(session.state.value.paused, "the re-check started a torrent somebody had paused")
             job.cancelAndJoin()
         }
 

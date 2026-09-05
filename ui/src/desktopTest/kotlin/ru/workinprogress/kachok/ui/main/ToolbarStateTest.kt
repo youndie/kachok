@@ -45,7 +45,7 @@ class ToolbarStateTest {
             "with nothing selected there is nothing to pause or resume",
         )
         assertEquals(
-            listOf("Add torrent", "Paste magnet", "Pause", "Remove…", "Details panel", "Settings"),
+            listOf("Add torrent", "Paste magnet", "Pause", "Remove…", "Force re-check", "Details panel", "Settings"),
             toolbar
                 .forSelection(TorrentState.Downloading)
                 .all
@@ -53,7 +53,15 @@ class ToolbarStateTest {
                 .map { it.label },
         )
         assertEquals(
-            listOf("Add torrent", "Paste magnet", "Resume", "Remove…", "Details panel", "Settings"),
+            listOf(
+                "Add torrent",
+                "Paste magnet",
+                "Resume",
+                "Remove…",
+                "Force re-check",
+                "Details panel",
+                "Settings",
+            ),
             toolbar
                 .forSelection(TorrentState.Paused)
                 .all
@@ -96,14 +104,16 @@ class ToolbarStateTest {
     }
 
     /**
-     * And every disabled one says which engine change it is waiting for, by name.
+     * Every disabled control says why, and nothing on this bar blames the engine any more.
      *
      * A greyed button with no reason is the same defect one step quieter: nobody can tell whether
-     * it is broken, unimplemented, or off because of what is selected.
+     * it is broken, unimplemented, or off because of what is selected. All four transport controls
+     * are now the third case — so the assertion is that *no* reason names a backlog item, and the
+     * day one does again it will be a control genuinely waiting on a change.
      */
     @Test
     fun everyDisabledControlNamesTheItemThatWouldEnableIt() {
-        val waitingOnTheEngine = listOf("Force re-check")
+        val waitingOnTheEngine = emptyList<String>()
         everySelection.forEach { selection ->
             toolbar.forSelection(selection).all.filter { !it.enabled }.forEach { action ->
                 val reason = action.disabledBecause.orEmpty()

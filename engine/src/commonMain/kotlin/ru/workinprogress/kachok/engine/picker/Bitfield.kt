@@ -34,6 +34,18 @@ public class Bitfield(
         count++
     }
 
+    /**
+     * Empties the whole field.
+     *
+     * There is no `clear(index)`: nothing in this engine un-has a single piece. A re-check throws
+     * away everything it believed and re-reads the disk, which is this, and a peer's field is
+     * rebuilt rather than edited.
+     */
+    public fun clear() {
+        words.fill(0L)
+        count = 0
+    }
+
     /** The bytes a `bitfield` message carries. */
     public fun toBytes(): ByteArray {
         val bytes = ByteArray((size + 7) / 8)

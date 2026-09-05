@@ -96,6 +96,16 @@ public sealed interface Command {
     /** Announce `started` and start dialling again. A no-op on a session that is not paused. */
     public data object Resume : Command
 
+    /**
+     * Read every piece off the disk and hash it, trusting the resume record for nothing.
+     *
+     * Not a stop and a start: the tracker is never told, because the swarm has no interest in a
+     * client checking its own disk. Transfers do stop for the duration — the pass reads the same
+     * files the writer appends to — and the torrent goes back to whatever it was doing when the
+     * pass finishes.
+     */
+    public data object Recheck : Command
+
     /** Announce `stopped`, close the peers, flush, and finish. */
     public data object Stop : Command
 }
