@@ -424,9 +424,10 @@ fails the build that would ship it.
 or UDP sockets; the wire protocol is TCP. A wasmJs *engine* is therefore impossible; a wasmJs *UI*
 is possible only against an engine running elsewhere. Mitigation now: the engine's API is a
 `StateFlow` of session state plus a command channel — a shape that can be put behind a WebSocket
-without redesign. The decision itself (remote engine versus WebRTC peers) is phase 2's and is
-recorded as [Open question 4](#3-risks-and-open-questions) so that nobody designs the UI against an
-engine that cannot exist.
+without redesign. The decision — the JVM headless client is the backend, the browser build is its
+client — was taken by the owner on 2026-09-05 and is recorded under
+[Open question 4](#3-risks-and-open-questions), so that nobody designs the UI against an engine
+that cannot exist.
 
 **Risk 5. Data the page cache had at a crash is lost, and the resume file is the only map.**
 Mechanism: D4 defers `force()`. Mitigation: the resume file records hashed pieces only, is written
@@ -456,9 +457,13 @@ hybrid torrents through their v1 info dictionary; v2's SHA-256 piece layers are 
 and a second verification path behind the same `Storage`. Settled when the first hybrid torrent
 fails to load — the backlog item is open and low priority on purpose.
 
-**Open question 4. What does a browser UI talk to?** See Risk 4. Hypothesis: a desktop engine
-exposing its state and commands over a local WebSocket, with the same Compose UI compiled for
-desktop and for wasmJs. Settled at the start of phase 2, not before.
+**Open question 4 — settled 2026-09-05.** What does a browser UI talk to? The owner's answer:
+**the JVM headless client is the backend, the wasmJs build is a client of it** — the same Compose
+UI compiled for desktop (in-process engine) and for the browser (engine behind a socket). Not
+WebRTC peers, not a browser-side engine. Two consequences for phase 1: the CLI grows into a
+headless service in phase 2 rather than being replaced, and the engine's `StateFlow` + command
+channel is a wire contract in waiting, so it must stay serialisable — no platform types, no
+callbacks — from the first version ([B-40](../backlog/B-40-wasmjs-ui-is-a-client-of-the-headless-engine.md)).
 
 **Open question 5. Is `ScopedValue` worth having at all?** See D2. Hypothesis: no — the per-peer
 reader loop already has its state in local variables. Settled in M2 by whether any code asks for it.

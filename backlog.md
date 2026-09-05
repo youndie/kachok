@@ -37,7 +37,7 @@ which is also the order of work.
 | `m6-resume` | M6 — Resume | Atomic resume files, start-up verification, graceful shutdown. |
 | `m7-measure` | M7 — Measure and ship | JFR baseline, heap and collector, the run-time image, the AOT cache — every hypothesis in the research gets its number here. |
 | `m8-extensions` | M8 — Extensions | UDP trackers, fast extension, PEX, DHT, magnets, v2, IPv6. |
-| `phase-2-ui` | Phase 2 — UI | Compose desktop; the wasmJs question. Placeholders. |
+| `phase-2-ui` | Phase 2 — UI | Compose desktop in-process; the browser build as a client of the headless engine. Placeholders. |
 | `phase-3-mobile` | Phase 3 — Mobile | Android and iOS targets. Placeholder. |
 
 ## Marks
@@ -87,7 +87,7 @@ which is also the order of work.
 | [B-37](docs/backlog/B-37-v2-and-hybrid-torrents.md) `[?]` | v2 and hybrid torrents (BEP 52): SHA-256 piece layers | P3 | L | B-04 |
 | [B-38](docs/backlog/B-38-ipv6.md) `[ ]` | IPv6 peers and trackers (BEP 7) | P3 | S | B-15 |
 | [B-39](docs/backlog/B-39-compose-ui-desktop.md) `[ ]` | Phase 2: a Compose Multiplatform desktop UI on the engine's StateFlow | P3 | XL | B-19 |
-| [B-40](docs/backlog/B-40-wasmjs-ui-needs-a-remote-engine.md) `[?]` | Phase 2: what does a wasmJs UI talk to? | P3 | L | B-39 |
+| [B-40](docs/backlog/B-40-wasmjs-ui-is-a-client-of-the-headless-engine.md) `[ ]` | Phase 2: the wasmJs UI is a client of the JVM headless engine | P3 | L | B-39 |
 | [B-41](docs/backlog/B-41-android-and-ios-targets.md) `[ ]` | Phase 3: Android and iOS targets on the engine | P3 | XL | B-39 |
 | [B-42](docs/backlog/B-42-scopedvalue-in-the-reader-loop.md) `[?]` | Is ScopedValue used anywhere, or dropped? | P3 | XS | B-07 |
 | [B-02](docs/backlog/B-02-ci-runs-build-and-docs-gates.md) `[ ]` | CI runs the build and the documentation gates on every push | infra | S | B-01 |
@@ -111,11 +111,12 @@ its measurement is a guess with a paper trail, and the paper trail is worse than
 it looks like evidence.
 
 **A question is a status, not a stalled item.**
-[B-37](docs/backlog/B-37-v2-and-hybrid-torrents.md),
-[B-40](docs/backlog/B-40-wasmjs-ui-needs-a-remote-engine.md) and
+[B-37](docs/backlog/B-37-v2-and-hybrid-torrents.md) and
 [B-42](docs/backlog/B-42-scopedvalue-in-the-reader-loop.md) are `question` because the work
-depends on an answer that only data or a later phase can give. Writing the code first would choose
-the expensive answer by accident.
+depends on an answer that only data can give. Writing the code first would choose the expensive
+answer by accident. [B-40](docs/backlog/B-40-wasmjs-ui-is-a-client-of-the-headless-engine.md) was a
+question for one day: the owner answered it, and the item now records the answer and what phase 1
+owes it.
 
 **Placeholders for later phases carry no acceptance criteria on purpose.**
 [B-39](docs/backlog/B-39-compose-ui-desktop.md) and
