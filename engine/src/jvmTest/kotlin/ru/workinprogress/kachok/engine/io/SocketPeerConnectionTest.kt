@@ -101,10 +101,10 @@ class SocketPeerConnectionTest {
                 assertEquals(32768, pooledBlock.begin)
                 assertEquals(block.size, pooledBlock.length)
                 assertEquals(1, pool.outstanding, "the block is in a pool buffer, not a copy of one")
-                assertTrue(pooledBlock.buffer.isDirect)
+                assertTrue(pooledBlock.bytes.isDirect)
 
                 val copy = ByteArray(pooledBlock.length)
-                pooledBlock.buffer.duplicate().get(copy)
+                pooledBlock.bytes.duplicate().get(copy)
                 assertTrue(copy.contentEquals(block))
 
                 pooledBlock.release()

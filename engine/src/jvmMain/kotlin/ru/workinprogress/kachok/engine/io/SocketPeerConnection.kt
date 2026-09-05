@@ -8,7 +8,7 @@ import kotlinx.coroutines.launch
 import ru.workinprogress.kachok.engine.InfoHash
 import ru.workinprogress.kachok.engine.PeerId
 import ru.workinprogress.kachok.engine.PieceIndex
-import ru.workinprogress.kachok.engine.peer.Block
+import ru.workinprogress.kachok.engine.hash.JvmBlock
 import ru.workinprogress.kachok.engine.peer.PeerAddress
 import ru.workinprogress.kachok.engine.peer.PeerConnection
 import ru.workinprogress.kachok.engine.peer.PeerEvent
@@ -27,9 +27,9 @@ public class PooledBlock internal constructor(
     override val piece: PieceIndex,
     override val begin: Int,
     private val pooled: PooledBuffer,
-) : Block {
+) : JvmBlock {
     /** The block's bytes. Valid until [release]; after that the buffer belongs to somebody else. */
-    public val buffer: ByteBuffer get() = pooled.buffer
+    override val bytes: ByteBuffer get() = pooled.buffer
 
     override val length: Int get() = pooled.buffer.remaining()
 

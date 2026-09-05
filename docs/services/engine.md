@@ -62,8 +62,10 @@ What exists on `main` today:
 | `.../engine/io/EngineDispatchers.kt` | the virtual-thread dispatcher every coroutine in the engine runs on |
 | `.../engine/io/SocketPeerConnection.kt` | one peer, one blocking `SocketChannel`, one virtual thread; blocks read straight into pool buffers |
 | `.../engine/storage/PieceLayout.kt` | piece and block to file spans, by cumulative offsets |
+| `.../engine/storage/PieceHasher.kt` | the interface a piece is verified through, before it is written |
+| `.../engine/hash/MessageDigestPieceHasher.kt` (jvmMain) | SHA-1 on a bounded dispatcher, with a pool of digests and the `JvmBlock` seam |
 | `.../engine/storage/FileSet.kt` (jvmMain) | the torrent's files, created sparse with `setLength` and kept open for positional writes |
-| `engine/src/commonTest/kotlin/ru/workinprogress/kachok/engine/` | 70 tests across `bencode`, `metainfo`, `wire`, `io` and `storage`; the fixtures are embedded strings, because a KMP test source set has no resources |
+| `engine/src/commonTest/kotlin/ru/workinprogress/kachok/engine/` | 74 tests across `bencode`, `metainfo`, `wire`, `io`, `storage` and `hash`; the fixtures are embedded strings, because a KMP test source set has no resources |
 
 The layout the backlog builds toward, under `engine/src/commonMain/kotlin/ru/workinprogress/kachok/engine/`
 (a directory appears when its first backlog item lands; none of these exist yet):
@@ -84,7 +86,6 @@ and under `engine/src/jvmMain/kotlin/ru/workinprogress/kachok/engine/`:
 |---|---|---|
 | `io/` | the listener that accepts incoming peers, beside the pool and the connection already there | [B-09](../backlog/B-09-incoming-connections.md) |
 | `storage/` | gathering writes and `transferTo` reads on top of the open `FileSet` | [B-11](../backlog/B-11-single-writer-with-gathering-writes.md), [B-20](../backlog/B-20-upload-read-path.md) |
-| `hash/` | `MessageDigest` per hashing thread, the `limitedParallelism` dispatcher — bulk piece hashing, not the one-shot primitive above | [B-13](../backlog/B-13-hashing-dispatcher.md) |
 | `tracker/` | `java.net.http` announce | [B-15](../backlog/B-15-http-tracker-announce.md) |
 
 ## 3. How it is built
@@ -156,6 +157,9 @@ them. Nothing is read from the environment by this module; that is [cli](cli.md)
 * **`-Xno-param-assertions` and `-Xno-call-assertions` are release-only.** They are added when the
   build runs with `-Pkachok.release`; a plain `./gradlew build` keeps the null checks. Both builds
   are green on 2026-09-05.
+* **A `ThreadLocal` is not a reuse mechanism under virtual threads.** One per thread means one per
+  task when threads are per task; the hasher pools its digests to the dispatcher's parallelism
+  instead. Anything else in this engine tempted to cache per thread has the same problem.
 * **A file is sized with `setLength`, never by writing past its end.** The two look
   interchangeable; measured on APFS the second allocates the whole file, which is the
   preallocation the design refuses (research §1.3a).
