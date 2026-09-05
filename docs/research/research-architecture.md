@@ -491,12 +491,46 @@ the Kotlin release notes at `kotlinlang.org/docs/whatsnew*.html`, the coroutines
 **Consequence 2.** "Compiles to `tableswitch`" is true of a `when` over integer constants, which is
 what a peer-wire message id is; it is not true of guard conditions, which compile to branches. The
 codec dispatches on the id byte with a constant `when`; guards are for readability elsewhere and
-carry no performance claim. Whether the compiled codec really is a `tableswitch` is checked with
-`javap` when the codec exists — **hypothesis, check in M2**.
+carry no performance claim. Whether the compiled codec really is a `tableswitch` was
+checked with `javap` — see §1.4a. **Confirmed.**
 
 **Consequence 3.** The engine's coroutine dispatcher is
 `Executors.newVirtualThreadPerTaskExecutor().asCoroutineDispatcher()`, and every other dispatcher
 in the engine is a `limitedParallelism` view of it — [D1](#d1-one-virtual-thread-dispatcher-blocking-io-inside-it-coroutines-above-it).
+
+### 1.4a The codec's dispatch, as `javap` sees it
+
+`javap -c` on `PeerWire` compiled by Kotlin 2.4.10 for JVM 25
+([B-31](../backlog/B-31-verify-codec-dispatch-is-a-tableswitch.md), 2026-09-05):
+
+| Dispatch | Shape |
+|---|---|
+| `decode`, a `when` over the message id byte | **`tableswitch { // 0 to 20 }`**, 21 entries, one jump |
+| `encode`, a `when` over the sealed `Message` hierarchy | 16 `instanceof` / `Intrinsics.areEqual` tests, **no switch** |
+
+```
+ 58: iload         6
+ 60: tableswitch   { // 0 to 20
+                0: 160
+                1: 190
+                …
+               20: 697
+          default: 743
+     }
+```
+
+**Consequence 1 — the brief's claim is true, of the half it is true of.** The id dispatch is one
+jump table; the ids BEP 3, BEP 6 and BEP 10 assign happen to be dense enough over 0–20 that the
+compiler chooses `tableswitch` over `lookupswitch`, with the gaps (9–12, 18–19) falling to the same
+`default` as an unknown id. An extension that assigned a far-away id would flip that to a
+`lookupswitch` — a hash lookup rather than an index — which is a fact worth knowing before adding
+one, and not a reason to avoid it.
+
+**Consequence 2 — the encoder is not a switch and does not need to be.** A `when` over a sealed
+hierarchy is a chain of type tests; Kotlin 2.2.20 can compile one to an `invokedynamic` type switch
+with `-Xwhen-expressions=indy`, which this project does not enable. It is on the *send* path, once
+per message, against a decode path that runs once per frame received — and the sixteen tests are
+ordered with the common cases first by the order of the `when` itself.
 
 ### 1.5 The protocol, from the specifications
 
