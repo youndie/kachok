@@ -88,4 +88,20 @@ internal val KachokTypography: Typography =
     }
 
 /** The one style nothing in M3's scale stands for: a figure in a cell. */
-internal val MonoFigure: TextStyle = TextStyle(fontFamily = JetBrainsMono, fontSize = 11.5.sp)
+internal val MonoFigure: TextStyle = TextStyle(fontFamily = JetBrainsMono, fontSize = 12.sp)
+
+/**
+ * The list row's own two text styles.
+ *
+ * They are not `bodyMedium` and `labelMedium` with a size override, because they are not the same
+ * text at a different size: a torrent name is the only place in this UI where 13 sp Archivo
+ * appears, and the state label is the only 11.5 sp medium. Naming them here keeps the row from
+ * quietly redefining the scale for everyone else.
+ */
+internal val RowName: TextStyle = TextStyle(fontFamily = Archivo, fontSize = 13.sp)
+
+/** A magnet has no name yet, so the row shows the info hash — in mono, at the name's size. */
+internal val RowNameMono: TextStyle = TextStyle(fontFamily = JetBrainsMono, fontSize = 13.sp)
+
+internal val RowStateLabel: TextStyle =
+    TextStyle(fontFamily = Archivo, fontWeight = FontWeight.Medium, fontSize = 11.5.sp)

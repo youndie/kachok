@@ -71,9 +71,40 @@ internal val LocalWarningColors = staticCompositionLocalOf { KachokWarning }
 /** Values the design uses throughout that M3 has no role for at all. */
 @Immutable
 internal object KachokPalette {
-    /** Body text, one step below `onSurface` and above `onSurfaceVariant`. */
+    /**
+     * Body text, and a figure that is real but is not the headline.
+     *
+     * The design has three text levels where M3 has two: `onSurface` for the number the state is
+     * about, this one for a number that is merely true, `onSurfaceVariant` for a zero or an absent
+     * value. Dropping the middle one collapses a downloading row's "4 312 down, 812 up" into two
+     * numbers of equal weight, which is the opposite of what the column says.
+     */
     val onSurfaceMuted: Color = Color(0xFFBEC9C6)
 
+    /** [onSurfaceMuted]'s counterpart inside an error row, where every figure is tinted. */
+    val errorFigure: Color = Color(0xFFE5A9A1)
+
     /** The row tint of the one state allowed to colour a whole row. */
-    val errorRowTint: Color = Color(0xFF1F100E)
+    val errorRowTint: Color = Color(0xFF1F1614)
+
+    /** That row's progress track, dark enough that the error fill still reads as a fill. */
+    val errorTrack: Color = Color(0xFF3A2320)
+
+    /**
+     * A stopping row's bar.
+     *
+     * Dimmer than the warning its label carries: the numbers are frozen while the session
+     * announces, closes, flushes and records, and a bar that still looks live would be saying the
+     * download is still moving.
+     */
+    val stoppingBar: Color = Color(0xFF4A5654)
+
+    /**
+     * The line between two rows.
+     *
+     * Barely above the surface on purpose — the design has no elevation anywhere, so the whole
+     * table is separated by hairlines, and a hairline at `outlineVariant` turns sixteen rows into a
+     * grid.
+     */
+    val rowHairline: Color = Color(0xFF151C1A)
 }

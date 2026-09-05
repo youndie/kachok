@@ -36,9 +36,17 @@ broken — a re-hash in progress and a clean stop under way — and colouring th
 something false while colouring them `primary` would hide them.
 
 Supporting values the document uses throughout, by frequency rather than by a named swatch:
-`#889390` (labels, column heads), `#BEC9C6` (body), `#151C1A` (raised surface), `#2A3331` and
-`#3A4442` (the hairlines that replace elevation), `#4A3608` (warning container), `#4A2A27` /
-`#FFDAD6` (error container and its text).
+`#889390` (labels, column heads), `#BEC9C6` (body, and the middle figure level of §5), `#151C1A`
+(raised surface, and the hairline between two list rows), `#2A3331` and `#3A4442` (the hairlines
+that replace elevation), `#E5A9A1` (a figure inside an error row), `#4A3608` (warning container),
+`#4A2A27` / `#FFDAD6` (error container and its text), `#1F1614` (the error row's tint), `#3A2320`
+(its progress track), `#4A5654` (a stopping row's bar).
+
+**There are three text levels for figures, not two.** `onSurface` for the number the state is
+about, `#BEC9C6` for a number that is merely true, `onSurfaceVariant` for a zero or an absent
+value. Material 3 has no role for the middle one, and dropping it collapses a downloading row's
+"4 312 down, 812 up" into two numbers of equal weight — the opposite of what the columns say.
+Verified by reading the `color:` of all 28 row cells in the document.
 
 ## 2. Type
 
@@ -94,6 +102,33 @@ screenshot and a colour-blind reader.
 | Paused | **planned** — the engine has `Command.Stop` but no paused state; the row keeps its position |
 | Stopping | up to ten seconds of announce, close, flush, record: numbers freeze while they and the actions grey out |
 | Error | `sessionError` is non-null; only this one tints the whole row |
+
+And what colour each cell of each state is drawn in — transcribed cell by cell from the row markup
+of the main window, not inferred. `on` is `onSurface`, `fig` is the middle level `#BEC9C6`, `var`
+is `onSurfaceVariant`; `warn` is `#F3C46B`, `pri` is `#4FD9C2`, `err` is `#FFB4AB` and `err-fig` is
+`#E5A9A1`.
+
+| State | glyph | name | size | bar | track | % | down | up | peers | ratio | eta | label |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| Metadata | var | fig | var | pri @ 55 % | `#2A3331` | var | var | var | on | var | var | fig |
+| Checking | warn | on | fig | warn | `#2A3331` | warn | var | var | var | fig | var | warn |
+| Downloading | pri | on | fig | pri | `#2A3331` | on | on | fig | on | fig | fig | on |
+| Seeding | pri | on | fig | pri | `#2A3331` | fig | var | on | on | fig | var | pri |
+| Paused | var | var | var | var | `#2A3331` | var | var | var | var | var | var | var |
+| Stopping | warn | on | fig | `#4A5654` | `#2A3331` | fig | fig | var | fig | fig | var | warn |
+| Error | err | err | err-fig | err | `#3A2320` | err | err-fig | err-fig | err | err-fig | err-fig | err |
+
+Three rules generate almost all of it, and the exceptions are the interesting part:
+
+* A figure is `on` when it is what the state is about *and* non-zero, `fig` when it is merely true,
+  `var` when it is zero or absent. A seeding row's `∞` is dimmed with the dashes rather than ranked
+  with the numbers that change.
+* **Paused drops the whole row** and **stopping demotes every headline to `fig`** — its numbers are
+  the last ones the session saw, and a frozen figure that still looks live is a lie for up to ten
+  seconds.
+* An error row has its own two tones rather than the three: `err` for what says what happened —
+  including a peers cell of `0/0 · 0`, because there a zero is the symptom rather than an absence —
+  and `err-fig` for everything else.
 
 ## 6. What the design draws that the engine does not have yet
 
