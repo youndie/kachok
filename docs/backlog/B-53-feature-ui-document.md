@@ -19,7 +19,9 @@ would live in does not exist.
 - **The decision and its reason.** Write it *after* [B-52](B-52-ui-on-the-real-engine.md) rather
   than now. `main` describes what exists: until the window runs a real session, every scenario in
   such a document would be `target`, and a feature document that is entirely target is a plan
-  wearing the wrong template. The screens are meanwhile documented where they belong — the design
+  wearing the wrong template. B-52 has since closed, so the behaviour is there to write about —
+  and it brought three scenarios with it: the rates the surface derives, the *paused* state that is
+  still planned, and a tracker's refusal that is not a degraded session. The screens are meanwhile documented where they belong — the design
   tokens in `docs/design/design-tokens.md`, each screen's decisions in its own backlog item.
 - Rejected: writing it now as `status: draft` on a branch. The branch would have to stay open
   across five items, and the rule this repository runs on is that an open pull request describes

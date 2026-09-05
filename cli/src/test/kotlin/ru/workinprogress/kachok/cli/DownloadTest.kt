@@ -11,6 +11,7 @@ import ru.workinprogress.kachok.engine.metainfo.MetainfoParser
 import ru.workinprogress.kachok.engine.wire.ExtensionHandshake
 import ru.workinprogress.kachok.engine.wire.Message
 import ru.workinprogress.kachok.engine.wire.PeerWire
+import ru.workinprogress.kachok.swarm.SeedingPeer
 import java.net.InetSocketAddress
 import java.nio.file.Files
 import java.nio.file.Path

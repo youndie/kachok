@@ -10,7 +10,9 @@ dependencies {
     implementation(projects.engine)
     implementation(wip.kotlinx.coroutines.core)
     testImplementation(kotlin("test"))
-    // The end-to-end test runs a tracker and a seeding peer of its own; both are the JDK's.
+    // The end-to-end test runs a tracker and a seeding peer; `:swarm` is where they live now,
+    // because the desktop surface needs the same ones.
+    testImplementation(projects.swarm)
     testImplementation(wip.kotlinx.coroutines.test)
 }
 

@@ -26,7 +26,8 @@ import ru.workinprogress.kachok.engine.metainfo.MagnetParser
 import ru.workinprogress.kachok.engine.metainfo.MetadataFetcher
 import ru.workinprogress.kachok.engine.metainfo.Metainfo
 import ru.workinprogress.kachok.engine.metainfo.MetainfoParser
-import ru.workinprogress.kachok.engine.resume.FileResumeStore
+import ru.workinprogress.kachok.engine.runtime.RuntimeOptions
+import ru.workinprogress.kachok.engine.runtime.TorrentRuntime
 import ru.workinprogress.kachok.engine.session.Command
 import ru.workinprogress.kachok.engine.session.Session
 import ru.workinprogress.kachok.engine.session.SessionConfig
@@ -45,13 +46,11 @@ import kotlin.random.Random
 import kotlin.time.Duration.Companion.seconds
 
 /**
- * The one place in phase 1 that names concrete JVM classes.
+ * The headless surface: arguments in, a running torrent, progress lines out, an exit code.
  *
- * Everything the engine needs is an interface, and this is where those interfaces meet their
- * implementations: a buffer pool, a virtual-thread dialer, `FileChannel` storage, a `MessageDigest`
- * hasher, a `java.net.http` tracker client. There is no dependency-injection container; a factory
- * that reads top to bottom is the entire wiring, and phase 2's UI writes its own rather than
- * inheriting a framework.
+ * The wiring itself moved to `TorrentRuntime` in the engine's `jvmMain` when the desktop window
+ * needed the same one. What is left here is what makes this a *command*: the rendering, the exit
+ * codes, and a shutdown hook that turns a signal into the same clean stop `Command.Stop` is.
  */
 class Download(
     private val options: DownloadOptions,
@@ -72,10 +71,7 @@ class Download(
                     is TorrentSource.Magnet -> fetchMagnet(source, dispatchers, sessionScope) ?: return EXIT_FAILED
                 }
 
-            Files.createDirectories(options.directory)
-            return FileSet.open(options.directory, metainfo).use { files ->
-                download(metainfo, files, dispatchers, sessionScope, sessionJob)
-            }
+            return download(metainfo, dispatchers, sessionScope)
         } finally {
             sessionJob.cancelAndJoin()
             dispatchers.close()
@@ -114,7 +110,7 @@ class Download(
             }
         out.appendLine("${link.displayName ?: "magnet"}: fetching the torrent from the swarm")
         val identity = randomPeerId()
-        val pool = BufferPool(capacity = MIN_POOL)
+        val pool = BufferPool(capacity = MAGNET_POOL)
         return try {
             MetadataFetcher(
                 link = link,
@@ -143,95 +139,39 @@ class Download(
 
     private suspend fun download(
         metainfo: Metainfo,
-        files: FileSet,
         dispatchers: EngineDispatchers,
         sessionScope: CoroutineScope,
-        sessionJob: Job,
     ): Int {
-        val pool = BufferPool(capacity = poolCapacity(metainfo))
-        val hasher = MessageDigestPieceHasher(dispatchers.io)
-        // Bound before the session starts, because the port the tracker is told about must be the
-        // one that was actually free — announcing a port nothing listens on is how a client comes
-        // to believe it is reachable when it is not.
-        val listener =
-            try {
-                PeerListener.bind(options.port?.let { it..it } ?: TrackerProtocol.PORT_RANGE)
-            } catch (unavailable: java.net.BindException) {
-                err.appendLine("kachok: cannot listen: ${unavailable.message}")
-                null
-            }
-        val port = listener?.port ?: options.port ?: TrackerProtocol.PORT_RANGE.first
-        // One identity, announced to the tracker and offered in every handshake. Generating it
-        // twice would have told the tracker about a peer no swarm member ever meets.
-        val identity = randomPeerId()
-        // The bits in every handshake this client sends and accepts, and the same array the
-        // session is told about — both extensions are two-sided, and a second place recording
-        // "we advertised this" is a second place for it to be wrong.
-        //
-        // BEP 10: without the bit no peer sends its extension handshake, so the ids PEX and
-        // metadata exchange are addressed with never arrive. BEP 6: without it a choke leaves
-        // both pickers guessing which requests died.
-        val reserved = Handshake.reservedBits(extensionProtocol = true, fastExtension = true)
-        // BEP 5's routing table lives for as long as the session and talks to strangers, so it is
-        // built only when it will be used: a private torrent or `--no-dht` means no socket at all.
-        val dhtTransport =
-            if (options.dht && !metainfo.isPrivate) DatagramKrpcTransport(dispatchers.io) else null
-        val session =
-            Session(
+        val runtime =
+            TorrentRuntime.open(
                 metainfo = metainfo,
-                peerId = identity,
-                listenPort = port,
-                dialer = SocketPeerDialer(sessionScope, metainfo.infoHash, identity, pool, reserved),
-                // Most public torrents announce over UDP; the scheme in the URL decides,
-                // tracker by tracker, and an announce list may mix them.
-                trackerClient =
-                    TrackerClientByScheme(
-                        http = HttpTrackerClient(dispatchers.io),
-                        udp = UdpTrackerClient(dispatchers.io),
-                    ),
-                hasher = hasher,
-                storage = FileStorage(PieceLayout(metainfo), files, pool),
-                resume =
-                    FileResumeStore(
-                        path = options.directory.resolve("${metainfo.name}.resume"),
-                        infoHash = metainfo.infoHash,
-                        pieceCount = metainfo.pieceCount,
-                        dispatcher = dispatchers.io,
-                        onFailure = { err.appendLine("kachok: $it") },
-                    ),
-                blocking = dispatchers.io,
-                dht = dhtTransport?.let { Dht(self = NodeId.random(), transport = it) },
-                config =
-                    SessionConfig(
-                        maxStartedPieces = STARTED_PIECES,
-                        pipelineDepth = options.pipelineDepth,
+                options =
+                    RuntimeOptions(
+                        directory = options.directory,
+                        port = options.port,
                         maxPeers = options.maxPeers,
-                        reserved = reserved,
-                        dhtBootstrap = if (dhtTransport != null) BOOTSTRAP_NODES else emptyList(),
+                        pipelineDepth = options.pipelineDepth,
+                        dht = options.dht,
                         uploadLimitBytesPerSecond = options.uploadLimit,
                         downloadLimitBytesPerSecond = options.downloadLimit,
                     ),
+                dispatchers = dispatchers,
+                scope = sessionScope,
+                onResumeFailure = { err.appendLine("kachok: $it") },
+                onBindFailure = { err.appendLine("kachok: cannot listen: $it") },
             )
-
+        val session = runtime.session
+        val pool = runtime.pool
         out.appendLine("${metainfo.name}: ${metainfo.totalLength} bytes in ${metainfo.pieceCount} pieces")
-        // Before a single peer is dialled: a client that announced itself and then found it already
-        // had half the torrent would have asked the swarm for it first.
-        session.restore(hasher)
+        runtime.restore()
         session.state.value.let { state ->
             if (state.completedPieces > 0) {
                 out.appendLine("resuming with ${state.completedPieces} of ${state.pieceCount} pieces")
             }
         }
-        listener?.let { out.appendLine("listening on port ${it.port}") }
-        val runningJob = session.start(sessionScope)
-        // The reader belongs to the session's scope, so a cancelled session takes it with it.
-        dhtTransport?.start(sessionScope)
-        dhtTransport?.let { out.appendLine("dht on udp port ${it.port}") }
-        listener?.start(sessionScope) { socket ->
-            val connection =
-                SocketPeerConnection.accept(sessionScope, socket, metainfo.infoHash, identity, pool, reserved)
-            session.send(Command.AcceptPeer(connection))
-        }
+        out.appendLine("listening on port ${runtime.listenPort}")
+        val runningJob = runtime.start(sessionScope)
+        runtime.dhtPort?.let { out.appendLine("dht on udp port $it") }
         val renderer = sessionScope.launch { render(session) }
 
         // A signal is a request to stop, not a reason to lose the download's progress: the handler
@@ -261,8 +201,7 @@ class Download(
                 }
             } finally {
                 renderer.cancel()
-                listener?.close()
-                dhtTransport?.close()
+                runtime.close()
             }
 
         if (finished == null) {
@@ -271,7 +210,7 @@ class Download(
                     "${pool.allocated} allocated",
             )
             out.appendLine("stopping")
-            session.send(Command.Stop)
+            runtime.stop()
             val clean = withTimeoutOrNull(SHUTDOWN_TIMEOUT) { runningJob.join() } != null
             stopped.complete(Unit)
             dropHook(hook)
@@ -293,13 +232,13 @@ class Download(
                     out.appendLine("seeding; stop with Ctrl-C")
                     session.state.first { false }
                 }
-                session.send(Command.Stop)
+                runtime.stop()
                 EXIT_OK
             }
 
             else -> {
                 err.appendLine("kachok: ${finished.trackerError ?: finished.lastPeerError ?: "no peers"}")
-                session.send(Command.Stop)
+                runtime.stop()
                 EXIT_FAILED
             }
         }
@@ -356,20 +295,6 @@ class Download(
         }
     }
 
-    /**
-     * Buffers for every block of every piece in flight, plus one read in progress per peer.
-     *
-     * **The second term is the number of peers, not one peer's pipeline**, and getting that wrong
-     * is measurable: a block occupies a buffer from the moment its read begins, so every connected
-     * peer can hold one that belongs to no started piece yet. With the old formula the pool peaked
-     * at 117 of 144 against a real swarm — 81 % of a cap a faster link would have hit, and hitting
-     * it throttles the download silently rather than breaking anything (research §1.2c).
-     */
-    private fun poolCapacity(metainfo: Metainfo): Int {
-        val blocksPerPiece = (metainfo.pieceLength + PeerWire.BLOCK_SIZE - 1) / PeerWire.BLOCK_SIZE
-        return (STARTED_PIECES * blocksPerPiece + options.maxPeers).coerceAtLeast(MIN_POOL)
-    }
-
     /** BEP 20's Azureus style: `-KA0001-` and twelve random bytes. */
     private fun randomPeerId(): PeerId {
         val bytes = ByteArray(PeerId.SIZE)
@@ -384,23 +309,13 @@ class Download(
         const val EXIT_USAGE = 2
 
         /**
-         * BEP 5's public bootstrap nodes: where a client with an empty routing table starts.
+         * Enough buffers to fetch a torrent and no more.
          *
-         * Three of them because any one may be down, and they are the addresses every mainstream
-         * client ships. A DHT with no way in is a DHT that is off.
+         * A metadata fetch talks to a handful of peers about a few dozen kibibytes; sizing this
+         * from the piece length would size it from a number the magnet does not carry yet.
          */
-        private val BOOTSTRAP_NODES =
-            listOf(
-                ru.workinprogress.kachok.engine.peer
-                    .PeerAddress("router.bittorrent.com", 6881),
-                ru.workinprogress.kachok.engine.peer
-                    .PeerAddress("dht.transmissionbt.com", 6881),
-                ru.workinprogress.kachok.engine.peer
-                    .PeerAddress("router.utorrent.com", 6881),
-            )
+        private const val MAGNET_POOL = 64
 
-        private const val STARTED_PIECES = 8
-        private const val MIN_POOL = 64
         private const val PERCENT = 100
         private val RENDER_INTERVAL = 1.seconds
 

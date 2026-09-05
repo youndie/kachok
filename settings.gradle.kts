@@ -31,3 +31,7 @@ include(":cli")
 // Phase 2's desktop UI. It reads the engine's one `StateFlow` and sends commands through its one
 // channel — the seam research D7 asked phase 1 to leave, now with something on the other side.
 include(":ui")
+
+// A tracker and a seeding peer on localhost, so that both surfaces are tested end to end against
+// the same fake instead of against one each. Test-only: nothing publishes it.
+include(":swarm")

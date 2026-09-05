@@ -1,4 +1,4 @@
-package ru.workinprogress.kachok.cli
+package ru.workinprogress.kachok.swarm
 
 import ru.workinprogress.kachok.engine.InfoHash
 import ru.workinprogress.kachok.engine.PeerId
@@ -21,7 +21,7 @@ import java.util.concurrent.ConcurrentLinkedQueue
  * a real socket proves rather more. It is deliberately simple — no choking policy, no rate limit,
  * unchoke on sight — because what is under test is the downloader.
  */
-class SeedingPeer(
+public class SeedingPeer(
     private val infoHash: InfoHash,
     private val content: ByteArray,
     private val pieceLength: Int,
@@ -40,16 +40,16 @@ class SeedingPeer(
     private val server: ServerSocketChannel =
         ServerSocketChannel.open().bind(InetSocketAddress(bindAddress, 0), BACKLOG)
 
-    val port: Int = (server.localAddress as InetSocketAddress).port
+    public val port: Int = (server.localAddress as InetSocketAddress).port
 
     /** Requests served, so a test can tell "it downloaded" from "it had it already". */
-    val served: ConcurrentLinkedQueue<Message.Request> = ConcurrentLinkedQueue()
+    public val served: ConcurrentLinkedQueue<Message.Request> = ConcurrentLinkedQueue()
 
     /** Extended messages received, in order: the first one is BEP 10's handshake or nothing is. */
-    val extended: ConcurrentLinkedQueue<Message.Extended> = ConcurrentLinkedQueue()
+    public val extended: ConcurrentLinkedQueue<Message.Extended> = ConcurrentLinkedQueue()
 
     /** Everything the client said, so a test can ask what it opened with. */
-    val received: ConcurrentLinkedQueue<Message> = ConcurrentLinkedQueue()
+    public val received: ConcurrentLinkedQueue<Message> = ConcurrentLinkedQueue()
 
     private val sockets = ConcurrentLinkedQueue<SocketChannel>()
 

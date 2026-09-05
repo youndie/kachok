@@ -31,12 +31,25 @@ kotlin {
             dependencies {
                 implementation(kotlin("test"))
                 implementation(wip.kotlinx.coroutines.test)
+                // The same tracker and seeding peer the headless client is tested against, so
+                // "the list shows it progressing" is measured against a real download.
+                implementation(projects.swarm)
                 // What a golden cannot answer: whether the text a person needs is on the screen at
                 // all, and whether it is still there a minute later.
                 @OptIn(org.jetbrains.compose.ExperimentalComposeLibrary::class)
                 implementation(compose.uiTest)
             }
         }
+    }
+}
+
+// The desktop application, with the JVM flags the research settled on: the same three the headless
+// client pins in `cli/build.gradle.kts`. A UI does not get to run a different VM from the one every
+// measurement was taken on, and `-Xmx128m` is the budget the whole engine is designed against.
+compose.desktop {
+    application {
+        mainClass = "ru.workinprogress.kachok.ui.AppKt"
+        jvmArgs += listOf("-XX:+UseG1GC", "-XX:+UseCompactObjectHeaders", "-Xmx128m")
     }
 }
 

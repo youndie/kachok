@@ -49,10 +49,10 @@ kachok download <file.torrent | magnet:?xt=urn:btih:…> [--dir <path>] [--port 
 | `cli/src/test/kotlin/ru/workinprogress/kachok/cli/SwarmHost.kt` | the swarm that script points the container at |
 | `cli/src/main/kotlin/ru/workinprogress/kachok/cli/Main.kt` | the entry point and the exit codes; takes its streams so a test can read them |
 | `.../cli/Arguments.kt` | the hand-written parser and the usage text |
-| `.../cli/Download.kt` | the factory: every interface the engine needs meets its JVM implementation here, and the shutdown hook |
+| `.../cli/Download.kt` | what makes this a command: the rendering, the exit codes, the shutdown hook. The wiring itself is the engine's `runtime/TorrentRuntime.kt`, which the desktop window builds too |
 | `cli/src/test/kotlin/ru/workinprogress/kachok/cli/ShutdownTest.kt` | a real subprocess, a real `SIGINT`, and the record it leaves behind |
 | `cli/src/test/kotlin/ru/workinprogress/kachok/cli/DownloadTest.kt` | the end-to-end download against a local tracker and a real seeding peer |
-| `.../cli/SeedingPeer.kt` | that peer: BEP 3 over a socket, serving the bytes it claims to have |
+| `swarm/src/main/kotlin/ru/workinprogress/kachok/swarm/` | that tracker and that peer, in the module both surfaces test against |
 | `cli/src/test/kotlin/ru/workinprogress/kachok/cli/CollectorBench.kt` | the collector comparison of research §1.2d, and the only way to redo it |
 
 ## 3. How it is built
