@@ -86,10 +86,9 @@ internal class RateMeter(
 /**
  * Which of the design's seven states this session is in.
  *
- * **Two of them the engine does not have, and this does not pretend otherwise.** *Paused* is
- * absent because the engine has `Command.Stop` and no paused state — the design marks it
- * *planned* and so does [pausedIsPlanned]. *Stopping* is the surface's, because the engine's stop
- * is a command with no state to observe it by.
+ * **One of them is the surface's own.** *Stopping* has no `SessionState` behind it: the engine's
+ * stop is a command, and there is no state to observe it by, so the window keeps that one itself.
+ * Every other state here is read out of the session.
  *
  * The order matters: a degraded session is *Error* whatever else is true of it, because that is
  * the one thing a person has to act on.
@@ -100,20 +99,21 @@ internal fun stateOf(
 ): TorrentState =
     when {
         state.sessionError != null -> TorrentState.Error
+
         lifecycle == Lifecycle.Fetching -> TorrentState.Metadata
+
         lifecycle == Lifecycle.Stopping -> TorrentState.Stopping
+
+        // Above *Checking* and *Seeding*: a paused torrent is paused whatever else it was doing,
+        // and a complete one that is paused is still not uploading.
+        state.paused -> TorrentState.Paused
+
         state.verifyingOf > 0 && state.verifiedPieces < state.verifyingOf -> TorrentState.Checking
+
         state.isComplete -> TorrentState.Seeding
+
         else -> TorrentState.Downloading
     }
-
-/**
- * The engine has no paused torrent, and the design knows it.
- *
- * Kept as a named fact rather than a comment so that the day the engine grows one, the test that
- * asserts this stops passing and somebody has to come back here.
- */
-internal const val PAUSED_IS_PLANNED: Boolean = true
 
 /**
  * A magnet that has been said yes to and has no torrent yet.

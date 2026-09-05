@@ -213,7 +213,14 @@ class SessionTest {
     private class AgreeableHasher(
         private val metainfo: Metainfo,
     ) : PieceHasher {
-        override suspend fun hash(blocks: List<Block>): ByteArray = metainfo.pieceHash(blocks.first().piece)
+        /** Counted, so a test can assert that a resume did *not* re-verify. */
+        var hashed: Int = 0
+            private set
+
+        override suspend fun hash(blocks: List<Block>): ByteArray {
+            hashed++
+            return metainfo.pieceHash(blocks.first().piece)
+        }
     }
 
     /** Returns something the torrent never claimed, so every piece fails. */
@@ -1412,6 +1419,93 @@ class SessionTest {
             }
             assertTrue(storage.flushes >= 1, "the data was not made durable before the session ended")
             assertTrue(job.isCancelled || job.isCompleted)
+        }
+
+    /**
+     * A pause is the stop without the leaving.
+     *
+     * The three things it has in common with a stop are asserted here — `stopped` on the tracker,
+     * every peer closed, the data flushed — and so is the one thing that separates them: the job
+     * is still running afterwards, which is what makes the resume cost an announce instead of a
+     * re-verify.
+     */
+    @Test
+    fun pausingGivesUpThePeersAndKeepsTheSession() =
+        runTest {
+            val metainfo = torrent(pieces = 2)
+            val dialer = FakeDialer(metainfo.infoHash)
+            val tracker = FakeTracker(listOf(peerA, peerB))
+            val storage = FakeStorage()
+            val session = session(metainfo, dialer, tracker, storage, AgreeableHasher(metainfo))
+
+            val job = session.start(kotlinx.coroutines.CoroutineScope(coroutineContext + handler))
+            testScheduler.runCurrent()
+            assertEquals(2, session.state.value.connectedPeers)
+
+            session.send(Command.Pause)
+            testScheduler.runCurrent()
+
+            assertTrue(session.state.value.paused, "the state does not say so")
+            assertEquals(0, session.state.value.connectedPeers, "a paused session claims no peers")
+            assertEquals(
+                listOf<AnnounceEvent?>(AnnounceEvent.STARTED, AnnounceEvent.STOPPED),
+                tracker.events,
+                "the tracker was not told",
+            )
+            dialer.connections.values.forEach { peer ->
+                assertTrue(peer.closes >= 1, "${peer.address} was never closed")
+            }
+            assertTrue(storage.flushes >= 1, "a pause makes the data durable, like a stop")
+            assertTrue(job.isActive, "a paused session that ended its job is a stopped one")
+
+            job.cancelAndJoin()
+        }
+
+    /**
+     * And nothing is re-verified on the way back.
+     *
+     * The hasher is the oracle: a resume that rebuilt the session would run the start-up pass
+     * again, and the count would go up. It does not.
+     */
+    @Test
+    fun resumingAnnouncesAgainAndVerifiesNothing() =
+        runTest {
+            val metainfo = torrent(pieces = 2)
+            val dialer = FakeDialer(metainfo.infoHash)
+            val tracker = FakeTracker(listOf(peerA, peerB))
+            val hasher = AgreeableHasher(metainfo)
+            val session = session(metainfo, dialer, tracker, FakeStorage(), hasher)
+
+            val job = session.start(kotlinx.coroutines.CoroutineScope(coroutineContext + handler))
+            testScheduler.runCurrent()
+            session.send(Command.Pause)
+            testScheduler.runCurrent()
+            val hashedWhilePaused = hasher.hashed
+            val dialledWhilePaused = dialer.dialled.size
+
+            session.send(Command.Resume)
+            testScheduler.runCurrent()
+
+            assertEquals(false, session.state.value.paused)
+            assertEquals(
+                listOf<AnnounceEvent?>(AnnounceEvent.STARTED, AnnounceEvent.STOPPED, AnnounceEvent.STARTED),
+                tracker.events,
+                "the swarm was not told this client is back",
+            )
+            // The dial, not `connectedPeers`: `FakeDialer` hands back the same `FakeConnection` it
+            // made the first time, and the pause closed it — so the redial reaches a connection
+            // whose event channel is already shut and drops straight back out. What is being
+            // asserted is that the session went for the swarm again, which is the half of this the
+            // fake can answer for. A set, because those instant drops make `serve`'s `finally` call
+            // `connectMore` in turn and a peer can legitimately be dialled twice in one drain.
+            assertEquals(
+                setOf(peerA, peerB),
+                dialer.dialled.drop(dialledWhilePaused).toSet(),
+                "resuming dialled nobody",
+            )
+            assertEquals(hashedWhilePaused, hasher.hashed, "resuming re-verified pieces")
+
+            job.cancelAndJoin()
         }
 
     @Test

@@ -54,6 +54,14 @@ public class SessionState(
      */
     public val sessionError: String? = null,
     public val isComplete: Boolean = false,
+    /**
+     * Not transferring, on purpose, and still here.
+     *
+     * The difference from stopped is what survives: the bitfield, the resume record and the
+     * torrent's place in the set. A stopped torrent has left the session; a paused one has given up
+     * its peers and kept everything it had verified.
+     */
+    public val paused: Boolean = false,
 ) {
     override fun toString(): String =
         "$name $completedPieces/$pieceCount pieces, $connectedPeers peers" +
@@ -76,6 +84,17 @@ public sealed interface Command {
     public class AcceptPeer(
         public val connection: ru.workinprogress.kachok.engine.peer.PeerConnection,
     ) : Command
+
+    /**
+     * Announce `stopped`, close the peers, flush the disk, record — and stay.
+     *
+     * Everything [Stop] does except the last step. The distinction is the point: the session keeps
+     * its bitfield, its picker and its scope, so resuming re-verifies nothing.
+     */
+    public data object Pause : Command
+
+    /** Announce `started` and start dialling again. A no-op on a session that is not paused. */
+    public data object Resume : Command
 
     /** Announce `stopped`, close the peers, flush, and finish. */
     public data object Stop : Command

@@ -17,10 +17,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.disabled
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ru.workinprogress.kachok.ui.icons.Glyph
 import ru.workinprogress.kachok.ui.icons.Icons
+import ru.workinprogress.kachok.ui.list.TorrentState
 import ru.workinprogress.kachok.ui.theme.ChromeButton
 import ru.workinprogress.kachok.ui.theme.ChromeText
 import ru.workinprogress.kachok.ui.theme.KachokPalette
@@ -36,6 +40,8 @@ import ru.workinprogress.kachok.ui.theme.KachokPalette
 internal enum class ToolbarCommand {
     AddTorrent,
     PasteMagnet,
+    Pause,
+    Resume,
     ToggleDetails,
     ToggleSettings,
 }
@@ -89,7 +95,14 @@ private fun IconAction(
         Modifier
             .size(Chrome.controlHeight)
             .background(background, RoundedCornerShape(CONTROL_RADIUS))
-            .clickable(enabled = action.enabled, onClick = onClick),
+            .clickable(enabled = action.enabled, onClick = onClick)
+            // A glyph and nothing else. Without this the button has no name at all — not to a
+            // screen reader, and not to a test, which is why the bar's guard could only ever click
+            // the one control that happens to carry text.
+            .semantics {
+                contentDescription = action.label
+                if (!action.enabled) disabled()
+            },
         contentAlignment = Alignment.Center,
     ) {
         Glyph(action.glyph, size = ACTION_GLYPH, tint = tint)
@@ -110,6 +123,7 @@ private fun AddTorrentButton(onClick: () -> Unit) {
             .height(Chrome.controlHeight)
             .background(MaterialTheme.colorScheme.primaryContainer, RoundedCornerShape(CONTROL_RADIUS))
             .clickable(onClick = onClick)
+            .semantics { contentDescription = "Add torrent" }
             .padding(horizontal = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -146,13 +160,14 @@ private fun FilterField(text: String) {
 internal class ToolbarState(
     val addTorrent: ToolbarAction = ToolbarAction(Icons.ADD, "Add torrent", ToolbarCommand.AddTorrent),
     val pasteMagnet: ToolbarAction = ToolbarAction(Icons.LINK, "Paste magnet", ToolbarCommand.PasteMagnet),
-    // Three that are drawn and cannot be pressed, each waiting on a change to the engine. Greyed
-    // rather than hidden, which is what the design does with *Resume* — and greyed rather than
-    // live-and-inert, which is what these were.
+    // Pause and Resume are decided by [forSelection]; they default to the state a window with
+    // nothing selected is in. Remove and re-check are still waiting on the engine, and are greyed
+    // rather than hidden — which is what the design does with *Resume* — and greyed rather than
+    // live-and-inert, which is what all four of these were.
     val pause: ToolbarAction =
-        ToolbarAction(Icons.PAUSE, "Pause", disabledBecause = NO_PAUSED_STATE),
+        ToolbarAction(Icons.PAUSE, "Pause", disabledBecause = NOTHING_SELECTED),
     val resume: ToolbarAction =
-        ToolbarAction(Icons.PLAY_ARROW, "Resume", disabledBecause = NO_PAUSED_STATE),
+        ToolbarAction(Icons.PLAY_ARROW, "Resume", disabledBecause = NOTHING_SELECTED),
     val remove: ToolbarAction =
         ToolbarAction(Icons.DELETE, "Remove…", disabledBecause = NO_REMOVE_DIALOG),
     val recheck: ToolbarAction =
@@ -188,9 +203,43 @@ internal class ToolbarState(
                 ),
         )
 
+    /**
+     * What the two transport buttons do, which depends on the row that is selected.
+     *
+     * A torrent that is already paused cannot be paused, and one that is running cannot be
+     * resumed — and neither can be done to nothing. Each case says which it is, because "greyed"
+     * with no reason is the state that had a person clicking four dead buttons.
+     */
+    fun forSelection(selected: TorrentState?): ToolbarState =
+        ToolbarState(
+            addTorrent = addTorrent,
+            pasteMagnet = pasteMagnet,
+            pause =
+                when (selected) {
+                    null -> ToolbarAction(Icons.PAUSE, "Pause", disabledBecause = NOTHING_SELECTED)
+                    TorrentState.Paused -> ToolbarAction(Icons.PAUSE, "Pause", disabledBecause = ALREADY_PAUSED)
+                    else -> ToolbarAction(Icons.PAUSE, "Pause", ToolbarCommand.Pause)
+                },
+            resume =
+                when (selected) {
+                    null -> ToolbarAction(Icons.PLAY_ARROW, "Resume", disabledBecause = NOTHING_SELECTED)
+                    TorrentState.Paused -> ToolbarAction(Icons.PLAY_ARROW, "Resume", ToolbarCommand.Resume)
+                    else -> ToolbarAction(Icons.PLAY_ARROW, "Resume", disabledBecause = NOT_PAUSED)
+                },
+            remove = remove,
+            recheck = recheck,
+            filter = filter,
+            details = details,
+            settings = settings,
+        )
+
     private companion object {
-        const val NO_PAUSED_STATE =
-            "The engine has Command.Stop and no paused state (B-57)."
+        const val NOTHING_SELECTED =
+            "There is no torrent selected to do this to."
+        const val ALREADY_PAUSED =
+            "This torrent is already paused."
+        const val NOT_PAUSED =
+            "This torrent is running; there is nothing to resume."
         const val NO_REMOVE_DIALOG =
             "Removing a torrent needs the dialog the ellipsis promises, which the design does not draw (B-58)."
         const val NO_RECHECK_COMMAND =

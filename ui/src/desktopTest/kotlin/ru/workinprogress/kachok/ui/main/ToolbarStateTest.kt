@@ -1,5 +1,6 @@
 package ru.workinprogress.kachok.ui.main
 
+import ru.workinprogress.kachok.ui.list.TorrentState
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -19,24 +20,79 @@ import kotlin.test.assertTrue
 class ToolbarStateTest {
     private val toolbar = ToolbarState()
 
+    /** In every selection, not only the default one. */
     @Test
     fun everyControlEitherDoesSomethingOrSaysWhyItDoesNot() {
-        toolbar.all.forEach { action ->
-            assertTrue(
-                (action.command == null) != (action.disabledBecause == null),
-                "${action.label}: command=${action.command} disabled=${action.disabledBecause}",
-            )
+        everySelection.forEach { selection ->
+            toolbar.forSelection(selection).all.forEach { action ->
+                assertTrue(
+                    (action.command == null) != (action.disabledBecause == null),
+                    "$selection / ${action.label}: command=${action.command} disabled=${action.disabledBecause}",
+                )
+            }
         }
     }
 
     @Test
     fun everyEnabledControlCarriesACommand() {
-        val enabled = toolbar.all.filter { it.enabled }
         assertEquals(
             listOf("Add torrent", "Paste magnet", "Details panel", "Settings"),
-            enabled.map { it.label },
+            toolbar
+                .forSelection(null)
+                .all
+                .filter { it.enabled }
+                .map { it.label },
+            "with nothing selected there is nothing to pause or resume",
         )
-        assertEquals(ToolbarCommand.entries.toSet(), enabled.mapNotNull { it.command }.toSet())
+        assertEquals(
+            listOf("Add torrent", "Paste magnet", "Pause", "Details panel", "Settings"),
+            toolbar
+                .forSelection(TorrentState.Downloading)
+                .all
+                .filter { it.enabled }
+                .map { it.label },
+        )
+        assertEquals(
+            listOf("Add torrent", "Paste magnet", "Resume", "Details panel", "Settings"),
+            toolbar
+                .forSelection(TorrentState.Paused)
+                .all
+                .filter { it.enabled }
+                .map { it.label },
+        )
+    }
+
+    /**
+     * And no command is unreachable.
+     *
+     * The set is taken across every selection, because Pause and Resume are enabled in different
+     * ones and a per-selection assertion can never see both.
+     */
+    @Test
+    fun everyCommandIsReachableFromSomeSelection() {
+        assertEquals(
+            ToolbarCommand.entries.toSet(),
+            everySelection
+                .flatMap { toolbar.forSelection(it).all }
+                .mapNotNull { it.command }
+                .toSet(),
+        )
+    }
+
+    /** Pausing a paused torrent, and resuming a running one, are the two nonsense cases. */
+    @Test
+    fun neitherTransportButtonOffersWhatTheTorrentIsAlreadyDoing() {
+        val paused = toolbar.forSelection(TorrentState.Paused)
+        assertEquals(null, paused.pause.command, "a paused torrent was offered a pause")
+        assertTrue(
+            paused.pause.disabledBecause
+                .orEmpty()
+                .contains("already"),
+            paused.pause.disabledBecause.orEmpty(),
+        )
+        val running = toolbar.forSelection(TorrentState.Seeding)
+        assertEquals(null, running.resume.command, "a running torrent was offered a resume")
+        assertEquals(ToolbarCommand.Pause, running.pause.command)
     }
 
     /**
@@ -47,13 +103,31 @@ class ToolbarStateTest {
      */
     @Test
     fun everyDisabledControlNamesTheItemThatWouldEnableIt() {
-        val disabled = toolbar.all.filter { !it.enabled }
-        assertEquals(listOf("Pause", "Resume", "Remove…", "Force re-check"), disabled.map { it.label })
-        disabled.forEach { action ->
-            val reason = action.disabledBecause.orEmpty()
-            assertTrue(reason.length > SHORT, "${action.label}: $reason")
-            assertTrue(Regex("B-\\d\\d").containsMatchIn(reason), "${action.label} names no item: $reason")
+        val waitingOnTheEngine = listOf("Remove…", "Force re-check")
+        everySelection.forEach { selection ->
+            toolbar.forSelection(selection).all.filter { !it.enabled }.forEach { action ->
+                val reason = action.disabledBecause.orEmpty()
+                assertTrue(reason.length > SHORT, "$selection / ${action.label}: $reason")
+                // Two kinds of "off", and they are not interchangeable. A control waiting on an
+                // engine change names the item, because the reason outlives this window; one that
+                // is off because of what is selected must not, because there is nothing to build.
+                if (action.label in waitingOnTheEngine) {
+                    assertTrue(
+                        Regex("B-\\d\\d").containsMatchIn(reason),
+                        "${action.label} names no item: $reason",
+                    )
+                }
+            }
         }
+        assertEquals(
+            waitingOnTheEngine,
+            everySelection
+                .flatMap { toolbar.forSelection(it).all }
+                .filter { !it.enabled && Regex("B-\\d\\d").containsMatchIn(it.disabledBecause.orEmpty()) }
+                .map { it.label }
+                .distinct(),
+            "a control blamed an engine gap for something the selection decides",
+        )
     }
 
     /** Toggling a panel must not lose the command that toggles it back. */
@@ -65,6 +139,9 @@ class ToolbarStateTest {
         assertTrue(open.details.active && open.settings.active)
         assertTrue(open.all.all { it.enabled == toolbar.all.single { was -> was.label == it.label }.enabled })
     }
+
+    /** Null is a selection: it is the window with an empty list, or one nobody has clicked. */
+    private val everySelection: List<TorrentState?> = listOf(null) + TorrentState.entries
 
     private companion object {
         const val SHORT = 20

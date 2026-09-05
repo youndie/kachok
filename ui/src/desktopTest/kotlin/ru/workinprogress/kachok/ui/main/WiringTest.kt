@@ -8,6 +8,7 @@ import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.v2.runComposeUiTest
 import ru.workinprogress.kachok.ui.add.designTorrentToAdd
 import ru.workinprogress.kachok.ui.details.DetailsTab
+import ru.workinprogress.kachok.ui.list.TorrentState
 import ru.workinprogress.kachok.ui.session.Preferences
 import ru.workinprogress.kachok.ui.session.settingsOf
 import ru.workinprogress.kachok.ui.settings.SettingChange
@@ -197,14 +198,38 @@ class WiringTest {
             assertEquals(1, shown)
         }
 
+    /**
+     * Every button on the bar that can be pressed, in every selection that enables it.
+     *
+     * Pressing one and calling the bar wired is what let four dead buttons ship. *Pause* and
+     * *Resume* are enabled in different selections, so a single window can never exercise both —
+     * hence the loop over selections, and the assertion that between them every command arrives.
+     */
     @Test
-    fun everyEnabledToolbarControlLeavesTheWindow(): Unit =
-        runComposeUiTest {
-            val fired = mutableListOf<String>()
-            setContent { KachokTheme { MainWindow(window, onAction = { fired += it.label }) } }
-            onNodeWithText("Add torrent").performClick()
-            assertEquals(listOf("Add torrent"), fired)
+    fun everyEnabledToolbarControlLeavesTheWindow() {
+        val arrived = mutableSetOf<ToolbarCommand>()
+        listOf(null, TorrentState.Downloading, TorrentState.Paused).forEach { selection ->
+            val bar = ToolbarState().forSelection(selection)
+            runComposeUiTest {
+                setContent {
+                    KachokTheme {
+                        MainWindow(
+                            MainWindowState(torrents = window.torrents, status = window.status, toolbar = bar),
+                            onAction = { action -> action.command?.let { arrived += it } },
+                        )
+                    }
+                }
+                bar.all.filter { it.enabled }.forEach { action ->
+                    onNodeWithContentDescription(action.label).performClick()
+                }
+            }
         }
+        assertEquals(
+            ToolbarCommand.entries.toSet(),
+            arrived,
+            "a control was drawn enabled and its press reached nobody",
+        )
+    }
 
     private companion object {
         /** Twenty bytes of SHA-1, in hex. */

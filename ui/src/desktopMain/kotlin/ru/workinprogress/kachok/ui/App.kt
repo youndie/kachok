@@ -196,6 +196,7 @@ internal fun Client(
     // seam, so a click never blocks a frame on a torrent being opened and hashed.
     val accepted = remember { Channel<Pending>(Channel.UNLIMITED) }
     val dhtWanted = remember { Channel<Boolean>(Channel.CONFLATED) }
+    val commanded = remember { Channel<TorrentCommand>(Channel.UNLIMITED) }
 
     LaunchedEffect(initial, directory) {
         val dispatchers = EngineDispatchers()
@@ -205,6 +206,20 @@ internal fun Client(
         try {
             initial?.let {
                 open(set, MetainfoParser.parse(Files.readAllBytes(it)), chosenPreferences, scope)
+            }
+            // Its own coroutine rather than a `tryReceive` in the loop below: that loop sleeps a
+            // second between ticks, and a Pause that waited for it would be a button with a
+            // second's lag on it — which is what B-64 was, in the one place it still applied.
+            scope.launch {
+                for (command in commanded) {
+                    val runtime =
+                        set.torrents.firstOrNull { it.metainfo.infoHash.hex() == command.infoHash }
+                            ?: continue
+                    when (command.kind) {
+                        TorrentCommand.Kind.Pause -> runtime.pause()
+                        TorrentCommand.Kind.Resume -> runtime.resume()
+                    }
+                }
             }
             val fetching = mutableListOf<Fetching>()
             var asked = false
@@ -347,11 +362,40 @@ internal fun Client(
         // reports itself and nobody listens is what B-56 was.
         onAction = { action ->
             when (action.command) {
-                ToolbarCommand.ToggleDetails -> panelOpen = !panelOpen
-                ToolbarCommand.ToggleSettings -> settingsOpen = !settingsOpen
-                ToolbarCommand.AddTorrent -> pending = chooseTorrent(preferences.directory)
-                ToolbarCommand.PasteMagnet -> pending = magnetFromClipboard(preferences.directory)
-                null -> Unit
+                ToolbarCommand.ToggleDetails -> {
+                    panelOpen = !panelOpen
+                }
+
+                ToolbarCommand.ToggleSettings -> {
+                    settingsOpen = !settingsOpen
+                }
+
+                ToolbarCommand.AddTorrent -> {
+                    pending = chooseTorrent(preferences.directory)
+                }
+
+                ToolbarCommand.PasteMagnet -> {
+                    pending = magnetFromClipboard(preferences.directory)
+                }
+
+                // `rowKeys[index]`, not `selected`: nothing selected means the first row is the
+                // one drawn selected, and the button must act on the row a person can see is
+                // highlighted rather than on nothing.
+                ToolbarCommand.Pause -> {
+                    rowKeys.getOrNull(index)?.let {
+                        commanded.trySend(TorrentCommand(it, TorrentCommand.Kind.Pause))
+                    }
+                }
+
+                ToolbarCommand.Resume -> {
+                    rowKeys.getOrNull(index)?.let {
+                        commanded.trySend(TorrentCommand(it, TorrentCommand.Kind.Resume))
+                    }
+                }
+
+                // Nothing to do, and said out loud: the `when` is exhaustive so that a command
+                // added to the enum and forgotten here is a compile error.
+                null -> {}
             }
         },
         onSort = { column -> sort = sort.clicked(column) },
@@ -397,6 +441,19 @@ internal fun Client(
             pending = null
         },
     )
+}
+
+/**
+ * Something to do to one torrent, addressed by its info hash.
+ *
+ * By hash and not by index: the list is sorted by whatever column was last clicked, and a command
+ * that travelled as "row 3" would arrive at whichever torrent row 3 had become.
+ */
+private class TorrentCommand(
+    val infoHash: String,
+    val kind: Kind,
+) {
+    enum class Kind { Pause, Resume }
 }
 
 /**

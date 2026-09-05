@@ -115,6 +115,17 @@ public class TorrentRuntime internal constructor(
         running?.join()
     }
 
+    /**
+     * Give up the peers and keep everything else.
+     *
+     * Not [stop] followed by a fresh [start]: that re-opens the files, re-reads the resume record
+     * and re-verifies whatever the record does not vouch for. A pause keeps the session, so
+     * resuming costs one announce.
+     */
+    public suspend fun pause(): Unit = session.send(Command.Pause)
+
+    public suspend fun resume(): Unit = session.send(Command.Resume)
+
     /** Announce *stopped*, close the peers, flush, record. Bounded by the caller, not here. */
     public suspend fun stop(): Unit = session.send(Command.Stop)
 

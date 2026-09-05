@@ -29,6 +29,7 @@ class SessionRowTest {
         unchoked: Int = 0,
         outstanding: Int = 0,
         sessionError: String? = null,
+        paused: Boolean = false,
     ) = SessionState(
         infoHash = InfoHash(ByteArray(20)),
         name = "payload.bin",
@@ -44,6 +45,7 @@ class SessionRowTest {
         verifyingOf = verifyingOf,
         sessionError = sessionError,
         isComplete = complete,
+        paused = paused,
     )
 
     @Test
@@ -107,26 +109,34 @@ class SessionRowTest {
     }
 
     /**
-     * The design marks *paused* planned, and so does the engine's absence of one.
+     * *Paused* is a state the engine reports now, and this is what used to assert it could not be.
      *
-     * The day `Command.Pause` exists this stops being true and somebody has to come back here —
-     * which is the point of writing it down rather than leaving it as a gap nobody can see.
+     * The replacement asserts the ordering rather than the existence, because that is where the
+     * mistake is: a complete torrent that is paused is still not uploading, and a *Seeding* row on
+     * it would be the window claiming a swarm this client has hung up on. *Error* is the one thing
+     * that outranks it — a session that failed needs looking at whether or not somebody paused it.
      */
     @Test
-    fun pausedIsStillPlanned() {
-        assertTrue(PAUSED_IS_PLANNED)
-        val everyReachableState =
-            listOf(Lifecycle.Fetching, Lifecycle.Running, Lifecycle.Stopping).flatMap { lifecycle ->
-                listOf(
-                    state(),
-                    state(complete = true),
-                    state(verifiedPieces = 1, verifyingOf = 2),
-                    state(sessionError = "x"),
-                ).map { stateOf(it, lifecycle) }
-            }
-        assertTrue(
-            TorrentState.Paused !in everyReachableState,
-            "nothing the engine can report is a paused torrent",
+    fun aPausedTorrentIsPausedWhateverElseItWasDoing() {
+        assertEquals(TorrentState.Paused, stateOf(state(paused = true), Lifecycle.Running))
+        assertEquals(
+            TorrentState.Paused,
+            stateOf(state(paused = true, complete = true), Lifecycle.Running),
+            "a paused seed is not seeding",
+        )
+        assertEquals(
+            TorrentState.Paused,
+            stateOf(state(paused = true, verifiedPieces = 1, verifyingOf = 2), Lifecycle.Running),
+        )
+        assertEquals(
+            TorrentState.Error,
+            stateOf(state(paused = true, sessionError = "x"), Lifecycle.Running),
+            "a degraded session is Error whether or not it is paused",
+        )
+        assertEquals(
+            TorrentState.Stopping,
+            stateOf(state(paused = true), Lifecycle.Stopping),
+            "leaving outranks waiting",
         )
     }
 

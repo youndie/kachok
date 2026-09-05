@@ -7,6 +7,7 @@ import ru.workinprogress.kachok.ui.list.TorrentState
 import ru.workinprogress.kachok.ui.main.MainWindowState
 import ru.workinprogress.kachok.ui.main.SessionStatus
 import ru.workinprogress.kachok.ui.main.SortOrder
+import ru.workinprogress.kachok.ui.main.ToolbarState
 import ru.workinprogress.kachok.ui.settings.SettingsState
 
 /** The totals the status bar carries, all six of them derived from what is on screen. */
@@ -32,9 +33,9 @@ internal fun statusOf(
 /**
  * `16 torrents, 7 seeding, 2 paused`.
  *
- * The paused count is always zero today and the phrase is still there, because the design says
- * *paused* is planned and a status line that silently drops the word is a status line that stops
- * being a promise ([PAUSED_IS_PLANNED]).
+ * The paused count was always zero while the engine had no paused state; the phrase was kept
+ * anyway, because a status line that silently drops a word is one that stops being a promise. It
+ * counts something now ([B-57](../../../../../../../../docs/backlog/B-57-a-paused-torrent.md)).
  */
 private fun torrentsLine(rows: List<TorrentRowModel>): String {
     val seeding = rows.count { it.state == TorrentState.Seeding }
@@ -69,6 +70,9 @@ internal fun windowOf(
         adding = adding,
         settings = settings,
         status = statusOf(rows, rates, listenPort, dhtNodes, heapUsedBytes, heapMaxBytes),
+        // What Pause and Resume may do is decided by the row that is selected, so the bar is built
+        // from the list rather than defaulted and left.
+        toolbar = ToolbarState().forSelection(rows.firstOrNull { it.selected }?.state),
         degradedSummary =
             sessionError?.let {
                 if (rows.size == 1) "${rows.first().name} is degraded." else "One session is degraded."

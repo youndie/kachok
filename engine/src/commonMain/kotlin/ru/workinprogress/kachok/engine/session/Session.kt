@@ -140,6 +140,16 @@ public class Session(
     private var uploadTurn = 0
     private var uploadedBytes = 0L
     private var stopping = false
+
+    /**
+     * Not transferring, and not gone.
+     *
+     * Read in four places that would otherwise start work a paused session must not do: dialling a
+     * peer, requesting a block, answering an incoming handshake, and telling a tracker or the DHT
+     * that this client is here. Each of them is also guarded by [stopping], and the two are not the
+     * same condition — a stopped session has left, a paused one is waiting.
+     */
+    private var paused = false
     private val startedAt = timeSource.markNow()
 
     /** The only way to change a session from outside. */
@@ -233,13 +243,22 @@ public class Session(
 
                 is Command.AcceptPeer -> {
                     val address = command.connection.address
-                    if (address in connected) {
-                        // Already talking to them, from our side. One connection per peer.
+                    if (paused || address in connected) {
+                        // Already talking to them, from our side — or paused, in which case the
+                        // announce said `stopped` and answering anyway would contradict it.
                         command.connection.close()
                     } else {
                         known += address
                         scope.launch { serve(scope, command.connection, dialled = false) }
                     }
+                }
+
+                Command.Pause -> {
+                    pause()
+                }
+
+                Command.Resume -> {
+                    resume(scope)
                 }
 
                 Command.Stop -> {
@@ -249,6 +268,56 @@ public class Session(
                 }
             }
         }
+    }
+
+    /**
+     * [shutDown] without the leaving.
+     *
+     * The state is published *first*, before the announce: a `stopped` announce is a request to
+     * somebody else's server and can take seconds, and a row that keeps saying *Downloading* for
+     * that long after the button was pressed is the defect the button was fixed to stop having.
+     *
+     * The counters are zeroed with it rather than left to drift down as the peers close, so the
+     * row does not spend those seconds claiming peers it has already hung up on.
+     */
+    private suspend fun pause() {
+        if (paused || stopping) return
+        paused = true
+        publish {
+            it.copy(paused = true, connectedPeers = 0, unchokedPeers = 0, outstandingRequests = 0)
+        }
+        announce(AnnounceEvent.STOPPED)
+        connected.snapshot().forEach { it.connection.close() }
+        connected.clear()
+        storage.flush()
+        // Same order as the stop, and for the same reason: the record vouches for what is on the
+        // disk, so it is written after the flush and never before.
+        saveResume()
+    }
+
+    /**
+     * Back on: `started`, and dial.
+     *
+     * [failed] is cleared because pausing filled it — every peer this session hung up on was
+     * recorded as a failure by [serve]'s `finally`, and without this a resume would sit through the
+     * reconnect delay before touching a swarm it was talking to a moment ago.
+     *
+     * Cleared **after** the announce and not before it. Those `finally` blocks are still draining
+     * while the announce suspends, so a clear at the top of this function is undone by the peers
+     * the pause has not finished hanging up on — which showed up as a resume that announced,
+     * reported itself un-paused, and dialled nobody.
+     */
+    private suspend fun resume(scope: CoroutineScope) {
+        if (!paused || stopping) return
+        paused = false
+        publish { it.copy(paused = false) }
+        val peers = announce(AnnounceEvent.STARTED)
+        if (peers.isNotEmpty()) {
+            known += peers
+            publish { it.copy(knownPeers = known.size) }
+        }
+        failed.clear()
+        connectMore(scope)
     }
 
     /**
@@ -290,6 +359,12 @@ public class Session(
     private suspend fun announceLoop(scope: CoroutineScope) {
         var event: AnnounceEvent? = AnnounceEvent.STARTED
         while (scope.isActive && !stopping) {
+            // A paused session has told this tracker `stopped`; the loop keeps its interval and
+            // says nothing until it is resumed, which does its own `started` announce.
+            if (paused) {
+                delay(announceInterval * MILLIS_PER_SECOND)
+                continue
+            }
             val peers = announce(event)
             event = null
             if (peers.isNotEmpty()) {
@@ -315,6 +390,12 @@ public class Session(
         val node = dht ?: return
         node.bootstrap(scope, config.dhtBootstrap)
         while (!stopping) {
+            // Announcing to the DHT is saying "this client has it and will serve it", which a
+            // paused one will not.
+            if (paused) {
+                delay(config.dhtInterval)
+                continue
+            }
             tick("dht lookup") {
                 val found = node.lookup(scope, metainfo.infoHash)
                 if (found.peers.isNotEmpty()) {
@@ -361,6 +442,7 @@ public class Session(
     }
 
     private fun connectMore(scope: CoroutineScope) {
+        if (paused) return
         val room = config.maxPeers - connected.size
         if (room <= 0) return
         known
@@ -473,7 +555,7 @@ public class Session(
             // busy wait against somebody else's machine as well as our own.
             failed[address] = timeSource.markNow()
             publish { it.copy(connectedPeers = connected.size) }
-            if (!stopping && scope.isActive) connectMore(scope)
+            if (!stopping && !paused && scope.isActive) connectMore(scope)
         }
     }
 
@@ -928,7 +1010,7 @@ public class Session(
     }
 
     private suspend fun requestMore(link: PeerLink) {
-        if (stopping) return
+        if (stopping || paused) return
         // BEP 6: a choked peer will still serve the pieces it named as `allowed fast`, and asking
         // for them is the difference between a cold start and waiting for an unchoke.
         if (link.choked) {
@@ -1247,6 +1329,7 @@ private fun SessionState.copy(
     lastPeerError: String? = this.lastPeerError,
     sessionError: String? = this.sessionError,
     isComplete: Boolean = this.isComplete,
+    paused: Boolean = this.paused,
 ): SessionState =
     SessionState(
         infoHash = infoHash,
@@ -1270,4 +1353,5 @@ private fun SessionState.copy(
         lastPeerError = lastPeerError,
         sessionError = sessionError,
         isComplete = isComplete,
+        paused = paused,
     )
