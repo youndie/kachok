@@ -50,6 +50,9 @@ compared.
 | `.../ui/session/DetailsFrom.kt` | `SessionState` as those fields, including the one the design badges `planned` |
 | `.../ui/add/AddTorrent.kt` | the add dialog, the drop overlay and the clipboard prompt |
 | `.../ui/session/AddFrom.kt` | a `Metainfo` or a `MagnetLink` as what the dialog is allowed to say |
+| `.../ui/settings/Settings.kt` | one screen in the window, with the measured default beside every field |
+| `.../ui/session/SettingsFrom.kt` | those defaults, read out of `SessionConfig` rather than repeated |
+| `.../ui/main/EmptyState.kt` | what a new install looks like: three ways in, all of them named |
 | `.../ui/session/Figures.kt` | three significant figures for a size, grouped thousands for a rate |
 | `.../ui/session/SessionRow.kt` | `SessionState` as a row, plus the lifecycle the engine has no field for |
 | `ui/src/desktopTest/.../session/AppDownloadTest.kt` | a real download from `:swarm`, sampled the way the window samples it |
@@ -135,6 +138,10 @@ None. Two command-line arguments and nothing read from the environment; the sett
   the DHT and the dispatcher, and there is a `BufferPool` per torrent because the cap is the
   back-pressure and back-pressure that is global lets a fast torrent starve a slow one (research
   §1.2c2).
+* **A settings default is never typed twice.** `settingsOf` constructs `SessionConfig()` for its
+  defaults, because a value written down a second time goes stale the first time a measurement
+  moves it. `no limit` is the one place the engine's value (`0`) and the words a person needs are
+  different things.
 * **A magnet is recognised and not started.** The window has no `MetadataFetcher` in front of a
   session, so the add dialog greys *Add* and says so ([B-55](../backlog/B-55-magnets-in-the-window.md)).
 * **Three of the four details tabs have nothing to show.** *Files*, *Peers* and *Trackers* need

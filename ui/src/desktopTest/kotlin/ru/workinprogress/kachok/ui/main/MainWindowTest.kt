@@ -7,6 +7,8 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.v2.runComposeUiTest
 import ru.workinprogress.kachok.ui.add.designTorrentToAdd
+import ru.workinprogress.kachok.ui.session.Preferences
+import ru.workinprogress.kachok.ui.session.settingsOf
 import ru.workinprogress.kachok.ui.theme.KachokTheme
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -126,6 +128,48 @@ class MainWindowTest {
             }
             onNodeWithText("Drop to add 2 torrents").assertIsDisplayed()
             onNodeWithText("A magnet link is on the clipboard.").assertIsDisplayed()
+        }
+
+    /**
+     * Settings replaces the list rather than covering it, and takes the details panel with it.
+     *
+     * A panel describing a torrent beside a screen describing the process is two answers to one
+     * question, and the one the person just asked for is the settings.
+     */
+    @Test
+    fun theSettingsScreenTakesTheListsPlace(): Unit =
+        runComposeUiTest {
+            setContent {
+                KachokTheme {
+                    MainWindow(
+                        MainWindowState(
+                            torrents = designTorrents,
+                            status = designStatus,
+                            details = designDetails(),
+                            settings = settingsOf(Preferences(directory = "~/Downloads")),
+                        ),
+                    )
+                }
+            }
+            onNodeWithText("Connections to keep up").assertIsDisplayed()
+            onNodeWithText("default 50").assertIsDisplayed()
+            onNodeWithText("Info hash").assertDoesNotExist()
+            onNodeWithText("debian-13.1.0-amd64-DVD-1.iso").assertDoesNotExist()
+        }
+
+    /** Nothing to show is a place to start, not nine column heads over an empty table. */
+    @Test
+    fun anEmptyWindowInvitesRatherThanShowingAnEmptyTable(): Unit =
+        runComposeUiTest {
+            setContent {
+                KachokTheme {
+                    MainWindow(MainWindowState(torrents = emptyList(), status = designStatus))
+                }
+            }
+            onNodeWithText("Nothing downloading").assertIsDisplayed()
+            onNodeWithText("Add a torrent").assertIsDisplayed()
+            onNodeWithText("NAME").assertDoesNotExist()
+            onNodeWithText(designStatus.port).assertIsDisplayed()
         }
 
     @Test

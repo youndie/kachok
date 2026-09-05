@@ -56,6 +56,7 @@ public object Icons {
     public const val RADIO_BUTTON_UNCHECKED: String = "\ue836" // radio_button_unchecked
     public const val DOWNLOAD: String = "\uf090" // download
     public const val CLOSE: String = "\ue5cd" // close
+    public const val BOLT: String = "\uea0b" // bolt
 }
 
 internal val MaterialSymbols: FontFamily =

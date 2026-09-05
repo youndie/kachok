@@ -6,6 +6,7 @@ import ru.workinprogress.kachok.ui.list.TorrentRowModel
 import ru.workinprogress.kachok.ui.list.TorrentState
 import ru.workinprogress.kachok.ui.main.MainWindowState
 import ru.workinprogress.kachok.ui.main.SessionStatus
+import ru.workinprogress.kachok.ui.settings.SettingsState
 
 /** The totals the status bar carries, all six of them derived from what is on screen. */
 internal fun statusOf(
@@ -57,11 +58,13 @@ internal fun windowOf(
     sessionError: String? = null,
     details: DetailsState? = null,
     adding: AddTorrentState? = null,
+    settings: SettingsState? = null,
 ): MainWindowState =
     MainWindowState(
         torrents = rows,
         details = details,
         adding = adding,
+        settings = settings,
         status = statusOf(rows, rates, listenPort, dhtNodes, heapUsedBytes, heapMaxBytes),
         degradedSummary =
             sessionError?.let {

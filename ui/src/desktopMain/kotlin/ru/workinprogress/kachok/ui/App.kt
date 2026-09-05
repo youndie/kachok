@@ -29,11 +29,13 @@ import ru.workinprogress.kachok.ui.details.DetailsTab
 import ru.workinprogress.kachok.ui.main.MainWindow
 import ru.workinprogress.kachok.ui.main.MainWindowState
 import ru.workinprogress.kachok.ui.session.Lifecycle
+import ru.workinprogress.kachok.ui.session.Preferences
 import ru.workinprogress.kachok.ui.session.RateMeter
 import ru.workinprogress.kachok.ui.session.Rates
 import ru.workinprogress.kachok.ui.session.addFrom
 import ru.workinprogress.kachok.ui.session.detailsOf
 import ru.workinprogress.kachok.ui.session.rowOf
+import ru.workinprogress.kachok.ui.session.settingsOf
 import ru.workinprogress.kachok.ui.session.windowOf
 import ru.workinprogress.kachok.ui.theme.KachokTheme
 import java.awt.FileDialog
@@ -107,6 +109,7 @@ internal fun Client(
     var tab by remember { mutableStateOf(DetailsTab.Overview) }
     var pending by remember { mutableStateOf<Pending?>(null) }
     var selected by remember { mutableStateOf(0) }
+    var settingsOpen by remember { mutableStateOf(false) }
     // Read through a state, not captured: the effect is launched once and these change later, so
     // a plain read inside it would be the value from before the click.
     val askedToStop by rememberUpdatedState(stopping)
@@ -114,6 +117,7 @@ internal fun Client(
     val shownTab by rememberUpdatedState(tab)
     val shownAdd by rememberUpdatedState(pending?.shown)
     val chosen by rememberUpdatedState(selected)
+    val showSettings by rememberUpdatedState(settingsOpen)
     // The dialog runs on the composition and the engine on its own dispatcher; a channel is the
     // seam, so a click never blocks a frame on a torrent being opened and hashed.
     val accepted = remember { Channel<Metainfo>(Channel.UNLIMITED) }
@@ -177,6 +181,7 @@ internal fun Client(
                                 )
                             },
                         adding = shownAdd,
+                        settings = if (showSettings) settingsOf(Preferences(directory = savedTo)) else null,
                     )
                 if (!asked) {
                     delay(TICK)
@@ -196,6 +201,7 @@ internal fun Client(
             onAction = { action ->
                 when (action.label) {
                     "Details panel" -> panelOpen = !panelOpen
+                    "Settings" -> settingsOpen = !settingsOpen
                     "Add torrent" -> pending = chooseTorrent(directory)
                     "Paste magnet" -> pending = magnetFromClipboard(directory)
                     else -> Unit
@@ -203,6 +209,7 @@ internal fun Client(
             },
             onTab = { chosenTab -> tab = chosenTab },
             onSelect = { row -> selected = row },
+            onAddTorrent = { pending = chooseTorrent(directory) },
             onCancelAdd = { pending = null },
             onConfirmAdd = {
                 pending?.metainfo?.let { accepted.trySend(it) }

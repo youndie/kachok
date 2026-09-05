@@ -121,8 +121,11 @@ internal class ToolbarState(
     val details: ToolbarAction = ToolbarAction(Icons.RIGHT_PANEL_OPEN, "Details panel"),
     val settings: ToolbarAction = ToolbarAction(Icons.TUNE, "Settings"),
 ) {
-    /** The same state with the panel toggle set from whether the panel is actually there. */
-    fun withDetails(open: Boolean): ToolbarState =
+    /** The same state with both toggles set from whether their screens are actually there. */
+    fun withDetails(
+        open: Boolean,
+        settings: Boolean = false,
+    ): ToolbarState =
         ToolbarState(
             pasteMagnet = pasteMagnet,
             pause = pause,
@@ -131,7 +134,7 @@ internal class ToolbarState(
             recheck = recheck,
             filter = filter,
             details = ToolbarAction(details.glyph, details.label, active = open),
-            settings = settings,
+            settings = ToolbarAction(this.settings.glyph, this.settings.label, active = settings),
         )
 }
 

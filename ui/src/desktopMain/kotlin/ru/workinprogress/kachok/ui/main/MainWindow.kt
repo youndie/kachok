@@ -25,6 +25,8 @@ import ru.workinprogress.kachok.ui.details.DetailsState
 import ru.workinprogress.kachok.ui.details.DetailsTab
 import ru.workinprogress.kachok.ui.list.TorrentRow
 import ru.workinprogress.kachok.ui.list.TorrentRowModel
+import ru.workinprogress.kachok.ui.settings.SettingsScreen
+import ru.workinprogress.kachok.ui.settings.SettingsState
 
 /**
  * What the window is showing.
@@ -48,6 +50,8 @@ internal class MainWindowState(
     val clipboardMagnet: String? = null,
     /** The files hovering over the window right now. Empty means nothing is being dragged. */
     val dropping: List<String> = emptyList(),
+    /** Non-null while the settings screen is open, which is instead of the list rather than over it. */
+    val settings: SettingsState? = null,
 )
 
 /**
@@ -70,12 +74,16 @@ internal fun MainWindow(
     onConfirmAdd: () -> Unit = {},
     onClipboardAdd: () -> Unit = {},
     onClipboardDismiss: () -> Unit = {},
+    onAddTorrent: () -> Unit = {},
 ) {
     Box(modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)) {
             // The toggle says what the panel is doing rather than carrying its own opinion: two
             // places recording "the panel is open" is one place for it to be wrong.
-            Toolbar(state.toolbar.withDetails(state.details != null), onAction = onAction)
+            Toolbar(
+                state.toolbar.withDetails(state.details != null, settings = state.settings != null),
+                onAction = onAction,
+            )
             Row(Modifier.fillMaxWidth().weight(1f)) {
                 Column(Modifier.weight(1f).fillMaxHeight()) {
                     // The banner is inside the list's column rather than across the window: it is one
@@ -84,14 +92,30 @@ internal fun MainWindow(
                     if (state.degradedSummary != null) {
                         DegradedBanner(state.degradedSummary, state.degradedDetail)
                     }
-                    ColumnHeader(state.sort, onSort = onSort)
-                    LazyColumn(Modifier.fillMaxWidth().weight(1f)) {
-                        itemsIndexed(state.torrents) { at, torrent ->
-                            TorrentRow(torrent, onSelect = { onSelect(at) })
+                    when {
+                        state.settings != null -> {
+                            SettingsScreen(state.settings, Modifier.weight(1f))
+                        }
+
+                        // Nine column heads over nothing is a table that looks broken; this looks
+                        // like a place to start.
+                        state.torrents.isEmpty() -> {
+                            EmptyState(Modifier.weight(1f), onAdd = onAddTorrent)
+                        }
+
+                        else -> {
+                            ColumnHeader(state.sort, onSort = onSort)
+                            LazyColumn(Modifier.fillMaxWidth().weight(1f)) {
+                                itemsIndexed(state.torrents) { at, torrent ->
+                                    TorrentRow(torrent, onSelect = { onSelect(at) })
+                                }
+                            }
                         }
                     }
                 }
-                state.details?.let { DetailsPanel(it, onTab = onTab) }
+                if (state.torrents.isNotEmpty() && state.settings == null) {
+                    state.details?.let { DetailsPanel(it, onTab = onTab) }
+                }
             }
             StatusBar(state.status)
         }
