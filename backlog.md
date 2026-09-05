@@ -46,12 +46,11 @@ which is also the order of work.
 
 <!-- BEGIN INDEX -->
 
-## Open (37)
+## Open (36)
 
 | Task | | Priority | Size | Blocked by |
 |---|---|---|---|---|
 | [B-07](docs/backlog/B-07-virtual-thread-peer-transport.md) `[ ]` | One virtual thread per peer on a blocking SocketChannel | P0 | M | B-06, B-08 |
-| [B-08](docs/backlog/B-08-direct-buffer-pool.md) `[ ]` | A capped pool of 16 KiB direct ByteBuffers | P0 | S | - |
 | [B-11](docs/backlog/B-11-single-writer-with-gathering-writes.md) `[ ]` | One writer coroutine, one gathering positional write per piece | P0 | M | B-08, B-12 |
 | [B-12](docs/backlog/B-12-file-layout-and-sparse-files.md) `[ ]` | Piece-to-file mapping and sparse file creation | P0 | S/M | B-04 |
 | [B-13](docs/backlog/B-13-hashing-dispatcher.md) `[ ]` | Whole-piece SHA-1 on a bounded dispatcher with one MessageDigest per thread | P0 | S | B-08 |
@@ -88,7 +87,7 @@ which is also the order of work.
 | [B-42](docs/backlog/B-42-scopedvalue-in-the-reader-loop.md) `[?]` | Is ScopedValue used anywhere, or dropped? | P3 | XS | B-07 |
 | [B-02](docs/backlog/B-02-ci-runs-build-and-docs-gates.md) `[ ]` | CI runs the build and the documentation gates on every push | infra | S | B-01 |
 
-## Closed (5)
+## Closed (6)
 
 **M0 — The build and its gates**
 
@@ -103,6 +102,7 @@ which is also the order of work.
 **M2 — The wire**
 
 - [B-06](docs/backlog/B-06-peer-wire-codec.md) `[x]` - Peer wire codec: handshake, message ids, in-place piece and request
+- [B-08](docs/backlog/B-08-direct-buffer-pool.md) `[x]` - A capped pool of 16 KiB direct ByteBuffers
 
 <!-- END INDEX -->
 

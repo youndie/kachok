@@ -57,7 +57,8 @@ What exists on `main` today:
 | `.../engine/metainfo/` | `Metainfo`, `TorrentFile`, and the parser that hashes `info` from its source bytes |
 | `.../engine/platform/Sha1.kt` + `engine/src/jvmMain/kotlin/ru/workinprogress/kachok/engine/platform/Sha1.jvm.kt` | the one-shot SHA-1 primitive, `expect`/`actual` |
 | `.../engine/wire/` | `Handshake`, the sealed `Message`, `PeerWire` — framing, the identifier table, in-place `piece` decoding |
-| `engine/src/commonTest/kotlin/ru/workinprogress/kachok/engine/` | 44 tests across `bencode`, `metainfo` and `wire`; the fixtures are embedded strings, because a KMP test source set has no resources |
+| `engine/src/jvmMain/kotlin/ru/workinprogress/kachok/engine/io/BufferPool.kt` | the capped pool of direct 16 KiB buffers and its `PooledBuffer` handle |
+| `engine/src/commonTest/kotlin/ru/workinprogress/kachok/engine/` | 51 tests across `bencode`, `metainfo`, `wire` and `io`; the fixtures are embedded strings, because a KMP test source set has no resources |
 
 The layout the backlog builds toward, under `engine/src/commonMain/kotlin/ru/workinprogress/kachok/engine/`
 (a directory appears when its first backlog item lands; none of these exist yet):
@@ -76,7 +77,7 @@ and under `engine/src/jvmMain/kotlin/ru/workinprogress/kachok/engine/`:
 
 | Directory | What goes there | Backlog |
 |---|---|---|
-| `io/` | `BufferPool` (direct, 16 KiB), the virtual-thread `PeerTransport`, the listener | [B-07](../backlog/B-07-virtual-thread-peer-transport.md), [B-08](../backlog/B-08-direct-buffer-pool.md), [B-09](../backlog/B-09-incoming-connections.md) |
+| `io/` | the virtual-thread `PeerTransport` and the listener, beside the pool that is already there | [B-07](../backlog/B-07-virtual-thread-peer-transport.md), [B-09](../backlog/B-09-incoming-connections.md) |
 | `storage/` | `FileChannel` storage: positional gathering writes, `transferTo` reads, `force()` timer | [B-11](../backlog/B-11-single-writer-with-gathering-writes.md), [B-20](../backlog/B-20-upload-read-path.md) |
 | `hash/` | `MessageDigest` per hashing thread, the `limitedParallelism` dispatcher — bulk piece hashing, not the one-shot primitive above | [B-13](../backlog/B-13-hashing-dispatcher.md) |
 | `tracker/` | `java.net.http` announce | [B-15](../backlog/B-15-http-tracker-announce.md) |
