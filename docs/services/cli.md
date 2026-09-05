@@ -44,7 +44,9 @@ kachok download <file.torrent> [--dir <path>] [--port <n>] [--peers <n>] [--pipe
 
 | File | What is there |
 |---|---|
-| `cli/build.gradle.kts` | `application` main class, `applicationDefaultJvmArgs` — the flags of research D6 and §1.2d; the `collectorBench` task |
+| `cli/build.gradle.kts` | `application` main class, the JVM flags of research D6 and §1.2d, the module set of §1.3b, and the `runtimeImage`, `collectorBench` and `swarmHost` tasks |
+| `scripts/verify_runtime_image.sh` | the image downloading a torrent in a container with no JDK |
+| `cli/src/test/kotlin/ru/workinprogress/kachok/cli/SwarmHost.kt` | the swarm that script points the container at |
 | `cli/src/main/kotlin/ru/workinprogress/kachok/cli/Main.kt` | the entry point and the exit codes; takes its streams so a test can read them |
 | `.../cli/Arguments.kt` | the hand-written parser and the usage text |
 | `.../cli/Download.kt` | the factory: every interface the engine needs meets its JVM implementation here, and the shutdown hook |
@@ -70,17 +72,18 @@ per-message events, which is what conflation is for.
 |---|---|---|
 | Module | [engine](engine.md) | everything |
 | Library | `kotlinx-coroutines-core` | `runBlocking` at the top, the render timer |
-| JDK | `java.base`, `java.net.http`, `jdk.jfr`, `java.management` | the run-time image module set of research §1.3 |
+| JDK | `java.base`, `java.instrument`, `java.net.http`, `jdk.unsupported`, `jdk.jfr` | the run-time image module set, measured in research §1.3b |
 
 ## 5. Infrastructure and deploy
 
-* **Artefact (target, research D10):** a directory with a `jlink`ed run-time image (measured at
-  32 MB for the module set above), the application jars, a launcher script fixing the JVM flags,
-  and an AOT cache produced by a training run through that launcher.
-  [B-28](../backlog/B-28-aot-cache-in-the-distribution.md),
-  [B-29](../backlog/B-29-jlink-runtime-image.md).
-* **Today:** `./gradlew :cli:installDist` produces the ordinary Gradle application layout with the
-  full JDK expected on the machine. No image, no cache, no installer.
+* **Artefact (research D10):** `./gradlew :cli:runtimeImage` writes `cli/build/kachok` — the
+  `jlink`ed run-time image, the jars, a launcher fixing the JVM flags, and an `image.properties`
+  naming the module set and those flags. 35 MB on macOS/aarch64, 47 MB for `linux/amd64`.
+  `./scripts/verify_runtime_image.sh` downloads a torrent through it in a `debian:stable-slim`
+  container with no `java` in it (research §1.3b). The AOT cache is still missing:
+  [B-28](../backlog/B-28-aot-cache-in-the-distribution.md).
+* **Also:** `./gradlew :cli:installDist` produces the ordinary Gradle application layout, which
+  expects a JDK on the machine. No installer in phase 1, and none needed for a headless CLI.
 * **CI:** `.github/workflows/ci.yml` builds and tests on `ubuntu-latest`; the documentation gate is
   `.github/workflows/check.yaml`.
 
@@ -114,6 +117,10 @@ defaults to the first of BEP 3's 6881–6889 (the probe itself arrives with
 
 ## 8. Quirks
 
+* **The JVM flags and the module set live in `cli/build.gradle.kts` and nowhere else.** `run`,
+  `installDist`'s start scripts, the run-time image's launcher and the verification script all
+  read them from there — the script through the generated `image.properties`, so it cannot drift
+  into checking an image the build would not produce.
 * **A second `SIGINT` is not special-cased.** Doing it properly needs internal API; the ten-second
   bound on the clean stop already guarantees the process ends.
 

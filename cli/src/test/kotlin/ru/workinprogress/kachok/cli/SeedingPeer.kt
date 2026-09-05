@@ -29,9 +29,14 @@ class SeedingPeer(
     private val delayPerBlockMillis: Long = 0,
     /** BEP 10's reserved bit, so a test can see what this client sends a peer that asks for it. */
     private val extensionProtocol: Boolean = false,
+    /**
+     * Loopback for the tests. A run-time image being checked from inside a container has to reach
+     * this seed from outside this machine's loopback, and nothing else does.
+     */
+    private val bindAddress: String = "127.0.0.1",
 ) : AutoCloseable {
     private val server: ServerSocketChannel =
-        ServerSocketChannel.open().bind(InetSocketAddress("127.0.0.1", 0), BACKLOG)
+        ServerSocketChannel.open().bind(InetSocketAddress(bindAddress, 0), BACKLOG)
 
     val port: Int = (server.localAddress as InetSocketAddress).port
 

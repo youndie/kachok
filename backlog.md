@@ -46,12 +46,11 @@ which is also the order of work.
 
 <!-- BEGIN INDEX -->
 
-## Open (15)
+## Open (14)
 
 | Task | | Priority | Size | Blocked by |
 |---|---|---|---|---|
 | [B-28](docs/backlog/B-28-aot-cache-in-the-distribution.md) `[ ]` | Build the AOT cache with the launcher's flags and prove it maps | P2 | M | B-29 |
-| [B-29](docs/backlog/B-29-jlink-runtime-image.md) `[ ]` | A jlinked run-time image, the jars, and a launcher script | P2 | S/M | B-18 |
 | [B-30](docs/backlog/B-30-measure-transferto-vs-mmap.md) `[ ]` | Does seeding need mmap? Measure transferTo against a mapped file | P2 | M | B-20 |
 | [B-33](docs/backlog/B-33-fast-extension.md) `[ ]` | Fast extension (BEP 6): reject, have all/none, allowed fast | P2 | M | B-06 |
 | [B-34](docs/backlog/B-34-peer-exchange.md) `[ ]` | Peer exchange (BEP 11, ut_pex) | P2 | M | B-10 |
@@ -66,7 +65,7 @@ which is also the order of work.
 | [B-41](docs/backlog/B-41-android-and-ios-targets.md) `[ ]` | Phase 3: Android and iOS targets on the engine | P3 | XL | B-39 |
 | [B-02](docs/backlog/B-02-ci-runs-build-and-docs-gates.md) `[ ]` | CI runs the build and the documentation gates on every push | infra | S | B-01 |
 
-## Closed (28)
+## Closed (29)
 
 **M0 — The build and its gates**
 
@@ -118,6 +117,7 @@ which is also the order of work.
 
 - [B-26](docs/backlog/B-26-jfr-baseline-of-the-hot-path.md) `[x]` - A JFR baseline: allocations on the hot path, pinned threads, carrier count
 - [B-27](docs/backlog/B-27-measure-heap-and-collector.md) `[x]` - Measure the heap the engine needs, with G1 and with ZGC
+- [B-29](docs/backlog/B-29-jlink-runtime-image.md) `[x]` - A jlinked run-time image, the jars, and a launcher script
 
 **M8 — Extensions**
 

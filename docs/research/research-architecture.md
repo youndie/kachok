@@ -269,6 +269,51 @@ consistent with that for a headless client; the Compose phase adds `java.desktop
 a run-time image, the application jars on the class path, a launcher script and an AOT cache is
 the whole artefact — [D10](#d10-phase-1-ships-a-jlinked-runtime-plus-jars-jpackage-arrives-with-compose).
 
+*(§1.3b, later: the module set in the `jlink` line above was wrong in both directions. What the
+build ships now is measured.)*
+
+### 1.3b The module set, read out of the jars
+
+`jdeps --print-module-deps --ignore-missing-deps --multi-release 25` over the distribution's own
+jars (`cli`, `engine-jvm`, `kotlin-stdlib`, `kotlinx-coroutines-core-jvm`, `annotations`) on
+2026-09-05, JDK 25.0.2:
+
+| Module | In §1.3's list | What `jdeps` says | Verdict |
+|---|---|---|---|
+| `java.base` | yes | required | keep |
+| `java.net.http` | yes | required | keep |
+| `java.instrument` | **no** | required | **added** — kotlinx-coroutines' debug agent |
+| `jdk.unsupported` | **no** | required | **added** — `sun.misc.Unsafe`, from the Kotlin runtime |
+| `jdk.jfr` | yes | not referenced | kept **as a decision**, see below |
+| `java.management` | yes | not referenced | **dropped**, 688 KB |
+
+| Image (macOS/aarch64, `--strip-debug --no-man-pages --no-header-files --compress zip-6`) | Size |
+|---|---|
+| what `jdeps` requires | 31.4 MB |
+| + `jdk.jfr` — what the build ships | **32.2 MB** |
+| + `java.management` | 32.8 MB |
+| §1.3's original set | 32.7 MB |
+
+**Consequence 1 — two of the required modules would have been found by a user.** `java.instrument`
+and `jdk.unsupported` are reached from code paths that do not run at start-up: the coroutines debug
+agent is loaded only when enabled, and `Unsafe` when the Kotlin runtime happens to need it. The
+image without them starts, prints its usage, parses a torrent and reports an unreachable tracker —
+every check short of the one that matters. This is what a module set fails like.
+
+**Consequence 2 — `jdk.jfr` is not optional in the way "unreferenced" suggests.** With
+`-XX:StartFlightRecording` on an image that lacks it, the VM does not warn and does not run without
+recording; it refuses to start at all: `java.lang.module.FindException: Module jdk.jfr not found`,
+from boot layer initialisation. The distribution is profilable or it is not, and 824 KB is the
+price. Nothing else in the table costs enough to argue about.
+
+**Consequence 3 — the check has to run where there is no JDK.** None of this can be established on
+the machine that built the image: a `java` on the `PATH`, a `JAVA_HOME`, a JDK the launcher could
+fall back on. `scripts/verify_runtime_image.sh` links the same module set for `linux/amd64` in a
+container, serves a torrent from this machine, and runs the client in `debian:stable-slim` — which
+it first checks has no `java` at all. On 2026-09-05 it downloaded 8 MB, 32 pieces, and
+`sha256sum -c` agreed. The `linux/amd64` image is 47 MB against the 35 MB of this machine's
+`macos/aarch64` one, jars included.
+
 ### 1.3a Sparse files: the mechanism is not interchangeable
 
 Measured on this machine (macOS 27, APFS, JDK 25.0.2, 2026-09-05) by creating a 4 MB file four
