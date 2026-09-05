@@ -44,7 +44,7 @@ class SocketPeerConnectionTest {
     }
 
     @Test
-    fun aPeerAnsweringForAnotherTorrentIsDropped() =
+    fun aPeerAnsweringForAnotherTorrentIsDropped(): Unit =
         runBlocking {
             FakePeer(infoHash = otherHash).use { peer ->
                 val thrown =
@@ -56,7 +56,7 @@ class SocketPeerConnectionTest {
         }
 
     @Test
-    fun theHandshakeWeSendIsTheOneBep3Describes() =
+    fun theHandshakeWeSendIsTheOneBep3Describes(): Unit =
         runBlocking {
             FakePeer(infoHash = infoHash).use { peer ->
                 val connection =
@@ -80,7 +80,7 @@ class SocketPeerConnectionTest {
         }
 
     @Test
-    fun aBlockArrivesInAPoolBufferAndIsReleasedByItsReceiver() =
+    fun aBlockArrivesInAPoolBufferAndIsReleasedByItsReceiver(): Unit =
         runBlocking {
             val block = ByteArray(PeerWire.BLOCK_SIZE) { (it and 0x7F).toByte() }
             val pool = BufferPool(capacity = 4)
@@ -114,7 +114,7 @@ class SocketPeerConnectionTest {
         }
 
     @Test
-    fun ordinaryMessagesArriveDecodedAndKeepAlivesAreSeen() =
+    fun ordinaryMessagesArriveDecodedAndKeepAlivesAreSeen(): Unit =
         runBlocking {
             FakePeer(
                 infoHash = infoHash,
@@ -137,7 +137,7 @@ class SocketPeerConnectionTest {
         }
 
     @Test
-    fun whatWeSendReachesThePeerInOrder() =
+    fun whatWeSendReachesThePeerInOrder(): Unit =
         runBlocking {
             val received = ArrayDeque<Message>()
             FakePeer(
@@ -170,7 +170,7 @@ class SocketPeerConnectionTest {
         }
 
     @Test
-    fun aPeerHangingUpIsAnOrderlyClose() =
+    fun aPeerHangingUpIsAnOrderlyClose(): Unit =
         runBlocking {
             FakePeer(infoHash = infoHash, afterHandshake = { it.close() }).use { peer ->
                 val connection = SocketPeerConnection.connect(scope, peer.address, infoHash, peerId, BufferPool(4))
@@ -186,7 +186,7 @@ class SocketPeerConnectionTest {
      * the carriers the scheduler already had.
      */
     @Test
-    fun aThousandIdleConnectionsHoldNoExtraPlatformThreads() =
+    fun aThousandIdleConnectionsHoldNoExtraPlatformThreads(): Unit =
         runBlocking {
             val pool = BufferPool(capacity = 16)
             FakePeer(infoHash = infoHash).use { peer ->

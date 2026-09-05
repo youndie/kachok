@@ -2,6 +2,7 @@ package ru.workinprogress.kachok.engine.storage
 
 import ru.workinprogress.kachok.engine.metainfo.Metainfo
 import java.io.RandomAccessFile
+import java.nio.ByteBuffer
 import java.nio.channels.FileChannel
 import java.nio.file.Files
 import java.nio.file.Path
@@ -29,8 +30,35 @@ import java.nio.file.StandardOpenOption
 public class FileSet private constructor(
     private val channels: List<FileChannel>,
     public val paths: List<Path>,
-) : AutoCloseable {
+) : SpanSink,
+    AutoCloseable {
     public fun channel(file: Int): FileChannel = channels[file]
+
+    /**
+     * A gathering write, aimed by moving the channel's position.
+     *
+     * The JDK has `write(ByteBuffer, long)` and `write(ByteBuffer[], int, int)` and **no
+     * positional gathering write**, so aiming means `position(…)` — which is channel state, and
+     * therefore safe only because exactly one coroutine ever writes (research D4).
+     */
+    override fun writeSpan(
+        file: Int,
+        position: Long,
+        buffers: Array<ByteBuffer>,
+    ) {
+        val channel = channels[file]
+        channel.position(position)
+        var remaining = buffers.sumOf { it.remaining().toLong() }
+        while (remaining > 0) {
+            val written = channel.write(buffers)
+            check(written > 0) { "the channel for file \$file wrote nothing with \$remaining bytes left" }
+            remaining -= written
+        }
+    }
+
+    override fun flushAll() {
+        flush()
+    }
 
     /** `force(false)` on every file: metadata is not worth the extra seek per call. */
     public fun flush() {

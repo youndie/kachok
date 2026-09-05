@@ -43,7 +43,7 @@ class MessageDigestPieceHasherTest {
         }
 
     @Test
-    fun aPieceHashesToWhatAnIndependentToolSays() =
+    fun aPieceHashesToWhatAnIndependentToolSays(): Unit =
         runBlocking {
             val hasher = MessageDigestPieceHasher(dispatchers.io)
             assertEquals(wholePieceDigest, hasher.hash(blocks(0..16383, 16384..32767)).toHex())
@@ -51,7 +51,7 @@ class MessageDigestPieceHasherTest {
         }
 
     @Test
-    fun hashingDoesNotConsumeTheBlocksTheWriterStillNeeds() =
+    fun hashingDoesNotConsumeTheBlocksTheWriterStillNeeds(): Unit =
         runBlocking {
             val hasher = MessageDigestPieceHasher(dispatchers.io)
             val pieceBlocks = blocks(0..16383, 16384..32767)
@@ -65,7 +65,7 @@ class MessageDigestPieceHasherTest {
         }
 
     @Test
-    fun concurrencyIsBoundedByTheParallelismItWasGiven() =
+    fun concurrencyIsBoundedByTheParallelismItWasGiven(): Unit =
         runBlocking {
             val bound = 3
             val inFlight = AtomicInteger()
@@ -83,7 +83,7 @@ class MessageDigestPieceHasherTest {
         }
 
     @Test
-    fun digestsAreReusedRatherThanCreatedPerPiece() =
+    fun digestsAreReusedRatherThanCreatedPerPiece(): Unit =
         runBlocking {
             // The point of the pool: a ThreadLocal would allocate one digest per virtual thread, and
             // a virtual thread is created per task, so 64 pieces would mean 64 digests.

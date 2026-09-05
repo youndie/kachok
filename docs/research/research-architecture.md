@@ -326,6 +326,15 @@ Why:
   file spans — one, for the common case;
 - positional writes need no seek and no lock; the writer is the only writer anyway, and the
   seeding read path never writes;
+
+**Correction found while implementing M3** (B-11): there is no such thing as a positional gathering
+write. `FileChannel` offers `write(ByteBuffer, long)` — positional, one buffer — and
+`write(ByteBuffer[], int, int)`, which writes at the *channel's* position; `write(ByteBuffer[],
+long)` does not exist (`javap java.nio.channels.FileChannel`). Aiming a gathering write therefore
+means calling `position(…)` first, which is channel state and not a parameter. That is safe here
+only because exactly one coroutine ever writes — so "one writer" is load-bearing for a second
+reason on top of the carrier-thread one, and a future optimisation that adds a second writer would
+break the file layout rather than merely the thread budget.
 - the price: a crash between the write and the next `force()` loses what the page cache had;
   the resume file records verified pieces, so the recovery is a re-hash of the pieces the resume
   file did not mention. [Risk 5](#3-risks-and-open-questions).
