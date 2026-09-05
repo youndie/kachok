@@ -94,6 +94,7 @@ public class TorrentRowModel(
     public val ratio: String,
     public val eta: String,
     public val state: TorrentState,
+    public val selected: Boolean = false,
 )
 
 /**
@@ -215,17 +216,24 @@ public fun TorrentRow(
     model: TorrentRowModel,
     modifier: Modifier = Modifier,
 ) {
-    // The only state allowed to colour a whole row, because it is the only one that is not going
-    // to fix itself.
+    // Selection is a ground, and error is the only *state* allowed to colour a whole row, because
+    // it is the only one that is not going to fix itself. Selection wins where they meet: it is
+    // the one the person just did.
     val tint =
-        if (model.state == TorrentState.Error) KachokPalette.errorRowTint else Color.Transparent
+        when {
+            model.selected -> MaterialTheme.colorScheme.primaryContainer
+            model.state == TorrentState.Error -> KachokPalette.errorRowTint
+            else -> Color.Transparent
+        }
+    val hairline =
+        if (model.selected) KachokPalette.primaryContainerHigh else KachokPalette.rowHairline
     Column(modifier.fillMaxWidth().background(tint)) {
         Cells(model)
         Box(
             Modifier
                 .fillMaxWidth()
                 .height(TorrentColumns.hairline)
-                .background(KachokPalette.rowHairline),
+                .background(hairline),
         )
     }
 }

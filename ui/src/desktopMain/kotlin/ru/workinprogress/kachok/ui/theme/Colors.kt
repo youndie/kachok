@@ -30,9 +30,9 @@ internal val KachokDarkColors =
         onBackground = Color(0xFFDDE4E1),
         surface = Color(0xFF0F1513),
         onSurface = Color(0xFFDDE4E1),
-        surfaceVariant = Color(0xFF151C1A),
+        surfaceVariant = Color(0xFF161D1B),
         onSurfaceVariant = Color(0xFF889390),
-        surfaceContainer = Color(0xFF151C1A),
+        surfaceContainer = Color(0xFF161D1B),
         surfaceContainerHigh = Color(0xFF1A2220),
         surfaceContainerHighest = Color(0xFF1A2220),
         outline = Color(0xFF3A4442),
@@ -105,6 +105,33 @@ internal object KachokPalette {
      * Barely above the surface on purpose — the design has no elevation anywhere, so the whole
      * table is separated by hairlines, and a hairline at `outlineVariant` turns sixteen rows into a
      * grid.
+     *
+     * `#151C1A` appears 72 times in the design and is a `border` every single one of them, while
+     * the raised surface next to it is `#161D1B`. They were read as one value when the theme was
+     * built, which put the column header and the status bar a shade too dark — the kind of
+     * difference nothing catches until two surfaces meet in the same picture.
      */
     val rowHairline: Color = Color(0xFF151C1A)
+
+    /**
+     * The content colour of a control that sits *on* `primaryContainer` — the Add-torrent button
+     * and the toggle that is on.
+     *
+     * Not `onPrimaryContainer`: the design uses that one for text inside a selected row and this
+     * brighter one for a control's own icon and label, and swapping them makes the button look
+     * disabled next to the row it is above.
+     */
+    val primaryBright: Color = Color(0xFF71F6DE)
+
+    /** A selected row's hairline, and the Add-torrent button under the pointer. */
+    val primaryContainerHigh: Color = Color(0xFF006155)
+
+    /** A selected row's middle figure level — [onSurfaceMuted]'s counterpart inside the tint. */
+    val selectedFigure: Color = Color(0xFFB7E8E0)
+
+    /** And its progress track. */
+    val selectedTrack: Color = Color(0xFF00302A)
+
+    /** The docked banner that says a session is degraded, and the line under it. */
+    val degradedBanner: Color = Color(0xFF2A1A18)
 }

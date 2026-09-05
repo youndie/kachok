@@ -144,13 +144,62 @@ private fun Emphasis.color(
         }
     }
 
+/**
+ * The dimmed level of a selected row, which the design never draws.
+ *
+ * Its one selected row is a downloading torrent with a figure in every cell, so there is no
+ * `#889390` to copy. Derived rather than invented: on the ordinary surface the three levels are
+ * `onSurface` at 1.0, 0.85 and 0.6 — measured, within four counts of 255 on every channel — so the
+ * dimmed one here is `onPrimaryContainer` at the same 0.6.
+ */
+private const val SELECTED_MUTED_ALPHA = 0.6f
+
+/**
+ * The same colour, drawn on `primaryContainer` instead of on the surface.
+ *
+ * Selection is a change of ground, not a wash over the row: every distinction the row had survives
+ * it, because each neutral role has a counterpart that reads on the tint. `warning` and `error`
+ * fall through unchanged — they are what the state *means*, they are legible on the container, and
+ * a selected row that stopped saying "this one is broken" would be selection deleting information.
+ *
+ * All twelve cells of the design's own selected row come out of this mapping; none of them is
+ * listed anywhere as a special case.
+ */
+private fun Color.onContainer(scheme: ColorScheme): Color =
+    when (this) {
+        scheme.primary -> KachokPalette.primaryBright
+        scheme.onSurface -> scheme.onPrimaryContainer
+        KachokPalette.onSurfaceMuted -> KachokPalette.selectedFigure
+        scheme.onSurfaceVariant -> scheme.onPrimaryContainer.copy(alpha = SELECTED_MUTED_ALPHA)
+        scheme.outlineVariant -> KachokPalette.selectedTrack
+        else -> this
+    }
+
 /** The proportion of the bar a metadata row fills: it has no percentage, so it shows a position. */
 internal const val METADATA_BAR_FRACTION: Float = 0.34f
 
 /** The design's indeterminate fill: the primary role held back, because there is no figure yet. */
 private const val METADATA_BAR_ALPHA = 0.55f
 
+/**
+ * Selection recolours the row rather than tinting behind it.
+ *
+ * The design's selected row keeps every distinction it had — the headline figure is still brighter
+ * than the merely-true one — in a palette drawn on `primaryContainer` instead of on the surface. A
+ * background tint alone would leave `onSurfaceVariant` text on a teal ground, which is the one
+ * combination in this palette that cannot be read.
+ */
 internal fun rowColor(
+    model: TorrentRowModel,
+    cell: RowCell,
+    scheme: ColorScheme,
+    warning: WarningColors,
+): Color {
+    val plain = plainRowColor(model, cell, scheme, warning)
+    return if (model.selected) plain.onContainer(scheme) else plain
+}
+
+private fun plainRowColor(
     model: TorrentRowModel,
     cell: RowCell,
     scheme: ColorScheme,

@@ -105,3 +105,17 @@ internal val RowNameMono: TextStyle = TextStyle(fontFamily = JetBrainsMono, font
 
 internal val RowStateLabel: TextStyle =
     TextStyle(fontFamily = Archivo, fontWeight = FontWeight.Medium, fontSize = 11.5.sp)
+
+/**
+ * The window chrome's three sizes.
+ *
+ * The toolbar, the banner and the status bar are half a point smaller than the list they frame,
+ * which is the design saying they are not the content. Half-point sizes are the design's own.
+ */
+internal val ChromeText: TextStyle = TextStyle(fontFamily = Archivo, fontSize = 12.sp)
+
+internal val ChromeButton: TextStyle =
+    TextStyle(fontFamily = Archivo, fontWeight = FontWeight.Medium, fontSize = 12.5.sp)
+
+/** The status bar's figures and the banner's verbatim exception. */
+internal val MonoSmall: TextStyle = TextStyle(fontFamily = JetBrainsMono, fontSize = 11.5.sp)

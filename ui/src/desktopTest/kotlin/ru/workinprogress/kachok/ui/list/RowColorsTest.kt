@@ -222,6 +222,51 @@ class RowColorsTest {
         }
     }
 
+    /**
+     * The one selected row the design draws, cell by cell.
+     *
+     * Selection is a change of ground rather than a wash over the row, and this is the evidence:
+     * all twelve of these come out of mapping each neutral role to its counterpart on
+     * `primaryContainer`, with nothing listed as a special case
+     * ([B-48](../../../../../../../../docs/backlog/B-48-main-window-shell.md)).
+     */
+    @Test
+    fun aSelectedRowIsTheSameRowDrawnOnTheContainer() {
+        val downloading = designRows.single { it.state == TorrentState.Downloading }
+        val selected =
+            TorrentRowModel(
+                name = downloading.name,
+                size = downloading.size,
+                progress = downloading.progress,
+                percent = downloading.percent,
+                down = downloading.down,
+                up = downloading.up,
+                connected = downloading.connected,
+                unchoked = downloading.unchoked,
+                outstanding = downloading.outstanding,
+                ratio = downloading.ratio,
+                eta = downloading.eta,
+                state = downloading.state,
+                selected = true,
+            )
+        mapOf(
+            RowCell.Glyph to 0xFF71F6DE,
+            RowCell.Name to 0xFFDDF3EF,
+            RowCell.Size to 0xFFB7E8E0,
+            RowCell.Bar to 0xFF71F6DE,
+            RowCell.Track to 0xFF00302A,
+            RowCell.Percent to 0xFFDDF3EF,
+            RowCell.Down to 0xFFDDF3EF,
+            RowCell.Up to 0xFFB7E8E0,
+            RowCell.Peers to 0xFFDDF3EF,
+            RowCell.Ratio to 0xFFB7E8E0,
+            RowCell.Eta to 0xFFB7E8E0,
+            RowCell.Label to 0xFFDDF3EF,
+        ).forEach { (cell, argb) ->
+            assertEquals(Color(argb).hex(), color(selected, cell).hex(), "selected $cell")
+        }
+    }
+
     /** The peers cell is one string in one colour, which is what all 28 of the design's are. */
     @Test
     fun thePeersCellReadsAsTheDesignWritesIt() {

@@ -31,6 +31,10 @@ kotlin {
             dependencies {
                 implementation(kotlin("test"))
                 implementation(wip.kotlinx.coroutines.test)
+                // What a golden cannot answer: whether the text a person needs is on the screen at
+                // all, and whether it is still there a minute later.
+                @OptIn(org.jetbrains.compose.ExperimentalComposeLibrary::class)
+                implementation(compose.uiTest)
             }
         }
     }

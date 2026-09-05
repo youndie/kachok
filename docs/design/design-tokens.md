@@ -36,9 +36,10 @@ broken — a re-hash in progress and a clean stop under way — and colouring th
 something false while colouring them `primary` would hide them.
 
 Supporting values the document uses throughout, by frequency rather than by a named swatch:
-`#889390` (labels, column heads), `#BEC9C6` (body, and the middle figure level of §5), `#151C1A`
-(raised surface, and the hairline between two list rows), `#2A3331` and `#3A4442` (the hairlines
-that replace elevation), `#E5A9A1` (a figure inside an error row), `#4A3608` (warning container),
+`#889390` (labels, column heads), `#BEC9C6` (body, and the middle figure level of §5), `#161D1B`
+(the raised surface of the column header, the status bar and the title bar), `#1A2220` (one step
+above it), `#151C1A`, `#2A3331` and `#3A4442` (the hairlines that replace elevation — `#151C1A`
+**only** ever a border, in all 72 of its appearances, and `#161D1B` only ever a background), `#E5A9A1` (a figure inside an error row), `#4A3608` (warning container),
 `#4A2A27` / `#FFDAD6` (error container and its text), `#1F1614` (the error row's tint), `#3A2320`
 (its progress track), `#4A5654` (a stopping row's bar).
 
