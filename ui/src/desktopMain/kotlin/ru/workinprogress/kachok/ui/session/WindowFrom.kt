@@ -1,5 +1,6 @@
 package ru.workinprogress.kachok.ui.session
 
+import ru.workinprogress.kachok.ui.add.AddTorrentState
 import ru.workinprogress.kachok.ui.details.DetailsState
 import ru.workinprogress.kachok.ui.list.TorrentRowModel
 import ru.workinprogress.kachok.ui.list.TorrentState
@@ -55,10 +56,12 @@ internal fun windowOf(
     heapMaxBytes: Long,
     sessionError: String? = null,
     details: DetailsState? = null,
+    adding: AddTorrentState? = null,
 ): MainWindowState =
     MainWindowState(
         torrents = rows,
         details = details,
+        adding = adding,
         status = statusOf(rows, rates, listenPort, dhtNodes, heapUsedBytes, heapMaxBytes),
         degradedSummary =
             sessionError?.let {

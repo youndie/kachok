@@ -48,6 +48,8 @@ compared.
 | `.../ui/main/` | the toolbar, the banner, the column header, the status bar, and the window that stacks them |
 | `.../ui/details/DetailsPanel.kt` | the right-hand panel, its four tabs, and what the three empty ones say instead of rows |
 | `.../ui/session/DetailsFrom.kt` | `SessionState` as those fields, including the one the design badges `planned` |
+| `.../ui/add/AddTorrent.kt` | the add dialog, the drop overlay and the clipboard prompt |
+| `.../ui/session/AddFrom.kt` | a `Metainfo` or a `MagnetLink` as what the dialog is allowed to say |
 | `.../ui/session/Figures.kt` | three significant figures for a size, grouped thousands for a rate |
 | `.../ui/session/SessionRow.kt` | `SessionState` as a row, plus the lifecycle the engine has no field for |
 | `ui/src/desktopTest/.../session/AppDownloadTest.kt` | a real download from `:swarm`, sampled the way the window samples it |
@@ -130,7 +132,9 @@ None. Two command-line arguments and nothing read from the environment; the sett
   marks the row *planned*, and `PAUSED_IS_PLANNED` is asserted so that the day it changes somebody
   has to come back.
 * **One torrent per window.** The engine is one `Session` per torrent and nothing above it holds
-  several; the list, the status bar and the counts are all built for many and are given one.
+  several; the list, the status bar and the counts are all built for many and are given one, and
+  the add dialog's *Add* is greyed with that written on it
+  ([B-54](../backlog/B-54-many-torrents.md)).
 * **Three of the four details tabs have nothing to show.** *Files*, *Peers* and *Trackers* need
   engine changes that do not exist — per-file progress, peer identities, a status per tracker — so
   each says which one it is waiting for rather than drawing an empty table.

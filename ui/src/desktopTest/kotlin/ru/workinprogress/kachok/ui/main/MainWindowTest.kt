@@ -2,9 +2,11 @@ package ru.workinprogress.kachok.ui.main
 
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.v2.runComposeUiTest
+import ru.workinprogress.kachok.ui.add.designTorrentToAdd
 import ru.workinprogress.kachok.ui.theme.KachokTheme
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -78,6 +80,52 @@ class MainWindowTest {
             onNodeWithText("RATIO").performClick()
             onNodeWithText("PEERS · OUT").performClick()
             assertEquals(listOf(SortColumn.Ratio, SortColumn.Peers), asked)
+        }
+
+    /**
+     * The dialog reaches the screen.
+     *
+     * Without this the add screens are three goldens of a composable the window never draws — and
+     * a golden of something unreachable is a picture of an intention.
+     */
+    @Test
+    fun whatWasJustOpenedIsShownOverTheWindow(): Unit =
+        runComposeUiTest {
+            setContent {
+                KachokTheme {
+                    MainWindow(
+                        MainWindowState(
+                            torrents = designTorrents,
+                            status = designStatus,
+                            adding = designTorrentToAdd,
+                        ),
+                    )
+                }
+            }
+            // Twice: the toolbar's button and the dialog's title, which is the dialog being on
+            // top of the window rather than instead of it.
+            assertEquals(2, onAllNodesWithText("Add torrent").fetchSemanticsNodes().size)
+            onNodeWithText("debian-13.1.0-amd64-DVD-1.iso.torrent").assertIsDisplayed()
+            onNodeWithText("Browse…").assertIsDisplayed()
+        }
+
+    @Test
+    fun aDragOverTheWindowNamesWhatItWouldAdd(): Unit =
+        runComposeUiTest {
+            setContent {
+                KachokTheme {
+                    MainWindow(
+                        MainWindowState(
+                            torrents = designTorrents,
+                            status = designStatus,
+                            dropping = listOf("a.torrent", "b.torrent"),
+                            clipboardMagnet = "magnet:?xt=urn:btih:e4f2c1a9d3b7",
+                        ),
+                    )
+                }
+            }
+            onNodeWithText("Drop to add 2 torrents").assertIsDisplayed()
+            onNodeWithText("A magnet link is on the clipboard.").assertIsDisplayed()
         }
 
     @Test

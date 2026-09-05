@@ -1,16 +1,25 @@
 package ru.workinprogress.kachok.ui.main
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
+import ru.workinprogress.kachok.ui.add.AddTorrentDialog
+import ru.workinprogress.kachok.ui.add.AddTorrentState
+import ru.workinprogress.kachok.ui.add.ClipboardMagnetPrompt
+import ru.workinprogress.kachok.ui.add.DropOverlay
 import ru.workinprogress.kachok.ui.details.DetailsPanel
 import ru.workinprogress.kachok.ui.details.DetailsState
 import ru.workinprogress.kachok.ui.details.DetailsTab
@@ -33,6 +42,12 @@ internal class MainWindowState(
     val degradedDetail: String = "",
     /** Null when the panel is closed, which is also what the toolbar's toggle then says. */
     val details: DetailsState? = null,
+    /** What was just dropped, pasted or opened, and is waiting for a decision. */
+    val adding: AddTorrentState? = null,
+    /** A magnet noticed on the clipboard when the window came back into focus. */
+    val clipboardMagnet: String? = null,
+    /** The files hovering over the window right now. Empty means nothing is being dragged. */
+    val dropping: List<String> = emptyList(),
 )
 
 /**
@@ -50,26 +65,51 @@ internal fun MainWindow(
     onSort: (SortColumn) -> Unit = {},
     onAction: (ToolbarAction) -> Unit = {},
     onTab: (DetailsTab) -> Unit = {},
+    onCancelAdd: () -> Unit = {},
+    onConfirmAdd: () -> Unit = {},
+    onClipboardAdd: () -> Unit = {},
+    onClipboardDismiss: () -> Unit = {},
 ) {
-    Column(modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)) {
-        // The toggle says what the panel is doing rather than carrying its own opinion: two
-        // places recording "the panel is open" is one place for it to be wrong.
-        Toolbar(state.toolbar.withDetails(state.details != null), onAction = onAction)
-        Row(Modifier.fillMaxWidth().weight(1f)) {
-            Column(Modifier.weight(1f).fillMaxHeight()) {
-                // The banner is inside the list's column rather than across the window: it is one
-                // session's complaint, and the panel beside it is showing a torrent that may not
-                // be the one complaining.
-                if (state.degradedSummary != null) {
-                    DegradedBanner(state.degradedSummary, state.degradedDetail)
+    Box(modifier.fillMaxSize()) {
+        Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)) {
+            // The toggle says what the panel is doing rather than carrying its own opinion: two
+            // places recording "the panel is open" is one place for it to be wrong.
+            Toolbar(state.toolbar.withDetails(state.details != null), onAction = onAction)
+            Row(Modifier.fillMaxWidth().weight(1f)) {
+                Column(Modifier.weight(1f).fillMaxHeight()) {
+                    // The banner is inside the list's column rather than across the window: it is one
+                    // session's complaint, and the panel beside it is showing a torrent that may not
+                    // be the one complaining.
+                    if (state.degradedSummary != null) {
+                        DegradedBanner(state.degradedSummary, state.degradedDetail)
+                    }
+                    ColumnHeader(state.sort, onSort = onSort)
+                    LazyColumn(Modifier.fillMaxWidth().weight(1f)) {
+                        items(state.torrents) { torrent -> TorrentRow(torrent) }
+                    }
                 }
-                ColumnHeader(state.sort, onSort = onSort)
-                LazyColumn(Modifier.fillMaxWidth().weight(1f)) {
-                    items(state.torrents) { torrent -> TorrentRow(torrent) }
-                }
+                state.details?.let { DetailsPanel(it, onTab = onTab) }
             }
-            state.details?.let { DetailsPanel(it, onTab = onTab) }
+            StatusBar(state.status)
         }
-        StatusBar(state.status)
+        // Over everything, in the order a person meets them: a drag is happening now, a dialog is
+        // waiting for an answer, a clipboard offer is neither and sits at the bottom.
+        if (state.dropping.isNotEmpty()) DropOverlay(state.dropping)
+        state.clipboardMagnet?.let { link ->
+            Box(Modifier.align(Alignment.BottomCenter).padding(14.dp)) {
+                ClipboardMagnetPrompt(link, onAdd = onClipboardAdd, onDismiss = onClipboardDismiss)
+            }
+        }
+        state.adding?.let { adding ->
+            Box(
+                Modifier.fillMaxSize().background(SCRIM),
+                contentAlignment = Alignment.Center,
+            ) {
+                AddTorrentDialog(adding, onCancel = onCancelAdd, onAdd = onConfirmAdd)
+            }
+        }
     }
 }
+
+/** Dark enough that the window behind the dialog is context rather than competition. */
+private val SCRIM = Color.Black.copy(alpha = 0.45f)

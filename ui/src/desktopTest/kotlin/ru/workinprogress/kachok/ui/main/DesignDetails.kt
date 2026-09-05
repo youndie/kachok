@@ -25,12 +25,28 @@ internal val designSession: SessionState =
     SessionState(
         infoHash =
             InfoHash(
-                ByteArray(20).also {
-                    it[0] = 0x2B
-                    it[1] = 0x3A
-                    it[18] = 0xC7.toByte()
-                    it[19] = 0xF1.toByte()
-                },
+                byteArrayOf(
+                    0x2B.toByte(),
+                    0x3A.toByte(),
+                    0x91.toByte(),
+                    0xC4.toByte(),
+                    0xE0.toByte(),
+                    0xF7.toByte(),
+                    0xD8.toByte(),
+                    0xA5.toByte(),
+                    0xB6.toByte(),
+                    0xC3.toByte(),
+                    0x91.toByte(),
+                    0xE2.toByte(),
+                    0xF7.toByte(),
+                    0x0D.toByte(),
+                    0x4A.toByte(),
+                    0x8B.toByte(),
+                    0x5C.toByte(),
+                    0x6D.toByte(),
+                    0xC7.toByte(),
+                    0xF1.toByte(),
+                ),
             ),
         name = "debian-13.1.0-amd64-DVD-1.iso",
         totalLength = 3_972_844_748,

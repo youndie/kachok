@@ -52,6 +52,10 @@ public object Icons {
     public const val CHECK_BOX: String = "\ue9de" // check_box
     public const val CHECK_BOX_OUTLINE_BLANK: String = "\ue835" // check_box_outline_blank
     public const val ARROW_DROP_DOWN: String = "\ue5c5" // arrow_drop_down
+    public const val RADIO_BUTTON_CHECKED: String = "\ue837" // radio_button_checked
+    public const val RADIO_BUTTON_UNCHECKED: String = "\ue836" // radio_button_unchecked
+    public const val DOWNLOAD: String = "\uf090" // download
+    public const val CLOSE: String = "\ue5cd" // close
 }
 
 internal val MaterialSymbols: FontFamily =

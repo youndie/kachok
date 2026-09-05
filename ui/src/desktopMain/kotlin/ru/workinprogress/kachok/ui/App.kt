@@ -17,18 +17,26 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withTimeoutOrNull
 import ru.workinprogress.kachok.engine.io.EngineDispatchers
+import ru.workinprogress.kachok.engine.metainfo.MagnetParser
 import ru.workinprogress.kachok.engine.metainfo.MetainfoParser
 import ru.workinprogress.kachok.engine.runtime.RuntimeOptions
 import ru.workinprogress.kachok.engine.runtime.TorrentRuntime
+import ru.workinprogress.kachok.ui.add.AddTorrentState
 import ru.workinprogress.kachok.ui.details.DetailsTab
 import ru.workinprogress.kachok.ui.main.MainWindow
 import ru.workinprogress.kachok.ui.main.MainWindowState
 import ru.workinprogress.kachok.ui.session.Lifecycle
 import ru.workinprogress.kachok.ui.session.RateMeter
+import ru.workinprogress.kachok.ui.session.addFrom
 import ru.workinprogress.kachok.ui.session.detailsOf
 import ru.workinprogress.kachok.ui.session.rowOf
 import ru.workinprogress.kachok.ui.session.windowOf
 import ru.workinprogress.kachok.ui.theme.KachokTheme
+import java.awt.FileDialog
+import java.awt.Toolkit
+import java.awt.datatransfer.DataFlavor
+import java.awt.datatransfer.UnsupportedFlavorException
+import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.time.Duration.Companion.seconds
@@ -86,8 +94,10 @@ internal fun Torrent(
     // the toolbar's toggle reads them rather than keeping an opinion of its own.
     var panelOpen by remember { mutableStateOf(true) }
     var tab by remember { mutableStateOf(DetailsTab.Overview) }
+    var adding by remember { mutableStateOf<AddTorrentState?>(null) }
     val showPanel by rememberUpdatedState(panelOpen)
     val shownTab by rememberUpdatedState(tab)
+    val pending by rememberUpdatedState(adding)
     // Read through a state, not captured: the effect is launched once and `stopping` becomes true
     // later, so a plain parameter read inside it would be the value from before the close.
     val askedToStop by rememberUpdatedState(stopping)
@@ -146,6 +156,7 @@ internal fun Torrent(
                             } else {
                                 null
                             },
+                        adding = pending,
                     )
                 // The window stays up while the stop runs — the design's *stopping* row — and is
                 // bounded the way the CLI bounds it: a peer that will not close must not be able
@@ -165,11 +176,96 @@ internal fun Torrent(
     window?.let {
         MainWindow(
             it,
-            onAction = { action -> if (action.label == "Details panel") panelOpen = !panelOpen },
+            onAction = { action ->
+                when (action.label) {
+                    "Details panel" -> panelOpen = !panelOpen
+                    "Add torrent" -> adding = chooseTorrent(directory)
+                    "Paste magnet" -> adding = magnetFromClipboard(directory)
+                    else -> Unit
+                }
+            },
             onTab = { chosen -> tab = chosen },
+            onCancelAdd = { adding = null },
         )
     }
 }
+
+/**
+ * The reason *Add* is greyed out.
+ *
+ * One `Session` per torrent is the engine's shape today, and nothing above it holds several — the
+ * finding [B-52](../../../../../../../docs/backlog/B-52-ui-on-the-real-engine.md) opened with. So
+ * the dialog recognises what was dropped, says everything it can about it, and admits it cannot
+ * start it while another is running.
+ */
+private const val ONE_SESSION = "This build runs one torrent at a time."
+
+/** The file chooser is the platform's, because a file chooser drawn by hand is always worse. */
+private fun chooseTorrent(directory: Path): AddTorrentState? {
+    val dialog = FileDialog(null as java.awt.Frame?, "Add torrent", FileDialog.LOAD)
+    dialog.setFilenameFilter { _, name -> name.endsWith(".torrent") }
+    dialog.isVisible = true
+    val file = dialog.file ?: return null
+    val path = Path.of(dialog.directory, file)
+    return try {
+        addFrom(
+            metainfo = MetainfoParser.parse(Files.readAllBytes(path)),
+            fileName = file,
+            saveTo = directory.toAbsolutePath().toString(),
+            defaultDirectory = directory.toAbsolutePath().toString(),
+        ).refused()
+    } catch (unreadable: IOException) {
+        System.err.println("kachok: cannot read $path: ${unreadable.message}")
+        null
+    } catch (malformed: IllegalArgumentException) {
+        System.err.println("kachok: $file is not a usable torrent: ${malformed.message}")
+        null
+    }
+}
+
+/**
+ * Reading the clipboard is not consent to download what is in it.
+ *
+ * The link is shown in the dialog and waits there; nothing is dialled until somebody says so, and
+ * in this build nothing is dialled at all.
+ */
+private fun magnetFromClipboard(directory: Path): AddTorrentState? {
+    val text =
+        try {
+            Toolkit.getDefaultToolkit().systemClipboard.getData(DataFlavor.stringFlavor) as? String
+        } catch (unavailable: UnsupportedFlavorException) {
+            null
+        } catch (unreadable: IOException) {
+            null
+        } ?: return null
+    if (!text.trim().startsWith("magnet:")) return null
+    return try {
+        addFrom(
+            link = MagnetParser.parse(text.trim()),
+            saveTo = directory.toAbsolutePath().toString(),
+            defaultDirectory = directory.toAbsolutePath().toString(),
+        ).refused()
+    } catch (malformed: IllegalArgumentException) {
+        System.err.println("kachok: not a usable magnet link: ${malformed.message}")
+        null
+    }
+}
+
+private fun AddTorrentState.refused(): AddTorrentState =
+    AddTorrentState(
+        source = source,
+        summary = summary,
+        hash = hash,
+        magnet = magnet,
+        saveTo = saveTo,
+        defaultNote = defaultNote,
+        files = files,
+        wantedSummary = wantedSummary,
+        sequential = sequential,
+        startImmediately = startImmediately,
+        canAdd = false,
+        whyNot = ONE_SESSION,
+    )
 
 private fun heapUsed(): Long = Runtime.getRuntime().let { it.totalMemory() - it.freeMemory() }
 
