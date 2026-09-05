@@ -77,6 +77,9 @@ What exists on `main` today:
 | `engine/src/jvmTest/kotlin/ru/workinprogress/kachok/engine/storage/UploadPathBench.kt` | `transferTo` against a mapped segment on real sockets — research §1.3c |
 | `.../engine/choke/TokenBucket.kt` | the upload and download rate limits, spent by bytes and refilled by the timer |
 | `.../engine/wire/Message.kt` | the wire's messages, BEP 3's and BEP 6's `suggest` / `have all` / `have none` / `reject` / `allowed fast` |
+| `.../engine/wire/MetadataMessage.kt` | BEP 9's dictionary and the block that follows it with nothing in between |
+| `.../engine/metainfo/MetadataAssembly.kt` | the info dictionary arriving in blocks, hashed before it is read |
+| `.../engine/metainfo/MetadataFetcher.kt` | the session before the session: announce, dial, handshake, ask, verify |
 | `.../engine/dht/NodeId.kt` | 160-bit ids, XOR distance, and what a bucket is |
 | `.../engine/dht/Krpc.kt` | BEP 5's three message shapes and four queries, on this project's bencode |
 | `.../engine/dht/RoutingTable.kt` | buckets by common prefix, eviction by failure |
@@ -225,6 +228,17 @@ them. Nothing is read from the environment by this module; that is [cli](cli.md)
 * **A throttled download would stall without the timer.** Requests are normally issued when a block
   arrives, and no block arrives while nothing is asked for; the tick that refills the budget is
   also what asks every peer for more.
+* **BEP 9 puts bencode and raw bytes in one message with nothing between them.** No length, no
+  separator: the block starts at the byte after the dictionary's closing `e`, and the only thing
+  that knows where that is is the decoder — which is why `Bencode.decodePrefix` exists and why it
+  is the one place trailing bytes are not an error.
+* **Metadata is hashed before it is parsed.** All of it came from strangers who were asked by
+  identifier, so a mismatch throws the whole assembly away — a single SHA-1 over the whole cannot
+  say which peer sent the bad block.
+* **`metadata_size` is a number a stranger sends and this client allocates.** It is refused above
+  four megabytes, which is far past any torrent in circulation.
+* **A magnet announce sends a non-zero `left`.** The torrent's length is in the metadata being
+  fetched; zero would announce this client as a seed and bring back leechers only.
 * **`NodeId` is not a value class**, unlike the torrent's other twenty-byte identifiers. A value
   class around a `ByteArray` inherits the array's equality, which is identity; the routing table
   keys maps by node id, so every lookup would miss and the table would fill with duplicates of the

@@ -15,6 +15,20 @@ public object Bencode {
     /** Decodes exactly one value; trailing bytes are an error. */
     public fun decode(bytes: ByteArray): BValue = Decoder(bytes).decodeDocument()
 
+    /**
+     * Decodes one value from the front and says where it ended.
+     *
+     * For the one protocol that puts bencode and raw bytes in the same message: BEP 9's
+     * `ut_metadata` is a dictionary followed immediately by the block it describes, and there is no
+     * length anywhere saying where one stops and the other starts — the decoder's own position is
+     * the only answer. Everywhere else, trailing bytes are an error and [decode] is what to use.
+     */
+    public fun decodePrefix(bytes: ByteArray): Pair<BValue, Int> {
+        val decoder = Decoder(bytes)
+        val value = decoder.decodeOneValue()
+        return value to decoder.position
+    }
+
     /** Encodes canonically: dictionary keys sorted by raw byte order. */
     public fun encode(value: BValue): ByteArray {
         val sink = ByteSink()
@@ -36,6 +50,10 @@ private class Decoder(
     private val bytes: ByteArray,
 ) {
     private var pos = 0
+
+    val position: Int get() = pos
+
+    fun decodeOneValue(): BValue = decodeValue()
 
     fun decodeDocument(): BValue {
         val value = decodeValue()

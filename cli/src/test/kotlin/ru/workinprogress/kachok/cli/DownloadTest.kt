@@ -262,6 +262,21 @@ class DownloadTest {
     }
 
     @Test
+    fun aMagnetLinkIsASourceAndNotAPath() {
+        val magnet = Arguments.parseDownload(listOf("magnet:?xt=urn:btih:${"a".repeat(40)}&dn=x"))
+        assertTrue(magnet.source is TorrentSource.Magnet)
+
+        val file = Arguments.parseDownload(listOf("x.torrent"))
+        assertTrue(file.source is TorrentSource.File)
+
+        // A magnet that will not parse is the *download* failing, not the command line: the link
+        // is a well-formed argument that turns out to name nothing.
+        val err = StringBuilder()
+        assertEquals(Download.EXIT_FAILED, Cli.run(listOf("download", "magnet:?xt=nonsense"), StringBuilder(), err))
+        assertContains(err.toString(), "not a usable magnet link")
+    }
+
+    @Test
     fun theDhtIsOffUnlessAskedFor() {
         // Joining it means contacting three public routers and announcing this machine to
         // strangers. Nothing in phase 1 needs that — every torrent this client can open names a

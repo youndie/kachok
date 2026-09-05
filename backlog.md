@@ -50,7 +50,6 @@ which is also the order of work.
 
 | Task | | Priority | Size | Blocked by |
 |---|---|---|---|---|
-| [B-36](docs/backlog/B-36-ut-metadata-and-magnets.md) `[ ]` | Metadata exchange (BEP 9): make magnet links downloadable | P2 | M | B-05, B-10 |
 | [B-43](docs/backlog/B-43-picker-allocates-per-decision.md) `[ ]` | The picker allocates a candidate list on every request | P2 | S | - |
 | [B-44](docs/backlog/B-44-does-closing-a-peer-end-a-write-in-flight.md) `[ ]` | Does closing a peer socket end a write already in flight? | P2 | S/M | B-30 |
 | [B-31](docs/backlog/B-31-verify-codec-dispatch-is-a-tableswitch.md) `[ ]` | Check with javap that the message dispatch compiles to a tableswitch | P3 | XS | B-06 |
@@ -59,9 +58,10 @@ which is also the order of work.
 | [B-39](docs/backlog/B-39-compose-ui-desktop.md) `[ ]` | Phase 2: a Compose Multiplatform desktop UI on the engine's StateFlow | P3 | XL | B-19 |
 | [B-40](docs/backlog/B-40-wasmjs-ui-is-a-client-of-the-headless-engine.md) `[ ]` | Phase 2: the wasmJs UI is a client of the JVM headless engine | P3 | L | B-39 |
 | [B-41](docs/backlog/B-41-android-and-ios-targets.md) `[ ]` | Phase 3: Android and iOS targets on the engine | P3 | XL | B-39 |
+| [B-45](docs/backlog/B-45-serve-metadata-to-peers.md) `[ ]` | Serve the info dictionary to peers that ask (BEP 9) | P3 | S | B-36 |
 | [B-02](docs/backlog/B-02-ci-runs-build-and-docs-gates.md) `[ ]` | CI runs the build and the documentation gates on every push | infra | S | B-01 |
 
-## Closed (34)
+## Closed (35)
 
 **M0 — The build and its gates**
 
@@ -123,6 +123,7 @@ which is also the order of work.
 - [B-33](docs/backlog/B-33-fast-extension.md) `[x]` - Fast extension (BEP 6): reject, have all/none, allowed fast
 - [B-34](docs/backlog/B-34-peer-exchange.md) `[x]` - Peer exchange (BEP 11, ut_pex)
 - [B-35](docs/backlog/B-35-dht.md) `[x]` - Mainline DHT (BEP 5)
+- [B-36](docs/backlog/B-36-ut-metadata-and-magnets.md) `[x]` - Metadata exchange (BEP 9): make magnet links downloadable
 
 <!-- END INDEX -->
 

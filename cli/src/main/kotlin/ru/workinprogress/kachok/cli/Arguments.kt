@@ -2,9 +2,29 @@ package ru.workinprogress.kachok.cli
 
 import java.nio.file.Path
 
+/** Where the torrent comes from: a file on this machine, or an identifier and a swarm. */
+sealed interface TorrentSource {
+    class File(
+        val path: Path,
+    ) : TorrentSource {
+        override fun toString(): String = path.toString()
+    }
+
+    class Magnet(
+        val uri: String,
+    ) : TorrentSource {
+        override fun toString(): String = uri.take(MAGNET_IN_MESSAGES)
+
+        private companion object {
+            /** Enough of it to recognise, short enough not to fill an error message. */
+            const val MAGNET_IN_MESSAGES = 60
+        }
+    }
+}
+
 /** What `download` was asked to do. */
 class DownloadOptions(
-    val torrent: Path,
+    val source: TorrentSource,
     val directory: Path,
     val port: Int?,
     val maxPeers: Int,
@@ -39,7 +59,7 @@ class UsageException(
  */
 object Arguments {
     const val USAGE: String =
-        """kachok download <file.torrent> [options]
+        """kachok download <file.torrent | magnet:?xt=…> [options]
 
   --dir <path>        where to write (default: the working directory)
   --port <n>          listening port (default: the first free of 6881-6889)
@@ -51,8 +71,8 @@ object Arguments {
   --dht               join the DHT (BEP 5); a private torrent never does"""
 
     fun parseDownload(arguments: List<String>): DownloadOptions {
-        if (arguments.isEmpty()) throw UsageException("download needs a .torrent file")
-        var torrent: Path? = null
+        if (arguments.isEmpty()) throw UsageException("download needs a .torrent file or a magnet link")
+        var source: TorrentSource? = null
         var directory = Path.of(".")
         var port: Int? = null
         var maxPeers = DEFAULT_PEERS
@@ -102,15 +122,20 @@ object Arguments {
 
                 else -> {
                     if (argument.startsWith("--")) throw UsageException("unknown option '$argument'")
-                    if (torrent != null) throw UsageException("more than one .torrent given")
-                    torrent = Path.of(argument)
+                    if (source != null) throw UsageException("more than one torrent given")
+                    source =
+                        if (argument.startsWith(MAGNET_SCHEME)) {
+                            TorrentSource.Magnet(argument)
+                        } else {
+                            TorrentSource.File(Path.of(argument))
+                        }
                 }
             }
             index++
         }
 
         return DownloadOptions(
-            torrent = torrent ?: throw UsageException("download needs a .torrent file"),
+            source = source ?: throw UsageException("download needs a .torrent file or a magnet link"),
             directory = directory,
             port = port,
             maxPeers = maxPeers,
@@ -134,6 +159,7 @@ object Arguments {
     ): Int =
         text.toIntOrNull()?.takeIf { it > 0 } ?: throw UsageException("$option needs a positive number, got '$text'")
 
+    private const val MAGNET_SCHEME = "magnet:"
     private const val BYTES_PER_KIB = 1024L
     private const val DEFAULT_PEERS = 50
     private const val DEFAULT_PIPELINE = 16

@@ -30,8 +30,8 @@ module without touching the engine.
 No network API. The contract is the command line and the exit codes:
 
 ```
-kachok download <file.torrent> [--dir <path>] [--port <n>] [--peers <n>] [--pipeline <n>]
-                              [--seed] [--up <KiB/s>] [--down <KiB/s>]
+kachok download <file.torrent | magnet:?xt=urn:btih:…> [--dir <path>] [--port <n>]
+                [--peers <n>] [--pipeline <n>] [--seed] [--up <KiB/s>] [--down <KiB/s>] [--dht]
 ```
 
 | Exit | Meaning |
@@ -131,6 +131,9 @@ defaults to the first of BEP 3's 6881–6889 (the probe itself arrives with
   `installDist`'s start scripts, the run-time image's launcher and the verification script all
   read them from there — the script through the generated `image.properties`, so it cannot drift
   into checking an image the build would not produce.
+* **A magnet link is fetched before anything is opened.** It names a torrent and carries none of
+  it, so `Download` runs a `MetadataFetcher` first and only then knows what files to create. A
+  magnet with no trackers has nowhere to look unless `--dht` is on.
 * **A second `SIGINT` is not special-cased.** Doing it properly needs internal API; the ten-second
   bound on the clean stop already guarantees the process ends.
 

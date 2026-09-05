@@ -22,6 +22,8 @@ import ru.workinprogress.kachok.engine.io.EngineDispatchers
 import ru.workinprogress.kachok.engine.io.PeerListener
 import ru.workinprogress.kachok.engine.io.SocketPeerConnection
 import ru.workinprogress.kachok.engine.io.SocketPeerDialer
+import ru.workinprogress.kachok.engine.metainfo.MagnetParser
+import ru.workinprogress.kachok.engine.metainfo.MetadataFetcher
 import ru.workinprogress.kachok.engine.metainfo.Metainfo
 import ru.workinprogress.kachok.engine.metainfo.MetainfoParser
 import ru.workinprogress.kachok.engine.resume.FileResumeStore
@@ -57,29 +59,85 @@ class Download(
     private val err: Appendable,
 ) {
     suspend fun run(scope: CoroutineScope): Int {
-        val metainfo =
-            try {
-                MetainfoParser.parse(Files.readAllBytes(options.torrent))
-            } catch (unreadable: java.io.IOException) {
-                err.appendLine("kachok: cannot read ${options.torrent}: ${unreadable.message}")
-                return EXIT_FAILED
-            } catch (malformed: IllegalArgumentException) {
-                err.appendLine("kachok: ${options.torrent} is not a usable torrent: ${malformed.message}")
-                return EXIT_FAILED
-            }
-
-        Files.createDirectories(options.directory)
-        val files = FileSet.open(options.directory, metainfo)
         val dispatchers = EngineDispatchers()
         val sessionJob = SupervisorJob(scope.coroutineContext[Job])
         val sessionScope = CoroutineScope(scope.coroutineContext + dispatchers.io + sessionJob)
-
         try {
-            return download(metainfo, files, dispatchers, sessionScope, sessionJob)
+            val metainfo =
+                when (val source = options.source) {
+                    is TorrentSource.File -> readFile(source) ?: return EXIT_FAILED
+
+                    // A magnet is an identifier and nothing else: the torrent has to be fetched
+                    // from the swarm before there is anything to open a file for (BEP 9).
+                    is TorrentSource.Magnet -> fetchMagnet(source, dispatchers, sessionScope) ?: return EXIT_FAILED
+                }
+
+            Files.createDirectories(options.directory)
+            return FileSet.open(options.directory, metainfo).use { files ->
+                download(metainfo, files, dispatchers, sessionScope, sessionJob)
+            }
         } finally {
             sessionJob.cancelAndJoin()
-            files.close()
             dispatchers.close()
+        }
+    }
+
+    private fun readFile(source: TorrentSource.File): Metainfo? =
+        try {
+            MetainfoParser.parse(Files.readAllBytes(source.path))
+        } catch (unreadable: java.io.IOException) {
+            err.appendLine("kachok: cannot read ${source.path}: ${unreadable.message}")
+            null
+        } catch (malformed: IllegalArgumentException) {
+            err.appendLine("kachok: ${source.path} is not a usable torrent: ${malformed.message}")
+            null
+        }
+
+    /**
+     * BEP 9: a magnet link names a torrent and carries none of it.
+     *
+     * The peers this asks are the link's trackers, plus the DHT's when it is on — which is the one
+     * case where `--dht` is not optional in practice: a magnet with no trackers has nowhere else to
+     * look.
+     */
+    private suspend fun fetchMagnet(
+        source: TorrentSource.Magnet,
+        dispatchers: EngineDispatchers,
+        scope: CoroutineScope,
+    ): Metainfo? {
+        val link =
+            try {
+                MagnetParser.parse(source.uri)
+            } catch (malformed: IllegalArgumentException) {
+                err.appendLine("kachok: $source is not a usable magnet link: ${malformed.message}")
+                return null
+            }
+        out.appendLine("${link.displayName ?: "magnet"}: fetching the torrent from the swarm")
+        val identity = randomPeerId()
+        val pool = BufferPool(capacity = MIN_POOL)
+        return try {
+            MetadataFetcher(
+                link = link,
+                peerId = identity,
+                listenPort = options.port ?: TrackerProtocol.PORT_RANGE.first,
+                dialer =
+                    SocketPeerDialer(
+                        scope,
+                        link.infoHash,
+                        identity,
+                        pool,
+                        Handshake.reservedBits(extensionProtocol = true, fastExtension = true),
+                    ),
+                trackerClient =
+                    TrackerClientByScheme(
+                        http = HttpTrackerClient(dispatchers.io),
+                        udp = UdpTrackerClient(dispatchers.io),
+                    ),
+                blocking = dispatchers.io,
+            ).fetch(scope)
+        } catch (unavailable: IllegalArgumentException) {
+            err.appendLine("kachok: ${unavailable.message}")
+            null
         }
     }
 
