@@ -18,6 +18,7 @@ import ru.workinprogress.kachok.engine.choke.PeerRates
 import ru.workinprogress.kachok.engine.choke.RateMeter
 import ru.workinprogress.kachok.engine.choke.TokenBucket
 import ru.workinprogress.kachok.engine.metainfo.Metainfo
+import ru.workinprogress.kachok.engine.peer.CompactPeers
 import ru.workinprogress.kachok.engine.peer.PeerAddress
 import ru.workinprogress.kachok.engine.peer.PeerConnection
 import ru.workinprogress.kachok.engine.peer.PeerDialer
@@ -39,6 +40,7 @@ import ru.workinprogress.kachok.engine.wire.ExtensionHandshake
 import ru.workinprogress.kachok.engine.wire.Handshake
 import ru.workinprogress.kachok.engine.wire.Message
 import ru.workinprogress.kachok.engine.wire.PeerWire
+import ru.workinprogress.kachok.engine.wire.PexMessage
 import ru.workinprogress.kachok.engine.wire.WireException
 import kotlin.coroutines.ContinuationInterceptor
 import kotlin.random.Random
@@ -224,7 +226,7 @@ public class Session(
                         command.connection.close()
                     } else {
                         known += address
-                        scope.launch { serve(scope, command.connection) }
+                        scope.launch { serve(scope, command.connection, dialled = false) }
                     }
                 }
 
@@ -356,7 +358,7 @@ public class Session(
                 }
                 return
             }
-        serve(scope, connection)
+        serve(scope, connection, dialled = true)
     }
 
     /**
@@ -368,9 +370,13 @@ public class Session(
     private suspend fun serve(
         scope: CoroutineScope,
         connection: PeerConnection,
+        dialled: Boolean,
     ) {
         val address = connection.address
         val link = PeerLink(connection)
+        // Which side dialled decides what BEP 11 may say about this peer: the address an accepted
+        // connection came from is an ephemeral port, not one anybody can dial back.
+        link.dialled = dialled
         connected[address] = link
         picker.addPeer(address)
         publish { it.copy(connectedPeers = connected.size) }
@@ -405,7 +411,7 @@ public class Session(
                 }
             }
             for (event in connection.events) {
-                handle(link, event) ?: break
+                handle(scope, link, event) ?: break
             }
         } catch (cancelled: kotlinx.coroutines.CancellationException) {
             throw cancelled
@@ -430,6 +436,7 @@ public class Session(
 
     /** Null means the connection is over. */
     private suspend fun handle(
+        scope: CoroutineScope,
         link: PeerLink,
         event: PeerEvent,
     ): Unit? {
@@ -488,7 +495,7 @@ public class Session(
                     }
 
                     is Message.Extended -> {
-                        receiveExtended(link, message)
+                        receiveExtended(scope, link, message)
                     }
 
                     Message.HaveAll -> {
@@ -554,6 +561,76 @@ public class Session(
         }
     }
 
+    /**
+     * A peer told us about peers.
+     *
+     * Treated exactly like a tracker's answer, which is what it is: addresses go into the same
+     * `known` set and are dialled by the same rule. `dropped` is not acted on — a peer this client
+     * is connected to and enjoying is not dropped because somebody else lost it.
+     */
+    private fun receivePex(
+        scope: CoroutineScope,
+        link: PeerLink,
+        payload: ByteArray,
+    ) {
+        val message =
+            try {
+                PexMessage.decode(payload)
+            } catch (malformed: WireException) {
+                publish { it.copy(lastPeerError = "${link.connection.address}: ${malformed.message}") }
+                return
+            }
+        val before = known.size
+        // Bounded: `known` is fed by anything that can talk to us, and a peer sending a megabyte of
+        // addresses should cost this client one message's worth and not a growing set.
+        message.added.take(PexMessage.MAX_PER_MESSAGE).forEach { known += it }
+        if (known.size == before) return
+        publish { it.copy(knownPeers = known.size) }
+        // Dialled the same way a tracker's peers are. Without this a peer learned from `ut_pex`
+        // would wait for some *other* connection to end before anyone tried it, which for a client
+        // whose peers are all healthy is never.
+        scope.launch { connectMore(scope) }
+    }
+
+    /**
+     * BEP 11: tell each peer what has changed in the swarm since it was last told.
+     *
+     * The address advertised for a peer this client *accepted* is not the address it dialled from
+     * — that is an ephemeral port nothing listens on — but the one its BEP 10 handshake gave as
+     * `p`. A peer with no such handshake is not advertised at all: sending everyone to a dead port
+     * is worse than sending them one peer fewer.
+     */
+    private suspend fun sendPex() {
+        if (metainfo.isPrivate) return
+        val links = connected.snapshot()
+        val reachable =
+            links.mapNotNull { link -> advertisedAddress(link)?.let { link.connection.address to it } }.toMap()
+        for (link in links) {
+            val id = link.extensions?.id(ExtensionHandshake.UT_PEX) ?: continue
+            val current = (reachable - link.connection.address).values.toSet()
+            val added = (current - link.lastPexSent).take(PexMessage.MAX_PER_MESSAGE)
+            val dropped = (link.lastPexSent - current).take(PexMessage.MAX_PER_MESSAGE)
+            link.lastPexSent = current
+            val message =
+                PexMessage(
+                    added = added,
+                    dropped = dropped,
+                    addedFlags = added.map { if (picker.isSeed(it)) PexMessage.FLAG_SEED else 0 },
+                )
+            if (message.isEmpty) continue
+            link.send(Message.Extended(id, message.encode()))
+        }
+    }
+
+    /** Where another client should dial this peer, or null if this client does not know. */
+    private fun advertisedAddress(link: PeerLink): PeerAddress? {
+        val address = link.connection.address
+        if (!CompactPeers.isPackable(address.host)) return null
+        if (link.dialled) return address
+        val port = link.extensions?.listenPort ?: return null
+        return PeerAddress(address.host, port)
+    }
+
     /** Whether this client's own handshake carries BEP 6's bit. Read once, from what it sends. */
     private val ourFastExtension: Boolean = Handshake.hasFastExtension(config.reserved)
 
@@ -586,10 +663,25 @@ public class Session(
         }
     }
 
-    /** What this client tells a peer it can do. Its `m` is empty in phase 1 and that is a fact. */
+    /**
+     * What this client tells a peer it can do — and BEP 27: a private torrent gets **no** `ut_pex`
+     * in the dictionary at all.
+     *
+     * Not "offered and then never sent": the point of `private = 1` is that the swarm is the
+     * tracker's business, and a peer that sees `ut_pex` in the handshake will ask. The rule lives
+     * here, next to the only place that could break it.
+     */
+    private val offeredExtensions: Map<String, Int> =
+        if (metainfo.isPrivate) {
+            config.extensions - ExtensionHandshake.UT_PEX
+        } else {
+            config.extensions + (ExtensionHandshake.UT_PEX to PEX_ID)
+        }
+
+    /** The dictionary itself, which is [offeredExtensions] plus who this client is. */
     private fun ourExtensionHandshake(): ExtensionHandshake =
         ExtensionHandshake(
-            extensions = config.extensions,
+            extensions = offeredExtensions,
             clientVersion = config.clientVersion,
             listenPort = listenPort,
             requestQueueLength = config.pipelineDepth,
@@ -604,9 +696,14 @@ public class Session(
      * whole mechanism rests on both sides ignoring what they do not recognise.
      */
     private fun receiveExtended(
+        scope: CoroutineScope,
         link: PeerLink,
         message: Message.Extended,
     ) {
+        if (message.extensionId == PEX_ID && offeredExtensions.containsKey(ExtensionHandshake.UT_PEX)) {
+            receivePex(scope, link, message.payload)
+            return
+        }
         if (message.extensionId != ExtensionHandshake.HANDSHAKE_ID) return
         val handshake =
             try {
@@ -801,6 +898,7 @@ public class Session(
         var sinceFlush = kotlin.time.Duration.ZERO
         var sinceChoke = kotlin.time.Duration.ZERO
         var sinceResume = kotlin.time.Duration.ZERO
+        var sincePex = kotlin.time.Duration.ZERO
         var sinceOptimistic = config.optimisticInterval
         while (!stopping) {
             delay(config.tick)
@@ -813,6 +911,11 @@ public class Session(
             if (sinceFlush >= config.flushInterval) {
                 sinceFlush = kotlin.time.Duration.ZERO
                 tick("flush") { storage.flush() }
+            }
+            sincePex += config.tick
+            if (sincePex >= config.pexInterval) {
+                sincePex = kotlin.time.Duration.ZERO
+                tick("peer exchange") { sendPex() }
             }
             tick("rates") { refillRateLimits() }
             tick("expiry") { expireRequests() }
@@ -1002,12 +1105,24 @@ public class Session(
 
         /** Pieces this peer will serve while it is choking us (BEP 6's `allowed fast`). */
         val allowedFast: MutableSet<Int> = LinkedHashSet()
+
+        /** Whether this client dialled the peer, or the peer dialled it (BEP 11 cares). */
+        var dialled: Boolean = false
+
+        /** What this peer was last told about the swarm, so the next `ut_pex` can be a delta. */
+        var lastPexSent: Set<PeerAddress> = emptySet()
     }
 
     private companion object {
         const val DEFAULT_ANNOUNCE_SECONDS = 1800
         const val MIN_ANNOUNCE_SECONDS = 60
         const val MILLIS_PER_SECOND = 1000L
+
+        /**
+         * The id this client asks peers to send `ut_pex` under. Ours to choose, and theirs to
+         * choose theirs — BEP 10's ids are not symmetric.
+         */
+        const val PEX_ID = 1
 
         /**
          * How many of a peer's requests may wait for upload tokens.

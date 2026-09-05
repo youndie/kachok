@@ -29,6 +29,7 @@ import ru.workinprogress.kachok.engine.wire.ExtensionHandshake
 import ru.workinprogress.kachok.engine.wire.Handshake
 import ru.workinprogress.kachok.engine.wire.Message
 import ru.workinprogress.kachok.engine.wire.PeerWire
+import ru.workinprogress.kachok.engine.wire.PexMessage
 import kotlin.test.Test
 import kotlin.test.assertContains
 import kotlin.test.assertEquals
@@ -78,17 +79,32 @@ class SessionTest {
     private val peerB = PeerAddress("10.0.0.2", 6881)
     private val ourPeerId = PeerId("-KA0001-0123456789AB".encodeToByteArray())
 
+    /** The messages this client sent under one peer's `ut_pex` id, decoded. */
+    private fun pexOf(
+        connection: FakeConnection,
+        id: Int,
+    ): List<PexMessage> =
+        connection.sent
+            .filterIsInstance<Message.Extended>()
+            .filter { it.extensionId == id }
+            .map { PexMessage.decode(it.payload) }
+
+    private fun privateTorrent(pieces: Int): Metainfo = torrent(pieces, private = true)
+
     /** [pieces] pieces of exactly one block each. */
-    private fun torrent(pieces: Int): Metainfo {
-        val info =
-            BDictionary(
-                mapOf(
-                    BString("length") to BInteger(pieces.toLong() * PeerWire.BLOCK_SIZE),
-                    BString("name") to BString("fixture"),
-                    BString("piece length") to BInteger(PeerWire.BLOCK_SIZE.toLong()),
-                    BString("pieces") to BString(ByteArray(pieces * Metainfo.HASH_SIZE) { it.toByte() }),
-                ),
+    private fun torrent(
+        pieces: Int,
+        private: Boolean = false,
+    ): Metainfo {
+        val fields =
+            mutableMapOf<BString, ru.workinprogress.kachok.engine.bencode.BValue>(
+                BString("length") to BInteger(pieces.toLong() * PeerWire.BLOCK_SIZE),
+                BString("name") to BString("fixture"),
+                BString("piece length") to BInteger(PeerWire.BLOCK_SIZE.toLong()),
+                BString("pieces") to BString(ByteArray(pieces * Metainfo.HASH_SIZE) { it.toByte() }),
             )
+        if (private) fields[BString("private")] = BInteger(1)
+        val info = BDictionary(fields)
         val root =
             BDictionary(
                 mapOf(
@@ -825,6 +841,143 @@ class SessionTest {
                 },
                 "a BEP 3 peer was sent a BEP 6 message: ${connection.sent}",
             )
+            job.cancelAndJoin()
+        }
+
+    @Test
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    fun twoPeersLearnOfEachOtherWithinAMinute() =
+        runTest {
+            // The acceptance criterion of B-34. Both speak BEP 10 and both offer ut_pex, under
+            // different ids on purpose: the ids are the receiver's and are not symmetric.
+            val metainfo = torrent(pieces = 4)
+            val dialer = FakeDialer(metainfo.infoHash, reserved = Handshake.reservedBits(extensionProtocol = true))
+            val session =
+                session(metainfo, dialer, FakeTracker(listOf(peerA, peerB)), FakeStorage(), AgreeableHasher(metainfo))
+            val job = session.start(kotlinx.coroutines.CoroutineScope(coroutineContext + handler))
+            testScheduler.runCurrent()
+
+            val first = dialer.connections.getValue(peerA)
+            val second = dialer.connections.getValue(peerB)
+            first.incoming.send(
+                PeerEvent.Received(
+                    Message.Extended(0, ExtensionHandshake(mapOf(ExtensionHandshake.UT_PEX to 3)).encode()),
+                ),
+            )
+            second.incoming.send(
+                PeerEvent.Received(
+                    Message.Extended(0, ExtensionHandshake(mapOf(ExtensionHandshake.UT_PEX to 7)).encode()),
+                ),
+            )
+            testScheduler.runCurrent()
+
+            assertTrue(pexOf(first, 3).isEmpty(), "nothing is exchanged before the interval is up")
+
+            testScheduler.advanceTimeBy(61_000)
+            testScheduler.runCurrent()
+
+            val toFirst = pexOf(first, 3).single()
+            val toSecond = pexOf(second, 7).single()
+            assertEquals(
+                listOf(peerB.host to peerB.port),
+                toFirst.added.map { it.host to it.port },
+                "the first peer was not told about the second",
+            )
+            assertEquals(listOf(peerA.host to peerA.port), toSecond.added.map { it.host to it.port })
+            assertTrue(toFirst.dropped.isEmpty() && toSecond.dropped.isEmpty())
+            job.cancelAndJoin()
+        }
+
+    @Test
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    fun theSecondMessageIsADeltaAndNotTheSwarmAgain() =
+        runTest {
+            val metainfo = torrent(pieces = 4)
+            val dialer = FakeDialer(metainfo.infoHash, reserved = Handshake.reservedBits(extensionProtocol = true))
+            val session =
+                session(metainfo, dialer, FakeTracker(listOf(peerA, peerB)), FakeStorage(), AgreeableHasher(metainfo))
+            val job = session.start(kotlinx.coroutines.CoroutineScope(coroutineContext + handler))
+            testScheduler.runCurrent()
+
+            val first = dialer.connections.getValue(peerA)
+            listOf(first to 3, dialer.connections.getValue(peerB) to 7).forEach { (connection, id) ->
+                connection.incoming.send(
+                    PeerEvent.Received(
+                        Message.Extended(0, ExtensionHandshake(mapOf(ExtensionHandshake.UT_PEX to id)).encode()),
+                    ),
+                )
+            }
+            testScheduler.advanceTimeBy(61_000)
+            testScheduler.runCurrent()
+            assertEquals(1, pexOf(first, 3).size)
+
+            // Nothing changed in the swarm, so there is nothing to say. A message repeating the
+            // same peer every minute would still be well formed and still parse.
+            testScheduler.advanceTimeBy(61_000)
+            testScheduler.runCurrent()
+
+            assertEquals(1, pexOf(first, 3).size, "an unchanged swarm produced a second message")
+            job.cancelAndJoin()
+        }
+
+    @Test
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    fun aPrivateTorrentNeverOffersPeerExchangeAtAll() =
+        runTest {
+            // BEP 27: not "offered and never sent". A peer that sees ut_pex in the handshake asks.
+            val metainfo = privateTorrent(pieces = 4)
+            val dialer = FakeDialer(metainfo.infoHash, reserved = Handshake.reservedBits(extensionProtocol = true))
+            val session =
+                session(metainfo, dialer, FakeTracker(listOf(peerA, peerB)), FakeStorage(), AgreeableHasher(metainfo))
+            val job = session.start(kotlinx.coroutines.CoroutineScope(coroutineContext + handler))
+            testScheduler.runCurrent()
+
+            val first = dialer.connections.getValue(peerA)
+            val offered =
+                ExtensionHandshake.decode((first.sent.first { it is Message.Extended } as Message.Extended).payload)
+            assertTrue(
+                !offered.supports(ExtensionHandshake.UT_PEX),
+                "a private torrent offered ut_pex: ${offered.extensions}",
+            )
+
+            first.incoming.send(
+                PeerEvent.Received(
+                    Message.Extended(0, ExtensionHandshake(mapOf(ExtensionHandshake.UT_PEX to 3)).encode()),
+                ),
+            )
+            testScheduler.advanceTimeBy(61_000)
+            testScheduler.runCurrent()
+
+            assertTrue(pexOf(first, 3).isEmpty(), "a private torrent sent ut_pex anyway")
+            job.cancelAndJoin()
+        }
+
+    @Test
+    fun peersFromAPexMessageAreDialledLikeATrackersAre() =
+        runTest {
+            val metainfo = torrent(pieces = 4)
+            val dialer = FakeDialer(metainfo.infoHash, reserved = Handshake.reservedBits(extensionProtocol = true))
+            val session =
+                session(metainfo, dialer, FakeTracker(listOf(peerA)), FakeStorage(), AgreeableHasher(metainfo))
+            val job = session.start(kotlinx.coroutines.CoroutineScope(coroutineContext + handler))
+            testScheduler.runCurrent()
+            assertEquals(listOf(peerA), dialer.dialled)
+
+            val stranger = PeerAddress("10.9.9.9", 6881)
+            val first = dialer.connections.getValue(peerA)
+            first.incoming.send(
+                PeerEvent.Received(
+                    Message.Extended(0, ExtensionHandshake(mapOf(ExtensionHandshake.UT_PEX to 3)).encode()),
+                ),
+            )
+            // Under the id *this* client published, which is the only one a peer may use with it.
+            first.incoming.send(
+                PeerEvent.Received(Message.Extended(1, PexMessage(added = listOf(stranger)).encode())),
+            )
+            testScheduler.runCurrent()
+
+            assertContains(dialer.dialled, stranger, "a peer named over ut_pex was never dialled")
+            assertEquals(2, session.state.value.knownPeers)
             job.cancelAndJoin()
         }
 

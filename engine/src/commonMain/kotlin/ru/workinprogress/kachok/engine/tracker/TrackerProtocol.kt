@@ -6,6 +6,7 @@ import ru.workinprogress.kachok.engine.bencode.BList
 import ru.workinprogress.kachok.engine.bencode.BString
 import ru.workinprogress.kachok.engine.bencode.Bencode
 import ru.workinprogress.kachok.engine.bencode.BencodeException
+import ru.workinprogress.kachok.engine.peer.CompactPeers
 import ru.workinprogress.kachok.engine.peer.PeerAddress
 
 /**
@@ -80,18 +81,15 @@ public object TrackerProtocol {
     private fun parsePeers(value: Any?): List<PeerAddress> =
         when (value) {
             is BString -> {
-                if (value.bytes.size % COMPACT_PEER_SIZE != 0) {
+                // Refused rather than truncated: a `peers` string that is not a whole number of
+                // peers means the tracker and this client disagree about the format, and reading
+                // the part that fits would be reading somebody else's idea of an address.
+                if (value.bytes.size % CompactPeers.SIZE != 0) {
                     throw TrackerException(
-                        "compact `peers` is ${value.bytes.size} bytes, not a multiple of $COMPACT_PEER_SIZE",
+                        "compact `peers` is ${value.bytes.size} bytes, not a multiple of ${CompactPeers.SIZE}",
                     )
                 }
-                (value.bytes.indices step COMPACT_PEER_SIZE).map { at ->
-                    val host = (0 until 4).joinToString(".") { (value.bytes[at + it].toInt() and 0xFF).toString() }
-                    val port =
-                        ((value.bytes[at + 4].toInt() and 0xFF) shl 8) or
-                            (value.bytes[at + 5].toInt() and 0xFF)
-                    PeerAddress(host, port)
-                }
+                CompactPeers.decode(value.bytes)
             }
 
             is BList -> {
@@ -121,7 +119,6 @@ public object TrackerProtocol {
             }
         }
 
-    private const val COMPACT_PEER_SIZE = 6
     private const val HEX = "0123456789ABCDEF"
     private val UNRESERVED =
         ('a'..'z').toSet() + ('A'..'Z').toSet() + ('0'..'9').toSet() + setOf('-', '_', '.', '~')

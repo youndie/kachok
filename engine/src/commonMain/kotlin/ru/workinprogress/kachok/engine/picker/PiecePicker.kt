@@ -110,6 +110,9 @@ public class PiecePicker(
     /** How many peers have this piece. Zero means nobody connected can serve it. */
     public fun availabilityOf(piece: PieceIndex): Int = availability[piece.value]
 
+    /** Whether this peer claims the whole torrent — BEP 11's `added.f` seed flag. */
+    public fun isSeed(peer: PeerAddress): Boolean = peers[peer]?.isComplete == true
+
     /** True if there is anything this peer could give us. Drives `interested`/`not interested`. */
     public fun isInteresting(peer: PeerAddress): Boolean {
         val bitfield = peers[peer] ?: return false

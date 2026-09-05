@@ -1,6 +1,6 @@
 package ru.workinprogress.kachok.engine.tracker
 
-import ru.workinprogress.kachok.engine.peer.PeerAddress
+import ru.workinprogress.kachok.engine.peer.CompactPeers
 import ru.workinprogress.kachok.engine.wire.PeerWire
 
 /** The tracker's address, taken apart. BEP 15 speaks to a host and a port, not to a path. */
@@ -47,7 +47,6 @@ public object UdpTrackerProtocol {
     public const val ANNOUNCE_REQUEST_SIZE: Int = 98
     private const val CONNECT_REPLY_SIZE = 16
     private const val ANNOUNCE_REPLY_HEADER = 20
-    private const val COMPACT_PEER_SIZE = 6
     private const val HEADER_SIZE = 8
 
     /**
@@ -188,16 +187,9 @@ public object UdpTrackerProtocol {
         packet: ByteArray,
         length: Int,
     ): AnnounceResponse {
-        val peers = mutableListOf<PeerAddress>()
-        var at = ANNOUNCE_REPLY_HEADER
-        // A trailing fragment of a peer is dropped rather than read past: the six bytes that are
-        // there are an address without a port, which is not an address.
-        while (at + COMPACT_PEER_SIZE <= length) {
-            val host = (0 until 4).joinToString(".") { (packet[at + it].toInt() and 0xFF).toString() }
-            val port = ((packet[at + 4].toInt() and 0xFF) shl 8) or (packet[at + 5].toInt() and 0xFF)
-            peers += PeerAddress(host, port)
-            at += COMPACT_PEER_SIZE
-        }
+        // A trailing fragment of a peer is dropped rather than read past: the bytes that are there
+        // are an address without a port, which is not an address.
+        val peers = CompactPeers.decode(packet, ANNOUNCE_REPLY_HEADER, length)
         return AnnounceResponse(
             interval = PeerWire.readInt(packet, 8),
             peers = peers,

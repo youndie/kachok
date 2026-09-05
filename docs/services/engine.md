@@ -77,6 +77,8 @@ What exists on `main` today:
 | `engine/src/jvmTest/kotlin/ru/workinprogress/kachok/engine/storage/UploadPathBench.kt` | `transferTo` against a mapped segment on real sockets — research §1.3c |
 | `.../engine/choke/TokenBucket.kt` | the upload and download rate limits, spent by bytes and refilled by the timer |
 | `.../engine/wire/Message.kt` | the wire's messages, BEP 3's and BEP 6's `suggest` / `have all` / `have none` / `reject` / `allowed fast` |
+| `.../engine/wire/PexMessage.kt` | BEP 11's `added` / `dropped` delta |
+| `.../engine/peer/CompactPeers.kt` | BEP 23's six bytes, shared by both trackers and by peer exchange |
 | `.../engine/wire/ExtensionHandshake.kt` | BEP 10's `m` dictionary: what a peer can do and the id it wants each extension sent under |
 | `.../engine/tracker/Tracker.kt`, `TrackerProtocol.kt` | the announce model, the query string and the response parsing — both peer encodings |
 | `.../engine/tracker/UdpTrackerProtocol.kt` | BEP 15's two requests, three replies and retransmit schedule, without a socket |
@@ -218,6 +220,17 @@ them. Nothing is read from the environment by this module; that is [cli](cli.md)
 * **A throttled download would stall without the timer.** Requests are normally issued when a block
   arrives, and no block arrives while nothing is asked for; the tick that refills the budget is
   also what asks every peer for more.
+* **`ut_pex` is a delta, and that is the easy thing to get wrong.** A message repeating the whole
+  swarm every minute is still well formed and still parses. Each peer's link remembers what it was
+  last told, and an unchanged swarm produces no message at all.
+* **A private torrent is not offered `ut_pex`, not merely never sent one.** BEP 27's point is that
+  the swarm is the tracker's business, and a peer that sees the name in the handshake will ask.
+* **The address advertised for an accepted peer is not the one it dialled from.** That is an
+  ephemeral port nothing listens on; the dialable one is BEP 10's `p`, and a peer that gave no
+  handshake is not advertised at all. Sending everyone to a dead port is worse than telling them
+  about one peer fewer.
+* **A peer learned from `ut_pex` is dialled at once.** The alternative — waiting for the next time
+  a connection ends — is never, for a client whose peers are all healthy.
 * **BEP 6 is worth having for `reject` alone.** Without it a choke leaves both pickers guessing
   which of their outstanding requests died, and the answer arrives as a thirty-second timeout. With
   it the block is free in one round trip, and `PiecePicker.requestRejected` frees exactly the one

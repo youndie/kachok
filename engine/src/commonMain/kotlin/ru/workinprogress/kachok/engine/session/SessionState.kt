@@ -121,6 +121,14 @@ public class SessionConfig(
      * is a re-hash of those pieces and nothing worse.
      */
     public val resumeInterval: Duration = 60.seconds,
+    /**
+     * BEP 11: `ut_pex` no more often than this, per peer.
+     *
+     * A minute because that is the specification's floor and because the message is a delta —
+     * sending it faster mostly sends empty dictionaries, and sending it slower makes a new peer
+     * wait a minute longer to hear about a swarm this client already knows.
+     */
+    public val pexInterval: Duration = 60.seconds,
     /** Wait before dialling a peer that just failed. */
     public val reconnectDelay: Duration = 30.seconds,
     /**
