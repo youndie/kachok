@@ -50,12 +50,12 @@ which is also the order of work.
 
 | Task | | Priority | Size | Blocked by |
 |---|---|---|---|---|
-| [B-30](docs/backlog/B-30-measure-transferto-vs-mmap.md) `[ ]` | Does seeding need mmap? Measure transferTo against a mapped file | P2 | M | B-20 |
 | [B-33](docs/backlog/B-33-fast-extension.md) `[ ]` | Fast extension (BEP 6): reject, have all/none, allowed fast | P2 | M | B-06 |
 | [B-34](docs/backlog/B-34-peer-exchange.md) `[ ]` | Peer exchange (BEP 11, ut_pex) | P2 | M | B-10 |
 | [B-35](docs/backlog/B-35-dht.md) `[ ]` | Mainline DHT (BEP 5) | P2 | L | - |
 | [B-36](docs/backlog/B-36-ut-metadata-and-magnets.md) `[ ]` | Metadata exchange (BEP 9): make magnet links downloadable | P2 | M | B-05, B-10 |
 | [B-43](docs/backlog/B-43-picker-allocates-per-decision.md) `[ ]` | The picker allocates a candidate list on every request | P2 | S | - |
+| [B-44](docs/backlog/B-44-does-closing-a-peer-end-a-write-in-flight.md) `[ ]` | Does closing a peer socket end a write already in flight? | P2 | S/M | B-30 |
 | [B-31](docs/backlog/B-31-verify-codec-dispatch-is-a-tableswitch.md) `[ ]` | Check with javap that the message dispatch compiles to a tableswitch | P3 | XS | B-06 |
 | [B-37](docs/backlog/B-37-v2-and-hybrid-torrents.md) `[?]` | v2 and hybrid torrents (BEP 52): SHA-256 piece layers | P3 | L | B-04 |
 | [B-38](docs/backlog/B-38-ipv6.md) `[ ]` | IPv6 peers and trackers (BEP 7) | P3 | S | B-15 |
@@ -64,7 +64,7 @@ which is also the order of work.
 | [B-41](docs/backlog/B-41-android-and-ios-targets.md) `[ ]` | Phase 3: Android and iOS targets on the engine | P3 | XL | B-39 |
 | [B-02](docs/backlog/B-02-ci-runs-build-and-docs-gates.md) `[ ]` | CI runs the build and the documentation gates on every push | infra | S | B-01 |
 
-## Closed (30)
+## Closed (31)
 
 **M0 — The build and its gates**
 
@@ -118,6 +118,7 @@ which is also the order of work.
 - [B-27](docs/backlog/B-27-measure-heap-and-collector.md) `[x]` - Measure the heap the engine needs, with G1 and with ZGC
 - [B-28](docs/backlog/B-28-aot-cache-in-the-distribution.md) `[x]` - Build the AOT cache with the launcher's flags and prove it maps
 - [B-29](docs/backlog/B-29-jlink-runtime-image.md) `[x]` - A jlinked run-time image, the jars, and a launcher script
+- [B-30](docs/backlog/B-30-measure-transferto-vs-mmap.md) `[x]` - Does seeding need mmap? Measure transferTo against a mapped file
 
 **M8 — Extensions**
 

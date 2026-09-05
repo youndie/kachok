@@ -34,3 +34,23 @@ kotlin {
         }
     }
 }
+
+// The upload read path comparison of B-30. Not part of `build`: it takes minutes and it measures
+// this machine's page cache as much as this code.
+tasks.register<JavaExec>("uploadPathBench") {
+    group = "verification"
+    description = "Serves a file to local peers with transferTo and with a mapped segment, and compares them"
+    mainClass.set("ru.workinprogress.kachok.engine.storage.UploadPathBench")
+    val testCompilation =
+        kotlin.targets
+            .getByName("jvm")
+            .compilations
+            .getByName("test")
+    classpath = files(testCompilation.runtimeDependencyFiles, testCompilation.output.allOutputs)
+    javaLauncher.set(
+        javaToolchains.launcherFor {
+            languageVersion.set(java.toolchain.languageVersion.get())
+        },
+    )
+    args = (project.findProperty("benchArgs") as String?)?.split(" ") ?: emptyList()
+}

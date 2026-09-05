@@ -377,6 +377,51 @@ nothing on macOS and Linux, where files are sparse by default". The first half s
 is dropped by `UnixChannelFactory`. The second half was too glib: a file is sparse only if it is
 *extended* rather than *written*, and nothing about the platform makes that choice for you.
 
+### 1.3c `transferTo` against a mapped file, measured
+
+[D5](#d5-seeding-reads-go-through-transferto-first-mmap-is-a-measured-hypothesis-deviation-from-the-brief)
+chose `transferTo` over the brief's FFM mmap on an argument about copies. Both readings were
+plausible, which is the only reason to measure. A 256 MB file, five peers on loopback pulling flat
+out, 16 KiB spans at random positions, one virtual thread per connection; three runs of eight
+seconds each, macOS/aarch64, JDK 25.0.2, 2026-09-05 (`./gradlew :engine:uploadPathBench`):
+
+| Read path | Throughput | CPU per GB served | Peak platform threads |
+|---|---|---|---|
+| **`transferTo`** | **3157–3298 MB/s** | **1.84–1.92 s** | 17 |
+| `mmap` + `write(segment.asByteBuffer())` | 2603–2870 MB/s | 2.10–2.30 s | 17 |
+
+The ranges do not overlap on either column, which is what makes this a result rather than an
+impression. Five peers because that is the operating point the choker defines — four regular slots
+and one optimistic (§1.5) — not because more would not fit.
+
+**Consequence 1 — D5 stands, and now for a measured reason.** `transferTo` moves about 15 % more
+data for about 15 % less CPU. The copy-count argument said the two paths should be *equal*; they
+are not, and the difference goes the way the argument's conclusion did rather than the way its
+reasoning implied. What the mapping costs is the `asByteBuffer()` view and the page faults behind
+it, neither of which appears in a count of copies.
+
+**Consequence 2 — the carrier price D5 warned about is not visible at the operating point.**
+`transferTo` is compensated file I/O (§1.1), so a seeding storm should cost carriers; `mmap` +
+`write` is a memory access and a socket write, which should not. At five peers both peaked at 17
+platform threads. Whatever the compensation costs, it is not what separates these two paths here.
+
+**A hazard found while measuring, mechanism not established.** Above about ten concurrent peers
+the harness could no longer stop itself: after the run flag was cleared and every socket closed,
+every one of its forty threads was still alive two seconds later, and `FileChannel.close()` then
+blocked indefinitely in `NativeThreadSet.signalAndWait` waiting for the eight still inside
+`transferTo0` (main-thread stack captured with `jcmd`). It happens on **both** paths — with the
+mapping the thread is in a plain `SocketChannel.write` — so it is not a property of `transferTo`.
+What it looks like is that closing a `SocketChannel` from another thread does not reliably end a
+blocking write already in progress on it, on this platform. That is a symptom and a stack, not a
+mechanism, and the numbers above are from five peers where it does not arise. Whether the engine
+can meet it on shutdown is [B-44](../backlog/B-44-does-closing-a-peer-end-a-write-in-flight.md).
+
+**Not covered.** A file larger than the page cache. Both numbers above are cache-to-socket, which
+is the case a seeding client usually has and the favourable one for both paths; a cold file would
+be a different measurement and is not this one. Nor is the mapping's other use — scanning a
+multi-gigabyte file to hash it at start-up — which is what mmap uniquely buys and remains
+[B-24](../backlog/B-24-startup-verification-of-existing-data.md)'s question rather than this one.
+
 ### 1.4 Kotlin, coroutines and the build
 
 Verified against Maven Central (`repo1.maven.org/maven2/<group>/<artifact>/maven-metadata.xml`),
@@ -623,6 +668,14 @@ Why:
   `maxPoolSize`. Uploads are bounded by the choker (four unchoked peers plus one optimistic, §1.5)
   which bounds the concurrent `transferTo` calls to five per torrent. Measured in M7 with
   `jdk.VirtualThreadPinned` and thread counts before the cap is raised.
+
+**Confirmed by §1.3c (M7, B-30), with the reasoning corrected.** `transferTo` moves 15 % more data
+for 15 % less CPU than the mapped path at the choker's operating point, and the ranges do not
+overlap. The decision is unchanged; the second bullet above is not. It said an mmap read ends in
+"the same copy count as `transferTo`" and therefore in the same cost — and if that were the whole
+story the two would have measured equal. They did not. The mapping's `asByteBuffer()` view and the
+faults behind it are real work that a count of copies does not see. The carrier price in the last
+bullet did not appear either: seventeen platform threads on both paths at five peers.
 
 ### D6. G1, compact object headers, and a 128 MB heap — all three measured *(deviation from the brief)*
 

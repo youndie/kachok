@@ -74,6 +74,7 @@ What exists on `main` today:
 | `.../engine/resume/ResumeRecord.kt` | what survives a restart, bencoded, and the store interface |
 | `.../engine/resume/FileResumeStore.kt` (jvmMain) | a temporary sibling and an `ATOMIC_MOVE` |
 | `.../engine/resume/StartupVerifier.kt` | what is already on the disk, before a peer is dialled |
+| `engine/src/jvmTest/kotlin/ru/workinprogress/kachok/engine/storage/UploadPathBench.kt` | `transferTo` against a mapped segment on real sockets — research §1.3c |
 | `.../engine/choke/TokenBucket.kt` | the upload and download rate limits, spent by bytes and refilled by the timer |
 | `.../engine/wire/ExtensionHandshake.kt` | BEP 10's `m` dictionary: what a peer can do and the id it wants each extension sent under |
 | `.../engine/tracker/Tracker.kt`, `TrackerProtocol.kt` | the announce model, the query string and the response parsing — both peer encodings |
