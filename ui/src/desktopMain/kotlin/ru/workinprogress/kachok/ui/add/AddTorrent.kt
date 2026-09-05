@@ -75,6 +75,23 @@ internal class AddTorrentState(
     val canAdd: Boolean = true,
     val whyNot: String? = null,
 ) {
+    /** The same recognition, saved somewhere else. */
+    internal fun savingTo(path: String): AddTorrentState =
+        AddTorrentState(
+            source = source,
+            summary = summary,
+            hash = hash,
+            magnet = magnet,
+            saveTo = path,
+            defaultNote = defaultNote,
+            files = files,
+            wantedSummary = wantedSummary,
+            sequential = sequential,
+            startImmediately = startImmediately,
+            canAdd = canAdd,
+            whyNot = whyNot,
+        )
+
     /** The same recognition, with the button off and a reason beside it. */
     internal fun refused(reason: String): AddTorrentState =
         AddTorrentState(
@@ -111,6 +128,7 @@ internal fun AddTorrentDialog(
     modifier: Modifier = Modifier,
     onCancel: () -> Unit = {},
     onAdd: () -> Unit = {},
+    onBrowse: () -> Unit = {},
 ) {
     val scheme = MaterialTheme.colorScheme
     Column(
@@ -126,7 +144,7 @@ internal fun AddTorrentDialog(
             modifier = Modifier.padding(start = EDGE, end = EDGE, top = 18.dp, bottom = 14.dp),
         )
         SourceCard(state)
-        SaveTo(state)
+        SaveTo(state, onBrowse)
         if (state.files.isNotEmpty()) Files(state)
         Sequential(state)
         StartMode(state)
@@ -178,7 +196,10 @@ private fun SourceCard(state: AddTorrentState) {
 }
 
 @Composable
-private fun SaveTo(state: AddTorrentState) {
+private fun SaveTo(
+    state: AddTorrentState,
+    onBrowse: () -> Unit,
+) {
     val scheme = MaterialTheme.colorScheme
     Column(
         Modifier.fillMaxWidth().padding(start = EDGE, end = EDGE, top = 16.dp),
@@ -208,6 +229,8 @@ private fun SaveTo(state: AddTorrentState) {
                 Modifier
                     .height(FIELD_HEIGHT)
                     .border(HAIRLINE, scheme.outline, RoundedCornerShape(4.dp))
+                    // The one decision this dialog exists to take. It was a bordered box.
+                    .clickable(onClick = onBrowse)
                     .padding(horizontal = 14.dp),
                 contentAlignment = Alignment.Center,
             ) {
@@ -297,6 +320,14 @@ private fun Sequential(state: AddTorrentState) {
     }
 }
 
+/**
+ * One choice, and one that is not a choice yet.
+ *
+ * *Add paused* needs a paused state the engine does not have
+ * ([B-57](../../../../../../../../docs/backlog/B-57-a-paused-torrent.md)), so it carries the
+ * design's badge and does not respond — rather than moving the dot to an option that would then
+ * start the torrent anyway.
+ */
 @Composable
 private fun StartMode(state: AddTorrentState) {
     Column(

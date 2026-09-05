@@ -2,6 +2,7 @@ package ru.workinprogress.kachok.ui.settings
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -13,12 +14,16 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -32,8 +37,33 @@ import ru.workinprogress.kachok.ui.theme.MonoSmall
 import ru.workinprogress.kachok.ui.theme.PathText
 import ru.workinprogress.kachok.ui.theme.warningColors
 
+/**
+ * Which setting a row is, and whether it can be changed here at all.
+ *
+ * **A key with a reason cannot be edited, and the screen says so** — the same invariant the toolbar
+ * got in [B-56](../../../../../../../../docs/backlog/B-56-dead-toolbar-controls.md) and the same
+ * defect it was written for: a row that looks like a field and is a picture. Two of these cannot
+ * take effect because what they configure is built once, when the process starts.
+ */
+internal enum class SettingKey(
+    val disabledBecause: String? = null,
+) {
+    SaveTo,
+    StartWhenAdded,
+    ListeningPort("bound when the process starts"),
+    MaxPeers,
+    PipelineDepth,
+    UploadLimit,
+    DownloadLimit,
+    Dht("the socket and the routing table are built with the session set"),
+    ;
+
+    val editable: Boolean get() = disabledBecause == null
+}
+
 /** What a setting is: a name, why it matters, its measured default, and what it is now. */
 internal class Setting(
+    val key: SettingKey,
     val label: String,
     /** The design's own rule: the default is printed, not hidden in a blank field. */
     val default: String,
@@ -59,7 +89,26 @@ internal class SettingsState(
     val sections: List<SettingsSection>,
     val footnote: String,
     val footnotePlanned: Boolean = true,
-)
+) {
+    val all: List<Setting> get() = sections.flatMap { it.settings }
+}
+
+/** What the screen reports when something on it is changed. */
+internal sealed interface SettingChange {
+    class Toggled(
+        val key: SettingKey,
+        val on: Boolean,
+    ) : SettingChange
+
+    class Typed(
+        val key: SettingKey,
+        val text: String,
+    ) : SettingChange
+
+    class Browsed(
+        val key: SettingKey,
+    ) : SettingChange
+}
 
 /**
  * One screen, in the window, with the measured default printed beside every field.
@@ -75,6 +124,7 @@ internal class SettingsState(
 internal fun SettingsScreen(
     state: SettingsState,
     modifier: Modifier = Modifier,
+    onChange: (SettingChange) -> Unit = {},
 ) {
     val scheme = MaterialTheme.colorScheme
     Column(modifier.fillMaxSize().background(scheme.surface)) {
@@ -86,7 +136,7 @@ internal fun SettingsScreen(
                     color = scheme.onSurfaceVariant,
                     modifier = Modifier.padding(start = EDGE, end = EDGE, top = 16.dp, bottom = 6.dp),
                 )
-                section.settings.forEach { SettingRow(it) }
+                section.settings.forEach { SettingRow(it, onChange) }
             }
         }
         Footnote(state)
@@ -94,7 +144,10 @@ internal fun SettingsScreen(
 }
 
 @Composable
-private fun SettingRow(setting: Setting) {
+private fun SettingRow(
+    setting: Setting,
+    onChange: (SettingChange) -> Unit,
+) {
     val scheme = MaterialTheme.colorScheme
     Column {
         Row(
@@ -104,7 +157,11 @@ private fun SettingRow(setting: Setting) {
         ) {
             Column(Modifier.weight(1f)) {
                 Text(setting.label, style = LABEL, color = scheme.onSurface)
-                setting.note?.let {
+                val note =
+                    setting.key.disabledBecause
+                        ?.let { why -> listOfNotNull(setting.note, "Not changeable here — $why.").joinToString(" ") }
+                        ?: setting.note
+                note?.let {
                     Text(
                         it,
                         style = NOTE,
@@ -119,9 +176,21 @@ private fun SettingRow(setting: Setting) {
             ) {
                 Text("default ${setting.default}", style = DEFAULT, color = scheme.onSurfaceVariant)
                 when {
-                    setting.toggle != null -> Toggle(setting.toggle)
-                    setting.folder -> FolderField(setting.value, setting.changed)
-                    else -> ValueField(setting)
+                    setting.toggle != null -> {
+                        Toggle(setting.toggle, setting.key, setting.label) {
+                            onChange(SettingChange.Toggled(setting.key, !setting.toggle))
+                        }
+                    }
+
+                    setting.folder -> {
+                        FolderField(setting.value, setting.changed) {
+                            onChange(SettingChange.Browsed(setting.key))
+                        }
+                    }
+
+                    else -> {
+                        ValueField(setting) { onChange(SettingChange.Typed(setting.key, it)) }
+                    }
                 }
                 setting.unit?.let {
                     Text(it, style = DEFAULT, color = scheme.onSurfaceVariant, modifier = Modifier.width(UNIT_WIDTH))
@@ -132,9 +201,38 @@ private fun SettingRow(setting: Setting) {
     }
 }
 
+/**
+ * A number, typed into.
+ *
+ * `BasicTextField` and not `OutlinedTextField` for the reason the whole screen is drawn by hand:
+ * the M3 field brings a label slot, a supporting line and 56 dp of height to a row that is 30.
+ *
+ * A key that cannot take effect is drawn as text and says why on the row, rather than as a field
+ * that accepts what somebody types and throws it away.
+ */
 @Composable
-private fun ValueField(setting: Setting) {
+private fun ValueField(
+    setting: Setting,
+    onTyped: (String) -> Unit,
+) {
     val scheme = MaterialTheme.colorScheme
+    if (!setting.key.editable) {
+        Box(
+            Modifier
+                .height(FIELD_HEIGHT)
+                .width(if (setting.unit == null) FIELD_WIDTH else WIDE_FIELD)
+                .padding(horizontal = 9.dp),
+            contentAlignment = Alignment.CenterEnd,
+        ) {
+            Text(
+                setting.value,
+                style = MonoSmall.copy(fontSize = 12.sp),
+                color = scheme.onSurfaceVariant,
+                maxLines = 1,
+            )
+        }
+        return
+    }
     Box(
         Modifier
             .height(FIELD_HEIGHT)
@@ -148,15 +246,20 @@ private fun ValueField(setting: Setting) {
             ).padding(horizontal = 9.dp),
         contentAlignment = Alignment.CenterEnd,
     ) {
-        Text(
-            setting.value,
-            style = MonoSmall.copy(fontSize = 12.sp),
-            // A value that is absent is dimmed; a zero would not be, and that is the difference
-            // the words are there to carry.
-            color = if (setting.absent) scheme.onSurfaceVariant else scheme.onSurface,
-            textAlign = TextAlign.End,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
+        BasicTextField(
+            value = setting.value,
+            onValueChange = onTyped,
+            singleLine = true,
+            textStyle =
+                MonoSmall.copy(
+                    fontSize = 12.sp,
+                    // A value that is absent is dimmed; a zero would not be, and that is the
+                    // difference the words are there to carry.
+                    color = if (setting.absent) scheme.onSurfaceVariant else scheme.onSurface,
+                    textAlign = TextAlign.End,
+                ),
+            cursorBrush = SolidColor(scheme.primary),
+            modifier = Modifier.fillMaxWidth(),
         )
     }
 }
@@ -165,6 +268,7 @@ private fun ValueField(setting: Setting) {
 private fun FolderField(
     path: String,
     changed: Boolean,
+    onBrowse: () -> Unit,
 ) {
     val scheme = MaterialTheme.colorScheme
     Row(horizontalArrangement = Arrangement.spacedBy(7.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -187,6 +291,8 @@ private fun FolderField(
             Modifier
                 .height(FIELD_HEIGHT)
                 .border(HAIRLINE, scheme.outline, RoundedCornerShape(4.dp))
+                .semantics { contentDescription = "Browse" }
+                .clickable(onClick = onBrowse)
                 .padding(horizontal = 11.dp),
             contentAlignment = Alignment.Center,
         ) {
@@ -196,10 +302,17 @@ private fun FolderField(
 }
 
 @Composable
-private fun Toggle(on: Boolean) {
+private fun Toggle(
+    on: Boolean,
+    key: SettingKey,
+    label: String,
+    onToggle: () -> Unit,
+) {
     val scheme = MaterialTheme.colorScheme
     Box(
         Modifier
+            .semantics { contentDescription = label }
+            .clickable(enabled = key.editable, onClick = onToggle)
             .width(TOGGLE_WIDTH)
             .height(TOGGLE_HEIGHT)
             .background(

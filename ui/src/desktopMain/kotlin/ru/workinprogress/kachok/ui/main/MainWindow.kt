@@ -25,6 +25,7 @@ import ru.workinprogress.kachok.ui.details.DetailsState
 import ru.workinprogress.kachok.ui.details.DetailsTab
 import ru.workinprogress.kachok.ui.list.TorrentRow
 import ru.workinprogress.kachok.ui.list.TorrentRowModel
+import ru.workinprogress.kachok.ui.settings.SettingChange
 import ru.workinprogress.kachok.ui.settings.SettingsScreen
 import ru.workinprogress.kachok.ui.settings.SettingsState
 
@@ -75,6 +76,8 @@ internal fun MainWindow(
     onClipboardAdd: () -> Unit = {},
     onClipboardDismiss: () -> Unit = {},
     onAddTorrent: () -> Unit = {},
+    onBrowse: () -> Unit = {},
+    onSetting: (SettingChange) -> Unit = {},
 ) {
     Box(modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)) {
@@ -94,7 +97,7 @@ internal fun MainWindow(
                     }
                     when {
                         state.settings != null -> {
-                            SettingsScreen(state.settings, Modifier.weight(1f))
+                            SettingsScreen(state.settings, Modifier.weight(1f), onSetting)
                         }
 
                         // Nine column heads over nothing is a table that looks broken; this looks
@@ -132,7 +135,7 @@ internal fun MainWindow(
                 Modifier.fillMaxSize().background(SCRIM),
                 contentAlignment = Alignment.Center,
             ) {
-                AddTorrentDialog(adding, onCancel = onCancelAdd, onAdd = onConfirmAdd)
+                AddTorrentDialog(adding, onCancel = onCancelAdd, onAdd = onConfirmAdd, onBrowse = onBrowse)
             }
         }
     }

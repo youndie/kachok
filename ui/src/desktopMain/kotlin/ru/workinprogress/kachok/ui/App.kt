@@ -48,6 +48,7 @@ import ru.workinprogress.kachok.ui.session.RateMeter
 import ru.workinprogress.kachok.ui.session.Rates
 import ru.workinprogress.kachok.ui.session.Sample
 import ru.workinprogress.kachok.ui.session.addFrom
+import ru.workinprogress.kachok.ui.session.chooseDirectory
 import ru.workinprogress.kachok.ui.session.clicked
 import ru.workinprogress.kachok.ui.session.detailsOf
 import ru.workinprogress.kachok.ui.session.inOrder
@@ -55,6 +56,7 @@ import ru.workinprogress.kachok.ui.session.magnetRow
 import ru.workinprogress.kachok.ui.session.rowOf
 import ru.workinprogress.kachok.ui.session.settingsOf
 import ru.workinprogress.kachok.ui.session.windowOf
+import ru.workinprogress.kachok.ui.settings.SettingChange
 import ru.workinprogress.kachok.ui.theme.KachokTheme
 import java.awt.FileDialog
 import java.awt.Frame
@@ -78,7 +80,12 @@ import kotlin.time.Duration.Companion.seconds
  */
 public fun main(args: Array<String>) {
     val torrent = args.firstOrNull()?.let { Path.of(it) }
-    val directory = Path.of(args.getOrElse(1) { "." })
+    // `~/Downloads` and not the working directory, which for an app launched from Finder or a
+    // Start menu is wherever the launcher happened to be. It is also what the settings screen
+    // prints as the default, and a default nothing uses is a lie printed on every row.
+    val directory =
+        args.getOrNull(1)?.let { Path.of(it) }
+            ?: Path.of(System.getProperty("user.home"), "Downloads")
     application {
         // **The theme wraps the frame, not the frame's content.** `AppFrame` draws the title bar
         // itself, from `MaterialTheme.colorScheme.surfaceVariant` — with `KachokTheme` one level
@@ -123,7 +130,14 @@ private class Pending(
     val metainfo: Metainfo?,
     val magnet: MagnetLink?,
     val shown: AddTorrentState,
-)
+) {
+    /** Where this one goes, which is a choice about this torrent and not about the next. */
+    fun savingTo(path: String): Pending = Pending(metainfo, magnet, shown.savingTo(path))
+
+    fun directory(): java.nio.file.Path =
+        java.nio.file.Path
+            .of(shown.saveTo)
+}
 
 /**
  * A magnet between the yes and the torrent.
@@ -161,6 +175,9 @@ internal fun Client(
     var selected by remember { mutableStateOf<String?>(null) }
     var order by remember { mutableStateOf<List<String>>(emptyList()) }
     var settingsOpen by remember { mutableStateOf(false) }
+    // What the settings screen has been told. Held for the session and not written anywhere: there
+    // is no settings file yet, and inventing one is a decision about where it lives.
+    var preferences by remember { mutableStateOf(Preferences(directory = directory.toAbsolutePath().toString())) }
     var sort by remember { mutableStateOf(SortOrder()) }
     // Read through a state, not captured: the effect is launched once and these change later, so
     // a plain read inside it would be the value from before the click.
@@ -170,6 +187,7 @@ internal fun Client(
     val shownAdd by rememberUpdatedState(pending?.shown)
     val chosen by rememberUpdatedState(selected)
     val showSettings by rememberUpdatedState(settingsOpen)
+    val chosenPreferences by rememberUpdatedState(preferences)
     val sortedBy by rememberUpdatedState(sort)
     // The dialog runs on the composition and the engine on its own dispatcher; a channel is the
     // seam, so a click never blocks a frame on a torrent being opened and hashed.
@@ -182,14 +200,20 @@ internal fun Client(
         val meters = mutableMapOf<String, RateMeter>()
         val savedTo = directory.toAbsolutePath().toString()
         try {
-            initial?.let { open(set, MetainfoParser.parse(Files.readAllBytes(it)), directory, scope) }
+            initial?.let {
+                open(set, MetainfoParser.parse(Files.readAllBytes(it)), chosenPreferences, scope)
+            }
             val fetching = mutableListOf<Fetching>()
             var asked = false
             var stopTicks = 0
             while (true) {
                 while (true) {
                     val next = accepted.tryReceive().getOrNull() ?: break
-                    next.metainfo?.let { open(set, it, directory, scope) }
+                    // The settings a person has typed reach the *next* torrent. Nothing reaches a
+                    // running one — that is the screen's own footnote, and B-62.
+                    // Where *this* torrent goes was decided in its own dialog; everything else
+                    // about it comes from the settings.
+                    next.metainfo?.let { open(set, it, chosenPreferences.withDirectory(next.shown.saveTo), scope) }
                     next.magnet?.let { fetching += Fetching(it) }
                 }
                 // A fetch runs on the engine's scope and puts its torrent through the same door a
@@ -282,9 +306,7 @@ internal fun Client(
                         adding = shownAdd,
                         settings =
                             if (showSettings) {
-                                settingsOf(
-                                    Preferences(directory = savedTo, port = set.listenPort),
-                                )
+                                settingsOf(chosenPreferences.boundTo(set.listenPort))
                             } else {
                                 null
                             },
@@ -311,15 +333,37 @@ internal fun Client(
                 when (action.command) {
                     ToolbarCommand.ToggleDetails -> panelOpen = !panelOpen
                     ToolbarCommand.ToggleSettings -> settingsOpen = !settingsOpen
-                    ToolbarCommand.AddTorrent -> pending = chooseTorrent(directory)
-                    ToolbarCommand.PasteMagnet -> pending = magnetFromClipboard(directory)
+                    ToolbarCommand.AddTorrent -> pending = chooseTorrent(preferences.directory)
+                    ToolbarCommand.PasteMagnet -> pending = magnetFromClipboard(preferences.directory)
                     null -> Unit
                 }
             },
             onSort = { column -> sort = sort.clicked(column) },
             onTab = { chosenTab -> tab = chosenTab },
             onSelect = { row -> order.getOrNull(row)?.let { selected = it } },
-            onAddTorrent = { pending = chooseTorrent(directory) },
+            onAddTorrent = { pending = chooseTorrent(preferences.directory) },
+            onBrowse = {
+                chooseDirectory("Save to", preferences.directory)?.let { chosen ->
+                    pending = pending?.savingTo(chosen)
+                }
+            },
+            onSetting = { change ->
+                when (change) {
+                    is SettingChange.Browsed -> {
+                        chooseDirectory("Save to", preferences.directory)?.let {
+                            preferences = preferences.withDirectory(it)
+                        }
+                    }
+
+                    is SettingChange.Toggled -> {
+                        preferences = preferences.toggled(change.key, change.on)
+                    }
+
+                    is SettingChange.Typed -> {
+                        preferences = preferences.typed(change.key, change.text)
+                    }
+                }
+            },
             onCancelAdd = { pending = null },
             onConfirmAdd = {
                 pending?.let { accepted.trySend(it) }
@@ -332,10 +376,10 @@ internal fun Client(
 private suspend fun open(
     set: TorrentSet,
     metainfo: Metainfo,
-    directory: Path,
+    preferences: Preferences,
     scope: CoroutineScope,
 ): TorrentRuntime =
-    set.add(metainfo, RuntimeOptions(directory = directory)).also {
+    set.add(metainfo, preferences.runtimeOptions()).also {
         it.restore()
         it.start(scope)
     }
@@ -345,13 +389,14 @@ private suspend fun allStopped(set: TorrentSet): Boolean =
     withTimeoutOrNull(TICK) { set.torrents.forEach { it.awaitStopped() } } != null
 
 /** The file chooser is the platform's, because a file chooser drawn by hand is always worse. */
-private fun chooseTorrent(directory: Path): Pending? {
+private fun chooseTorrent(directory: String): Pending? {
     val dialog = FileDialog(null as Frame?, "Add torrent", FileDialog.LOAD)
     dialog.setFilenameFilter { _, name -> name.endsWith(".torrent") }
+    dialog.directory = directory
     dialog.isVisible = true
     val file = dialog.file ?: return null
     val path = Path.of(dialog.directory, file)
-    val here = directory.toAbsolutePath().toString()
+    val here = directory
     return try {
         val metainfo = MetainfoParser.parse(Files.readAllBytes(path))
         Pending(metainfo, null, addFrom(metainfo, file, saveTo = here, defaultDirectory = here))
@@ -371,7 +416,7 @@ private fun chooseTorrent(directory: Path): Pending? {
  * in this build nothing is dialled at all, because the window has no `MetadataFetcher` in front of
  * a session yet. The dialog says that where the file list would be.
  */
-private fun magnetFromClipboard(directory: Path): Pending? {
+private fun magnetFromClipboard(directory: String): Pending? {
     val text =
         try {
             Toolkit.getDefaultToolkit().systemClipboard.getData(DataFlavor.stringFlavor) as? String
@@ -381,7 +426,7 @@ private fun magnetFromClipboard(directory: Path): Pending? {
             null
         } ?: return null
     if (!text.trim().startsWith("magnet:")) return null
-    val here = directory.toAbsolutePath().toString()
+    val here = directory
     return try {
         val link = MagnetParser.parse(text.trim())
         Pending(metainfo = null, magnet = link, shown = addFrom(link, saveTo = here, defaultDirectory = here))

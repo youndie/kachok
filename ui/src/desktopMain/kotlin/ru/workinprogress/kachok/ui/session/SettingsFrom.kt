@@ -4,6 +4,7 @@ import ru.workinprogress.kachok.engine.runtime.RuntimeOptions
 import ru.workinprogress.kachok.engine.session.SessionConfig
 import ru.workinprogress.kachok.engine.tracker.TrackerProtocol
 import ru.workinprogress.kachok.ui.settings.Setting
+import ru.workinprogress.kachok.ui.settings.SettingKey
 import ru.workinprogress.kachok.ui.settings.SettingsSection
 import ru.workinprogress.kachok.ui.settings.SettingsState
 
@@ -14,7 +15,7 @@ import ru.workinprogress.kachok.ui.settings.SettingsState
  * `port 6881 listening` from the same number, and a settings screen that showed the wish while the
  * status bar showed the fact would be two answers to one question the first time 6881 was busy.
  */
-internal class Preferences(
+internal data class Preferences(
     val directory: String,
     val startWhenAdded: Boolean = true,
     val port: Int? = null,
@@ -23,7 +24,64 @@ internal class Preferences(
     val uploadLimitKibPerSecond: Long? = null,
     val downloadLimitKibPerSecond: Long? = null,
     val dht: Boolean = false,
-)
+) {
+    /** The same preferences with the port the listener actually bound written into them. */
+    fun boundTo(port: Int): Preferences = copy(port = port)
+
+    fun withDirectory(path: String): Preferences = copy(directory = path)
+
+    fun toggled(
+        key: SettingKey,
+        on: Boolean,
+    ): Preferences =
+        when (key) {
+            SettingKey.StartWhenAdded -> copy(startWhenAdded = on)
+            SettingKey.Dht -> copy(dht = on)
+            else -> this
+        }
+
+    /**
+     * A number, as far as it is a number.
+     *
+     * Empty is not zero and not an error: it is a field somebody is halfway through clearing, and
+     * it keeps the default until there is something to read. A limit of nothing stays `no limit`,
+     * which is the one place where the words and the engine's `0` are different things.
+     */
+    fun typed(
+        key: SettingKey,
+        text: String,
+    ): Preferences {
+        val digits = text.filter { it.isDigit() }
+        val number = digits.toLongOrNull()
+        return when (key) {
+            SettingKey.MaxPeers -> copy(maxPeers = number?.toInt())
+            SettingKey.PipelineDepth -> copy(pipelineDepth = number?.toInt())
+            SettingKey.UploadLimit -> copy(uploadLimitKibPerSecond = number)
+            SettingKey.DownloadLimit -> copy(downloadLimitKibPerSecond = number)
+            else -> this
+        }
+    }
+
+    /**
+     * What the next torrent is opened with.
+     *
+     * The port is not here: the listener is the set's and is bound once. A limit is given in
+     * kibibytes on the screen and in bytes to the engine, which is the same conversion the headless
+     * client makes from `--up` and `--down`.
+     */
+    fun runtimeOptions(): RuntimeOptions =
+        RuntimeOptions(
+            directory =
+                java.nio.file.Path
+                    .of(directory),
+            maxPeers = maxPeers ?: RuntimeOptions.DEFAULT_MAX_PEERS,
+            pipelineDepth = pipelineDepth ?: RuntimeOptions.DEFAULT_PIPELINE,
+            uploadLimitBytesPerSecond = (uploadLimitKibPerSecond ?: 0) * KIB,
+            downloadLimitBytesPerSecond = (downloadLimitKibPerSecond ?: 0) * KIB,
+        )
+}
+
+private const val KIB = 1024L
 
 /**
  * The settings screen, with every default read out of `SessionConfig` rather than typed here.
@@ -48,6 +106,7 @@ internal fun settingsOf(
                     "DOWNLOADS",
                     listOf(
                         Setting(
+                            key = SettingKey.SaveTo,
                             label = "Save to",
                             default = DEFAULT_DIRECTORY,
                             value = preferences.directory,
@@ -55,6 +114,7 @@ internal fun settingsOf(
                             changed = preferences.directory != DEFAULT_DIRECTORY,
                         ),
                         Setting(
+                            key = SettingKey.StartWhenAdded,
                             label = "Start torrents when added",
                             default = "on",
                             value = "",
@@ -66,6 +126,7 @@ internal fun settingsOf(
                     "NETWORK",
                     listOf(
                         Setting(
+                            key = SettingKey.ListeningPort,
                             label = "Listening port",
                             note =
                                 "The first free port of ${TrackerProtocol.PORT_RANGE.first}–" +
@@ -75,6 +136,7 @@ internal fun settingsOf(
                             changed = (preferences.port ?: defaultPort) != defaultPort,
                         ),
                         Setting(
+                            key = SettingKey.MaxPeers,
                             label = "Connections to keep up",
                             note = "Also the second term of the buffer pool's working set.",
                             default = "${defaults.maxPeers}",
@@ -82,6 +144,7 @@ internal fun settingsOf(
                             changed = preferences.maxPeers != null && preferences.maxPeers != defaults.maxPeers,
                         ),
                         Setting(
+                            key = SettingKey.PipelineDepth,
                             label = "Requests outstanding per peer",
                             note = "Too few idles the link; too many hold pool buffers.",
                             default = "${defaults.pipelineDepth}",
@@ -96,12 +159,14 @@ internal fun settingsOf(
                     "LIMITS",
                     listOf(
                         limit(
+                            SettingKey.UploadLimit,
                             "Upload limit",
                             "One budget for the session, not one per peer.",
                             preferences.uploadLimitKibPerSecond,
                             defaults.uploadLimitBytesPerSecond,
                         ),
                         limit(
+                            SettingKey.DownloadLimit,
                             "Download limit",
                             null,
                             preferences.downloadLimitKibPerSecond,
@@ -113,6 +178,7 @@ internal fun settingsOf(
                     "PRIVACY",
                     listOf(
                         Setting(
+                            key = SettingKey.Dht,
                             label = "Join the DHT (BEP 5)",
                             note =
                                 "Joining announces this machine's address to strangers, starting " +
@@ -130,8 +196,16 @@ internal fun settingsOf(
     )
 }
 
-/** Where the design says a fresh install saves, and the only string here that is not a measurement. */
-internal const val DEFAULT_DIRECTORY: String = "~/Downloads"
+/**
+ * Where a fresh install saves.
+ *
+ * The design writes `~/Downloads` and this resolves it, because the row prints it as the default
+ * and a default the application never uses is a lie printed on every row. `main` starts there too.
+ */
+internal val DEFAULT_DIRECTORY: String =
+    java.nio.file.Path
+        .of(System.getProperty("user.home"), "Downloads")
+        .toString()
 
 /**
  * A limit of `no limit` is not a limit of zero.
@@ -141,12 +215,14 @@ internal const val DEFAULT_DIRECTORY: String = "~/Downloads"
  * is not typeable.
  */
 private fun limit(
+    key: SettingKey,
     label: String,
     note: String?,
     chosen: Long?,
     default: Long,
 ): Setting =
     Setting(
+        key = key,
         label = label,
         note = note,
         default = if (default == RuntimeOptions.NO_LIMIT) "none" else "$default",

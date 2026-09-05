@@ -141,6 +141,13 @@ None. Two command-line arguments and nothing read from the environment; the sett
   the DHT and the dispatcher, and there is a `BufferPool` per torrent because the cap is the
   back-pressure and back-pressure that is global lets a fast torrent starve a slow one (research
   §1.2c2).
+* **Every callback the window exposes is proved to arrive**, through `MainWindow` and not through
+  the screen underneath it. A screen's own test cannot see a parameter that the window accepts and
+  drops, which is what `onSetting` was ([B-62](../backlog/B-62-dead-controls-on-two-more-screens.md)).
+* **Picking a directory is two implementations.** `apple.awt.fileDialogForDirectories` turns AWT's
+  `FileDialog` into a folder chooser on macOS and does nothing anywhere else; `JFileChooser` in
+  `DIRECTORIES_ONLY` is the one that exists on Windows and Linux. The wrong half does not throw —
+  it opens a *file* chooser and returns nothing for a folder.
 * **A control either has a command or a reason, never neither.** `ToolbarAction` refuses to be
   built without one of the two and the handler switches on an enum, because four buttons that
   looked available and fell into an `else ->` shipped once ([B-56](../backlog/B-56-dead-toolbar-controls.md)).

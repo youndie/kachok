@@ -17,7 +17,7 @@ import kotlin.test.assertTrue
  */
 class SettingsFromTest {
     private val defaults = SessionConfig()
-    private val screen = settingsOf(Preferences(directory = "~/Downloads"))
+    private val screen = settingsOf(Preferences(directory = DEFAULT_DIRECTORY))
 
     private fun setting(label: String): Setting = screen.sections.flatMap { it.settings }.single { it.label == label }
 
@@ -95,6 +95,7 @@ class SettingsFromTest {
         assertTrue(saveTo.changed)
         assertEquals("/Volumes/big/torrents", saveTo.value)
         assertEquals(DEFAULT_DIRECTORY, saveTo.default)
+        assertTrue(DEFAULT_DIRECTORY.endsWith("Downloads"), "resolved, not the tilde the design writes")
     }
 
     /**
