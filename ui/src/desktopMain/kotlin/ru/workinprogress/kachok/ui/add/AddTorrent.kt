@@ -34,6 +34,7 @@ import ru.workinprogress.kachok.ui.icons.Glyph
 import ru.workinprogress.kachok.ui.icons.Icons
 import ru.workinprogress.kachok.ui.theme.ChromeButton
 import ru.workinprogress.kachok.ui.theme.ChromeText
+import ru.workinprogress.kachok.ui.theme.DialogButton
 import ru.workinprogress.kachok.ui.theme.KachokPalette
 import ru.workinprogress.kachok.ui.theme.MonoSmall
 import ru.workinprogress.kachok.ui.theme.PathText
@@ -357,42 +358,6 @@ private fun Choice(
             color = if (on) MaterialTheme.colorScheme.onSurface else KachokPalette.onSurfaceMuted,
         )
         if (planned) PlannedBadge()
-    }
-}
-
-@Composable
-private fun RowScope.DialogButton(
-    label: String,
-    primary: Boolean,
-    enabled: Boolean = true,
-    onClick: () -> Unit,
-) {
-    val scheme = MaterialTheme.colorScheme
-    val ground =
-        when {
-            !primary -> Color.Transparent
-            enabled -> scheme.primary
-            else -> scheme.surfaceContainerHighest
-        }
-    Box(
-        Modifier
-            .height(BUTTON_HEIGHT)
-            .background(ground, RoundedCornerShape(4.dp))
-            .clickable(enabled = enabled, onClick = onClick)
-            .padding(horizontal = if (primary) 18.dp else 14.dp),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(
-            label,
-            style = if (primary) ChromeButton.copy(fontWeight = FontWeight.SemiBold) else ChromeButton,
-            color =
-                when {
-                    !enabled -> scheme.onSurfaceVariant
-                    primary -> scheme.onPrimary
-                    else -> KachokPalette.onSurfaceMuted
-                },
-            maxLines = 1,
-        )
     }
 }
 

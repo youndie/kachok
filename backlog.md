@@ -46,14 +46,13 @@ which is also the order of work.
 
 <!-- BEGIN INDEX -->
 
-## Open (18)
+## Open (17)
 
 | Task | | Priority | Size | Blocked by |
 |---|---|---|---|---|
 | [B-60](docs/backlog/B-60-two-torrents-one-path.md) `[ ]` | Two torrents saving to the same file, and nothing that notices | P1 | M | B-54 |
 | [B-66](docs/backlog/B-66-the-filter-field.md) `[ ]` | The filter field, which is a box with the word Filter in it | P1 | S | B-62 |
 | [B-72](docs/backlog/B-72-the-keyboard-map.md) `[ ]` | The keyboard map the empty state advertises | P1 | S | B-62 |
-| [B-58](docs/backlog/B-58-remove-a-torrent.md) `[ ]` | Removing a torrent, and the dialog the ellipsis promises | P2 | S | B-54 |
 | [B-67](docs/backlog/B-67-per-file-selection.md) `[ ]` | Per-file progress and choosing which files to fetch | P2 | L | B-54 |
 | [B-68](docs/backlog/B-68-the-peers-list.md) `[ ]` | The peers list, which the session counts and does not name | P2 | M | B-54 |
 | [B-69](docs/backlog/B-69-the-trackers-list.md) `[ ]` | A status per tracker, and re-announcing by hand | P2 | M | B-54 |
@@ -69,7 +68,7 @@ which is also the order of work.
 | [B-75](docs/backlog/B-75-the-window-below-800dp.md) `[ ]` | The window below 800 dp | P3 | S | B-49 |
 | [B-02](docs/backlog/B-02-ci-runs-build-and-docs-gates.md) `[ ]` | CI runs the build and the documentation gates on every push | infra | S | B-01 |
 
-## Closed (58)
+## Closed (59)
 
 **M0 — The build and its gates**
 
@@ -153,6 +152,7 @@ which is also the order of work.
 - [B-55](docs/backlog/B-55-magnets-in-the-window.md) `[x]` - Magnets in the window, not only on the command line
 - [B-56](docs/backlog/B-56-dead-toolbar-controls.md) `[x]` - Controls that reported themselves and nobody listened
 - [B-57](docs/backlog/B-57-a-paused-torrent.md) `[x]` - A paused torrent, which the engine does not have
+- [B-58](docs/backlog/B-58-remove-a-torrent.md) `[x]` - Removing a torrent, and the dialog the ellipsis promises
 - [B-61](docs/backlog/B-61-appframe-title-bar.md) `[x]` - The title bar the design draws, which is not the operating system's
 - [B-62](docs/backlog/B-62-dead-controls-on-two-more-screens.md) `[x]` - Controls on two more screens that reported nothing, and the guard that missed them
 - [B-63](docs/backlog/B-63-joining-the-dht-at-runtime.md) `[x]` - Joining the DHT from the settings screen, not from a restart

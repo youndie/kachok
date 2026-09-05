@@ -42,6 +42,7 @@ internal enum class ToolbarCommand {
     PasteMagnet,
     Pause,
     Resume,
+    Remove,
     ToggleDetails,
     ToggleSettings,
 }
@@ -160,8 +161,8 @@ private fun FilterField(text: String) {
 internal class ToolbarState(
     val addTorrent: ToolbarAction = ToolbarAction(Icons.ADD, "Add torrent", ToolbarCommand.AddTorrent),
     val pasteMagnet: ToolbarAction = ToolbarAction(Icons.LINK, "Paste magnet", ToolbarCommand.PasteMagnet),
-    // Pause and Resume are decided by [forSelection]; they default to the state a window with
-    // nothing selected is in. Remove and re-check are still waiting on the engine, and are greyed
+    // Pause, Resume and Remove are decided by [forSelection]; they default to the state a window
+    // with nothing selected is in. Force re-check is still waiting on the engine, and is greyed
     // rather than hidden — which is what the design does with *Resume* — and greyed rather than
     // live-and-inert, which is what all four of these were.
     val pause: ToolbarAction =
@@ -169,7 +170,7 @@ internal class ToolbarState(
     val resume: ToolbarAction =
         ToolbarAction(Icons.PLAY_ARROW, "Resume", disabledBecause = NOTHING_SELECTED),
     val remove: ToolbarAction =
-        ToolbarAction(Icons.DELETE, "Remove…", disabledBecause = NO_REMOVE_DIALOG),
+        ToolbarAction(Icons.DELETE, "Remove…", disabledBecause = NOTHING_SELECTED),
     val recheck: ToolbarAction =
         ToolbarAction(Icons.RESTART_ALT, "Force re-check", disabledBecause = NO_RECHECK_COMMAND),
     val filter: String = "Filter",
@@ -226,7 +227,14 @@ internal class ToolbarState(
                     TorrentState.Paused -> ToolbarAction(Icons.PLAY_ARROW, "Resume", ToolbarCommand.Resume)
                     else -> ToolbarAction(Icons.PLAY_ARROW, "Resume", disabledBecause = NOT_PAUSED)
                 },
-            remove = remove,
+            remove =
+                if (selected == null) {
+                    ToolbarAction(Icons.DELETE, "Remove…", disabledBecause = NOTHING_SELECTED)
+                } else {
+                    // Enabled for a paused or degraded torrent too: removing one is often exactly
+                    // what a person wants to do about it.
+                    ToolbarAction(Icons.DELETE, "Remove…", ToolbarCommand.Remove)
+                },
             recheck = recheck,
             filter = filter,
             details = details,
@@ -240,8 +248,6 @@ internal class ToolbarState(
             "This torrent is already paused."
         const val NOT_PAUSED =
             "This torrent is running; there is nothing to resume."
-        const val NO_REMOVE_DIALOG =
-            "Removing a torrent needs the dialog the ellipsis promises, which the design does not draw (B-58)."
         const val NO_RECHECK_COMMAND =
             "The engine verifies on start-up and has no command to do it again (B-59)."
     }

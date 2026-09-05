@@ -42,6 +42,8 @@ import ru.workinprogress.kachok.ui.main.MainWindow
 import ru.workinprogress.kachok.ui.main.MainWindowState
 import ru.workinprogress.kachok.ui.main.SortOrder
 import ru.workinprogress.kachok.ui.main.ToolbarCommand
+import ru.workinprogress.kachok.ui.remove.RemoveState
+import ru.workinprogress.kachok.ui.session.Figures
 import ru.workinprogress.kachok.ui.session.Lifecycle
 import ru.workinprogress.kachok.ui.session.Preferences
 import ru.workinprogress.kachok.ui.session.RateMeter
@@ -183,6 +185,7 @@ internal fun Client(
     // under the selection, and an index would leave the highlight on a different torrent than the
     // one the person clicked.
     var selected by remember { mutableStateOf<String?>(null) }
+    var removing by remember { mutableStateOf<RemoveState?>(null) }
     var settingsOpen by remember { mutableStateOf(false) }
     // What the settings screen has been told. Held for the session and not written anywhere: there
     // is no settings file yet, and inventing one is a decision about where it lives.
@@ -216,8 +219,26 @@ internal fun Client(
                         set.torrents.firstOrNull { it.metainfo.infoHash.hex() == command.infoHash }
                             ?: continue
                     when (command.kind) {
-                        TorrentCommand.Kind.Pause -> runtime.pause()
-                        TorrentCommand.Kind.Resume -> runtime.resume()
+                        TorrentCommand.Kind.Pause -> {
+                            runtime.pause()
+                        }
+
+                        TorrentCommand.Kind.Resume -> {
+                            runtime.resume()
+                        }
+
+                        TorrentCommand.Kind.Remove -> {
+                            set.remove(runtime)
+                        }
+
+                        TorrentCommand.Kind.RemoveWithData -> {
+                            // The paths are read *before* the remove: `remove` closes the files,
+                            // and a `FileSet` that has been closed is not somewhere to ask what it
+                            // was writing.
+                            val paths = runtime.paths
+                            set.remove(runtime)
+                            deleteQuietly(paths)
+                        }
                     }
                 }
             }
@@ -353,6 +374,7 @@ internal fun Client(
                     )
                 },
             adding = pending?.shown,
+            removing = removing,
             settings = if (settingsOpen) settingsOf(preferences.boundTo(snapshot.listenPort)) else null,
             sort = sort,
         )
@@ -384,6 +406,19 @@ internal fun Client(
                 ToolbarCommand.Pause -> {
                     rowKeys.getOrNull(index)?.let {
                         commanded.trySend(TorrentCommand(it, TorrentCommand.Kind.Pause))
+                    }
+                }
+
+                ToolbarCommand.Remove -> {
+                    // Built from the row that is highlighted, so the dialog names the torrent the
+                    // person is looking at rather than one it went and found.
+                    chosenSample?.let { sample ->
+                        removing =
+                            RemoveState(
+                                name = sample.state.name,
+                                where = preferences.directory,
+                                howMuch = "${Figures.bytes(sample.state.downloaded)} on disk",
+                            )
                     }
                 }
 
@@ -435,12 +470,53 @@ internal fun Client(
                 tab = DetailsTab.Overview
             }
         },
+        onCancelRemove = { removing = null },
+        onToggleRemoveData = { delete -> removing = removing?.withData(delete) },
+        onConfirmRemove = {
+            val delete = removing?.deleteData == true
+            rowKeys.getOrNull(index)?.let {
+                commanded.trySend(
+                    TorrentCommand(
+                        it,
+                        if (delete) TorrentCommand.Kind.RemoveWithData else TorrentCommand.Kind.Remove,
+                    ),
+                )
+            }
+            removing = null
+            // The row is going; the selection must not outlive it pointing at nothing.
+            selected = null
+        },
         onCancelAdd = { pending = null },
         onConfirmAdd = {
             pending?.let { accepted.trySend(it) }
             pending = null
         },
     )
+}
+
+/**
+ * Delete what a removed torrent wrote, and its directory if that is now empty.
+ *
+ * Quietly, and one file at a time: a file the person moved, renamed or already deleted is not a
+ * reason to leave the rest, and there is nothing useful to do about a permission error except say
+ * so. The directory goes only if it is empty — deleting a *non*-empty one would take somebody
+ * else's files with it.
+ */
+internal fun deleteQuietly(paths: List<Path>) {
+    paths.forEach { path ->
+        try {
+            Files.deleteIfExists(path)
+        } catch (refused: IOException) {
+            System.err.println("kachok: cannot delete $path: ${refused.message}")
+        }
+    }
+    paths.mapNotNull { it.parent }.distinct().forEach { directory ->
+        try {
+            Files.newDirectoryStream(directory).use { if (!it.iterator().hasNext()) Files.delete(directory) }
+        } catch (refused: IOException) {
+            System.err.println("kachok: leaving $directory: ${refused.message}")
+        }
+    }
 }
 
 /**
@@ -453,7 +529,7 @@ private class TorrentCommand(
     val infoHash: String,
     val kind: Kind,
 ) {
-    enum class Kind { Pause, Resume }
+    enum class Kind { Pause, Resume, Remove, RemoveWithData }
 }
 
 /**

@@ -25,6 +25,8 @@ import ru.workinprogress.kachok.ui.details.DetailsState
 import ru.workinprogress.kachok.ui.details.DetailsTab
 import ru.workinprogress.kachok.ui.list.TorrentRow
 import ru.workinprogress.kachok.ui.list.TorrentRowModel
+import ru.workinprogress.kachok.ui.remove.RemoveState
+import ru.workinprogress.kachok.ui.remove.RemoveTorrentDialog
 import ru.workinprogress.kachok.ui.settings.SettingChange
 import ru.workinprogress.kachok.ui.settings.SettingsScreen
 import ru.workinprogress.kachok.ui.settings.SettingsState
@@ -53,6 +55,8 @@ internal class MainWindowState(
     val dropping: List<String> = emptyList(),
     /** Non-null while the settings screen is open, which is instead of the list rather than over it. */
     val settings: SettingsState? = null,
+    /** The question behind *Remove…*, waiting for an answer. */
+    val removing: RemoveState? = null,
 )
 
 /**
@@ -80,6 +84,9 @@ internal fun MainWindow(
     onSetting: (SettingChange) -> Unit = {},
     onCopy: (String) -> Unit = {},
     onShowDegraded: () -> Unit = {},
+    onCancelRemove: () -> Unit = {},
+    onToggleRemoveData: (Boolean) -> Unit = {},
+    onConfirmRemove: () -> Unit = {},
 ) {
     Box(modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)) {
@@ -138,6 +145,19 @@ internal fun MainWindow(
                 contentAlignment = Alignment.Center,
             ) {
                 AddTorrentDialog(adding, onCancel = onCancelAdd, onAdd = onConfirmAdd, onBrowse = onBrowse)
+            }
+        }
+        state.removing?.let { removing ->
+            Box(
+                Modifier.fillMaxSize().background(SCRIM),
+                contentAlignment = Alignment.Center,
+            ) {
+                RemoveTorrentDialog(
+                    removing,
+                    onCancel = onCancelRemove,
+                    onToggleData = onToggleRemoveData,
+                    onRemove = onConfirmRemove,
+                )
             }
         }
     }

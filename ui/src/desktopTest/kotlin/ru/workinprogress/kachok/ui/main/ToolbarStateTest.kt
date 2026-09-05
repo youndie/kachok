@@ -45,7 +45,7 @@ class ToolbarStateTest {
             "with nothing selected there is nothing to pause or resume",
         )
         assertEquals(
-            listOf("Add torrent", "Paste magnet", "Pause", "Details panel", "Settings"),
+            listOf("Add torrent", "Paste magnet", "Pause", "Remove…", "Details panel", "Settings"),
             toolbar
                 .forSelection(TorrentState.Downloading)
                 .all
@@ -53,7 +53,7 @@ class ToolbarStateTest {
                 .map { it.label },
         )
         assertEquals(
-            listOf("Add torrent", "Paste magnet", "Resume", "Details panel", "Settings"),
+            listOf("Add torrent", "Paste magnet", "Resume", "Remove…", "Details panel", "Settings"),
             toolbar
                 .forSelection(TorrentState.Paused)
                 .all
@@ -103,7 +103,7 @@ class ToolbarStateTest {
      */
     @Test
     fun everyDisabledControlNamesTheItemThatWouldEnableIt() {
-        val waitingOnTheEngine = listOf("Remove…", "Force re-check")
+        val waitingOnTheEngine = listOf("Force re-check")
         everySelection.forEach { selection ->
             toolbar.forSelection(selection).all.filter { !it.enabled }.forEach { action ->
                 val reason = action.disabledBecause.orEmpty()

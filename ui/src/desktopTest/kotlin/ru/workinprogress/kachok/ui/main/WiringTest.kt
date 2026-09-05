@@ -9,6 +9,8 @@ import androidx.compose.ui.test.v2.runComposeUiTest
 import ru.workinprogress.kachok.ui.add.designTorrentToAdd
 import ru.workinprogress.kachok.ui.details.DetailsTab
 import ru.workinprogress.kachok.ui.list.TorrentState
+import ru.workinprogress.kachok.ui.remove.DELETE_DATA
+import ru.workinprogress.kachok.ui.remove.RemoveState
 import ru.workinprogress.kachok.ui.session.Preferences
 import ru.workinprogress.kachok.ui.session.settingsOf
 import ru.workinprogress.kachok.ui.settings.SettingChange
@@ -196,6 +198,40 @@ class WiringTest {
             }
             onNodeWithText("Show it").performClick()
             assertEquals(1, shown)
+        }
+
+    /** The remove dialog's three answers, through the window rather than through the dialog. */
+    @Test
+    fun theRemoveDialogsAnswersLeaveTheWindow(): Unit =
+        runComposeUiTest {
+            var cancelled = 0
+            var removed = 0
+            val toggles = mutableListOf<Boolean>()
+            setContent {
+                KachokTheme {
+                    MainWindow(
+                        MainWindowState(
+                            torrents = window.torrents,
+                            status = window.status,
+                            removing =
+                                RemoveState(
+                                    name = "payload.bin",
+                                    where = "/tmp/x",
+                                    howMuch = "96.0 MiB on disk",
+                                ),
+                        ),
+                        onCancelRemove = { cancelled++ },
+                        onToggleRemoveData = { toggles += it },
+                        onConfirmRemove = { removed++ },
+                    )
+                }
+            }
+            onNodeWithContentDescription(DELETE_DATA).performClick()
+            onNodeWithContentDescription("Cancel").performClick()
+            onNodeWithContentDescription("Remove").performClick()
+            assertEquals(listOf(true), toggles)
+            assertEquals(1, cancelled)
+            assertEquals(1, removed)
         }
 
     /**

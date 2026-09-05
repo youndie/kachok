@@ -8,6 +8,7 @@ import ru.workinprogress.kachok.ui.main.MainWindowState
 import ru.workinprogress.kachok.ui.main.SessionStatus
 import ru.workinprogress.kachok.ui.main.SortOrder
 import ru.workinprogress.kachok.ui.main.ToolbarState
+import ru.workinprogress.kachok.ui.remove.RemoveState
 import ru.workinprogress.kachok.ui.settings.SettingsState
 
 /** The totals the status bar carries, all six of them derived from what is on screen. */
@@ -61,6 +62,7 @@ internal fun windowOf(
     details: DetailsState? = null,
     adding: AddTorrentState? = null,
     settings: SettingsState? = null,
+    removing: RemoveState? = null,
     sort: SortOrder = SortOrder(),
 ): MainWindowState =
     MainWindowState(
@@ -69,6 +71,7 @@ internal fun windowOf(
         details = details,
         adding = adding,
         settings = settings,
+        removing = removing,
         status = statusOf(rows, rates, listenPort, dhtNodes, heapUsedBytes, heapMaxBytes),
         // What Pause and Resume may do is decided by the row that is selected, so the bar is built
         // from the list rather than defaulted and left.

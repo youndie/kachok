@@ -87,6 +87,16 @@ public class TorrentRuntime internal constructor(
     public val state: StateFlow<SessionState> get() = session.state
 
     /**
+     * Every file this torrent writes, as it actually opened them.
+     *
+     * Exposed so that removing a torrent *with* its data deletes what was written rather than what
+     * a caller thinks was written: the layout of a multi-file torrent — the directory named after
+     * it, a path per file — is the `FileSet`'s decision, and a second implementation of it in the
+     * window would be a second chance to delete the wrong thing.
+     */
+    public val paths: List<Path> get() = files.paths
+
+    /**
      * What is already on disk, before a single peer is dialled.
      *
      * A client that announced itself and then discovered it already had half the torrent would
