@@ -74,6 +74,7 @@ What exists on `main` today:
 | `.../engine/resume/ResumeRecord.kt` | what survives a restart, bencoded, and the store interface |
 | `.../engine/resume/FileResumeStore.kt` (jvmMain) | a temporary sibling and an `ATOMIC_MOVE` |
 | `.../engine/resume/StartupVerifier.kt` | what is already on the disk, before a peer is dialled |
+| `.../engine/wire/ExtensionHandshake.kt` | BEP 10's `m` dictionary: what a peer can do and the id it wants each extension sent under |
 | `.../engine/tracker/Tracker.kt`, `TrackerProtocol.kt` | the announce model, the query string and the response parsing — both peer encodings |
 | `.../engine/tracker/UdpTrackerProtocol.kt` | BEP 15's two requests, three replies and retransmit schedule, without a socket |
 | `.../engine/tracker/TrackerClientByScheme.kt` | which transport a tracker URL goes to |
@@ -205,6 +206,18 @@ them. Nothing is read from the environment by this module; that is [cli](cli.md)
 * **A `.torrent` is input from a stranger, and `MetainfoParser` treats it as one.** Path
   components that are empty, `.`, `..`, or that contain a separator are refused at parse time, so
   no code below has to remember that a torrent can ask to be written outside its own directory.
+* **An extension id belongs to the peer that published it.** BEP 10's `m` maps a name to the id
+  *that peer* wants messages sent under, and the two sides need not agree: `ut_pex` may be 1 here
+  and 3 there. A client that hard-codes an id talks only to peers that happen to match it.
+* **`m` with an id of `0` means the extension is off**, which is how a peer disables one in a later
+  handshake without renumbering the rest. Read as an id it would send every message of that
+  extension as another handshake.
+* **This client's own `m` is empty, and that is not the same as not speaking BEP 10.** The peer
+  learns the handshake happened, this client's version and its listening port, and that nothing
+  extended is on offer — which is right until PEX and metadata exchange put names in it.
+* **An extended message this client did not ask for is dropped in silence.** BEP 10 works because
+  both sides ignore what they do not recognise; a handshake that will not even parse costs the
+  peer its extensions and not its connection.
 * **A UDP announce uses `DatagramSocket`, not `DatagramChannel`.** BEP 15 is a protocol of
   timeouts, and a channel in blocking mode has no receive timeout — `withTimeout` would cancel the
   coroutine and leave the read blocked underneath it. Measured before choosing: 200 virtual threads

@@ -107,7 +107,7 @@ class ShutdownTest {
         val placeholder = startTracker(1)
         val infoHash: InfoHash = MetainfoParser.parse(torrentBytes(placeholder)).infoHash
         // A seed that serves slowly, so the signal arrives mid-download rather than after it.
-        val peer = SeedingPeer(infoHash, content, PeerWire.BLOCK_SIZE, delayPerBlockMillis = 4)
+        val peer = SeedingPeer(infoHash, content, PeerWire.BLOCK_SIZE, delayPerBlockMillis = 15)
         seed = peer
         server?.stop(0)
         announces.clear()
@@ -140,11 +140,20 @@ class ShutdownTest {
             }
 
         // Wait until it is genuinely downloading, then interrupt it.
+        //
+        // The signal to wait on is the seed's own request log and not the client's progress output.
+        // Progress is printed on a timer, so a run that got ahead of that timer — a warm JIT is
+        // enough, and the end-to-end test above warms it — reached the first printed line only
+        // after the download had already finished, and there was nothing left to interrupt. What
+        // the test needs to know is that blocks are moving, and the seed knows that first.
         val deadline = System.nanoTime() + SECONDS_TO_NANOS * 30
-        while (System.nanoTime() < deadline) {
-            if (synchronized(output) { output.contains("pieces (") && !output.contains("0/") }) break
-            Thread.sleep(50)
+        while (System.nanoTime() < deadline && peer.served.size < BLOCKS_BEFORE_THE_SIGNAL) {
+            Thread.sleep(5)
         }
+        assertTrue(
+            peer.served.size >= BLOCKS_BEFORE_THE_SIGNAL,
+            "the download never started, so the signal would prove nothing: $output",
+        )
         ProcessBuilder("kill", "-INT", process.pid().toString()).start().waitFor()
 
         assertTrue(process.waitFor(30, TimeUnit.SECONDS), "the client did not stop: $output")
@@ -181,5 +190,8 @@ class ShutdownTest {
 
     private companion object {
         const val SECONDS_TO_NANOS = 1_000_000_000L
+
+        /** Enough that the download is under way, few enough that most of it is still to come. */
+        const val BLOCKS_BEFORE_THE_SIGNAL = 20
     }
 }

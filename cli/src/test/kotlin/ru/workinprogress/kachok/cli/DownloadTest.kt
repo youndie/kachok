@@ -8,6 +8,7 @@ import ru.workinprogress.kachok.engine.bencode.BString
 import ru.workinprogress.kachok.engine.bencode.Bencode
 import ru.workinprogress.kachok.engine.metainfo.Metainfo
 import ru.workinprogress.kachok.engine.metainfo.MetainfoParser
+import ru.workinprogress.kachok.engine.wire.ExtensionHandshake
 import ru.workinprogress.kachok.engine.wire.PeerWire
 import java.net.InetSocketAddress
 import java.nio.file.Files
@@ -148,6 +149,45 @@ class DownloadTest {
             peer.served.sumOf { it.length },
             "every byte was requested exactly once — no duplicate requests outside endgame",
         )
+    }
+
+    @Test
+    fun aPeerThatAdvertisesBep10IsSentAnExtensionHandshakeOverTheRealSocket() {
+        // In-process tests prove the session decides to send it; this proves the reserved bit
+        // actually leaves the socket and that message id 20 frames the way a peer reads it.
+        val placeholder = startTracker(peerPort = 1)
+        val peer =
+            SeedingPeer(
+                infoHash = MetainfoParser.parse(torrentBytes(placeholder)).infoHash,
+                content = content,
+                pieceLength = PeerWire.BLOCK_SIZE,
+                extensionProtocol = true,
+            )
+        seed = peer
+        server?.stop(0)
+        val trackerUrl = startTracker(peerPort = peer.port)
+        val torrent = root.resolve("fixture.torrent")
+        Files.write(torrent, torrentBytes(trackerUrl))
+
+        val err = StringBuilder()
+        val exit =
+            Cli.run(
+                listOf("download", torrent.toString(), "--dir", root.resolve("out").toString()),
+                StringBuilder(),
+                err,
+            )
+
+        assertEquals(Download.EXIT_OK, exit, "stderr was: $err")
+        val handshake = peer.extended.firstOrNull()
+        assertTrue(handshake != null, "the peer advertised BEP 10 and was sent no extended message")
+        assertEquals(ExtensionHandshake.HANDSHAKE_ID, handshake.extensionId)
+        val read = ExtensionHandshake.decode(handshake.payload)
+        assertEquals(
+            emptyMap(),
+            read.extensions,
+            "phase 1 offers no extensions, and an empty `m` is what says so",
+        )
+        assertContains(read.clientVersion ?: "", "kachok")
     }
 
     @Test

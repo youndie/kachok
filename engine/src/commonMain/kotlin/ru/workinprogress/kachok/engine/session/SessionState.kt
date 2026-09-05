@@ -34,6 +34,8 @@ public class SessionState(
     /** Requests sent and not yet answered. Zero while peers are connected means a stall. */
     public val outstandingRequests: Int = 0,
     public val knownPeers: Int = 0,
+    /** Connected peers that completed BEP 10's handshake, so their extension ids are known. */
+    public val extendedPeers: Int = 0,
     public val hashFailures: Int = 0,
     /** Pieces checked so far by the start-up pass, and of how many. Equal when it is finished. */
     public val verifiedPieces: Int = 0,
@@ -129,4 +131,15 @@ public class SessionConfig(
      * patience.
      */
     public val requestTimeout: Duration = 30.seconds,
+    /**
+     * BEP 10's `m`: the extensions this client offers, and the message id it wants each sent under.
+     *
+     * Empty in phase 1, and that is not the same as not speaking BEP 10. A peer that gets an empty
+     * `m` knows the handshake happened, knows this client's version and port, and knows to send
+     * nothing extended — which is exactly right until [B-34](../backlog/B-34-peer-exchange.md) and
+     * [B-36](../backlog/B-36-ut-metadata-and-magnets.md) put names in here.
+     */
+    public val extensions: Map<String, Int> = emptyMap(),
+    /** BEP 10's `v`, which is what a peer shows a user about who it is talking to. */
+    public val clientVersion: String = "kachok 0.1",
 )

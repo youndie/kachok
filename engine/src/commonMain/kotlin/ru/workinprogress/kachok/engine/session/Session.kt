@@ -33,8 +33,10 @@ import ru.workinprogress.kachok.engine.tracker.AnnounceEvent
 import ru.workinprogress.kachok.engine.tracker.AnnounceRequest
 import ru.workinprogress.kachok.engine.tracker.TrackerClient
 import ru.workinprogress.kachok.engine.tracker.TrackerException
+import ru.workinprogress.kachok.engine.wire.ExtensionHandshake
 import ru.workinprogress.kachok.engine.wire.Message
 import ru.workinprogress.kachok.engine.wire.PeerWire
+import ru.workinprogress.kachok.engine.wire.WireException
 import kotlin.coroutines.ContinuationInterceptor
 import kotlin.time.TimeSource
 
@@ -351,6 +353,12 @@ public class Session(
         picker.addPeer(address)
         publish { it.copy(connectedPeers = connected.size) }
         try {
+            // BEP 10: the extension handshake goes first, before the bitfield, and only to a peer
+            // whose reserved bits asked for it. Sending id 20 to a peer that never advertised the
+            // bit is an unknown message id, which BEP 3 clients close the connection over.
+            if (connection.handshake.supportsExtensionProtocol) {
+                link.send(Message.Extended(ExtensionHandshake.HANDSHAKE_ID, ourExtensionHandshake().encode()))
+            }
             if (picker.completed.cardinality > 0) {
                 link.send(Message.Bitfield(picker.completed.toBytes()))
             }
@@ -437,6 +445,10 @@ public class Session(
                         link.peerInterested = false
                     }
 
+                    is Message.Extended -> {
+                        receiveExtended(link, message)
+                    }
+
                     // `cancel` is honoured by the connection's queue order; a block already handed
                     // to the writer is on its way out. Dropping a queued one arrives with B-33's
                     // reject, which is where the bookkeeping to do it properly lives.
@@ -445,6 +457,41 @@ public class Session(
             }
         }
         return Unit
+    }
+
+    /** What this client tells a peer it can do. Its `m` is empty in phase 1 and that is a fact. */
+    private fun ourExtensionHandshake(): ExtensionHandshake =
+        ExtensionHandshake(
+            extensions = config.extensions,
+            clientVersion = config.clientVersion,
+            listenPort = listenPort,
+            requestQueueLength = config.pipelineDepth,
+        )
+
+    /**
+     * BEP 10's extended messages: the handshake, and everything this client did not ask for.
+     *
+     * A peer may send an extended message under any id it likes; the ids it may *use* are the ones
+     * this client offered in its own `m`, which in phase 1 is none. So anything but id 0 is a peer
+     * being generous or confused, and either way it is dropped — not an error, because BEP 10's
+     * whole mechanism rests on both sides ignoring what they do not recognise.
+     */
+    private fun receiveExtended(
+        link: PeerLink,
+        message: Message.Extended,
+    ) {
+        if (message.extensionId != ExtensionHandshake.HANDSHAKE_ID) return
+        val handshake =
+            try {
+                ExtensionHandshake.decode(message.payload)
+            } catch (malformed: WireException) {
+                // A peer whose handshake will not parse keeps its connection: everything BEP 3
+                // needs still works, and the extensions are what it loses.
+                publish { it.copy(lastPeerError = "${link.connection.address}: ${malformed.message}") }
+                return
+            }
+        link.extensions = handshake
+        publish { it.copy(extendedPeers = connected.values.count { peer -> peer.extensions != null }) }
     }
 
     /**
@@ -721,6 +768,14 @@ public class Session(
         /** What this peer is doing for us, and we for it, over the choker's window. */
         val download: RateMeter = RateMeter()
         val upload: RateMeter = RateMeter()
+
+        /**
+         * BEP 10's handshake, once it arrives. Null means either that the peer does not speak the
+         * extension protocol or that it has not said so yet — and the difference does not matter
+         * to anyone asking "can I send this peer a `ut_pex`", which is the only question this
+         * answers.
+         */
+        var extensions: ExtensionHandshake? = null
     }
 
     private companion object {
@@ -739,6 +794,7 @@ private fun SessionState.copy(
     unchokedPeers: Int = this.unchokedPeers,
     outstandingRequests: Int = this.outstandingRequests,
     knownPeers: Int = this.knownPeers,
+    extendedPeers: Int = this.extendedPeers,
     hashFailures: Int = this.hashFailures,
     verifiedPieces: Int = this.verifiedPieces,
     verifyingOf: Int = this.verifyingOf,
@@ -760,6 +816,7 @@ private fun SessionState.copy(
         unchokedPeers = unchokedPeers,
         outstandingRequests = outstandingRequests,
         knownPeers = knownPeers,
+        extendedPeers = extendedPeers,
         hashFailures = hashFailures,
         verifiedPieces = verifiedPieces,
         verifyingOf = verifyingOf,

@@ -33,6 +33,7 @@ import ru.workinprogress.kachok.engine.tracker.HttpTrackerClient
 import ru.workinprogress.kachok.engine.tracker.TrackerClientByScheme
 import ru.workinprogress.kachok.engine.tracker.TrackerProtocol
 import ru.workinprogress.kachok.engine.tracker.UdpTrackerClient
+import ru.workinprogress.kachok.engine.wire.Handshake
 import ru.workinprogress.kachok.engine.wire.PeerWire
 import java.nio.file.Files
 import kotlin.random.Random
@@ -102,12 +103,16 @@ class Download(
         // One identity, announced to the tracker and offered in every handshake. Generating it
         // twice would have told the tracker about a peer no swarm member ever meets.
         val identity = randomPeerId()
+        // BEP 10's bit, in every handshake this client sends and accepts. Without it peers never
+        // send their own extension handshake, so the ids PEX and metadata exchange need never
+        // arrive — the bit is what asks for them.
+        val reserved = Handshake.reservedBits(extensionProtocol = true)
         val session =
             Session(
                 metainfo = metainfo,
                 peerId = identity,
                 listenPort = port,
-                dialer = SocketPeerDialer(sessionScope, metainfo.infoHash, identity, pool),
+                dialer = SocketPeerDialer(sessionScope, metainfo.infoHash, identity, pool, reserved),
                 // Most public torrents announce over UDP; the scheme in the URL decides,
                 // tracker by tracker, and an announce list may mix them.
                 trackerClient =
@@ -147,7 +152,7 @@ class Download(
         val runningJob = session.start(sessionScope)
         listener?.start(sessionScope) { socket ->
             val connection =
-                SocketPeerConnection.accept(sessionScope, socket, metainfo.infoHash, identity, pool)
+                SocketPeerConnection.accept(sessionScope, socket, metainfo.infoHash, identity, pool, reserved)
             session.send(Command.AcceptPeer(connection))
         }
         val renderer = sessionScope.launch { render(session) }

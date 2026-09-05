@@ -46,11 +46,10 @@ which is also the order of work.
 
 <!-- BEGIN INDEX -->
 
-## Open (17)
+## Open (16)
 
 | Task | | Priority | Size | Blocked by |
 |---|---|---|---|---|
-| [B-10](docs/backlog/B-10-extension-protocol-handshake.md) `[ ]` | Extension protocol (BEP 10): reserved bit and the handshake dictionary | P2 | S | B-06 |
 | [B-22](docs/backlog/B-22-rate-limits.md) `[ ]` | Upload and download rate limits | P2 | S/M | B-21 |
 | [B-28](docs/backlog/B-28-aot-cache-in-the-distribution.md) `[ ]` | Build the AOT cache with the launcher's flags and prove it maps | P2 | M | B-29 |
 | [B-29](docs/backlog/B-29-jlink-runtime-image.md) `[ ]` | A jlinked run-time image, the jars, and a launcher script | P2 | S/M | B-18 |
@@ -68,7 +67,7 @@ which is also the order of work.
 | [B-41](docs/backlog/B-41-android-and-ios-targets.md) `[ ]` | Phase 3: Android and iOS targets on the engine | P3 | XL | B-39 |
 | [B-02](docs/backlog/B-02-ci-runs-build-and-docs-gates.md) `[ ]` | CI runs the build and the documentation gates on every push | infra | S | B-01 |
 
-## Closed (26)
+## Closed (27)
 
 **M0 — The build and its gates**
 
@@ -86,6 +85,7 @@ which is also the order of work.
 - [B-07](docs/backlog/B-07-virtual-thread-peer-transport.md) `[x]` - One virtual thread per peer on a blocking SocketChannel
 - [B-08](docs/backlog/B-08-direct-buffer-pool.md) `[x]` - A capped pool of 16 KiB direct ByteBuffers
 - [B-09](docs/backlog/B-09-incoming-connections.md) `[x]` - Accept incoming peers on the BEP 3 port range
+- [B-10](docs/backlog/B-10-extension-protocol-handshake.md) `[x]` - Extension protocol (BEP 10): reserved bit and the handshake dictionary
 - [B-42](docs/backlog/B-42-scopedvalue-in-the-reader-loop.md) `[-]` - Is ScopedValue used anywhere, or dropped?
 
 **M3 — Storage**

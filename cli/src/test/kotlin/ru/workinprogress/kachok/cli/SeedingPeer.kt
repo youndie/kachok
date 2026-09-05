@@ -27,6 +27,8 @@ class SeedingPeer(
     private val pieceLength: Int,
     /** Slows the seed down, so a test can interrupt a download that is genuinely in progress. */
     private val delayPerBlockMillis: Long = 0,
+    /** BEP 10's reserved bit, so a test can see what this client sends a peer that asks for it. */
+    private val extensionProtocol: Boolean = false,
 ) : AutoCloseable {
     private val server: ServerSocketChannel =
         ServerSocketChannel.open().bind(InetSocketAddress("127.0.0.1", 0), BACKLOG)
@@ -35,6 +37,9 @@ class SeedingPeer(
 
     /** Requests served, so a test can tell "it downloaded" from "it had it already". */
     val served: ConcurrentLinkedQueue<Message.Request> = ConcurrentLinkedQueue()
+
+    /** Extended messages received, in order: the first one is BEP 10's handshake or nothing is. */
+    val extended: ConcurrentLinkedQueue<Message.Extended> = ConcurrentLinkedQueue()
 
     private val sockets = ConcurrentLinkedQueue<SocketChannel>()
 
@@ -66,7 +71,14 @@ class SeedingPeer(
         while (theirs.hasRemaining()) if (socket.read(theirs) < 0) return
         Handshake.decode(theirs.array())
 
-        write(socket, Handshake(infoHash, PeerId("-SEED01-000000000000".encodeToByteArray())).encode())
+        write(
+            socket,
+            Handshake(
+                infoHash,
+                PeerId("-SEED01-000000000000".encodeToByteArray()),
+                Handshake.reservedBits(extensionProtocol = extensionProtocol),
+            ).encode(),
+        )
         // A seed has everything, and says so before anything else (BEP 3).
         val bitfield = ByteArray((pieces + 7) / 8)
         (0 until pieces).forEach { bitfield[it / 8] = (bitfield[it / 8].toInt() or (0x80 ushr (it % 8))).toByte() }
@@ -82,6 +94,7 @@ class SeedingPeer(
             val frame = ByteBuffer.allocate(size)
             while (frame.hasRemaining()) if (socket.read(frame) < 0) return
             val message = PeerWire.decode(frame.array())
+            if (message is Message.Extended) extended += message
             if (message is Message.Request) {
                 if (delayPerBlockMillis > 0) Thread.sleep(delayPerBlockMillis)
                 served += message

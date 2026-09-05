@@ -361,6 +361,13 @@ feature document quotes comes from here.
 **Consequence 1.** The block size is not a tunable. 16 KiB is what the swarm will accept; a buffer
 pool sized to one block is a buffer pool sized to the protocol.
 
+**Consequence 1a.** The extension protocol is a *request*, not an announcement. A peer sends its
+`m` dictionary only to a client whose reserved bit asked for it, so a client that does not
+advertise `reserved[5] & 0x10` never learns any peer's extension ids — and the ids are what PEX and
+metadata exchange are addressed with. Advertising the bit is therefore the whole of
+[B-10](../backlog/B-10-extension-protocol-handshake.md)'s value, and an empty `m` in reply costs
+nothing.
+
 **Consequence 2.** The protocol has three timers with three periods — 10 s choke, 30 s optimistic,
 120 s keep-alive — and all three are per *session*, not per peer, which is why one timer coroutine
 suffices ([D1](#d1-one-virtual-thread-dispatcher-blocking-io-inside-it-coroutines-above-it)).

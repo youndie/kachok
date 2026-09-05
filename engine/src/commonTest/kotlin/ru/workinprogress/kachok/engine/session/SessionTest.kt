@@ -25,6 +25,7 @@ import ru.workinprogress.kachok.engine.tracker.AnnounceRequest
 import ru.workinprogress.kachok.engine.tracker.AnnounceResponse
 import ru.workinprogress.kachok.engine.tracker.TrackerClient
 import ru.workinprogress.kachok.engine.tracker.TrackerException
+import ru.workinprogress.kachok.engine.wire.ExtensionHandshake
 import ru.workinprogress.kachok.engine.wire.Handshake
 import ru.workinprogress.kachok.engine.wire.Message
 import ru.workinprogress.kachok.engine.wire.PeerWire
@@ -98,13 +99,14 @@ class SessionTest {
     private class FakeConnection(
         override val address: PeerAddress,
         infoHash: ru.workinprogress.kachok.engine.InfoHash,
+        reserved: ByteArray = Handshake.reservedBits(),
     ) : PeerConnection {
         val incoming = Channel<PeerEvent>(Channel.UNLIMITED)
         val sent = mutableListOf<Message>()
         var closes = 0
 
         override val handshake: Handshake =
-            Handshake(infoHash, PeerId("-FAKE01-000000000000".encodeToByteArray()))
+            Handshake(infoHash, PeerId("-FAKE01-000000000000".encodeToByteArray()), reserved)
 
         override val events: ReceiveChannel<PeerEvent> get() = incoming
 
@@ -136,6 +138,8 @@ class SessionTest {
     private class FakeDialer(
         private val infoHash: ru.workinprogress.kachok.engine.InfoHash,
         private val refuse: Set<PeerAddress> = emptySet(),
+        /** What the *peer* advertises. BEP 10's bit is the peer's, not ours. */
+        private val reserved: ByteArray = Handshake.reservedBits(),
     ) : PeerDialer {
         val connections = LinkedHashMap<PeerAddress, FakeConnection>()
         val dialled = mutableListOf<PeerAddress>()
@@ -143,7 +147,7 @@ class SessionTest {
         override suspend fun connect(address: PeerAddress): PeerConnection {
             dialled += address
             if (address in refuse) throw TrackerException("refused")
-            return connections.getOrPut(address) { FakeConnection(address, infoHash) }
+            return connections.getOrPut(address) { FakeConnection(address, infoHash, reserved) }
         }
     }
 
@@ -208,6 +212,136 @@ class SessionTest {
             released = true
         }
     }
+
+    @Test
+    fun aPeerThatAdvertisedBep10IsSentTheExtensionHandshakeFirst() =
+        runTest {
+            val metainfo = torrent(pieces = 4)
+            val dialer = FakeDialer(metainfo.infoHash, reserved = Handshake.reservedBits(extensionProtocol = true))
+            val session =
+                session(
+                    metainfo,
+                    dialer,
+                    FakeTracker(listOf(peerA)),
+                    FakeStorage(),
+                    AgreeableHasher(metainfo),
+                    config =
+                        SessionConfig(
+                            maxStartedPieces = 4,
+                            pipelineDepth = 2,
+                            maxPeers = 10,
+                            extensions = mapOf(ExtensionHandshake.UT_PEX to 1),
+                            clientVersion = "kachok test",
+                        ),
+                )
+
+            val job = session.start(kotlinx.coroutines.CoroutineScope(coroutineContext + handler))
+            testScheduler.runCurrent()
+
+            val first =
+                dialer.connections
+                    .getValue(peerA)
+                    .sent
+                    .first()
+            val extended = first as Message.Extended
+            assertEquals(ExtensionHandshake.HANDSHAKE_ID, extended.extensionId, "BEP 10: the handshake is id 0")
+            val ours = ExtensionHandshake.decode(extended.payload)
+            assertEquals(1, ours.id(ExtensionHandshake.UT_PEX), "what this client offers")
+            assertEquals("kachok test", ours.clientVersion)
+            assertEquals(6881, ours.listenPort, "the port we listen on, which is not the one we dialled from")
+            assertEquals(2, ours.requestQueueLength, "reqq is the pipeline depth this session actually uses")
+            job.cancelAndJoin()
+        }
+
+    @Test
+    fun aPeerWithoutTheBitNeverSeesAnExtendedMessage() =
+        runTest {
+            // The default reserved bytes are zero, which is a BEP 3 client. Message id 20 is
+            // unknown to one, and an unknown id is a connection most clients close.
+            val metainfo = torrent(pieces = 4)
+            val dialer = FakeDialer(metainfo.infoHash)
+            val session =
+                session(metainfo, dialer, FakeTracker(listOf(peerA)), FakeStorage(), AgreeableHasher(metainfo))
+
+            val job = session.start(kotlinx.coroutines.CoroutineScope(coroutineContext + handler))
+            testScheduler.runCurrent()
+            val connection = dialer.connections.getValue(peerA)
+            connection.incoming.send(PeerEvent.Received(Message.Bitfield(allOf(metainfo.pieceCount))))
+            connection.incoming.send(PeerEvent.Received(Message.Unchoke))
+            testScheduler.runCurrent()
+
+            assertTrue(
+                connection.sent.none { it is Message.Extended },
+                "a BEP 3 peer was sent ${connection.sent.filterIsInstance<Message.Extended>().size} extended messages",
+            )
+            assertEquals(0, session.state.value.extendedPeers)
+            job.cancelAndJoin()
+        }
+
+    @Test
+    fun thePeersExtensionIdsReachTheSessionAndAnUnknownOneIsIgnored() =
+        runTest {
+            val metainfo = torrent(pieces = 4)
+            val dialer = FakeDialer(metainfo.infoHash, reserved = Handshake.reservedBits(extensionProtocol = true))
+            val session =
+                session(metainfo, dialer, FakeTracker(listOf(peerA)), FakeStorage(), AgreeableHasher(metainfo))
+
+            val job = session.start(kotlinx.coroutines.CoroutineScope(coroutineContext + handler))
+            testScheduler.runCurrent()
+            val connection = dialer.connections.getValue(peerA)
+            val theirs =
+                ExtensionHandshake(mapOf(ExtensionHandshake.UT_PEX to 3), clientVersion = "SomeClient 2.0")
+            connection.incoming.send(
+                PeerEvent.Received(Message.Extended(ExtensionHandshake.HANDSHAKE_ID, theirs.encode())),
+            )
+            testScheduler.runCurrent()
+
+            assertEquals(1, session.state.value.extendedPeers, "the handshake was read and the peer counted")
+
+            // An extension this client never offered, sent under an id it never gave out. Dropped
+            // in silence: BEP 10 works because both sides ignore what they do not recognise.
+            connection.incoming.send(PeerEvent.Received(Message.Extended(3, "anything at all".encodeToByteArray())))
+            connection.incoming.send(PeerEvent.Received(Message.Bitfield(allOf(metainfo.pieceCount))))
+            connection.incoming.send(PeerEvent.Received(Message.Unchoke))
+            testScheduler.runCurrent()
+
+            assertEquals(1, session.state.value.connectedPeers, "the connection survived the unknown extension")
+            assertTrue(
+                connection.sent.filterIsInstance<Message.Request>().isNotEmpty(),
+                "and went on doing its job",
+            )
+            job.cancelAndJoin()
+        }
+
+    @Test
+    fun anUnreadableExtensionHandshakeCostsTheExtensionsAndNotTheConnection() =
+        runTest {
+            val metainfo = torrent(pieces = 4)
+            val dialer = FakeDialer(metainfo.infoHash, reserved = Handshake.reservedBits(extensionProtocol = true))
+            val session =
+                session(metainfo, dialer, FakeTracker(listOf(peerA)), FakeStorage(), AgreeableHasher(metainfo))
+
+            val job = session.start(kotlinx.coroutines.CoroutineScope(coroutineContext + handler))
+            testScheduler.runCurrent()
+            val connection = dialer.connections.getValue(peerA)
+            connection.incoming.send(
+                PeerEvent.Received(
+                    Message.Extended(ExtensionHandshake.HANDSHAKE_ID, "not bencode".encodeToByteArray()),
+                ),
+            )
+            connection.incoming.send(PeerEvent.Received(Message.Bitfield(allOf(metainfo.pieceCount))))
+            connection.incoming.send(PeerEvent.Received(Message.Unchoke))
+            testScheduler.runCurrent()
+
+            assertEquals(0, session.state.value.extendedPeers)
+            assertEquals(1, session.state.value.connectedPeers, "everything BEP 3 needs still works")
+            assertContains(session.state.value.lastPeerError ?: "", "extension handshake")
+            job.cancelAndJoin()
+        }
+
+    /** A bitfield claiming every piece, with BEP 3's spare bits left at zero. */
+    private fun allOf(pieces: Int): ByteArray =
+        Bitfield(pieces).also { bits -> (0 until pieces).forEach { bits.set(it) } }.toBytes()
 
     private fun session(
         metainfo: Metainfo,
