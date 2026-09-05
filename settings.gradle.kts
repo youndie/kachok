@@ -20,6 +20,31 @@ plugins {
 
 enableFeaturePreview("TYPESAFE_PROJECT_ACCESSORS")
 
+/**
+ * AppFrame, which is published to reposilite's **releases** and nowhere else.
+ *
+ * `ru.workinprogress.sborka.settings` declares the *snapshot* server for `io.github.youndie.*` and
+ * `mavenCentral()` after it; a plain `maven(...)` here would land after both, and every request for
+ * this one coordinate would pay two round trips that are required to miss — the thing sborka's own
+ * repository order exists to prevent.
+ *
+ * `exclusiveContent` avoids the question instead of answering it: the group is resolvable **only**
+ * from here, so no other repository is asked for it whatever the declaration order is.
+ *
+ * `includeGroup` and not a regex: `io.github.youndie.viddik` is a different group and stays on
+ * Maven Central, where it is.
+ */
+dependencyResolutionManagement {
+    repositories {
+        exclusiveContent {
+            forRepository {
+                maven("https://reposilite.kotlin.website/releases") { name = "wip-releases" }
+            }
+            filter { includeGroup("io.github.youndie") }
+        }
+    }
+}
+
 rootProject.name = "kachok"
 
 // Phase 1: the engine (multiplatform, JVM target only for now) and the headless CLI.

@@ -40,11 +40,12 @@ blocked_by: [B-48]
 - **`Save to` reads `~/Downloads/iso` and the reference reads `Downloads/iso/~`.** The design sets
   `direction: rtl` on that cell to ellipsize a path from the left, and the browser moved the tilde
   to the end. The path is right here and wrong there.
-- **The window golden lost its title bar.** `main-window.png` is 1200 × 760 including 29 px of
-  macOS chrome the operating system draws; the golden is the 1200 × 731 underneath it. Everything
-  below that line is comparable pixel for pixel, and it was: every horizontal boundary — toolbar,
-  banner, header, each of the sixteen rows, the status bar — lands within one pixel of the
-  reference's.
+- ~~**The window golden lost its title bar.**~~ *It has one now.* The bar the reference draws is in
+  the design's own colours, which is a custom frame rather than OS chrome; connecting AppFrame
+  ([B-61](B-61-appframe-title-bar.md)) made the golden the whole 1200 × 760. Every horizontal
+  boundary — bar, toolbar, banner, header, each of the sixteen rows, the status bar — lands at the
+  reference's, offset by the two pixels of window border the reference PNG includes and a window's
+  inside does not.
 
 - AC: goldens against `docs/design/screens/details-tabs.png`; every field in Overview reads from
   `SessionState` and the planned ones are visibly marked.

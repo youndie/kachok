@@ -1,5 +1,12 @@
 package ru.workinprogress.kachok.ui
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -7,9 +14,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
 import kotlinx.coroutines.CoroutineScope
@@ -18,6 +25,8 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
+import ru.workinprogress.appframe.AppFrame
+import ru.workinprogress.appframe.TitleBarStyle
 import ru.workinprogress.kachok.engine.io.EngineDispatchers
 import ru.workinprogress.kachok.engine.metainfo.MagnetLink
 import ru.workinprogress.kachok.engine.metainfo.MagnetParser
@@ -71,17 +80,37 @@ public fun main(args: Array<String>) {
     val torrent = args.firstOrNull()?.let { Path.of(it) }
     val directory = Path.of(args.getOrElse(1) { "." })
     application {
-        // Closing the window asks every session to stop and waits for them, the way the CLI's
-        // signal handler does — a download is not a thing to drop on the floor because a window
-        // went away, and the design says as much: the row stays until the record is written.
-        var closing by remember { mutableStateOf(false) }
-        Window(
-            onCloseRequest = { closing = true },
-            title = "kachok",
-            state = rememberWindowState(size = DpSize(WINDOW_WIDTH, WINDOW_HEIGHT)),
-        ) {
-            KachokTheme {
-                Client(torrent, directory, stopping = closing, onStopped = ::exitApplication)
+        // **The theme wraps the frame, not the frame's content.** `AppFrame` draws the title bar
+        // itself, from `MaterialTheme.colorScheme.surfaceVariant` — with `KachokTheme` one level
+        // lower the bar came out of the *default* light scheme while everything under it was dark.
+        // Nothing caught it: the golden renders the same bar inside the theme, because a golden
+        // cannot open a window, so it drew the right thing while the application drew the wrong one.
+        KachokTheme {
+            var closing by remember { mutableStateOf(false) }
+            // The title bar is drawn, not the operating system's: the design draws it in its own
+            // colours — `#161D1B`, a hairline under it, the name centred — which no OS chrome is
+            // going to produce. AppFrame is the library for it, and the controls are still the
+            // host's own, so this is a macOS window on macOS and a Windows one on Windows.
+            //
+            // 10 dp of padding and a 6 dp radius are the design's, measured off `main-window.png`;
+            // everything else in `TitleBarStyle.MacOs` already was.
+            AppFrame(
+                onCloseRequest = { closing = true },
+                title = "kachok",
+                state = rememberWindowState(size = DpSize(WINDOW_WIDTH, WINDOW_HEIGHT)),
+                style = KACHOK_TITLE_BAR,
+            ) {
+                Column(Modifier.fillMaxSize()) {
+                    // The line under the title bar belongs to the content: the bar is a `Surface`
+                    // with no border of its own, and every other bar in this window has one.
+                    Box(
+                        Modifier
+                            .fillMaxWidth()
+                            .height(1.dp)
+                            .background(MaterialTheme.colorScheme.surfaceContainerHigh),
+                    )
+                    Client(torrent, directory, stopping = closing, onStopped = ::exitApplication)
+                }
             }
         }
     }
@@ -372,6 +401,15 @@ private val TICK = 1.seconds
 
 /** Ten of them: the same ten seconds the headless client gives a clean stop before it goes. */
 private const val STOP_TICKS = 10
+
+/**
+ * The host's title bar with the design's two numbers on it.
+ *
+ * Shared with the golden, which draws the same `TitleBar` — one value, so the picture and the
+ * window cannot disagree about the bar's geometry.
+ */
+internal val KACHOK_TITLE_BAR: TitleBarStyle =
+    TitleBarStyle.forHost().copy(controlsPadding = 10.dp, cornerRadius = 6.dp)
 
 private val WINDOW_WIDTH = 1200.dp
 

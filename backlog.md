@@ -59,7 +59,7 @@ which is also the order of work.
 | [B-59](docs/backlog/B-59-force-re-check.md) `[ ]` | Force re-check: verifying a torrent that is already running | P3 | M | B-54 |
 | [B-02](docs/backlog/B-02-ci-runs-build-and-docs-gates.md) `[ ]` | CI runs the build and the documentation gates on every push | infra | S | B-01 |
 
-## Closed (52)
+## Closed (53)
 
 **M0 — The build and its gates**
 
@@ -142,6 +142,7 @@ which is also the order of work.
 - [B-54](docs/backlog/B-54-many-torrents.md) `[x]` - More than one torrent in one process
 - [B-55](docs/backlog/B-55-magnets-in-the-window.md) `[x]` - Magnets in the window, not only on the command line
 - [B-56](docs/backlog/B-56-dead-toolbar-controls.md) `[x]` - Controls that reported themselves and nobody listened
+- [B-61](docs/backlog/B-61-appframe-title-bar.md) `[x]` - The title bar the design draws, which is not the operating system's
 
 <!-- END INDEX -->
 

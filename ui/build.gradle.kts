@@ -25,6 +25,7 @@ kotlin {
                 implementation(compose.material3)
                 implementation(compose.ui)
                 implementation(compose.desktop.currentOs)
+                implementation(libs.appframe)
             }
         }
         val desktopTest by getting {

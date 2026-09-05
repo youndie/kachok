@@ -83,6 +83,7 @@ The colour rule lives outside the composables (`RowColors.kt`) so that "is this 
 | Module | `:swarm` (test only) | the tracker and seeding peer the end-to-end download runs against |
 | Library | Compose Multiplatform 1.12 + Material 3 | the toolkit and the eight roles the design names |
 | Library | viddik 0.4 | `viddikRecord` / `viddikVerify`, the goldens |
+| Library | AppFrame 0.1.20 | the title bar the design draws, with the host's own window controls |
 | Fonts | Source Serif 4, Archivo, JetBrains Mono, Material Symbols Rounded | bundled, not asked of the machine |
 
 ## 5. Infrastructure and deploy
@@ -143,6 +144,18 @@ None. Two command-line arguments and nothing read from the environment; the sett
 * **A control either has a command or a reason, never neither.** `ToolbarAction` refuses to be
   built without one of the two and the handler switches on an enum, because four buttons that
   looked available and fell into an `else ->` shipped once ([B-56](../backlog/B-56-dead-toolbar-controls.md)).
+* **The title bar is drawn, not the operating system's**, because the design draws it in its own
+  colours. `AppFrame` provides it and the controls stay the host's — traffic lights on macOS,
+  minimise/maximise/close on Windows, the GTK layout on Linux.
+* **The theme has to wrap `AppFrame`, not its content.** The bar is composed inside the window from
+  `MaterialTheme.colorScheme.surfaceVariant`; with `KachokTheme` one level lower it drew from the
+  default *light* scheme while everything under it was dark. The golden could not catch it — a
+  golden cannot open a window, so it renders the same bar inside the theme and drew the right thing
+  while the application drew the wrong one.
+* **The title is `onSurfaceVariant` where the design has `#BEC9C6`.** `AppFrame` does not forward
+  `color`/`contentColor` to the `TitleBar` it draws, though `TitleBar` itself takes both. One
+  parameter; everything else about the bar — height, controls, their size, spacing and padding, the
+  centred title, the background — matches the reference to the pixel.
 * **`TextOverflow.StartEllipsis` type-checks and does nothing.** Compose Multiplatform 1.12
   truncates at the end whatever it says, with and without `softWrap = false` — checked twice
   against a golden. A path is elided by measuring it (`PathText`), which is also why the golden
