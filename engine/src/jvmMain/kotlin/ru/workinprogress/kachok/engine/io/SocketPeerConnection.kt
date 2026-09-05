@@ -261,6 +261,42 @@ public class SocketPeerConnection private constructor(
             }
         }
 
+        /**
+         * Adopts a socket somebody else dialled.
+         *
+         * The mirror image of [connect] and not a variation on it: the peer that dialled speaks
+         * first, so the handshake is read before ours is written, and the info hash is checked
+         * before we admit to having the torrent at all.
+         */
+        public suspend fun accept(
+            scope: CoroutineScope,
+            socket: SocketChannel,
+            infoHash: InfoHash,
+            peerId: PeerId,
+            pool: BufferPool,
+            reserved: ByteArray = Handshake.reservedBits(),
+        ): SocketPeerConnection {
+            try {
+                val theirs = ByteBuffer.allocate(Handshake.SIZE)
+                while (theirs.hasRemaining()) {
+                    if (socket.read(theirs) < 0) throw EOFException("peer closed during the handshake")
+                }
+                val handshake = Handshake.decode(theirs.array())
+                if (!handshake.infoHash.bytes.contentEquals(infoHash.bytes)) {
+                    throw WireException("peer asked for another torrent: ${handshake.infoHash.bytes.toHex()}")
+                }
+                val ours = ByteBuffer.wrap(Handshake(infoHash, peerId, reserved).encode())
+                while (ours.hasRemaining()) socket.write(ours)
+
+                val remote = socket.remoteAddress as InetSocketAddress
+                val address = PeerAddress(remote.address.hostAddress, remote.port)
+                return SocketPeerConnection(address, handshake, socket, pool).also { it.start(scope) }
+            } catch (failure: Throwable) {
+                socket.closeQuietly()
+                throw failure
+            }
+        }
+
         private fun ByteArray.toHex(): String = joinToString("") { (it.toInt() and 0xFF).toString(16).padStart(2, '0') }
     }
 }

@@ -60,7 +60,9 @@ What exists on `main` today:
 | `.../engine/peer/Peer.kt` | `PeerAddress`, `Block`, `PeerEvent`, `PeerConnection` — what the session is allowed to know about a connection |
 | `engine/src/jvmMain/kotlin/ru/workinprogress/kachok/engine/io/BufferPool.kt` | the capped pool of direct 16 KiB buffers and its `PooledBuffer` handle |
 | `.../engine/io/EngineDispatchers.kt` | the virtual-thread dispatcher every coroutine in the engine runs on |
-| `.../engine/io/SocketPeerConnection.kt` | one peer, one blocking `SocketChannel`, one virtual thread; blocks read straight into pool buffers |
+| `.../engine/io/SocketPeerConnection.kt` | one peer, one blocking `SocketChannel`, one virtual thread; `connect` and `accept`, blocks read straight into pool buffers |
+| `.../engine/io/PeerListener.kt` | the 6881–6889 probe and the accept loop |
+| `.../engine/io/SocketPeerDialer.kt` | the `PeerDialer` the session dials through |
 | `.../engine/storage/PieceLayout.kt` | piece and block to file spans, by cumulative offsets |
 | `.../engine/storage/PieceHasher.kt` | the interface a piece is verified through, before it is written |
 | `.../engine/storage/BlockWriter.kt` | the single writer: blocks in, verified pieces out, buffers back to the pool |
@@ -74,7 +76,7 @@ What exists on `main` today:
 | `.../engine/session/Session.kt` | the orchestrator: peers, tracker loop, writer, one timer, all under one `SupervisorJob` |
 | `.../engine/hash/MessageDigestPieceHasher.kt` (jvmMain) | SHA-1 on a bounded dispatcher, with a pool of digests and the `JvmBlock` seam |
 | `.../engine/storage/FileSet.kt` (jvmMain) | the torrent's files, created sparse with `setLength` and kept open for positional writes |
-| `engine/src/commonTest/kotlin/ru/workinprogress/kachok/engine/` | 121 tests across every package; the session's nine run entirely on fakes; the fixtures are embedded strings, because a KMP test source set has no resources |
+| `engine/src/commonTest/kotlin/ru/workinprogress/kachok/engine/` | 132 tests across every package; the session's nine run entirely on fakes; the fixtures are embedded strings, because a KMP test source set has no resources |
 
 The layout the backlog builds toward, under `engine/src/commonMain/kotlin/ru/workinprogress/kachok/engine/`
 (a directory appears when its first backlog item lands; none of these exist yet):
@@ -89,7 +91,6 @@ and under `engine/src/jvmMain/kotlin/ru/workinprogress/kachok/engine/`:
 
 | Directory | What goes there | Backlog |
 |---|---|---|
-| `io/` | the listener that accepts incoming peers, beside the pool and the connection already there | [B-09](../backlog/B-09-incoming-connections.md) |
 | `storage/` | the `transferTo` read path for uploads, beside the writer already there | [B-20](../backlog/B-20-upload-read-path.md) |
 | `tracker/` | the UDP announce, beside the HTTP one already there | [B-32](../backlog/B-32-udp-tracker.md) |
 

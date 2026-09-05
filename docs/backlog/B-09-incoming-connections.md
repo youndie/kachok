@@ -1,7 +1,7 @@
 ---
 id: B-09
 title: "Accept incoming peers on the BEP 3 port range"
-status: open
+status: done
 priority: P1
 size: S
 stage: m2-wire
@@ -22,6 +22,22 @@ Without a listener the client can only download from peers it dials, and half th
 - Not covered: a cap on incoming connections per torrent — it is a `SessionConfig` field with a
   default set in [B-17](B-17-session-orchestrator.md).
 
-- AC: with 6881 occupied by the test, the listener binds 6882 and the announce carries 6882; an
+- AC **met 2026-09-05** (`PeerListenerTest`, 5 tests): with the first port occupied by the test, the listener binds 6882 and the announce carries 6882; an
   incoming handshake for an unknown info hash is closed.
 - Anchors: `engine/src/jvmMain/kotlin/ru/workinprogress/kachok/engine/io/`.
+
+**Closed 2026-09-05.** Three decisions the item did not spell out:
+
+* **A full range is an error, not an ephemeral port.** Falling back to whatever the operating
+  system offers would announce a port to the tracker and listen on another — a client that believes
+  it is reachable and is not, which is worse than one that says it cannot listen.
+* **An accepted peer and a dialled one differ only in who spoke first.** `SocketPeerConnection
+  .accept` reads their handshake before writing ours and refuses a wrong info hash *before*
+  admitting to having the torrent; from there both paths run the same `serve` coroutine, so the
+  incoming case adds no state machine of its own.
+* **One connection per peer.** A peer we are already talking to that also dials us is closed on
+  arrival; two connections to the same peer would be two entries in the picker's availability and
+  two claims on the same blocks.
+
+The listener belongs to the caller, not the session: whether to accept at all is a policy question,
+and the session's door for a new peer is the same command channel a tracker's peers come through.

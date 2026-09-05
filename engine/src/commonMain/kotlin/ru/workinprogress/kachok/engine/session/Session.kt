@@ -145,6 +145,17 @@ public class Session(
                     connectMore(scope)
                 }
 
+                is Command.AcceptPeer -> {
+                    val address = command.connection.address
+                    if (address in connected) {
+                        // Already talking to them, from our side. One connection per peer.
+                        command.connection.close()
+                    } else {
+                        known += address
+                        scope.launch { serve(scope, command.connection) }
+                    }
+                }
+
                 Command.Stop -> {
                     shutDown()
                     sessionJob.cancel()
@@ -250,6 +261,20 @@ public class Session(
                 }
                 return
             }
+        serve(scope, connection)
+    }
+
+    /**
+     * One coroutine per connection, however it was made.
+     *
+     * A peer that dialled us and a peer we dialled differ only in who spoke first; from here they
+     * are the same thing, which is why the accepting path adds no state machine of its own.
+     */
+    private suspend fun serve(
+        scope: CoroutineScope,
+        connection: PeerConnection,
+    ) {
+        val address = connection.address
         val link = PeerLink(connection)
         connected[address] = link
         picker.addPeer(address)

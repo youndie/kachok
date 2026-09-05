@@ -11,6 +11,8 @@ import ru.workinprogress.kachok.engine.PeerId
 import ru.workinprogress.kachok.engine.hash.MessageDigestPieceHasher
 import ru.workinprogress.kachok.engine.io.BufferPool
 import ru.workinprogress.kachok.engine.io.EngineDispatchers
+import ru.workinprogress.kachok.engine.io.PeerListener
+import ru.workinprogress.kachok.engine.io.SocketPeerConnection
 import ru.workinprogress.kachok.engine.io.SocketPeerDialer
 import ru.workinprogress.kachok.engine.metainfo.Metainfo
 import ru.workinprogress.kachok.engine.metainfo.MetainfoParser
@@ -76,7 +78,17 @@ class Download(
         sessionScope: CoroutineScope,
     ): Int {
         val pool = BufferPool(capacity = poolCapacity(metainfo))
-        val port = options.port ?: TrackerProtocol.PORT_RANGE.first
+        // Bound before the session starts, because the port the tracker is told about must be the
+        // one that was actually free — announcing a port nothing listens on is how a client comes
+        // to believe it is reachable when it is not.
+        val listener =
+            try {
+                PeerListener.bind(options.port?.let { it..it } ?: TrackerProtocol.PORT_RANGE)
+            } catch (unavailable: java.net.BindException) {
+                err.appendLine("kachok: cannot listen: ${unavailable.message}")
+                null
+            }
+        val port = listener?.port ?: options.port ?: TrackerProtocol.PORT_RANGE.first
         // One identity, announced to the tracker and offered in every handshake. Generating it
         // twice would have told the tracker about a peer no swarm member ever meets.
         val identity = randomPeerId()
@@ -99,14 +111,22 @@ class Download(
             )
 
         out.appendLine("${metainfo.name}: ${metainfo.totalLength} bytes in ${metainfo.pieceCount} pieces")
+        listener?.let { out.appendLine("listening on port ${it.port}") }
         session.start(sessionScope)
+        listener?.start(sessionScope) { socket ->
+            val connection =
+                SocketPeerConnection.accept(sessionScope, socket, metainfo.infoHash, identity, pool)
+            session.send(Command.AcceptPeer(connection))
+        }
         val renderer = sessionScope.launch { render(session) }
 
         val finished =
-            session.state.first { state ->
-                state.isComplete || hopeless(state)
+            try {
+                session.state.first { state -> state.isComplete || hopeless(state) }
+            } finally {
+                renderer.cancel()
+                listener?.close()
             }
-        renderer.cancel()
 
         return when {
             finished.isComplete -> {

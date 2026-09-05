@@ -46,11 +46,10 @@ which is also the order of work.
 
 <!-- BEGIN INDEX -->
 
-## Open (26)
+## Open (25)
 
 | Task | | Priority | Size | Blocked by |
 |---|---|---|---|---|
-| [B-09](docs/backlog/B-09-incoming-connections.md) `[ ]` | Accept incoming peers on the BEP 3 port range | P1 | S | B-07 |
 | [B-20](docs/backlog/B-20-upload-read-path.md) `[ ]` | Serve requests with FileChannel.transferTo | P1 | M | B-17 |
 | [B-21](docs/backlog/B-21-choking-algorithm.md) `[ ]` | The ten-second choker with optimistic unchoke | P1 | M | B-20 |
 | [B-23](docs/backlog/B-23-atomic-resume-file.md) `[ ]` | A resume record written atomically and rarely | P1 | M | B-17 |
@@ -77,7 +76,7 @@ which is also the order of work.
 | [B-41](docs/backlog/B-41-android-and-ios-targets.md) `[ ]` | Phase 3: Android and iOS targets on the engine | P3 | XL | B-39 |
 | [B-02](docs/backlog/B-02-ci-runs-build-and-docs-gates.md) `[ ]` | CI runs the build and the documentation gates on every push | infra | S | B-01 |
 
-## Closed (17)
+## Closed (18)
 
 **M0 — The build and its gates**
 
@@ -94,6 +93,7 @@ which is also the order of work.
 - [B-06](docs/backlog/B-06-peer-wire-codec.md) `[x]` - Peer wire codec: handshake, message ids, in-place piece and request
 - [B-07](docs/backlog/B-07-virtual-thread-peer-transport.md) `[x]` - One virtual thread per peer on a blocking SocketChannel
 - [B-08](docs/backlog/B-08-direct-buffer-pool.md) `[x]` - A capped pool of 16 KiB direct ByteBuffers
+- [B-09](docs/backlog/B-09-incoming-connections.md) `[x]` - Accept incoming peers on the BEP 3 port range
 - [B-42](docs/backlog/B-42-scopedvalue-in-the-reader-loop.md) `[-]` - Is ScopedValue used anywhere, or dropped?
 
 **M3 — Storage**

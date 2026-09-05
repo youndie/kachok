@@ -59,6 +59,16 @@ public sealed interface Command {
         public val peers: List<ru.workinprogress.kachok.engine.peer.PeerAddress>,
     ) : Command
 
+    /**
+     * A peer that dialled *us*, already through its handshake.
+     *
+     * The listener belongs to the caller — it decides whether to accept at all and on which port —
+     * so a connection arrives here the same way a tracker's peers do: through the one door.
+     */
+    public class AcceptPeer(
+        public val connection: ru.workinprogress.kachok.engine.peer.PeerConnection,
+    ) : Command
+
     /** Announce `stopped`, close the peers, flush, and finish. */
     public data object Stop : Command
 }
