@@ -79,9 +79,10 @@ per-message events, which is what conflation is for.
 * **Artefact (research D10):** `./gradlew :cli:runtimeImage` writes `cli/build/kachok` — the
   `jlink`ed run-time image, the jars, a launcher fixing the JVM flags, and an `image.properties`
   naming the module set and those flags. 35 MB on macOS/aarch64, 47 MB for `linux/amd64`.
-  `./scripts/verify_runtime_image.sh` downloads a torrent through it in a `debian:stable-slim`
-  container with no `java` in it (research §1.3b). The AOT cache is still missing:
-  [B-28](../backlog/B-28-aot-cache-in-the-distribution.md).
+  `./gradlew :cli:aotCache` adds `kachok.aot`, trained on a real download and proved to be opened
+  — 27.9 MB, which takes the distribution to 63 MB and start-up from 103 ms to 51 ms
+  (research §1.2a2). `./scripts/verify_runtime_image.sh` does all of it in a `debian:stable-slim`
+  container with no `java` in it (research §1.3b).
 * **Also:** `./gradlew :cli:installDist` produces the ordinary Gradle application layout, which
   expects a JDK on the machine. No installer in phase 1, and none needed for a headless CLI.
 * **CI:** `.github/workflows/ci.yml` builds and tests on `ubuntu-latest`; the documentation gate is
@@ -117,6 +118,15 @@ defaults to the first of BEP 3's 6881–6889 (the probe itself arrives with
 
 ## 8. Quirks
 
+* **A cache the VM refuses is not an error.** It is a warning line and a completely normal, slower
+  start, so `:cli:aotCache` fails the build unless `-Xlog:aot=info` says `Opened AOT cache`.
+  "It ran" proves nothing here.
+* **`KACHOK_JVM_OPTS` is how anything reaches the VM through the launcher rather than around it.**
+  The training run and the smoke run both use it; measuring or training a VM the launcher would not
+  run is the thing this whole layout exists to prevent.
+* **The class path in the launcher is an explicit sorted list, not `lib/*`.** An AOT cache is
+  refused unless the class path matches the one it was trained on, and a wildcard's expansion order
+  is the JVM's business rather than a promise (JEP 483).
 * **The JVM flags and the module set live in `cli/build.gradle.kts` and nowhere else.** `run`,
   `installDist`'s start scripts, the run-time image's launcher and the verification script all
   read them from there — the script through the generated `image.properties`, so it cannot drift
@@ -129,12 +139,11 @@ defaults to the first of BEP 3's 6881–6889 (the probe itself arrives with
 * **A download gives up only when there is nothing to wait for**: every tracker refused *and* no
   peer arrived from anywhere else. Deliberately not "no progress for a while" — a slow swarm is not
   a failed download, and a client that gives up on one is worse than a client that waits.
-* **The JVM flags live in the build file, not in a script.** `applicationDefaultJvmArgs` is read by
-  `run` and by `installDist`'s start scripts alike, so there is one place to change a flag and no
-  way to measure a VM the distribution would not ship.
 * **`-XX:+UseG1GC` is redundant today and is there anyway.** G1 is this JDK's default; the flag
   exists because an AOT cache built under one collector is refused under another without an error
-  anyone sees (research §1.2), so the collector this cache is built with may not be inherited. The AOT cache flag is *not* there yet: the
-  cache does not exist, and pointing `-XX:AOTCache` at a missing file is a warning on every start.
+  anyone sees (research §1.2), so the collector this cache is built with may not be inherited.
+* **`-XX:AOTCache` is asked for, not passed unconditionally.** The launcher adds it only when the
+  file is beside it, because pointing it at a missing file is a warning on every start — and
+  `:cli:runtimeImage` alone, without `:cli:aotCache`, is a working distribution.
 * **Windows is not tested** (research Risk 6). Nothing here is Unix-specific by intent, and
   nothing here has been run on Windows.

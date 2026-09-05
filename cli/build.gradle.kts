@@ -144,6 +144,16 @@ abstract class BuildRuntimeImage : DefaultTask() {
 
         val bin = File(root, "bin").also { it.mkdirs() }
         val launcher = File(bin, "kachok")
+        // An explicit, sorted class path rather than `lib/*`: an AOT cache is refused unless the
+        // class path matches the one it was trained on, and a wildcard's expansion order is the
+        // JVM's business rather than a promise (JEP 483).
+        val classPath =
+            lib
+                .listFiles()
+                .orEmpty()
+                .map { it.name }
+                .sorted()
+                .joinToString(":") { "\$here/lib/" + it }
         launcher.writeText(
             """
             #!/bin/sh
@@ -152,8 +162,14 @@ abstract class BuildRuntimeImage : DefaultTask() {
             # a VM this launcher would not run.
             set -e
             here=$(cd "$(dirname "$0")/.." && pwd)
-            exec "${'$'}here/runtime/bin/java" ${jvmFlags.get().joinToString(" ")} \
-              -cp "${'$'}here/lib/*" ${mainClass.get()} "${'$'}@"
+            # Written by :cli:aotCache, and absent until it has run. Asked for rather than passed
+            # unconditionally: -XX:AOTCache pointed at a missing file is a warning on every start.
+            cache=""
+            if [ -f "${'$'}here/kachok.aot" ]; then cache="-XX:AOTCache=${'$'}here/kachok.aot"; fi
+            # The training run and the smoke run go through this launcher rather than around it,
+            # so that the VM the cache is built for is the VM that ships.
+            exec "${'$'}here/runtime/bin/java" ${jvmFlags.get().joinToString(" ")} ${'$'}cache ${'$'}KACHOK_JVM_OPTS \
+              -cp "$classPath" ${mainClass.get()} "${'$'}@"
             """.trimIndent() + "\n",
         )
         launcher.setExecutable(true)
@@ -195,4 +211,141 @@ tasks.register<JavaExec>("swarmHost") {
         },
     )
     args = (project.findProperty("swarmArgs") as String?)?.split(" ") ?: emptyList()
+}
+
+/**
+ * The AOT cache of research §1.2, built by a real download and then proved to be used.
+ *
+ * The proof is the point. A cache the VM refuses — a flag changed, a jar renamed, a different
+ * collector — is not an error and not a slower error: it is a warning line and a completely normal
+ * start, so a distribution that merely *has* a cache has no idea whether anyone benefits from it.
+ * This task fails unless `-Xlog:aot=info` says the cache was opened.
+ *
+ * The training run is a whole download from a seed this task starts, not a start-up and exit: what
+ * the cache is worth depends on which classes were loaded while it was recorded, and the wire, the
+ * picker, the hasher and the writer are only loaded by a download that happens.
+ */
+abstract class BuildAotCache : DefaultTask() {
+    @get:Inject
+    abstract val exec: ExecOperations
+
+    @get:InputDirectory
+    abstract val image: DirectoryProperty
+
+    @get:InputFiles
+    abstract val swarmClasspath: ConfigurableFileCollection
+
+    @get:Input
+    abstract val javaHome: Property<String>
+
+    @get:OutputFile
+    abstract val cache: RegularFileProperty
+
+    @TaskAction
+    fun build() {
+        val root = image.get().asFile
+        val launcher = File(root, "bin/kachok")
+        val cacheFile = cache.get().asFile
+        cacheFile.delete()
+
+        val work =
+            File(root, "training").also {
+                it.deleteRecursively()
+                it.mkdirs()
+            }
+        val swarm = startSwarm(work)
+        try {
+            val torrent = awaitTorrent(work)
+            run(launcher, "-XX:AOTCacheOutput=${cacheFile.path}", torrent, File(work, "train-out"))
+        } finally {
+            swarm.destroy()
+            swarm.waitFor()
+        }
+        if (!cacheFile.isFile) throw GradleException("the training run produced no AOT cache")
+
+        // The same launcher again, now that the cache exists, asking the VM whether it used it.
+        val log = File(work, "aot.log")
+        val torrent = File(work, "fixture.torrent")
+        val swarmAgain = startSwarm(File(root, "training-check").also { it.mkdirs() })
+        try {
+            val second = awaitTorrent(File(root, "training-check"))
+            run(launcher, "-Xlog:aot=info:file=${log.path}", second, File(work, "check-out"))
+        } finally {
+            swarmAgain.destroy()
+            swarmAgain.waitFor()
+        }
+        val text = if (log.isFile) log.readText() else ""
+        if (!text.contains("Opened AOT cache")) {
+            throw GradleException(
+                "the cache was built but the VM did not open it, which is a silent slow start " +
+                    "rather than an error — research Risk 3. -Xlog:aot=info said:\n$text",
+            )
+        }
+        logger.lifecycle("AOT cache ${cacheFile.length() / 1024} KB, and the VM opened it")
+        File(root, "training").deleteRecursively()
+        File(root, "training-check").deleteRecursively()
+        if (torrent.exists()) torrent.delete()
+    }
+
+    private fun startSwarm(work: File): Process {
+        work.mkdirs()
+        return ProcessBuilder(
+            listOf(
+                File(javaHome.get(), "bin/java").path,
+                "-cp",
+                swarmClasspath.asPath,
+                "ru.workinprogress.kachok.cli.SwarmHost",
+                "--dir",
+                work.path,
+                "--megabytes",
+                "8",
+                "--bind",
+                "127.0.0.1",
+            ),
+        ).redirectErrorStream(true).redirectOutput(File(work, "swarm.log")).start()
+    }
+
+    private fun awaitTorrent(work: File): File {
+        val torrent = File(work, "fixture.torrent")
+        val deadline = System.nanoTime() + SWARM_TIMEOUT_SECONDS * NANOS_PER_SECOND
+        while (System.nanoTime() < deadline) {
+            if (torrent.isFile) return torrent
+            Thread.sleep(POLL_MILLIS)
+        }
+        throw GradleException(
+            "the training swarm never came up: ${File(work, "swarm.log").takeIf { it.isFile }?.readText()}",
+        )
+    }
+
+    private fun run(
+        launcher: File,
+        jvmOption: String,
+        torrent: File,
+        out: File,
+    ) {
+        exec.exec {
+            commandLine(launcher.path, "download", torrent.path, "--dir", out.path)
+            environment("KACHOK_JVM_OPTS", jvmOption)
+        }
+    }
+
+    private companion object {
+        const val SWARM_TIMEOUT_SECONDS = 60L
+        const val NANOS_PER_SECOND = 1_000_000_000L
+        const val POLL_MILLIS = 200L
+    }
+}
+
+tasks.register<BuildAotCache>("aotCache") {
+    group = "distribution"
+    description = "Trains the distribution's AOT cache on a real download and proves the VM opens it"
+    dependsOn(tasks.named("runtimeImage"))
+    image.set(layout.buildDirectory.dir("kachok"))
+    cache.set(layout.buildDirectory.file("kachok/kachok.aot"))
+    swarmClasspath.from(sourceSets["test"].runtimeClasspath)
+    javaHome.set(
+        javaToolchains
+            .launcherFor { languageVersion.set(java.toolchain.languageVersion.get()) }
+            .map { it.metadata.installationPath.asFile.path },
+    )
 }

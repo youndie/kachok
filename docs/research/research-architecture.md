@@ -103,6 +103,42 @@ the flags gets a silently uncached start, not an error.
 distribution smoke test has to assert that the cache was *mapped*, not that the program ran —
 [Risk 3](#3-risks-and-open-questions).
 
+### 1.2a2 What the cache is worth, and what it costs
+
+The cache §1.2 proved *works* is now the one the distribution ships, trained by a real 8 MB
+download through the launcher (`./gradlew :cli:aotCache`). macOS/aarch64, JDK 25.0.2, 2026-09-05,
+ten timed runs per configuration after two warm-ups, min/median:
+
+| Start | With the cache | Without | Saved |
+|---|---|---|---|
+| `kachok` with no arguments (usage, exit 2) | 50 / 51 ms | 102 / 103 ms | **52 ms, 51 %** |
+| `kachok download <torrent whose tracker refuses>` | 438 / 459 ms | 663 / 674 ms | **215 ms, 32 %** |
+
+| | Size |
+|---|---|
+| run-time image + jars | 35 MB |
+| the cache | **27.9 MB** |
+| what a user unpacks | 63 MB |
+
+**Consequence 1 — the trade is size for start-up, and it is a large trade in both directions.** The
+cache nearly doubles the distribution and halves the start. For a client a user launches and leaves
+running, 215 ms is not much; for one driven from a script it is most of the run. The number to
+revisit is the *training workload*: this cache was recorded over a whole download, so it holds the
+wire, the picker, the hasher and the writer as well as the start-up path. A cache trained on
+start-up alone would be smaller and worth less.
+
+**Consequence 2 — the cache is not bound to the directory it was built in.** Measured by copying
+the distribution elsewhere on the same machine: `Opened AOT cache` at the new path and the same
+51 ms. The launcher's class path is written relative to its own location, which is what makes that
+true; an absolute one would have made a moved distribution silently uncached.
+
+**Consequence 3 — the proof has to run through the launcher.** `scripts/verify_runtime_image.sh`
+trains and then checks inside `debian:stable-slim`, and an earlier version of it did not: it wrote
+its *own* launcher instead of copying the build's, so the training run had no `KACHOK_JVM_OPTS` to
+read and trained nothing at all. The script had a mechanism against exactly this drift — it reads
+the module set and the flags out of the image the build produced — and then re-introduced the drift
+two lines below it. A copy of a generated artefact is the same hazard as a copy of a number.
+
 ### 1.2a The transport, measured on this machine
 
 Verified by `SocketPeerConnectionTest` (B-07) on macOS/aarch64, JDK 25.0.2, 2026-09-05.
