@@ -50,6 +50,9 @@ waiting for.
   to it is a *Metadata* row until `fetchMetainfo` returns, and a real torrent after.
 * **Settings prints the measured default beside every field**, read out of `SessionConfig` rather
   than repeated. `no limit` is the words, not a zero.
+* **A control either does something or says why it does not.** Nothing on the toolbar is drawn
+  available and inert; the four that cannot work yet are greyed and each names the item that would
+  enable it.
 * **One window holds several torrents; one `Session` still holds one.** The listener, the DHT and
   the dispatcher are shared; the buffer pool is not, because the cap is the back-pressure.
 
@@ -144,6 +147,23 @@ toolbar ── Add torrent ──▶ file chooser ──▶ MetainfoParser ─�
 * **Automated:** `ui SettingsFromTest#everyDefaultComesOutOfTheEnginesOwnConfig`,
   `#aLimitOfNothingSaysTheWordsRatherThanZero`, `#typingTheDefaultBackIsNotAChange`
 
+### Scenario: The column header sorts the list it heads
+* **Given:** torrents whose sizes, percentages and ratios sort one way as text and another as
+  numbers.
+* **When:** each column head is used.
+* **Then:** the order is the numeric one; an ETA of never is last whichever way the list is turned;
+  clicking the sorted column reverses it and clicking another starts it ascending.
+* **Automated:** `ui SortingTest#sizeIsSortedAsANumberAndNotAsItsCell`,
+  `#anEtaOfNeverIsLastAscendingAndFirstDescendingButNeverInTheMiddle`, `#descendingIsAscendingBackwards`
+
+### Scenario: Every control that can be pressed has somewhere for the press to go
+* **Given:** the toolbar as the window builds it.
+* **When:** every control on it is examined.
+* **Then:** each one has either a command or a reason it is disabled, never neither and never both,
+  and every reason names the backlog item that would enable it.
+* **Automated:** `ui ToolbarStateTest#everyControlEitherDoesSomethingOrSaysWhyItDoesNot`,
+  `#everyDisabledControlNamesTheItemThatWouldEnableIt`
+
 ### Scenario: Nothing to show is a place to start
 * **Given:** a window with no torrents.
 * **When:** it is drawn.
@@ -172,3 +192,6 @@ toolbar ── Add torrent ──▶ file chooser ──▶ MetainfoParser ─�
   where its own two figures give `0.14`; the panel divides rather than copies.
 * **The window keeps its toolbar and status bar when the list is empty**, where the design drops
   most of both. They are the process's state rather than the list's.
+* **Four toolbar buttons are greyed where the design draws three of them live.** The design shows
+  the finished client; this shows what works. They did nothing at all for one release, which is the
+  defect that made the rule.

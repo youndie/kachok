@@ -31,12 +31,17 @@ import ru.workinprogress.kachok.ui.add.AddTorrentState
 import ru.workinprogress.kachok.ui.details.DetailsTab
 import ru.workinprogress.kachok.ui.main.MainWindow
 import ru.workinprogress.kachok.ui.main.MainWindowState
+import ru.workinprogress.kachok.ui.main.SortOrder
+import ru.workinprogress.kachok.ui.main.ToolbarCommand
 import ru.workinprogress.kachok.ui.session.Lifecycle
 import ru.workinprogress.kachok.ui.session.Preferences
 import ru.workinprogress.kachok.ui.session.RateMeter
 import ru.workinprogress.kachok.ui.session.Rates
+import ru.workinprogress.kachok.ui.session.Sample
 import ru.workinprogress.kachok.ui.session.addFrom
+import ru.workinprogress.kachok.ui.session.clicked
 import ru.workinprogress.kachok.ui.session.detailsOf
+import ru.workinprogress.kachok.ui.session.inOrder
 import ru.workinprogress.kachok.ui.session.magnetRow
 import ru.workinprogress.kachok.ui.session.rowOf
 import ru.workinprogress.kachok.ui.session.settingsOf
@@ -123,6 +128,7 @@ internal fun Client(
     var pending by remember { mutableStateOf<Pending?>(null) }
     var selected by remember { mutableStateOf(0) }
     var settingsOpen by remember { mutableStateOf(false) }
+    var sort by remember { mutableStateOf(SortOrder()) }
     // Read through a state, not captured: the effect is launched once and these change later, so
     // a plain read inside it would be the value from before the click.
     val askedToStop by rememberUpdatedState(stopping)
@@ -131,6 +137,7 @@ internal fun Client(
     val shownAdd by rememberUpdatedState(pending?.shown)
     val chosen by rememberUpdatedState(selected)
     val showSettings by rememberUpdatedState(settingsOpen)
+    val order by rememberUpdatedState(sort)
     // The dialog runs on the composition and the engine on its own dispatcher; a channel is the
     // seam, so a click never blocks a frame on a torrent being opened and hashed.
     val accepted = remember { Channel<Pending>(Channel.UNLIMITED) }
@@ -178,42 +185,53 @@ internal fun Client(
                 }
                 val running = set.torrents
                 val lifecycle = if (asked) Lifecycle.Stopping else Lifecycle.Running
-                val samples =
-                    running.map { runtime ->
-                        val state = runtime.state.value
-                        state to meters.getOrPut(runtime.metainfo.name) { RateMeter() }.sample(state)
-                    }
+                // Sorted here rather than in the composable: the details panel and the selection
+                // both index into this list, and two orders would put the panel on another torrent
+                // than the highlighted row.
+                val ordered =
+                    running
+                        .map { runtime ->
+                            val state = runtime.state.value
+                            Sample(state, meters.getOrPut(runtime.metainfo.name) { RateMeter() }.sample(state))
+                        }.inOrder(order)
+                val byName = running.associateBy { it.metainfo.name }
                 // A magnet's row comes first: it is the one the person just asked for, and the
                 // one with the least to say about itself.
                 val waiting = fetching.toList()
-                val index = chosen.coerceIn(0, maxOf(0, waiting.size + running.size - 1))
+                val index = chosen.coerceIn(0, maxOf(0, waiting.size + ordered.size - 1))
                 window =
                     windowOf(
                         rows =
                             waiting.mapIndexed { at, it -> magnetRow(it.link, selected = at == index) } +
-                                samples.mapIndexed { at, (state, rates) ->
-                                    rowOf(state, rates, lifecycle, selected = waiting.size + at == index)
+                                ordered.mapIndexed { at, sample ->
+                                    rowOf(
+                                        sample.state,
+                                        sample.rates,
+                                        lifecycle,
+                                        selected = waiting.size + at == index,
+                                    )
                                 },
                         // The status bar's two rates are the whole process's, which is what makes
                         // them different numbers from any one row's.
                         rates =
                             Rates(
-                                down = samples.sumOf { it.second.down },
-                                up = samples.sumOf { it.second.up },
+                                down = ordered.sumOf { it.rates.down },
+                                up = ordered.sumOf { it.rates.up },
                             ),
                         listenPort = set.listenPort,
-                        dhtNodes = set.dhtPort?.let { samples.firstOrNull()?.first?.dhtNodes ?: 0 },
+                        dhtNodes = set.dhtPort?.let { ordered.firstOrNull()?.state?.dhtNodes ?: 0 },
                         heapUsedBytes = heapUsed(),
                         heapMaxBytes = Runtime.getRuntime().maxMemory(),
                         // The banner names one session because one session failed; which one it is
                         // is the row that is tinted.
-                        sessionError = samples.firstNotNullOfOrNull { it.first.sessionError },
+                        sessionError = ordered.firstNotNullOfOrNull { it.state.sessionError },
                         details =
-                            samples.getOrNull(index - waiting.size)?.takeIf { showPanel }?.let { (state, rates) ->
+                            ordered.getOrNull(index - waiting.size)?.takeIf { showPanel }?.let { sample ->
                                 detailsOf(
-                                    state = state,
-                                    rates = rates,
-                                    pieceLength = running[index - waiting.size].metainfo.pieceLength.toLong(),
+                                    state = sample.state,
+                                    rates = sample.rates,
+                                    pieceLength =
+                                        byName[sample.state.name]?.metainfo?.pieceLength?.toLong() ?: 0,
                                     directory = savedTo,
                                     lifecycle = lifecycle,
                                     tab = shownTab,
@@ -221,6 +239,7 @@ internal fun Client(
                             },
                         adding = shownAdd,
                         settings = if (showSettings) settingsOf(Preferences(directory = savedTo)) else null,
+                        sort = order,
                     )
                 if (!asked) {
                     delay(TICK)
@@ -237,15 +256,18 @@ internal fun Client(
     window?.let {
         MainWindow(
             it,
+            // Exhaustive on purpose, and on the command rather than on the label: a control that
+            // reports itself and nobody listens is what B-56 was.
             onAction = { action ->
-                when (action.label) {
-                    "Details panel" -> panelOpen = !panelOpen
-                    "Settings" -> settingsOpen = !settingsOpen
-                    "Add torrent" -> pending = chooseTorrent(directory)
-                    "Paste magnet" -> pending = magnetFromClipboard(directory)
-                    else -> Unit
+                when (action.command) {
+                    ToolbarCommand.ToggleDetails -> panelOpen = !panelOpen
+                    ToolbarCommand.ToggleSettings -> settingsOpen = !settingsOpen
+                    ToolbarCommand.AddTorrent -> pending = chooseTorrent(directory)
+                    ToolbarCommand.PasteMagnet -> pending = magnetFromClipboard(directory)
+                    null -> Unit
                 }
             },
+            onSort = { column -> sort = sort.clicked(column) },
             onTab = { chosenTab -> tab = chosenTab },
             onSelect = { row -> selected = row },
             onAddTorrent = { pending = chooseTorrent(directory) },

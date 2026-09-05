@@ -53,6 +53,7 @@ compared.
 | `.../ui/settings/Settings.kt` | one screen in the window, with the measured default beside every field |
 | `.../ui/session/SettingsFrom.kt` | those defaults, read out of `SessionConfig` rather than repeated |
 | `.../ui/main/EmptyState.kt` | what a new install looks like: three ways in, all of them named |
+| `.../ui/session/Sorting.kt` | the column header's order, taken on the values and never on the cells |
 | `.../ui/session/Figures.kt` | three significant figures for a size, grouped thousands for a rate |
 | `.../ui/session/SessionRow.kt` | `SessionState` as a row, plus the lifecycle the engine has no field for |
 | `ui/src/desktopTest/.../session/AppDownloadTest.kt` | a real download from `:swarm`, sampled the way the window samples it |
@@ -138,6 +139,11 @@ None. Two command-line arguments and nothing read from the environment; the sett
   the DHT and the dispatcher, and there is a `BufferPool` per torrent because the cap is the
   back-pressure and back-pressure that is global lets a fast torrent starve a slow one (research
   §1.2c2).
+* **A control either has a command or a reason, never neither.** `ToolbarAction` refuses to be
+  built without one of the two and the handler switches on an enum, because four buttons that
+  looked available and fell into an `else ->` shipped once ([B-56](../backlog/B-56-dead-toolbar-controls.md)).
+* **Sorting is on the values, not the cells.** Every column but the name is a number wearing a
+  unit; `14.6 GiB` sorts before `3.70 GiB` as text.
 * **A settings default is never typed twice.** `settingsOf` constructs `SessionConfig()` for its
   defaults, because a value written down a second time goes stale the first time a measurement
   moves it. `no limit` is the one place the engine's value (`0`) and the words a person needs are

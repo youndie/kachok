@@ -25,13 +25,45 @@ import ru.workinprogress.kachok.ui.theme.ChromeButton
 import ru.workinprogress.kachok.ui.theme.ChromeText
 import ru.workinprogress.kachok.ui.theme.KachokPalette
 
-/** One toolbar action: what it draws, what it is called, and whether it can be used right now. */
+/**
+ * What a toolbar control asks for when it is pressed.
+ *
+ * An enum rather than the label, so the `when` that handles them is exhaustive and adding a control
+ * without handling it does not compile. The four toolbar buttons that quietly did nothing for a
+ * release were a `when` on strings with an `else ->` at the bottom
+ * ([B-56](../../../../../../../../docs/backlog/B-56-dead-toolbar-controls.md)).
+ */
+internal enum class ToolbarCommand {
+    AddTorrent,
+    PasteMagnet,
+    ToggleDetails,
+    ToggleSettings,
+}
+
+/**
+ * One toolbar control: what it draws, what it is called, and what it asks for.
+ *
+ * **[command] and [disabledBecause] are the two halves of one fact** and exactly one of them is
+ * set. A control with no command cannot be pressed, and a control that can be pressed has
+ * somewhere for the press to go — `ToolbarStateTest` asserts that of every one of them, which is
+ * the check that was missing.
+ */
 internal class ToolbarAction(
     val glyph: String,
     val label: String,
-    val enabled: Boolean = true,
+    val command: ToolbarCommand? = null,
+    /** Why this cannot be used yet. Null when it can. */
+    val disabledBecause: String? = null,
     val active: Boolean = false,
-)
+) {
+    init {
+        require((command == null) != (disabledBecause == null)) {
+            "$label must either do something or say why it does not"
+        }
+    }
+
+    val enabled: Boolean get() = disabledBecause == null
+}
 
 /**
  * A 28 dp icon button.
@@ -112,15 +144,28 @@ private fun FilterField(text: String) {
 
 /** What the toolbar is showing. The commands behind it are the caller's; this draws them. */
 internal class ToolbarState(
-    val pasteMagnet: ToolbarAction = ToolbarAction(Icons.LINK, "Paste magnet"),
-    val pause: ToolbarAction = ToolbarAction(Icons.PAUSE, "Pause"),
-    val resume: ToolbarAction = ToolbarAction(Icons.PLAY_ARROW, "Resume", enabled = false),
-    val remove: ToolbarAction = ToolbarAction(Icons.DELETE, "Remove…"),
-    val recheck: ToolbarAction = ToolbarAction(Icons.RESTART_ALT, "Force re-check"),
+    val addTorrent: ToolbarAction = ToolbarAction(Icons.ADD, "Add torrent", ToolbarCommand.AddTorrent),
+    val pasteMagnet: ToolbarAction = ToolbarAction(Icons.LINK, "Paste magnet", ToolbarCommand.PasteMagnet),
+    // Three that are drawn and cannot be pressed, each waiting on a change to the engine. Greyed
+    // rather than hidden, which is what the design does with *Resume* — and greyed rather than
+    // live-and-inert, which is what these were.
+    val pause: ToolbarAction =
+        ToolbarAction(Icons.PAUSE, "Pause", disabledBecause = NO_PAUSED_STATE),
+    val resume: ToolbarAction =
+        ToolbarAction(Icons.PLAY_ARROW, "Resume", disabledBecause = NO_PAUSED_STATE),
+    val remove: ToolbarAction =
+        ToolbarAction(Icons.DELETE, "Remove…", disabledBecause = NO_REMOVE_DIALOG),
+    val recheck: ToolbarAction =
+        ToolbarAction(Icons.RESTART_ALT, "Force re-check", disabledBecause = NO_RECHECK_COMMAND),
     val filter: String = "Filter",
-    val details: ToolbarAction = ToolbarAction(Icons.RIGHT_PANEL_OPEN, "Details panel"),
-    val settings: ToolbarAction = ToolbarAction(Icons.TUNE, "Settings"),
+    val details: ToolbarAction =
+        ToolbarAction(Icons.RIGHT_PANEL_OPEN, "Details panel", ToolbarCommand.ToggleDetails),
+    val settings: ToolbarAction = ToolbarAction(Icons.TUNE, "Settings", ToolbarCommand.ToggleSettings),
 ) {
+    /** Every control on the bar, in the order it is drawn. */
+    val all: List<ToolbarAction>
+        get() = listOf(addTorrent, pasteMagnet, pause, resume, remove, recheck, details, settings)
+
     /** The same state with both toggles set from whether their screens are actually there. */
     fun withDetails(
         open: Boolean,
@@ -133,9 +178,24 @@ internal class ToolbarState(
             remove = remove,
             recheck = recheck,
             filter = filter,
-            details = ToolbarAction(details.glyph, details.label, active = open),
-            settings = ToolbarAction(this.settings.glyph, this.settings.label, active = settings),
+            details = ToolbarAction(details.glyph, details.label, details.command, active = open),
+            settings =
+                ToolbarAction(
+                    this.settings.glyph,
+                    this.settings.label,
+                    this.settings.command,
+                    active = settings,
+                ),
         )
+
+    private companion object {
+        const val NO_PAUSED_STATE =
+            "The engine has Command.Stop and no paused state (B-57)."
+        const val NO_REMOVE_DIALOG =
+            "Removing a torrent needs the dialog the ellipsis promises, which the design does not draw (B-58)."
+        const val NO_RECHECK_COMMAND =
+            "The engine verifies on start-up and has no command to do it again (B-59)."
+    }
 }
 
 @Composable
@@ -151,7 +211,7 @@ internal fun Toolbar(
         modifier = modifier,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        AddTorrentButton { onAction(ADD_TORRENT) }
+        AddTorrentButton { onAction(state.addTorrent) }
         IconAction(state.pasteMagnet) { onAction(state.pasteMagnet) }
         ToolbarSeparator()
         listOf(state.pause, state.resume, state.remove, state.recheck).forEach { action ->
@@ -164,9 +224,6 @@ internal fun Toolbar(
         IconAction(state.settings) { onAction(state.settings) }
     }
 }
-
-/** The tonal button's identity when it reports itself, so a caller has one `when` and not two. */
-internal val ADD_TORRENT: ToolbarAction = ToolbarAction(Icons.ADD, "Add torrent")
 
 private val ACTION_GLYPH = 18.sp
 
