@@ -1,0 +1,951 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=JetBrains+Mono:wght@400;500&family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20,400,0,0&display=swap" rel="stylesheet">
+<style>
+  html, body { margin: 0; padding: 0; background: #080D0C; }
+  a { color: #4FD9C2; text-decoration: none; border-bottom: 1px solid #005046; }
+  a:hover { color: #71F6DE; border-bottom-color: #4FD9C2; }
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-thumb { background: #303836; border-radius: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+</style>
+</helmet>
+<section style="display:flex;flex-direction:column;gap:56px;padding:40px;width:max-content">
+
+  <div style="display:flex;flex-direction:column;gap:24px;width:1200px">
+    <div style="display:flex;align-items:baseline;gap:14px">
+      <span style="font:400 11px 'JetBrains Mono',monospace;color:#4FD9C2;border:1px solid #005046;border-radius:3px;padding:2px 7px">1</span>
+      <h1 style="margin:0;font:600 30px 'Source Serif 4',serif;color:#DDE4E1;letter-spacing:-0.01em">kachok — phase 2 desktop UI</h1>
+    </div>
+    <p style="margin:0;max-width:760px;font:400 13.5px Archivo,sans-serif;line-height:1.65;color:#BEC9C6;text-wrap:pretty">Material 3 Expressive colour roles on a tight desktop calibration: 4&nbsp;px radii, no elevation, hairline dividers, 28&nbsp;px rows. Dark first, 1200&nbsp;px, details panel on the right. Every number in these screens traces to a field on <span style="font:400 12.5px 'JetBrains Mono',monospace;color:#DDE4E1">SessionState</span>; the ones the engine does not carry yet are marked <span style="font:500 12px Archivo,sans-serif;color:#F3C46B">planned</span>.</p>
+
+    <div style="display:flex;gap:40px;flex-wrap:wrap">
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <span style="font:500 10px Archivo,sans-serif;letter-spacing:0.08em;color:#889390">COLOUR ROLES — DARK</span>
+        <div style="display:flex;gap:6px">
+          <div style="display:flex;flex-direction:column;gap:5px"><div style="width:56px;height:40px;border-radius:4px;background:#4FD9C2"></div><span style="font:400 9.5px 'JetBrains Mono',monospace;color:#889390">4FD9C2</span><span style="font:400 9.5px Archivo,sans-serif;color:#BEC9C6">primary</span></div>
+          <div style="display:flex;flex-direction:column;gap:5px"><div style="width:56px;height:40px;border-radius:4px;background:#005046"></div><span style="font:400 9.5px 'JetBrains Mono',monospace;color:#889390">005046</span><span style="font:400 9.5px Archivo,sans-serif;color:#BEC9C6">prim. cont.</span></div>
+          <div style="display:flex;flex-direction:column;gap:5px"><div style="width:56px;height:40px;border-radius:4px;background:#B0CCC6"></div><span style="font:400 9.5px 'JetBrains Mono',monospace;color:#889390">B0CCC6</span><span style="font:400 9.5px Archivo,sans-serif;color:#BEC9C6">secondary</span></div>
+          <div style="display:flex;flex-direction:column;gap:5px"><div style="width:56px;height:40px;border-radius:4px;background:#AEC6E8"></div><span style="font:400 9.5px 'JetBrains Mono',monospace;color:#889390">AEC6E8</span><span style="font:400 9.5px Archivo,sans-serif;color:#BEC9C6">tertiary</span></div>
+          <div style="display:flex;flex-direction:column;gap:5px"><div style="width:56px;height:40px;border-radius:4px;background:#F3C46B"></div><span style="font:400 9.5px 'JetBrains Mono',monospace;color:#889390">F3C46B</span><span style="font:400 9.5px Archivo,sans-serif;color:#F3C46B">warning*</span></div>
+          <div style="display:flex;flex-direction:column;gap:5px"><div style="width:56px;height:40px;border-radius:4px;background:#FFB4AB"></div><span style="font:400 9.5px 'JetBrains Mono',monospace;color:#889390">FFB4AB</span><span style="font:400 9.5px Archivo,sans-serif;color:#BEC9C6">error</span></div>
+          <div style="display:flex;flex-direction:column;gap:5px"><div style="width:56px;height:40px;border-radius:4px;background:#0F1513;border:1px solid #2A3331"></div><span style="font:400 9.5px 'JetBrains Mono',monospace;color:#889390">0F1513</span><span style="font:400 9.5px Archivo,sans-serif;color:#BEC9C6">surface</span></div>
+          <div style="display:flex;flex-direction:column;gap:5px"><div style="width:56px;height:40px;border-radius:4px;background:#DDE4E1"></div><span style="font:400 9.5px 'JetBrains Mono',monospace;color:#889390">DDE4E1</span><span style="font:400 9.5px Archivo,sans-serif;color:#BEC9C6">on surface</span></div>
+        </div>
+        <span style="font:400 10.5px Archivo,sans-serif;color:#889390">* the one role M3 does not ship — used for <span style="color:#F3C46B">checking</span> and <span style="color:#F3C46B">stopping</span> only.</span>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <span style="font:500 10px Archivo,sans-serif;letter-spacing:0.08em;color:#889390">TYPE</span>
+        <div style="display:flex;flex-direction:column;gap:7px">
+          <div style="display:flex;align-items:baseline;gap:12px"><span style="font:600 19px 'Source Serif 4',serif;color:#DDE4E1">Source Serif 4</span><span style="font:400 10.5px Archivo,sans-serif;color:#889390">headlines, dialog titles, empty state</span></div>
+          <div style="display:flex;align-items:baseline;gap:12px"><span style="font:500 15px Archivo,sans-serif;color:#DDE4E1">Archivo</span><span style="font:400 10.5px Archivo,sans-serif;color:#889390">every label, button and column head</span></div>
+          <div style="display:flex;align-items:baseline;gap:12px"><span style="font:400 14px 'JetBrains Mono',monospace;color:#DDE4E1">JetBrains Mono 0123456789</span><span style="font:400 10.5px Archivo,sans-serif;color:#889390">every number, hash and verbatim error</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="1a" style="display:flex;flex-direction:column;gap:14px;width:1200px">
+    <div style="display:flex;align-items:baseline;gap:12px">
+      <span style="font:400 11px 'JetBrains Mono',monospace;color:#4FD9C2;border:1px solid #005046;border-radius:3px;padding:2px 7px">1a</span>
+      <h2 style="margin:0;font:600 20px 'Source Serif 4',serif;color:#DDE4E1">Main window — sixteen torrents, seven states, details open</h2>
+      <span style="font:400 11.5px Archivo,sans-serif;color:#889390">1200 × 760 · macOS chrome</span>
+    </div>
+
+    <div style="width:1200px;height:760px;background:#0F1513;border:1px solid #2A3331;border-radius:6px;overflow:hidden;display:flex;flex-direction:column">
+
+      <div style="height:28px;flex:none;background:#161D1B;border-bottom:1px solid #1A2220;display:flex;align-items:center;padding:0 10px;position:relative">
+        <div style="display:flex;gap:8px"><div style="width:12px;height:12px;border-radius:6px;background:#FF5F57"></div><div style="width:12px;height:12px;border-radius:6px;background:#FEBC2E"></div><div style="width:12px;height:12px;border-radius:6px;background:#28C840"></div></div>
+        <span style="position:absolute;left:0;right:0;text-align:center;font:500 12px Archivo,sans-serif;color:#BEC9C6;pointer-events:none">kachok</span>
+      </div>
+
+      <div style="height:48px;flex:none;background:#0F1513;border-bottom:1px solid #1A2220;display:flex;align-items:center;gap:8px;padding:0 10px">
+        <button style="display:flex;align-items:center;gap:6px;height:28px;padding:0 12px;border:none;border-radius:4px;background:#005046;color:#71F6DE;font:500 12.5px Archivo,sans-serif;cursor:pointer" style-hover="background:#006155">
+          <span style="font-family:'Material Symbols Rounded';font-size:17px;line-height:1">add</span>Add torrent
+        </button>
+        <button title="Paste magnet" style="display:flex;align-items:center;justify-content:center;width:28px;height:28px;border:none;border-radius:4px;background:transparent;color:#BEC9C6;cursor:pointer" style-hover="background:#1A2220;color:#DDE4E1"><span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1">link</span></button>
+        <div style="width:1px;height:20px;background:#2A3331;margin:0 2px"></div>
+        <button title="Pause  ⌘." style="display:flex;align-items:center;justify-content:center;width:28px;height:28px;border:none;border-radius:4px;background:transparent;color:#BEC9C6;cursor:pointer" style-hover="background:#1A2220;color:#DDE4E1"><span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1">pause</span></button>
+        <button title="Resume  ⌘R" style="display:flex;align-items:center;justify-content:center;width:28px;height:28px;border:none;border-radius:4px;background:transparent;color:#889390;cursor:default"><span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1">play_arrow</span></button>
+        <button title="Remove…  ⌫" style="display:flex;align-items:center;justify-content:center;width:28px;height:28px;border:none;border-radius:4px;background:transparent;color:#BEC9C6;cursor:pointer" style-hover="background:#1A2220;color:#DDE4E1"><span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1">delete</span></button>
+        <button title="Force re-check" style="display:flex;align-items:center;justify-content:center;width:28px;height:28px;border:none;border-radius:4px;background:transparent;color:#BEC9C6;cursor:pointer" style-hover="background:#1A2220;color:#DDE4E1"><span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1">restart_alt</span></button>
+        <div style="flex:1"></div>
+        <div style="display:flex;align-items:center;gap:6px;height:28px;width:200px;padding:0 9px;border:1px solid #3A4442;border-radius:4px;background:transparent">
+          <span style="font-family:'Material Symbols Rounded';font-size:16px;line-height:1;color:#889390">search</span>
+          <span style="font:400 12px Archivo,sans-serif;color:#889390">Filter</span>
+        </div>
+        <div style="width:1px;height:20px;background:#2A3331;margin:0 2px"></div>
+        <button title="Details panel  ⌘I" style="display:flex;align-items:center;justify-content:center;width:28px;height:28px;border:none;border-radius:4px;background:#005046;color:#71F6DE;cursor:pointer"><span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1">right_panel_open</span></button>
+        <button title="Settings  ⌘," style="display:flex;align-items:center;justify-content:center;width:28px;height:28px;border:none;border-radius:4px;background:transparent;color:#BEC9C6;cursor:pointer" style-hover="background:#1A2220;color:#DDE4E1"><span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1">tune</span></button>
+      </div>
+
+      <div style="flex:1;min-height:0;display:flex">
+
+        <div style="flex:1;min-width:0;display:flex;flex-direction:column">
+          <sc-if value="{{ showErrorBanner }}" hint-placeholder-val="{{ true }}">
+            <div style="flex:none;display:flex;align-items:center;gap:10px;height:32px;padding:0 10px;background:#2A1A18;border-bottom:1px solid #4A2A27">
+              <span style="font-family:'Material Symbols Rounded';font-size:17px;line-height:1;color:#FFB4AB">error</span>
+              <span style="font:500 12px Archivo,sans-serif;color:#FFB4AB">One session is degraded.</span>
+              <span style="font:400 11.5px 'JetBrains Mono',monospace;color:#E5A9A1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">writer loop failed: java.nio.channels.ClosedChannelException</span>
+              <div style="flex:1"></div>
+              <button style="height:22px;padding:0 9px;border:1px solid #4A2A27;border-radius:4px;background:transparent;color:#FFB4AB;font:500 11.5px Archivo,sans-serif;cursor:pointer" style-hover="background:#3A2320">Show it</button>
+            </div>
+          </sc-if>
+
+          <div style="flex:none;display:grid;grid-template-columns:minmax(0,1fr) 60px 92px 70px 70px 100px 40px 52px 76px;gap:10px;align-items:center;height:28px;padding:0 10px;background:#161D1B;border-bottom:1px solid #2A3331">
+            <div style="display:flex;align-items:center;gap:3px"><span style="font:500 10px Archivo,sans-serif;letter-spacing:0.05em;color:#DDE4E1">NAME</span><span style="font-family:'Material Symbols Rounded';font-size:13px;line-height:1;color:#4FD9C2">arrow_upward</span></div>
+            <span style="text-align:right;font:500 10px Archivo,sans-serif;letter-spacing:0.05em;color:#889390">SIZE</span>
+            <span style="font:500 10px Archivo,sans-serif;letter-spacing:0.05em;color:#889390">PROGRESS</span>
+            <span style="text-align:right;font:500 10px Archivo,sans-serif;letter-spacing:0.03em;color:#889390">DOWN KIB/S</span>
+            <span style="text-align:right;font:500 10px Archivo,sans-serif;letter-spacing:0.03em;color:#889390">UP KIB/S</span>
+            <span style="text-align:right;font:500 10px Archivo,sans-serif;letter-spacing:0.05em;color:#889390">PEERS · OUT</span>
+            <span style="text-align:right;font:500 10px Archivo,sans-serif;letter-spacing:0.05em;color:#889390">RATIO</span>
+            <span style="text-align:right;font:500 10px Archivo,sans-serif;letter-spacing:0.05em;color:#889390">ETA</span>
+            <span style="font:500 10px Archivo,sans-serif;letter-spacing:0.05em;color:#889390">STATE</span>
+          </div>
+
+          <div style="flex:1;min-height:0;overflow:auto">
+
+            <div style="display:grid;grid-template-columns:minmax(0,1fr) 60px 92px 70px 70px 100px 40px 52px 76px;gap:10px;align-items:center;height:28px;padding:0 10px;background:#005046;border-bottom:1px solid #006155">
+              <div style="display:flex;align-items:center;gap:7px;min-width:0"><span style="font-family:'Material Symbols Rounded';font-size:15px;line-height:1;color:#71F6DE">arrow_downward</span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:500 13px Archivo,sans-serif;color:#DDF3EF">debian-13.1.0-amd64-DVD-1.iso</span></div>
+              <span style="text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#B7E8E0">3.70 GiB</span>
+              <div style="display:flex;align-items:center;gap:7px"><div style="flex:1;height:4px;border-radius:2px;background:#00302A;overflow:hidden"><div style="width:78%;height:100%;background:#71F6DE"></div></div><span style="width:29px;text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#DDF3EF">78%</span></div>
+              <span style="text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#DDF3EF">4 312</span>
+              <span style="text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#B7E8E0">812</span>
+              <span style="text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#DDF3EF">24/4 · 61</span>
+              <span style="text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#B7E8E0">0.11</span>
+              <span style="text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#B7E8E0">3m 20s</span>
+              <span style="font:500 11.5px Archivo,sans-serif;color:#DDF3EF">Downloading</span>
+            </div>
+
+            <div style="display:grid;grid-template-columns:minmax(0,1fr) 60px 92px 70px 70px 100px 40px 52px 76px;gap:10px;align-items:center;height:28px;padding:0 10px;border-bottom:1px solid #151C1A">
+              <div style="display:flex;align-items:center;gap:7px;min-width:0"><span style="font-family:'Material Symbols Rounded';font-size:15px;line-height:1;color:#889390">link</span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:400 13px 'JetBrains Mono',monospace;color:#BEC9C6">e4f2c1a9d3b7…6f08</span></div>
+              <span style="text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#889390">—</span>
+              <div style="display:flex;align-items:center;gap:7px"><div style="flex:1;height:4px;border-radius:2px;background:#2A3331;overflow:hidden"><div style="width:34%;height:100%;background:#4FD9C2;opacity:0.55"></div></div><span style="width:29px;text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#889390">—</span></div>
+              <span style="text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#889390">0</span>
+              <span style="text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#889390">0</span>
+              <span style="text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#DDE4E1">6/0 · 0</span>
+              <span style="text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#889390">—</span>
+              <span style="text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#889390">—</span>
+              <span style="font:500 11.5px Archivo,sans-serif;color:#BEC9C6">Metadata</span>
+            </div>
+
+            <div style="display:grid;grid-template-columns:minmax(0,1fr) 60px 92px 70px 70px 100px 40px 52px 76px;gap:10px;align-items:center;height:28px;padding:0 10px;border-bottom:1px solid #151C1A">
+              <div style="display:flex;align-items:center;gap:7px;min-width:0"><span style="font-family:'Material Symbols Rounded';font-size:15px;line-height:1;color:#F3C46B">rule</span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:400 13px Archivo,sans-serif;color:#DDE4E1">archlinux-2026.09.01-x86_64.iso</span></div>
+              <span style="text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#BEC9C6">1.22 GiB</span>
+              <div style="display:flex;align-items:center;gap:7px"><div style="flex:1;height:4px;border-radius:2px;background:#2A3331;overflow:hidden"><div style="width:27%;height:100%;background:#F3C46B"></div></div><span style="width:29px;text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#F3C46B">27%</span></div>
+              <span style="text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#889390">0</span>
+              <span style="text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#889390">0</span>
+              <span style="text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#889390">0/0 · 0</span>
+              <span style="text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#BEC9C6">1.84</span>
+              <span style="text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#889390">—</span>
+              <span style="font:500 11.5px Archivo,sans-serif;color:#F3C46B">Checking</span>
+            </div>
+
+            <div style="display:grid;grid-template-columns:minmax(0,1fr) 60px 92px 70px 70px 100px 40px 52px 76px;gap:10px;align-items:center;height:28px;padding:0 10px;border-bottom:1px solid #151C1A">
+              <div style="display:flex;align-items:center;gap:7px;min-width:0"><span style="font-family:'Material Symbols Rounded';font-size:15px;line-height:1;color:#4FD9C2">arrow_upward</span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:400 13px Archivo,sans-serif;color:#DDE4E1">Sintel-2010-1080p-DCP.tar</span></div>
+              <span style="text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#BEC9C6">14.6 GiB</span>
+              <div style="display:flex;align-items:center;gap:7px"><div style="flex:1;height:4px;border-radius:2px;background:#2A3331;overflow:hidden"><div style="width:100%;height:100%;background:#4FD9C2"></div></div><span style="width:29px;text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#BEC9C6">100%</span></div>
+              <span style="text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#889390">0</span>
+              <span style="text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#DDE4E1">1 480</span>
+              <span style="text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#DDE4E1">31/4 · 0</span>
+              <span style="text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#BEC9C6">2.07</span>
+              <span style="text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#889390">∞</span>
+              <span style="font:500 11.5px Archivo,sans-serif;color:#4FD9C2">Seeding</span>
+            </div>
+
+            <div style="display:grid;grid-template-columns:minmax(0,1fr) 60px 92px 70px 70px 100px 40px 52px 76px;gap:10px;align-items:center;height:28px;padding:0 10px;border-bottom:1px solid #151C1A">
+              <div style="display:flex;align-items:center;gap:7px;min-width:0"><span style="font-family:'Material Symbols Rounded';font-size:15px;line-height:1;color:#889390">pause</span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:400 13px Archivo,sans-serif;color:#889390">fedora-workstation-45-x86_64.iso</span></div>
+              <span style="text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#889390">2.41 GiB</span>
+              <div style="display:flex;align-items:center;gap:7px"><div style="flex:1;height:4px;border-radius:2px;background:#2A3331;overflow:hidden"><div style="width:52%;height:100%;background:#889390"></div></div><span style="width:29px;text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#889390">52%</span></div>
+              <span style="text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#889390">0</span>
+              <span style="text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#889390">0</span>
+              <span style="text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#889390">0/0 · 0</span>
+              <span style="text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#889390">0.44</span>
+              <span style="text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#889390">—</span>
+              <span style="font:500 11.5px Archivo,sans-serif;color:#889390">Paused</span>
+            </div>
+
+            <div style="display:grid;grid-template-columns:minmax(0,1fr) 60px 92px 70px 70px 100px 40px 52px 76px;gap:10px;align-items:center;height:28px;padding:0 10px;border-bottom:1px solid #151C1A">
+              <div style="display:flex;align-items:center;gap:7px;min-width:0"><span style="font-family:'Material Symbols Rounded';font-size:15px;line-height:1;color:#F3C46B">hourglass_top</span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:400 13px Archivo,sans-serif;color:#DDE4E1">Tears-of-Steel-4k-master.mkv</span></div>
+              <span style="text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#BEC9C6">8.03 GiB</span>
+              <div style="display:flex;align-items:center;gap:7px"><div style="flex:1;height:4px;border-radius:2px;background:#2A3331;overflow:hidden"><div style="width:91%;height:100%;background:#4A5654"></div></div><span style="width:29px;text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#BEC9C6">91%</span></div>
+              <span style="text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#BEC9C6">96</span>
+              <span style="text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#889390">0</span>
+              <span style="text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#BEC9C6">3/0 · 4</span>
+              <span style="text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#BEC9C6">0.02</span>
+              <span style="text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#889390">—</span>
+              <span style="font:500 11.5px Archivo,sans-serif;color:#F3C46B">Stopping</span>
+            </div>
+
+            <div style="display:grid;grid-template-columns:minmax(0,1fr) 60px 92px 70px 70px 100px 40px 52px 76px;gap:10px;align-items:center;height:28px;padding:0 10px;background:#1F1614;border-bottom:1px solid #151C1A">
+              <div style="display:flex;align-items:center;gap:7px;min-width:0"><span style="font-family:'Material Symbols Rounded';font-size:15px;line-height:1;color:#FFB4AB">error</span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:400 13px Archivo,sans-serif;color:#FFB4AB">openSUSE-Leap-16.1-DVD-x86_64.iso</span></div>
+              <span style="text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#E5A9A1">4.38 GiB</span>
+              <div style="display:flex;align-items:center;gap:7px"><div style="flex:1;height:4px;border-radius:2px;background:#3A2320;overflow:hidden"><div style="width:63%;height:100%;background:#FFB4AB"></div></div><span style="width:29px;text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#FFB4AB">63%</span></div>
+              <span style="text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#E5A9A1">0</span>
+              <span style="text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#E5A9A1">0</span>
+              <span style="text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#FFB4AB">0/0 · 0</span>
+              <span style="text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#E5A9A1">0.19</span>
+              <span style="text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#E5A9A1">—</span>
+              <span style="font:500 11.5px Archivo,sans-serif;color:#FFB4AB">Error</span>
+            </div>
+
+            <div style="display:grid;grid-template-columns:minmax(0,1fr) 60px 92px 70px 70px 100px 40px 52px 76px;gap:10px;align-items:center;height:28px;padding:0 10px;border-bottom:1px solid #151C1A">
+              <div style="display:flex;align-items:center;gap:7px;min-width:0"><span style="font-family:'Material Symbols Rounded';font-size:15px;line-height:1;color:#4FD9C2">arrow_downward</span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:400 13px Archivo,sans-serif;color:#DDE4E1">ubuntu-26.04-desktop-amd64.iso</span></div>
+              <span style="text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#BEC9C6">5.14 GiB</span>
+              <div style="display:flex;align-items:center;gap:7px"><div style="flex:1;height:4px;border-radius:2px;background:#2A3331;overflow:hidden"><div style="width:12%;height:100%;background:#4FD9C2"></div></div><span style="width:29px;text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#DDE4E1">12%</span></div>
+              <span style="text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#DDE4E1">9 604</span>
+              <span style="text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#BEC9C6">204</span>
+              <span style="text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#DDE4E1">42/4 · 64</span>
+              <span style="text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#BEC9C6">0.01</span>
+              <span style="text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#BEC9C6">8m 04s</span>
+              <span style="font:500 11.5px Archivo,sans-serif;color:#DDE4E1">Downloading</span>
+            </div>
+
+            <div style="display:grid;grid-template-columns:minmax(0,1fr) 60px 92px 70px 70px 100px 40px 52px 76px;gap:10px;align-items:center;height:28px;padding:0 10px;border-bottom:1px solid #151C1A">
+              <div style="display:flex;align-items:center;gap:7px;min-width:0"><span style="font-family:'Material Symbols Rounded';font-size:15px;line-height:1;color:#4FD9C2">arrow_downward</span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:400 13px Archivo,sans-serif;color:#DDE4E1">Blender-4.6-macos-arm64.dmg</span></div>
+              <span style="text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#BEC9C6">412 MiB</span>
+              <div style="display:flex;align-items:center;gap:7px"><div style="flex:1;height:4px;border-radius:2px;background:#2A3331;overflow:hidden"><div style="width:96%;height:100%;background:#4FD9C2"></div></div><span style="width:29px;text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#DDE4E1">96%</span></div>
+              <span style="text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#DDE4E1">1 208</span>
+              <span style="text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#BEC9C6">96</span>
+              <span style="text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#DDE4E1">11/2 · 18</span>
+              <span style="text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#BEC9C6">0.23</span>
+              <span style="text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#BEC9C6">14s</span>
+              <span style="font:500 11.5px Archivo,sans-serif;color:#DDE4E1">Downloading</span>
+            </div>
+
+            <div style="display:grid;grid-template-columns:minmax(0,1fr) 60px 92px 70px 70px 100px 40px 52px 76px;gap:10px;align-items:center;height:28px;padding:0 10px;border-bottom:1px solid #151C1A">
+              <div style="display:flex;align-items:center;gap:7px;min-width:0"><span style="font-family:'Material Symbols Rounded';font-size:15px;line-height:1;color:#4FD9C2">arrow_upward</span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:400 13px Archivo,sans-serif;color:#DDE4E1">Big-Buck-Bunny-1080p-h264.mov</span></div>
+              <span style="text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#BEC9C6">691 MiB</span>
+              <div style="display:flex;align-items:center;gap:7px"><div style="flex:1;height:4px;border-radius:2px;background:#2A3331;overflow:hidden"><div style="width:100%;height:100%;background:#4FD9C2"></div></div><span style="width:29px;text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#BEC9C6">100%</span></div>
+              <span style="text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#889390">0</span>
+              <span style="text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#DDE4E1">348</span>
+              <span style="text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#DDE4E1">8/3 · 0</span>
+              <span style="text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#BEC9C6">6.71</span>
+              <span style="text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#889390">∞</span>
+              <span style="font:500 11.5px Archivo,sans-serif;color:#4FD9C2">Seeding</span>
+            </div>
+
+            <div style="display:grid;grid-template-columns:minmax(0,1fr) 60px 92px 70px 70px 100px 40px 52px 76px;gap:10px;align-items:center;height:28px;padding:0 10px;border-bottom:1px solid #151C1A">
+              <div style="display:flex;align-items:center;gap:7px;min-width:0"><span style="font-family:'Material Symbols Rounded';font-size:15px;line-height:1;color:#4FD9C2">arrow_upward</span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:400 13px Archivo,sans-serif;color:#DDE4E1">nixos-25.11-minimal-x86_64.iso</span></div>
+              <span style="text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#BEC9C6">1.04 GiB</span>
+              <div style="display:flex;align-items:center;gap:7px"><div style="flex:1;height:4px;border-radius:2px;background:#2A3331;overflow:hidden"><div style="width:100%;height:100%;background:#4FD9C2"></div></div><span style="width:29px;text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#BEC9C6">100%</span></div>
+              <span style="text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#889390">0</span>
+              <span style="text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#DDE4E1">64</span>
+              <span style="text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#DDE4E1">5/1 · 0</span>
+              <span style="text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#BEC9C6">1.36</span>
+              <span style="text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#889390">∞</span>
+              <span style="font:500 11.5px Archivo,sans-serif;color:#4FD9C2">Seeding</span>
+            </div>
+
+            <div style="display:grid;grid-template-columns:minmax(0,1fr) 60px 92px 70px 70px 100px 40px 52px 76px;gap:10px;align-items:center;height:28px;padding:0 10px;border-bottom:1px solid #151C1A">
+              <div style="display:flex;align-items:center;gap:7px;min-width:0"><span style="font-family:'Material Symbols Rounded';font-size:15px;line-height:1;color:#4FD9C2">arrow_upward</span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:400 13px Archivo,sans-serif;color:#DDE4E1">alpine-standard-3.24-x86_64.iso</span></div>
+              <span style="text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#BEC9C6">218 MiB</span>
+              <div style="display:flex;align-items:center;gap:7px"><div style="flex:1;height:4px;border-radius:2px;background:#2A3331;overflow:hidden"><div style="width:100%;height:100%;background:#4FD9C2"></div></div><span style="width:29px;text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#BEC9C6">100%</span></div>
+              <span style="text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#889390">0</span>
+              <span style="text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#BEC9C6">12</span>
+              <span style="text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#DDE4E1">2/1 · 0</span>
+              <span style="text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#BEC9C6">11.4</span>
+              <span style="text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#889390">∞</span>
+              <span style="font:500 11.5px Archivo,sans-serif;color:#4FD9C2">Seeding</span>
+            </div>
+
+            <div style="display:grid;grid-template-columns:minmax(0,1fr) 60px 92px 70px 70px 100px 40px 52px 76px;gap:10px;align-items:center;height:28px;padding:0 10px;border-bottom:1px solid #151C1A">
+              <div style="display:flex;align-items:center;gap:7px;min-width:0"><span style="font-family:'Material Symbols Rounded';font-size:15px;line-height:1;color:#4FD9C2">arrow_downward</span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:400 13px Archivo,sans-serif;color:#DDE4E1">gimp-3.2.4-source.tar.xz</span></div>
+              <span style="text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#BEC9C6">48.2 MiB</span>
+              <div style="display:flex;align-items:center;gap:7px"><div style="flex:1;height:4px;border-radius:2px;background:#2A3331;overflow:hidden"><div style="width:41%;height:100%;background:#4FD9C2"></div></div><span style="width:29px;text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#DDE4E1">41%</span></div>
+              <span style="text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#DDE4E1">612</span>
+              <span style="text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#889390">0</span>
+              <span style="text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#DDE4E1">7/2 · 22</span>
+              <span style="text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#BEC9C6">0.00</span>
+              <span style="text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#BEC9C6">47s</span>
+              <span style="font:500 11.5px Archivo,sans-serif;color:#DDE4E1">Downloading</span>
+            </div>
+
+            <div style="display:grid;grid-template-columns:minmax(0,1fr) 60px 92px 70px 70px 100px 40px 52px 76px;gap:10px;align-items:center;height:28px;padding:0 10px;border-bottom:1px solid #151C1A">
+              <div style="display:flex;align-items:center;gap:7px;min-width:0"><span style="font-family:'Material Symbols Rounded';font-size:15px;line-height:1;color:#889390">pause</span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:400 13px Archivo,sans-serif;color:#889390">void-live-x86_64-musl-20260812.iso</span></div>
+              <span style="text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#889390">1.61 GiB</span>
+              <div style="display:flex;align-items:center;gap:7px"><div style="flex:1;height:4px;border-radius:2px;background:#2A3331;overflow:hidden"><div style="width:7%;height:100%;background:#889390"></div></div><span style="width:29px;text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#889390">7%</span></div>
+              <span style="text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#889390">0</span>
+              <span style="text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#889390">0</span>
+              <span style="text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#889390">0/0 · 0</span>
+              <span style="text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#889390">0.00</span>
+              <span style="text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#889390">—</span>
+              <span style="font:500 11.5px Archivo,sans-serif;color:#889390">Paused</span>
+            </div>
+
+            <div style="display:grid;grid-template-columns:minmax(0,1fr) 60px 92px 70px 70px 100px 40px 52px 76px;gap:10px;align-items:center;height:28px;padding:0 10px;border-bottom:1px solid #151C1A">
+              <div style="display:flex;align-items:center;gap:7px;min-width:0"><span style="font-family:'Material Symbols Rounded';font-size:15px;line-height:1;color:#4FD9C2">arrow_upward</span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:400 13px Archivo,sans-serif;color:#DDE4E1">Cosmos-Laundromat-1080p.mkv</span></div>
+              <span style="text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#BEC9C6">2.88 GiB</span>
+              <div style="display:flex;align-items:center;gap:7px"><div style="flex:1;height:4px;border-radius:2px;background:#2A3331;overflow:hidden"><div style="width:100%;height:100%;background:#4FD9C2"></div></div><span style="width:29px;text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#BEC9C6">100%</span></div>
+              <span style="text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#889390">0</span>
+              <span style="text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#DDE4E1">508</span>
+              <span style="text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#DDE4E1">14/4 · 0</span>
+              <span style="text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#BEC9C6">3.42</span>
+              <span style="text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#889390">∞</span>
+              <span style="font:500 11.5px Archivo,sans-serif;color:#4FD9C2">Seeding</span>
+            </div>
+
+            <div style="display:grid;grid-template-columns:minmax(0,1fr) 60px 92px 70px 70px 100px 40px 52px 76px;gap:10px;align-items:center;height:28px;padding:0 10px;border-bottom:1px solid #151C1A">
+              <div style="display:flex;align-items:center;gap:7px;min-width:0"><span style="font-family:'Material Symbols Rounded';font-size:15px;line-height:1;color:#4FD9C2">arrow_upward</span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:400 13px Archivo,sans-serif;color:#DDE4E1">kachok-0.1.0-linux-amd64.tar.gz</span></div>
+              <span style="text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#BEC9C6">63.0 MiB</span>
+              <div style="display:flex;align-items:center;gap:7px"><div style="flex:1;height:4px;border-radius:2px;background:#2A3331;overflow:hidden"><div style="width:100%;height:100%;background:#4FD9C2"></div></div><span style="width:29px;text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#BEC9C6">100%</span></div>
+              <span style="text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#889390">0</span>
+              <span style="text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#DDE4E1">28</span>
+              <span style="text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#DDE4E1">3/1 · 0</span>
+              <span style="text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#BEC9C6">18.9</span>
+              <span style="text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#889390">∞</span>
+              <span style="font:500 11.5px Archivo,sans-serif;color:#4FD9C2">Seeding</span>
+            </div>
+
+          </div>
+        </div>
+
+        <div style="width:340px;flex:none;border-left:1px solid #2A3331;background:#0D1211;display:flex;flex-direction:column;min-height:0">
+          <div style="flex:none;padding:10px 12px;border-bottom:1px solid #1A2220">
+            <div style="font:500 13px Archivo,sans-serif;color:#DDE4E1;line-height:1.35;word-break:break-all">debian-13.1.0-amd64-DVD-1.iso</div>
+            <div style="margin-top:4px;display:flex;align-items:center;gap:7px"><span style="font:500 11.5px Archivo,sans-serif;color:#4FD9C2">Downloading</span><span style="color:#3A4442">·</span><span style="font:400 11.5px 'JetBrains Mono',monospace;color:#BEC9C6">2.89 of 3.70 GiB</span></div>
+          </div>
+
+          <div style="flex:none;display:flex;gap:0;border-bottom:1px solid #2A3331;padding:0 6px">
+            <div style="padding:8px 10px 7px;border-bottom:2px solid #4FD9C2;font:500 12px Archivo,sans-serif;color:#4FD9C2">Overview</div>
+            <div style="padding:8px 10px 7px;border-bottom:2px solid transparent;font:400 12px Archivo,sans-serif;color:#889390">Files</div>
+            <div style="padding:8px 10px 7px;border-bottom:2px solid transparent;font:400 12px Archivo,sans-serif;color:#889390">Peers</div>
+            <div style="padding:8px 10px 7px;border-bottom:2px solid transparent;font:400 12px Archivo,sans-serif;color:#889390">Trackers</div>
+          </div>
+
+          <div style="flex:1;min-height:0;overflow:auto;padding:0 12px 14px">
+            <div style="padding:12px 0 5px;font:500 10px Archivo,sans-serif;letter-spacing:0.08em;color:#889390">IDENTITY</div>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;height:24px;border-bottom:1px solid #151C1A"><span style="font:400 11.5px Archivo,sans-serif;color:#BEC9C6">Info hash</span><span style="display:flex;align-items:center;gap:5px"><span style="font:400 11.5px 'JetBrains Mono',monospace;color:#DDE4E1">2b3a…c7f1</span><span style="font-family:'Material Symbols Rounded';font-size:14px;line-height:1;color:#889390;cursor:pointer" style-hover="color:#4FD9C2">content_copy</span></span></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;height:24px;border-bottom:1px solid #151C1A"><span style="font:400 11.5px Archivo,sans-serif;color:#BEC9C6">Total length</span><span style="font:400 11.5px 'JetBrains Mono',monospace;color:#DDE4E1">3.70 GiB</span></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;height:24px;border-bottom:1px solid #151C1A"><span style="font:400 11.5px Archivo,sans-serif;color:#BEC9C6">Piece length</span><span style="font:400 11.5px 'JetBrains Mono',monospace;color:#DDE4E1">2.00 MiB</span></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;height:24px;border-bottom:1px solid #151C1A"><span style="font:400 11.5px Archivo,sans-serif;color:#BEC9C6">Save to</span><span style="font:400 11.5px 'JetBrains Mono',monospace;color:#DDE4E1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;direction:rtl">~/Downloads/iso</span></div>
+
+            <div style="padding:14px 0 5px;font:500 10px Archivo,sans-serif;letter-spacing:0.08em;color:#889390">PROGRESS</div>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;height:24px;border-bottom:1px solid #151C1A"><span style="font:400 11.5px Archivo,sans-serif;color:#BEC9C6">Pieces</span><span style="font:400 11.5px 'JetBrains Mono',monospace;color:#DDE4E1">1 384 / 1 772</span></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;height:24px;border-bottom:1px solid #151C1A"><span style="font:400 11.5px Archivo,sans-serif;color:#BEC9C6">Downloaded</span><span style="font:400 11.5px 'JetBrains Mono',monospace;color:#DDE4E1">2.89 GiB</span></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;height:24px;border-bottom:1px solid #151C1A"><span style="font:400 11.5px Archivo,sans-serif;color:#BEC9C6">Left</span><span style="font:400 11.5px 'JetBrains Mono',monospace;color:#DDE4E1">828 MiB</span></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;height:24px;border-bottom:1px solid #151C1A"><span style="font:400 11.5px Archivo,sans-serif;color:#BEC9C6">Uploaded</span><span style="font:400 11.5px 'JetBrains Mono',monospace;color:#DDE4E1">412 MiB</span></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;height:24px;border-bottom:1px solid #151C1A"><span style="font:400 11.5px Archivo,sans-serif;color:#BEC9C6">Ratio</span><span style="font:400 11.5px 'JetBrains Mono',monospace;color:#DDE4E1">0.11</span></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;height:24px;border-bottom:1px solid #151C1A"><span style="display:flex;align-items:center;gap:5px"><span style="font:400 11.5px Archivo,sans-serif;color:#BEC9C6">Speed down / up</span><span style="font:400 9.5px Archivo,sans-serif;color:#F3C46B;border:1px solid #4A3608;border-radius:2px;padding:0 3px">planned</span></span><span style="font:400 11.5px 'JetBrains Mono',monospace;color:#DDE4E1">4 312 / 812</span></div>
+
+            <div style="padding:14px 0 5px;font:500 10px Archivo,sans-serif;letter-spacing:0.08em;color:#889390">SWARM</div>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;height:24px;border-bottom:1px solid #151C1A"><span style="font:400 11.5px Archivo,sans-serif;color:#BEC9C6">Connected peers</span><span style="font:400 11.5px 'JetBrains Mono',monospace;color:#DDE4E1">24</span></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;height:24px;border-bottom:1px solid #151C1A"><span style="font:400 11.5px Archivo,sans-serif;color:#BEC9C6">Unchoked by them</span><span style="font:400 11.5px 'JetBrains Mono',monospace;color:#4FD9C2">4</span></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;height:24px;border-bottom:1px solid #151C1A"><span style="font:400 11.5px Archivo,sans-serif;color:#BEC9C6">Requests in flight</span><span style="font:400 11.5px 'JetBrains Mono',monospace;color:#4FD9C2">61</span></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;height:24px;border-bottom:1px solid #151C1A"><span style="font:400 11.5px Archivo,sans-serif;color:#BEC9C6">Known peers</span><span style="font:400 11.5px 'JetBrains Mono',monospace;color:#DDE4E1">187</span></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;height:24px;border-bottom:1px solid #151C1A"><span style="font:400 11.5px Archivo,sans-serif;color:#BEC9C6">Extended (BEP 10)</span><span style="font:400 11.5px 'JetBrains Mono',monospace;color:#DDE4E1">19</span></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;height:24px;border-bottom:1px solid #151C1A"><span style="font:400 11.5px Archivo,sans-serif;color:#BEC9C6">DHT nodes</span><span style="font:400 11.5px 'JetBrains Mono',monospace;color:#DDE4E1">214</span></div>
+
+            <div style="padding:14px 0 5px;font:500 10px Archivo,sans-serif;letter-spacing:0.08em;color:#889390">INTEGRITY</div>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;height:24px;border-bottom:1px solid #151C1A"><span style="font:400 11.5px Archivo,sans-serif;color:#BEC9C6">Hash failures</span><span style="font:400 11.5px 'JetBrains Mono',monospace;color:#F3C46B">2</span></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;height:24px;border-bottom:1px solid #151C1A"><span style="font:400 11.5px Archivo,sans-serif;color:#BEC9C6">Verified on start-up</span><span style="font:400 11.5px 'JetBrains Mono',monospace;color:#DDE4E1">1 772 / 1 772</span></div>
+
+            <div style="padding:14px 0 5px;font:500 10px Archivo,sans-serif;letter-spacing:0.08em;color:#889390">LAST COMPLAINTS</div>
+            <div style="display:flex;flex-direction:column;gap:5px;padding:8px 9px;border:1px solid #4A3608;border-radius:4px;background:#231B0C;margin-bottom:6px">
+              <span style="font:500 9.5px Archivo,sans-serif;letter-spacing:0.06em;color:#F3C46B">TRACKER</span>
+              <span style="font:400 11px 'JetBrains Mono',monospace;color:#F0D9A8;line-height:1.5;word-break:break-word">announce failed: 502 from http://bttracker.debian.org:6969/announce</span>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:5px;padding:8px 9px;border:1px solid #3A4442;border-radius:4px;background:#141A19;margin-bottom:6px">
+              <span style="font:500 9.5px Archivo,sans-serif;letter-spacing:0.06em;color:#889390">LAST PEER</span>
+              <span style="font:400 11px 'JetBrains Mono',monospace;color:#BEC9C6;line-height:1.5;word-break:break-word">185.21.216.4:51413 — connection reset</span>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;height:24px"><span style="font:400 11.5px Archivo,sans-serif;color:#BEC9C6">Session</span><span style="font:400 11.5px 'JetBrains Mono',monospace;color:#889390">no error</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div style="height:24px;flex:none;background:#161D1B;border-top:1px solid #2A3331;display:flex;align-items:center;gap:12px;padding:0 10px">
+        <span style="display:flex;align-items:center;gap:3px"><span style="font-family:'Material Symbols Rounded';font-size:14px;line-height:1;color:#4FD9C2">arrow_downward</span><span style="font:400 11.5px 'JetBrains Mono',monospace;color:#DDE4E1">15 736 KiB/s</span></span>
+        <span style="display:flex;align-items:center;gap:3px"><span style="font-family:'Material Symbols Rounded';font-size:14px;line-height:1;color:#BEC9C6">arrow_upward</span><span style="font:400 11.5px 'JetBrains Mono',monospace;color:#DDE4E1">3 152 KiB/s</span></span>
+        <span style="color:#3A4442">·</span>
+        <span style="font:400 11.5px 'JetBrains Mono',monospace;color:#BEC9C6">16 torrents, 7 seeding, 2 paused</span>
+        <div style="flex:1"></div>
+        <sc-if value="{{ dhtOn }}" hint-placeholder-val="{{ true }}">
+          <span style="font:400 11.5px 'JetBrains Mono',monospace;color:#BEC9C6">DHT 214 nodes</span>
+        </sc-if>
+        <sc-if value="{{ dhtOff }}" hint-placeholder-val="{{ false }}">
+          <span style="font:400 11.5px 'JetBrains Mono',monospace;color:#889390">DHT off</span>
+        </sc-if>
+        <span style="color:#3A4442">·</span>
+        <span style="font:400 11.5px 'JetBrains Mono',monospace;color:#BEC9C6">port 6881 listening</span>
+        <span style="color:#3A4442">·</span>
+        <span style="font:400 11.5px 'JetBrains Mono',monospace;color:#BEC9C6">heap 41 / 128 MiB</span>
+      </div>
+    </div>
+
+    <sc-if value="{{ showAnnotations }}" hint-placeholder-val="{{ true }}">
+      <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px 28px;padding-top:2px">
+        <p style="margin:0;font:400 12px Archivo,sans-serif;line-height:1.6;color:#BEC9C6;text-wrap:pretty"><span style="font:500 12px Archivo,sans-serif;color:#DDE4E1">The peers column is the diagnosis.</span> <span style="font:400 11.5px 'JetBrains Mono',monospace;color:#DDE4E1">24/4 · 61</span> is connected / unchoked · outstanding. Sortable on any of the three, so “which of my forty is starved” is one click.</p>
+        <p style="margin:0;font:400 12px Archivo,sans-serif;line-height:1.6;color:#BEC9C6;text-wrap:pretty"><span style="font:500 12px Archivo,sans-serif;color:#DDE4E1">Stopping is a state, not a spinner.</span> A clean stop takes up to ten seconds — tracker, peers, flush, resume record — so the row stays, dimmed, with the last numbers it had.</p>
+        <p style="margin:0;font:400 12px Archivo,sans-serif;line-height:1.6;color:#BEC9C6;text-wrap:pretty"><span style="font:500 12px Archivo,sans-serif;color:#DDE4E1">Speeds are KiB/s in the header, numbers in the cell.</span> Nothing in a row reflows when a number changes: fixed column widths, tabular figures, units named once.</p>
+        <p style="margin:0;font:400 12px Archivo,sans-serif;line-height:1.6;color:#BEC9C6;text-wrap:pretty"><span style="font:500 12px Archivo,sans-serif;color:#DDE4E1">A magnet has no name yet.</span> The row shows the info hash in mono until <span style="font:400 11.5px 'JetBrains Mono',monospace">MetadataFetcher</span> returns, and an indeterminate bar rather than a percentage.</p>
+        <p style="margin:0;font:400 12px Archivo,sans-serif;line-height:1.6;color:#BEC9C6;text-wrap:pretty"><span style="font:500 12px Archivo,sans-serif;color:#DDE4E1">Both complaints are shown, verbatim.</span> A 502 from the tracker and a reset peer are not the same problem, so they are not the same line — and neither hides behind a hover.</p>
+        <p style="margin:0;font:400 12px Archivo,sans-serif;line-height:1.6;color:#BEC9C6;text-wrap:pretty"><span style="font:500 12px Archivo,sans-serif;color:#DDE4E1">Custom drawing, flagged:</span> the peers cell, the progress cell (bar + figure in one 92&nbsp;px column), and the state glyph column. Everything else is stock M3.</p>
+      </div>
+    </sc-if>
+  </div>
+
+  <div id="1b" style="display:flex;flex-direction:column;gap:14px;width:1200px">
+    <div style="display:flex;align-items:baseline;gap:12px">
+      <span style="font:400 11px 'JetBrains Mono',monospace;color:#4FD9C2;border:1px solid #005046;border-radius:3px;padding:2px 7px">1b</span>
+      <h2 style="margin:0;font:600 20px 'Source Serif 4',serif;color:#DDE4E1">The seven row states, and what each one is allowed to say</h2>
+    </div>
+    <div style="border:1px solid #2A3331;border-radius:6px;background:#0F1513;overflow:hidden">
+      <div style="display:grid;grid-template-columns:150px 200px 116px minmax(0,1fr);gap:16px;align-items:center;height:28px;padding:0 14px;background:#161D1B;border-bottom:1px solid #2A3331">
+        <span style="font:500 10px Archivo,sans-serif;letter-spacing:0.05em;color:#889390">STATE</span>
+        <span style="font:500 10px Archivo,sans-serif;letter-spacing:0.05em;color:#889390">PROGRESS CELL</span>
+        <span style="font:500 10px Archivo,sans-serif;letter-spacing:0.05em;color:#889390">PEERS · OUT</span>
+        <span style="font:500 10px Archivo,sans-serif;letter-spacing:0.05em;color:#889390">WHAT IT MEANS, AND WHICH FIELD SAYS SO</span>
+      </div>
+
+      <div style="display:grid;grid-template-columns:150px 200px 116px minmax(0,1fr);gap:16px;align-items:center;min-height:44px;padding:8px 14px;border-bottom:1px solid #151C1A">
+        <span style="display:flex;align-items:center;gap:7px"><span style="font-family:'Material Symbols Rounded';font-size:16px;line-height:1;color:#889390">link</span><span style="font:500 12.5px Archivo,sans-serif;color:#BEC9C6">Metadata</span></span>
+        <div style="display:flex;align-items:center;gap:8px"><div style="flex:1;height:4px;border-radius:2px;background:#2A3331;overflow:hidden"><div style="width:34%;height:100%;background:#4FD9C2;opacity:0.55"></div></div><span style="width:32px;text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#889390">—</span></div>
+        <span style="font:400 12px 'JetBrains Mono',monospace;color:#DDE4E1">6/0 · 0</span>
+        <p style="margin:0;font:400 12px Archivo,sans-serif;line-height:1.55;color:#BEC9C6">A magnet before <span style="font:400 11.5px 'JetBrains Mono',monospace;color:#DDE4E1">name</span> and <span style="font:400 11.5px 'JetBrains Mono',monospace;color:#DDE4E1">totalLength</span> exist. Indeterminate bar; no size, no ratio, no ETA. Name column falls back to the info hash.</p>
+      </div>
+
+      <div style="display:grid;grid-template-columns:150px 200px 116px minmax(0,1fr);gap:16px;align-items:center;min-height:44px;padding:8px 14px;border-bottom:1px solid #151C1A">
+        <span style="display:flex;align-items:center;gap:7px"><span style="font-family:'Material Symbols Rounded';font-size:16px;line-height:1;color:#F3C46B">rule</span><span style="font:500 12.5px Archivo,sans-serif;color:#F3C46B">Checking</span></span>
+        <div style="display:flex;align-items:center;gap:8px"><div style="flex:1;height:4px;border-radius:2px;background:#2A3331;overflow:hidden"><div style="width:27%;height:100%;background:#F3C46B"></div></div><span style="width:32px;text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#F3C46B">27%</span></div>
+        <span style="font:400 12px 'JetBrains Mono',monospace;color:#889390">0/0 · 0</span>
+        <p style="margin:0;font:400 12px Archivo,sans-serif;line-height:1.55;color:#BEC9C6"><span style="font:400 11.5px 'JetBrains Mono',monospace;color:#DDE4E1">verifiedPieces / verifyingOf</span> — its own progress, in the warning role so it is never mistaken for downloading. No peer is dialled until it ends.</p>
+      </div>
+
+      <div style="display:grid;grid-template-columns:150px 200px 116px minmax(0,1fr);gap:16px;align-items:center;min-height:44px;padding:8px 14px;border-bottom:1px solid #151C1A">
+        <span style="display:flex;align-items:center;gap:7px"><span style="font-family:'Material Symbols Rounded';font-size:16px;line-height:1;color:#4FD9C2">arrow_downward</span><span style="font:500 12.5px Archivo,sans-serif;color:#DDE4E1">Downloading</span></span>
+        <div style="display:flex;align-items:center;gap:8px"><div style="flex:1;height:4px;border-radius:2px;background:#2A3331;overflow:hidden"><div style="width:78%;height:100%;background:#4FD9C2"></div></div><span style="width:32px;text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#DDE4E1">78%</span></div>
+        <span style="font:400 12px 'JetBrains Mono',monospace;color:#DDE4E1">24/4 · 61</span>
+        <p style="margin:0;font:400 12px Archivo,sans-serif;line-height:1.55;color:#BEC9C6">Peers connected, at least one unchoked, requests in flight. Percentage from <span style="font:400 11.5px 'JetBrains Mono',monospace;color:#DDE4E1">downloaded / totalLength</span>; ETA from the speed delta.</p>
+      </div>
+
+      <div style="display:grid;grid-template-columns:150px 200px 116px minmax(0,1fr);gap:16px;align-items:center;min-height:44px;padding:8px 14px;border-bottom:1px solid #151C1A">
+        <span style="display:flex;align-items:center;gap:7px"><span style="font-family:'Material Symbols Rounded';font-size:16px;line-height:1;color:#4FD9C2">arrow_upward</span><span style="font:500 12.5px Archivo,sans-serif;color:#4FD9C2">Seeding</span></span>
+        <div style="display:flex;align-items:center;gap:8px"><div style="flex:1;height:4px;border-radius:2px;background:#2A3331;overflow:hidden"><div style="width:100%;height:100%;background:#4FD9C2"></div></div><span style="width:32px;text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#BEC9C6">100%</span></div>
+        <span style="font:400 12px 'JetBrains Mono',monospace;color:#DDE4E1">31/4 · 0</span>
+        <p style="margin:0;font:400 12px Archivo,sans-serif;line-height:1.55;color:#BEC9C6"><span style="font:400 11.5px 'JetBrains Mono',monospace;color:#DDE4E1">isComplete</span>. Zero outstanding is correct here, so the peers cell reads calm rather than stalled; ETA is <span style="font:400 11.5px 'JetBrains Mono',monospace;color:#DDE4E1">∞</span>, not blank.</p>
+      </div>
+
+      <div style="display:grid;grid-template-columns:150px 200px 116px minmax(0,1fr);gap:16px;align-items:center;min-height:44px;padding:8px 14px;border-bottom:1px solid #151C1A">
+        <span style="display:flex;align-items:center;gap:7px"><span style="font-family:'Material Symbols Rounded';font-size:16px;line-height:1;color:#889390">pause</span><span style="font:500 12.5px Archivo,sans-serif;color:#889390">Paused</span></span>
+        <div style="display:flex;align-items:center;gap:8px"><div style="flex:1;height:4px;border-radius:2px;background:#2A3331;overflow:hidden"><div style="width:52%;height:100%;background:#889390"></div></div><span style="width:32px;text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#889390">52%</span></div>
+        <span style="font:400 12px 'JetBrains Mono',monospace;color:#889390">0/0 · 0</span>
+        <p style="margin:0;font:400 12px Archivo,sans-serif;line-height:1.55;color:#BEC9C6"><span style="font:500 12px Archivo,sans-serif;color:#F3C46B">Planned</span> — the engine has <span style="font:400 11.5px 'JetBrains Mono',monospace;color:#DDE4E1">Command.Stop</span> but no paused state yet. Whole row drops to <span style="font:400 11.5px 'JetBrains Mono',monospace;color:#DDE4E1">outline</span>; the bar keeps its position.</p>
+      </div>
+
+      <div style="display:grid;grid-template-columns:150px 200px 116px minmax(0,1fr);gap:16px;align-items:center;min-height:44px;padding:8px 14px;border-bottom:1px solid #151C1A">
+        <span style="display:flex;align-items:center;gap:7px"><span style="font-family:'Material Symbols Rounded';font-size:16px;line-height:1;color:#F3C46B">hourglass_top</span><span style="font:500 12.5px Archivo,sans-serif;color:#F3C46B">Stopping</span></span>
+        <div style="display:flex;align-items:center;gap:8px"><div style="flex:1;height:4px;border-radius:2px;background:#2A3331;overflow:hidden"><div style="width:91%;height:100%;background:#4A5654"></div></div><span style="width:32px;text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#BEC9C6">91%</span></div>
+        <span style="font:400 12px 'JetBrains Mono',monospace;color:#BEC9C6">3/0 · 4</span>
+        <p style="margin:0;font:400 12px Archivo,sans-serif;line-height:1.55;color:#BEC9C6">Up to ten seconds of announce, close, flush, record. Numbers freeze where they were and the actions grey out; the row does not disappear until the record is written.</p>
+      </div>
+
+      <div style="display:grid;grid-template-columns:150px 200px 116px minmax(0,1fr);gap:16px;align-items:center;min-height:44px;padding:8px 14px;background:#1F1614">
+        <span style="display:flex;align-items:center;gap:7px"><span style="font-family:'Material Symbols Rounded';font-size:16px;line-height:1;color:#FFB4AB">error</span><span style="font:500 12.5px Archivo,sans-serif;color:#FFB4AB">Error</span></span>
+        <div style="display:flex;align-items:center;gap:8px"><div style="flex:1;height:4px;border-radius:2px;background:#3A2320;overflow:hidden"><div style="width:63%;height:100%;background:#FFB4AB"></div></div><span style="width:32px;text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#FFB4AB">63%</span></div>
+        <span style="font:400 12px 'JetBrains Mono',monospace;color:#FFB4AB">0/0 · 0</span>
+        <p style="margin:0;font:400 12px Archivo,sans-serif;line-height:1.55;color:#E5A9A1"><span style="font:400 11.5px 'JetBrains Mono',monospace;color:#FFB4AB">sessionError</span> is non-null: a loop of the session itself failed and somebody has to look. The only state that tints the row, because it is the only one that is not going to fix itself.</p>
+      </div>
+    </div>
+    <sc-if value="{{ showAnnotations }}" hint-placeholder-val="{{ true }}">
+      <p style="margin:0;max-width:900px;font:400 12px Archivo,sans-serif;line-height:1.6;color:#889390;text-wrap:pretty">Glyph and colour together, never colour alone — the state column carries the word as well, so the table survives a monochrome screenshot and a colour-blind reader. Glyphs are Material Symbols Rounded at 15&nbsp;px, weight 400.</p>
+    </sc-if>
+  </div>
+
+  <div id="1c" style="display:flex;flex-direction:column;gap:14px;width:1200px">
+    <div style="display:flex;align-items:baseline;gap:12px">
+      <span style="font:400 11px 'JetBrains Mono',monospace;color:#4FD9C2;border:1px solid #005046;border-radius:3px;padding:2px 7px">1c</span>
+      <h2 style="margin:0;font:600 20px 'Source Serif 4',serif;color:#DDE4E1">Details panel — the other three tabs</h2>
+      <span style="font:400 11.5px Archivo,sans-serif;color:#F3C46B">all three planned: the engine carries none of these lists yet</span>
+    </div>
+    <div style="display:flex;gap:20px">
+
+      <div style="width:340px;height:520px;flex:none;border:1px solid #2A3331;border-radius:6px;background:#0D1211;display:flex;flex-direction:column;overflow:hidden">
+        <div style="flex:none;display:flex;padding:0 6px;border-bottom:1px solid #2A3331">
+          <div style="padding:8px 10px 7px;border-bottom:2px solid transparent;font:400 12px Archivo,sans-serif;color:#889390">Overview</div>
+          <div style="padding:8px 10px 7px;border-bottom:2px solid #4FD9C2;font:500 12px Archivo,sans-serif;color:#4FD9C2">Files</div>
+          <div style="padding:8px 10px 7px;border-bottom:2px solid transparent;font:400 12px Archivo,sans-serif;color:#889390">Peers</div>
+          <div style="padding:8px 10px 7px;border-bottom:2px solid transparent;font:400 12px Archivo,sans-serif;color:#889390">Trackers</div>
+        </div>
+        <div style="flex:none;display:flex;align-items:center;justify-content:space-between;height:26px;padding:0 12px;border-bottom:1px solid #1A2220">
+          <span style="font:400 11px 'JetBrains Mono',monospace;color:#889390">9 files · 3.70 GiB · 8 wanted</span>
+          <span style="font:500 11px Archivo,sans-serif;color:#4FD9C2;cursor:pointer">Select all</span>
+        </div>
+        <div style="flex:1;min-height:0;overflow:auto;padding:4px 0">
+          <div style="display:grid;grid-template-columns:16px minmax(0,1fr) 58px 34px;gap:8px;align-items:center;height:24px;padding:0 12px"><span style="font-family:'Material Symbols Rounded';font-size:16px;line-height:1;color:#4FD9C2">check_box</span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:400 11.5px Archivo,sans-serif;color:#DDE4E1">debian-13.1.0-amd64-DVD-1.iso</span><span style="text-align:right;font:400 11px 'JetBrains Mono',monospace;color:#BEC9C6">3.61 GiB</span><span style="text-align:right;font:400 11px 'JetBrains Mono',monospace;color:#DDE4E1">79%</span></div>
+          <div style="display:grid;grid-template-columns:16px minmax(0,1fr) 58px 34px;gap:8px;align-items:center;height:24px;padding:0 12px"><span style="font-family:'Material Symbols Rounded';font-size:16px;line-height:1;color:#4FD9C2">check_box</span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:400 11.5px Archivo,sans-serif;color:#DDE4E1">SHA512SUMS</span><span style="text-align:right;font:400 11px 'JetBrains Mono',monospace;color:#BEC9C6">1.2 KiB</span><span style="text-align:right;font:400 11px 'JetBrains Mono',monospace;color:#BEC9C6">100%</span></div>
+          <div style="display:grid;grid-template-columns:16px minmax(0,1fr) 58px 34px;gap:8px;align-items:center;height:24px;padding:0 12px"><span style="font-family:'Material Symbols Rounded';font-size:16px;line-height:1;color:#4FD9C2">check_box</span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:400 11.5px Archivo,sans-serif;color:#DDE4E1">SHA512SUMS.sign</span><span style="text-align:right;font:400 11px 'JetBrains Mono',monospace;color:#BEC9C6">833 B</span><span style="text-align:right;font:400 11px 'JetBrains Mono',monospace;color:#BEC9C6">100%</span></div>
+          <div style="display:grid;grid-template-columns:16px minmax(0,1fr) 58px 34px;gap:8px;align-items:center;height:24px;padding:0 12px"><span style="font-family:'Material Symbols Rounded';font-size:16px;line-height:1;color:#4FD9C2">check_box</span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:400 11.5px Archivo,sans-serif;color:#DDE4E1">MD5SUMS</span><span style="text-align:right;font:400 11px 'JetBrains Mono',monospace;color:#BEC9C6">784 B</span><span style="text-align:right;font:400 11px 'JetBrains Mono',monospace;color:#BEC9C6">100%</span></div>
+          <div style="display:grid;grid-template-columns:16px minmax(0,1fr) 58px 34px;gap:8px;align-items:center;height:24px;padding:0 12px"><span style="font-family:'Material Symbols Rounded';font-size:16px;line-height:1;color:#889390">check_box_outline_blank</span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:400 11.5px Archivo,sans-serif;color:#889390">README.source</span><span style="text-align:right;font:400 11px 'JetBrains Mono',monospace;color:#889390">2.1 KiB</span><span style="text-align:right;font:400 11px 'JetBrains Mono',monospace;color:#889390">skip</span></div>
+          <div style="display:grid;grid-template-columns:16px minmax(0,1fr) 58px 34px;gap:8px;align-items:center;height:24px;padding:0 12px"><span style="font-family:'Material Symbols Rounded';font-size:16px;line-height:1;color:#4FD9C2">check_box</span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:400 11.5px Archivo,sans-serif;color:#DDE4E1">dists/stable/Release</span><span style="text-align:right;font:400 11px 'JetBrains Mono',monospace;color:#BEC9C6">61 KiB</span><span style="text-align:right;font:400 11px 'JetBrains Mono',monospace;color:#BEC9C6">100%</span></div>
+          <div style="display:grid;grid-template-columns:16px minmax(0,1fr) 58px 34px;gap:8px;align-items:center;height:24px;padding:0 12px"><span style="font-family:'Material Symbols Rounded';font-size:16px;line-height:1;color:#4FD9C2">check_box</span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:400 11.5px Archivo,sans-serif;color:#DDE4E1">dists/stable/Release.gpg</span><span style="text-align:right;font:400 11px 'JetBrains Mono',monospace;color:#BEC9C6">2.4 KiB</span><span style="text-align:right;font:400 11px 'JetBrains Mono',monospace;color:#BEC9C6">100%</span></div>
+          <div style="display:grid;grid-template-columns:16px minmax(0,1fr) 58px 34px;gap:8px;align-items:center;height:24px;padding:0 12px"><span style="font-family:'Material Symbols Rounded';font-size:16px;line-height:1;color:#4FD9C2">check_box</span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:400 11.5px Archivo,sans-serif;color:#DDE4E1">.disk/info</span><span style="text-align:right;font:400 11px 'JetBrains Mono',monospace;color:#BEC9C6">62 B</span><span style="text-align:right;font:400 11px 'JetBrains Mono',monospace;color:#BEC9C6">100%</span></div>
+          <div style="display:grid;grid-template-columns:16px minmax(0,1fr) 58px 34px;gap:8px;align-items:center;height:24px;padding:0 12px"><span style="font-family:'Material Symbols Rounded';font-size:16px;line-height:1;color:#4FD9C2">check_box</span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:400 11.5px Archivo,sans-serif;color:#DDE4E1">.disk/mkisofs</span><span style="text-align:right;font:400 11px 'JetBrains Mono',monospace;color:#BEC9C6">216 B</span><span style="text-align:right;font:400 11px 'JetBrains Mono',monospace;color:#BEC9C6">100%</span></div>
+        </div>
+        <div style="flex:none;padding:9px 12px;border-top:1px solid #1A2220"><p style="margin:0;font:400 10.5px Archivo,sans-serif;line-height:1.55;color:#889390">Unchecking a file sets its pieces to skip. Pieces that straddle a wanted and an unwanted file are still fetched — the panel says so rather than showing a total that never completes.</p></div>
+      </div>
+
+      <div style="width:340px;height:520px;flex:none;border:1px solid #2A3331;border-radius:6px;background:#0D1211;display:flex;flex-direction:column;overflow:hidden">
+        <div style="flex:none;display:flex;padding:0 6px;border-bottom:1px solid #2A3331">
+          <div style="padding:8px 10px 7px;border-bottom:2px solid transparent;font:400 12px Archivo,sans-serif;color:#889390">Overview</div>
+          <div style="padding:8px 10px 7px;border-bottom:2px solid transparent;font:400 12px Archivo,sans-serif;color:#889390">Files</div>
+          <div style="padding:8px 10px 7px;border-bottom:2px solid #4FD9C2;font:500 12px Archivo,sans-serif;color:#4FD9C2">Peers</div>
+          <div style="padding:8px 10px 7px;border-bottom:2px solid transparent;font:400 12px Archivo,sans-serif;color:#889390">Trackers</div>
+        </div>
+        <div style="flex:none;display:grid;grid-template-columns:minmax(0,1fr) 88px 30px 40px;gap:8px;align-items:center;height:26px;padding:0 12px;border-bottom:1px solid #1A2220;background:#111716">
+          <span style="font:500 9.5px Archivo,sans-serif;letter-spacing:0.05em;color:#889390">ADDRESS</span>
+          <span style="font:500 9.5px Archivo,sans-serif;letter-spacing:0.05em;color:#889390">CLIENT</span>
+          <span style="font:500 9.5px Archivo,sans-serif;letter-spacing:0.05em;color:#889390">FLAG</span>
+          <span style="text-align:right;font:500 9.5px Archivo,sans-serif;letter-spacing:0.05em;color:#889390">KIB/S</span>
+        </div>
+        <div style="flex:1;min-height:0;overflow:auto;padding:4px 0">
+          <div style="display:grid;grid-template-columns:minmax(0,1fr) 88px 30px 40px;gap:8px;align-items:center;height:24px;padding:0 12px"><span style="font:400 11px 'JetBrains Mono',monospace;color:#DDE4E1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">88.99.242.17:6881</span><span style="font:400 10.5px Archivo,sans-serif;color:#BEC9C6;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">libtorrent 2.0</span><span style="font:500 10.5px 'JetBrains Mono',monospace;color:#4FD9C2">U I</span><span style="text-align:right;font:400 11px 'JetBrains Mono',monospace;color:#DDE4E1">1 842</span></div>
+          <div style="display:grid;grid-template-columns:minmax(0,1fr) 88px 30px 40px;gap:8px;align-items:center;height:24px;padding:0 12px"><span style="font:400 11px 'JetBrains Mono',monospace;color:#DDE4E1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">37.120.185.9:51413</span><span style="font:400 10.5px Archivo,sans-serif;color:#BEC9C6;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Transmission 4</span><span style="font:500 10.5px 'JetBrains Mono',monospace;color:#4FD9C2">U I</span><span style="text-align:right;font:400 11px 'JetBrains Mono',monospace;color:#DDE4E1">1 204</span></div>
+          <div style="display:grid;grid-template-columns:minmax(0,1fr) 88px 30px 40px;gap:8px;align-items:center;height:24px;padding:0 12px"><span style="font:400 11px 'JetBrains Mono',monospace;color:#DDE4E1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">92.61.34.108:6889</span><span style="font:400 10.5px Archivo,sans-serif;color:#BEC9C6;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">qBittorrent 5.1</span><span style="font:500 10.5px 'JetBrains Mono',monospace;color:#4FD9C2">U I</span><span style="text-align:right;font:400 11px 'JetBrains Mono',monospace;color:#DDE4E1">918</span></div>
+          <div style="display:grid;grid-template-columns:minmax(0,1fr) 88px 30px 40px;gap:8px;align-items:center;height:24px;padding:0 12px"><span style="font:400 11px 'JetBrains Mono',monospace;color:#DDE4E1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">185.21.216.4:6881</span><span style="font:400 10.5px Archivo,sans-serif;color:#BEC9C6;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">kachok 0.1</span><span style="font:500 10.5px 'JetBrains Mono',monospace;color:#4FD9C2">U I</span><span style="text-align:right;font:400 11px 'JetBrains Mono',monospace;color:#DDE4E1">348</span></div>
+          <div style="display:grid;grid-template-columns:minmax(0,1fr) 88px 30px 40px;gap:8px;align-items:center;height:24px;padding:0 12px"><span style="font:400 11px 'JetBrains Mono',monospace;color:#BEC9C6;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">45.83.220.66:24810</span><span style="font:400 10.5px Archivo,sans-serif;color:#889390;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Deluge 2.1.1</span><span style="font:500 10.5px 'JetBrains Mono',monospace;color:#889390">C I</span><span style="text-align:right;font:400 11px 'JetBrains Mono',monospace;color:#889390">0</span></div>
+          <div style="display:grid;grid-template-columns:minmax(0,1fr) 88px 30px 40px;gap:8px;align-items:center;height:24px;padding:0 12px"><span style="font:400 11px 'JetBrains Mono',monospace;color:#BEC9C6;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">213.152.180.3:6881</span><span style="font:400 10.5px Archivo,sans-serif;color:#889390;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">libtorrent 1.2</span><span style="font:500 10.5px 'JetBrains Mono',monospace;color:#889390">C I</span><span style="text-align:right;font:400 11px 'JetBrains Mono',monospace;color:#889390">0</span></div>
+          <div style="display:grid;grid-template-columns:minmax(0,1fr) 88px 30px 40px;gap:8px;align-items:center;height:24px;padding:0 12px"><span style="font:400 11px 'JetBrains Mono',monospace;color:#BEC9C6;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">109.201.152.20:1337</span><span style="font:400 10.5px Archivo,sans-serif;color:#889390;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">—</span><span style="font:500 10.5px 'JetBrains Mono',monospace;color:#889390">C ·</span><span style="text-align:right;font:400 11px 'JetBrains Mono',monospace;color:#889390">0</span></div>
+          <div style="display:grid;grid-template-columns:minmax(0,1fr) 88px 30px 40px;gap:8px;align-items:center;height:24px;padding:0 12px"><span style="font:400 11px 'JetBrains Mono',monospace;color:#BEC9C6;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">5.181.190.7:6892</span><span style="font:400 10.5px Archivo,sans-serif;color:#889390;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">BiglyBT 3.7</span><span style="font:500 10.5px 'JetBrains Mono',monospace;color:#889390">C I</span><span style="text-align:right;font:400 11px 'JetBrains Mono',monospace;color:#889390">0</span></div>
+          <div style="display:grid;grid-template-columns:minmax(0,1fr) 88px 30px 40px;gap:8px;align-items:center;height:24px;padding:0 12px"><span style="font:400 11px 'JetBrains Mono',monospace;color:#BEC9C6;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">31.14.40.221:51413</span><span style="font:400 10.5px Archivo,sans-serif;color:#889390;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Transmission 3</span><span style="font:500 10.5px 'JetBrains Mono',monospace;color:#889390">C ·</span><span style="text-align:right;font:400 11px 'JetBrains Mono',monospace;color:#889390">0</span></div>
+        </div>
+        <div style="flex:none;display:flex;flex-direction:column;gap:6px;padding:9px 12px;border-top:1px solid #1A2220">
+          <div style="display:flex;gap:14px"><span style="font:400 10.5px Archivo,sans-serif;color:#889390"><span style="font:500 10.5px 'JetBrains Mono',monospace;color:#4FD9C2">U</span> unchoked</span><span style="font:400 10.5px Archivo,sans-serif;color:#889390"><span style="font:500 10.5px 'JetBrains Mono',monospace;color:#889390">C</span> choked</span><span style="font:400 10.5px Archivo,sans-serif;color:#889390"><span style="font:500 10.5px 'JetBrains Mono',monospace;color:#BEC9C6">I</span> interested</span></div>
+          <p style="margin:0;font:400 10.5px Archivo,sans-serif;line-height:1.55;color:#889390">Sorted by rate, so the four peers the engine unchoked sit at the top and the twenty that are choking us sit below — the list is the long form of the peers column.</p>
+        </div>
+      </div>
+
+      <div style="width:340px;height:520px;flex:none;border:1px solid #2A3331;border-radius:6px;background:#0D1211;display:flex;flex-direction:column;overflow:hidden">
+        <div style="flex:none;display:flex;padding:0 6px;border-bottom:1px solid #2A3331">
+          <div style="padding:8px 10px 7px;border-bottom:2px solid transparent;font:400 12px Archivo,sans-serif;color:#889390">Overview</div>
+          <div style="padding:8px 10px 7px;border-bottom:2px solid transparent;font:400 12px Archivo,sans-serif;color:#889390">Files</div>
+          <div style="padding:8px 10px 7px;border-bottom:2px solid transparent;font:400 12px Archivo,sans-serif;color:#889390">Peers</div>
+          <div style="padding:8px 10px 7px;border-bottom:2px solid #4FD9C2;font:500 12px Archivo,sans-serif;color:#4FD9C2">Trackers</div>
+        </div>
+        <div style="flex:none;display:flex;align-items:center;justify-content:space-between;height:26px;padding:0 12px;border-bottom:1px solid #1A2220">
+          <span style="font:400 11px 'JetBrains Mono',monospace;color:#889390">3 trackers + DHT</span>
+          <span style="display:flex;align-items:center;gap:4px;font:500 11px Archivo,sans-serif;color:#4FD9C2;cursor:pointer"><span style="font-family:'Material Symbols Rounded';font-size:14px;line-height:1">campaign</span>Re-announce</span>
+        </div>
+        <div style="flex:1;min-height:0;overflow:auto;padding:6px 0">
+          <div style="padding:7px 12px;border-bottom:1px solid #151C1A">
+            <div style="font:400 11px 'JetBrains Mono',monospace;color:#DDE4E1;word-break:break-all;line-height:1.4">http://bttracker.debian.org:6969/announce</div>
+            <div style="margin-top:4px;display:flex;align-items:center;gap:8px"><span style="font:500 10.5px Archivo,sans-serif;color:#FFB4AB">502</span><span style="color:#3A4442">·</span><span style="font:400 10.5px 'JetBrains Mono',monospace;color:#889390">tried 41 s ago, retry in 19 s</span></div>
+            <div style="margin-top:3px;font:400 10.5px 'JetBrains Mono',monospace;color:#E5A9A1;word-break:break-word">announce failed: 502 Bad Gateway</div>
+          </div>
+          <div style="padding:7px 12px;border-bottom:1px solid #151C1A">
+            <div style="font:400 11px 'JetBrains Mono',monospace;color:#DDE4E1;word-break:break-all;line-height:1.4">udp://tracker.opentrackr.org:1337/announce</div>
+            <div style="margin-top:4px;display:flex;align-items:center;gap:8px"><span style="font:500 10.5px Archivo,sans-serif;color:#4FD9C2">working</span><span style="color:#3A4442">·</span><span style="font:400 10.5px 'JetBrains Mono',monospace;color:#889390">3 m ago · 142 peers · next in 27 m</span></div>
+          </div>
+          <div style="padding:7px 12px;border-bottom:1px solid #151C1A">
+            <div style="font:400 11px 'JetBrains Mono',monospace;color:#DDE4E1;word-break:break-all;line-height:1.4">udp://open.demonii.com:1337/announce</div>
+            <div style="margin-top:4px;display:flex;align-items:center;gap:8px"><span style="font:500 10.5px Archivo,sans-serif;color:#4FD9C2">working</span><span style="color:#3A4442">·</span><span style="font:400 10.5px 'JetBrains Mono',monospace;color:#889390">3 m ago · 45 peers · next in 27 m</span></div>
+          </div>
+          <div style="padding:7px 12px">
+            <div style="font:400 11px 'JetBrains Mono',monospace;color:#DDE4E1;line-height:1.4">DHT (BEP 5)</div>
+            <div style="margin-top:4px;display:flex;align-items:center;gap:8px"><span style="font:500 10.5px Archivo,sans-serif;color:#4FD9C2">214 nodes</span><span style="color:#3A4442">·</span><span style="font:400 10.5px 'JetBrains Mono',monospace;color:#889390">announced 6 m ago · next in 9 m</span></div>
+          </div>
+        </div>
+        <div style="flex:none;padding:9px 12px;border-top:1px solid #1A2220"><p style="margin:0;font:400 10.5px Archivo,sans-serif;line-height:1.55;color:#889390">One tracker failing is not a failed torrent. Each row carries its own status and its own words; the torrent only reads <span style="font:400 10.5px 'JetBrains Mono',monospace;color:#DDE4E1">Error</span> when every tracker refused and no peer arrived from anywhere else.</p></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="1d" style="display:flex;flex-direction:column;gap:14px;width:1200px">
+    <div style="display:flex;align-items:baseline;gap:12px">
+      <span style="font:400 11px 'JetBrains Mono',monospace;color:#4FD9C2;border:1px solid #005046;border-radius:3px;padding:2px 7px">1d</span>
+      <h2 style="margin:0;font:600 20px 'Source Serif 4',serif;color:#DDE4E1">Add torrent — one gesture, then one dialog</h2>
+    </div>
+
+    <div style="width:1200px;height:760px;background:#0F1513;border:1px solid #2A3331;border-radius:6px;overflow:hidden;position:relative">
+      <div style="height:28px;background:#161D1B;border-bottom:1px solid #1A2220;display:flex;align-items:center;padding:0 10px;position:relative">
+        <div style="display:flex;gap:8px"><div style="width:12px;height:12px;border-radius:6px;background:#3A4442"></div><div style="width:12px;height:12px;border-radius:6px;background:#3A4442"></div><div style="width:12px;height:12px;border-radius:6px;background:#3A4442"></div></div>
+        <span style="position:absolute;left:0;right:0;text-align:center;font:500 12px Archivo,sans-serif;color:#889390">kachok</span>
+      </div>
+      <div style="position:absolute;inset:28px 0 0 0;background:#0F1513"></div>
+      <div style="position:absolute;inset:28px 0 0 0;background:rgba(6,10,9,0.72);display:flex;align-items:center;justify-content:center">
+
+        <div style="width:520px;background:#1A2220;border:1px solid #303836;border-radius:6px;overflow:hidden;display:flex;flex-direction:column">
+          <div style="padding:18px 20px 14px">
+            <h3 style="margin:0;font:600 19px 'Source Serif 4',serif;color:#DDE4E1">Add torrent</h3>
+          </div>
+
+          <div style="margin:0 20px;display:flex;align-items:flex-start;gap:11px;padding:11px 12px;border:1px solid #3A4442;border-radius:4px;background:#141A19">
+            <span style="font-family:'Material Symbols Rounded';font-size:19px;line-height:1;color:#4FD9C2">description</span>
+            <div style="min-width:0;display:flex;flex-direction:column;gap:4px">
+              <span style="font:500 12.5px Archivo,sans-serif;color:#DDE4E1;word-break:break-all">debian-13.1.0-amd64-DVD-1.iso.torrent</span>
+              <span style="font:400 11px 'JetBrains Mono',monospace;color:#BEC9C6">3.70 GiB · 1 772 pieces of 2.00 MiB · 9 files</span>
+              <span style="font:400 11px 'JetBrains Mono',monospace;color:#889390;word-break:break-all">2b3a91c4e0f7d8a5b6c3 91e2f70d4a8b5c6d c7f1</span>
+            </div>
+          </div>
+
+          <div style="padding:16px 20px 0;display:flex;flex-direction:column;gap:6px">
+            <span style="font:500 11px Archivo,sans-serif;color:#BEC9C6">Save to</span>
+            <div style="display:flex;gap:8px">
+              <div style="flex:1;display:flex;align-items:center;gap:8px;height:36px;padding:0 10px;border:1px solid #3A4442;border-radius:4px">
+                <span style="font-family:'Material Symbols Rounded';font-size:17px;line-height:1;color:#889390">folder</span>
+                <span style="font:400 12px 'JetBrains Mono',monospace;color:#DDE4E1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">~/Downloads/iso</span>
+              </div>
+              <button style="height:36px;padding:0 14px;border:1px solid #3A4442;border-radius:4px;background:transparent;color:#DDE4E1;font:500 12.5px Archivo,sans-serif;cursor:pointer" style-hover="background:#252D2B">Browse…</button>
+            </div>
+            <span style="font:400 10.5px Archivo,sans-serif;color:#889390">Default: the folder from Settings — <span style="font:400 10.5px 'JetBrains Mono',monospace">~/Downloads</span></span>
+          </div>
+
+          <div style="padding:16px 20px 0;display:flex;flex-direction:column;gap:7px">
+            <div style="display:flex;align-items:center;gap:8px">
+              <span style="font:500 11px Archivo,sans-serif;color:#BEC9C6">Files</span>
+              <span style="font:400 9.5px Archivo,sans-serif;color:#F3C46B;border:1px solid #4A3608;border-radius:2px;padding:0 3px">planned</span>
+              <div style="flex:1"></div>
+              <span style="font:400 11px 'JetBrains Mono',monospace;color:#889390">8 of 9 wanted · 3.70 GiB</span>
+            </div>
+            <div style="border:1px solid #3A4442;border-radius:4px;background:#141A19;max-height:96px;overflow:auto">
+              <div style="display:grid;grid-template-columns:16px minmax(0,1fr) 58px;gap:9px;align-items:center;height:24px;padding:0 10px"><span style="font-family:'Material Symbols Rounded';font-size:16px;line-height:1;color:#4FD9C2">check_box</span><span style="font:400 11.5px Archivo,sans-serif;color:#DDE4E1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">debian-13.1.0-amd64-DVD-1.iso</span><span style="text-align:right;font:400 11px 'JetBrains Mono',monospace;color:#BEC9C6">3.61 GiB</span></div>
+              <div style="display:grid;grid-template-columns:16px minmax(0,1fr) 58px;gap:9px;align-items:center;height:24px;padding:0 10px"><span style="font-family:'Material Symbols Rounded';font-size:16px;line-height:1;color:#4FD9C2">check_box</span><span style="font:400 11.5px Archivo,sans-serif;color:#DDE4E1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">SHA512SUMS</span><span style="text-align:right;font:400 11px 'JetBrains Mono',monospace;color:#BEC9C6">1.2 KiB</span></div>
+              <div style="display:grid;grid-template-columns:16px minmax(0,1fr) 58px;gap:9px;align-items:center;height:24px;padding:0 10px"><span style="font-family:'Material Symbols Rounded';font-size:16px;line-height:1;color:#889390">check_box_outline_blank</span><span style="font:400 11.5px Archivo,sans-serif;color:#889390;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">README.source</span><span style="text-align:right;font:400 11px 'JetBrains Mono',monospace;color:#889390">2.1 KiB</span></div>
+              <div style="display:grid;grid-template-columns:16px minmax(0,1fr) 58px;gap:9px;align-items:center;height:24px;padding:0 10px"><span style="font-family:'Material Symbols Rounded';font-size:16px;line-height:1;color:#4FD9C2">check_box</span><span style="font:400 11.5px Archivo,sans-serif;color:#DDE4E1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">dists/stable/Release</span><span style="text-align:right;font:400 11px 'JetBrains Mono',monospace;color:#BEC9C6">61 KiB</span></div>
+            </div>
+          </div>
+
+          <div style="padding:16px 20px 0">
+            <label style="display:flex;align-items:flex-start;gap:9px;cursor:pointer">
+              <span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1;color:#889390">check_box_outline_blank</span>
+              <span style="display:flex;flex-direction:column;gap:2px">
+                <span style="display:flex;align-items:center;gap:7px"><span style="font:400 12.5px Archivo,sans-serif;color:#DDE4E1">Sequential download</span><span style="font:400 9.5px Archivo,sans-serif;color:#F3C46B;border:1px solid #4A3608;border-radius:2px;padding:0 3px">planned</span></span>
+                <span style="font:400 10.5px Archivo,sans-serif;color:#889390">Ask for pieces in order rather than rarest first. Slower overall, and it makes this client a worse swarm member.</span>
+              </span>
+            </label>
+          </div>
+
+          <div style="padding:16px 20px 0;display:flex;flex-direction:column;gap:9px">
+            <label style="display:flex;align-items:center;gap:9px;cursor:pointer"><span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1;color:#4FD9C2">radio_button_checked</span><span style="font:400 12.5px Archivo,sans-serif;color:#DDE4E1">Start immediately</span></label>
+            <label style="display:flex;align-items:center;gap:9px;cursor:pointer"><span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1;color:#889390">radio_button_unchecked</span><span style="font:400 12.5px Archivo,sans-serif;color:#BEC9C6">Add paused</span><span style="font:400 9.5px Archivo,sans-serif;color:#F3C46B;border:1px solid #4A3608;border-radius:2px;padding:0 3px">planned</span></label>
+          </div>
+
+          <div style="display:flex;align-items:center;justify-content:flex-end;gap:8px;padding:18px 20px 18px">
+            <button style="height:32px;padding:0 14px;border:none;border-radius:4px;background:transparent;color:#BEC9C6;font:500 12.5px Archivo,sans-serif;cursor:pointer" style-hover="background:#252D2B;color:#DDE4E1">Cancel</button>
+            <button style="height:32px;padding:0 18px;border:none;border-radius:4px;background:#4FD9C2;color:#00382F;font:600 12.5px Archivo,sans-serif;cursor:pointer" style-hover="background:#71F6DE">Add</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:20px">
+      <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:8px">
+        <span style="font:500 10px Archivo,sans-serif;letter-spacing:0.08em;color:#889390">DROP TARGET — WHOLE WINDOW</span>
+        <div style="height:150px;border:1px solid #2A3331;border-radius:6px;background:#0F1513;padding:8px;position:relative">
+          <div style="position:absolute;inset:8px;border:1px dashed #4FD9C2;border-radius:4px;background:rgba(0,80,70,0.22);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px">
+            <span style="font-family:'Material Symbols Rounded';font-size:26px;line-height:1;color:#4FD9C2">download</span>
+            <span style="font:600 15px 'Source Serif 4',serif;color:#DDF3EF">Drop to add 2 torrents</span>
+            <span style="font:400 11px 'JetBrains Mono',monospace;color:#71F6DE">debian-13.1.0…torrent, archlinux-2026.09…torrent</span>
+          </div>
+        </div>
+      </div>
+      <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:8px">
+        <span style="font:500 10px Archivo,sans-serif;letter-spacing:0.08em;color:#889390">MAGNET IN THE CLIPBOARD — ON WINDOW FOCUS</span>
+        <div style="height:150px;border:1px solid #2A3331;border-radius:6px;background:#0F1513;display:flex;align-items:flex-end;justify-content:center;padding:14px">
+          <div style="width:100%;display:flex;align-items:center;gap:11px;padding:10px 12px;border:1px solid #303836;border-radius:4px;background:#252D2B">
+            <span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1;color:#4FD9C2">link</span>
+            <div style="min-width:0;display:flex;flex-direction:column;gap:2px">
+              <span style="font:400 12px Archivo,sans-serif;color:#DDE4E1">A magnet link is on the clipboard.</span>
+              <span style="font:400 10.5px 'JetBrains Mono',monospace;color:#889390;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">magnet:?xt=urn:btih:e4f2c1a9d3b7…&amp;dn=archlinux-2026.09.01</span>
+            </div>
+            <div style="flex:1"></div>
+            <button style="height:28px;padding:0 13px;border:none;border-radius:4px;background:#005046;color:#71F6DE;font:500 12px Archivo,sans-serif;cursor:pointer" style-hover="background:#006155">Add it</button>
+            <button style="display:flex;align-items:center;justify-content:center;width:28px;height:28px;border:none;border-radius:4px;background:transparent;color:#889390;cursor:pointer" style-hover="color:#DDE4E1"><span style="font-family:'Material Symbols Rounded';font-size:17px;line-height:1">close</span></button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <sc-if value="{{ showAnnotations }}" hint-placeholder-val="{{ true }}">
+      <p style="margin:0;max-width:900px;font:400 12px Archivo,sans-serif;line-height:1.6;color:#889390;text-wrap:pretty">Three ways in, one dialog out. A magnet arrives with no size and no file list, so the same dialog shows the display name, the hash, and a note that the metainfo is fetched from the swarm first — the file list appears in the details panel once <span style="font:400 11.5px 'JetBrains Mono',monospace;color:#BEC9C6">MetadataFetcher</span> returns, not in this dialog.</p>
+    </sc-if>
+  </div>
+
+  <div id="1e" style="display:flex;flex-direction:column;gap:14px;width:1200px">
+    <div style="display:flex;align-items:baseline;gap:12px">
+      <span style="font:400 11px 'JetBrains Mono',monospace;color:#4FD9C2;border:1px solid #005046;border-radius:3px;padding:2px 7px">1e</span>
+      <h2 style="margin:0;font:600 20px 'Source Serif 4',serif;color:#DDE4E1">Empty state — first launch</h2>
+    </div>
+    <div style="width:1200px;height:560px;background:#0F1513;border:1px solid #2A3331;border-radius:6px;overflow:hidden;display:flex;flex-direction:column">
+      <div style="height:28px;flex:none;background:#161D1B;border-bottom:1px solid #1A2220;display:flex;align-items:center;padding:0 10px;position:relative">
+        <div style="display:flex;gap:8px"><div style="width:12px;height:12px;border-radius:6px;background:#FF5F57"></div><div style="width:12px;height:12px;border-radius:6px;background:#FEBC2E"></div><div style="width:12px;height:12px;border-radius:6px;background:#28C840"></div></div>
+        <span style="position:absolute;left:0;right:0;text-align:center;font:500 12px Archivo,sans-serif;color:#BEC9C6">kachok</span>
+      </div>
+      <div style="height:48px;flex:none;border-bottom:1px solid #1A2220;display:flex;align-items:center;gap:8px;padding:0 10px">
+        <button style="display:flex;align-items:center;gap:6px;height:28px;padding:0 12px;border:none;border-radius:4px;background:#005046;color:#71F6DE;font:500 12.5px Archivo,sans-serif;cursor:pointer" style-hover="background:#006155"><span style="font-family:'Material Symbols Rounded';font-size:17px;line-height:1">add</span>Add torrent</button>
+        <div style="flex:1"></div>
+        <button style="display:flex;align-items:center;justify-content:center;width:28px;height:28px;border:none;border-radius:4px;background:transparent;color:#BEC9C6;cursor:pointer" style-hover="background:#1A2220"><span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1">tune</span></button>
+      </div>
+      <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px">
+        <div style="width:64px;height:64px;border:1px solid #2A3331;border-radius:32px;display:flex;align-items:center;justify-content:center">
+          <span style="font-family:'Material Symbols Rounded';font-size:28px;line-height:1;color:#4FD9C2">arrow_downward</span>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:7px">
+          <h3 style="margin:0;font:600 25px 'Source Serif 4',serif;color:#DDE4E1">Nothing downloading</h3>
+          <p style="margin:0;max-width:390px;text-align:center;font:400 12.5px Archivo,sans-serif;line-height:1.6;color:#BEC9C6;text-wrap:pretty">Drop a <span style="font:400 12px 'JetBrains Mono',monospace">.torrent</span> anywhere in this window, or paste a magnet link.</p>
+        </div>
+        <button style="display:flex;align-items:center;gap:7px;height:34px;padding:0 18px;border:none;border-radius:4px;background:#4FD9C2;color:#00382F;font:600 13px Archivo,sans-serif;cursor:pointer" style-hover="background:#71F6DE"><span style="font-family:'Material Symbols Rounded';font-size:18px;line-height:1">add</span>Add a torrent</button>
+        <span style="font:400 11px 'JetBrains Mono',monospace;color:#889390">⌘O  file    ⌘V  magnet</span>
+      </div>
+      <div style="height:24px;flex:none;background:#161D1B;border-top:1px solid #2A3331;display:flex;align-items:center;gap:12px;padding:0 10px">
+        <span style="font:400 11.5px 'JetBrains Mono',monospace;color:#889390">idle</span>
+        <div style="flex:1"></div>
+        <span style="font:400 11.5px 'JetBrains Mono',monospace;color:#889390">DHT off</span>
+        <span style="color:#3A4442">·</span>
+        <span style="font:400 11.5px 'JetBrains Mono',monospace;color:#BEC9C6">port 6881 listening</span>
+      </div>
+    </div>
+    <sc-if value="{{ showAnnotations }}" hint-placeholder-val="{{ true }}">
+      <p style="margin:0;max-width:900px;font:400 12px Archivo,sans-serif;line-height:1.6;color:#889390;text-wrap:pretty">The one place a mark is allowed, and it is a glyph in a ring rather than an illustration. The status bar stays: on first launch the two facts worth having are that the port is bound and that the DHT is off, and both are here before anything is added.</p>
+    </sc-if>
+  </div>
+
+  <div id="1f" style="display:flex;flex-direction:column;gap:14px;width:1200px">
+    <div style="display:flex;align-items:baseline;gap:12px">
+      <span style="font:400 11px 'JetBrains Mono',monospace;color:#4FD9C2;border:1px solid #005046;border-radius:3px;padding:2px 7px">1f</span>
+      <h2 style="margin:0;font:600 20px 'Source Serif 4',serif;color:#DDE4E1">Settings — every field shows the measured default beside it</h2>
+    </div>
+    <div style="display:flex;gap:28px;align-items:flex-start">
+      <div style="width:620px;flex:none;background:#0F1513;border:1px solid #2A3331;border-radius:6px;overflow:hidden">
+        <div style="height:28px;background:#161D1B;border-bottom:1px solid #1A2220;display:flex;align-items:center;padding:0 10px;position:relative">
+          <div style="display:flex;gap:8px"><div style="width:12px;height:12px;border-radius:6px;background:#FF5F57"></div><div style="width:12px;height:12px;border-radius:6px;background:#3A4442"></div><div style="width:12px;height:12px;border-radius:6px;background:#3A4442"></div></div>
+          <span style="position:absolute;left:0;right:0;text-align:center;font:500 12px Archivo,sans-serif;color:#BEC9C6">Settings</span>
+        </div>
+
+        <div style="padding:16px 20px 6px;font:500 10px Archivo,sans-serif;letter-spacing:0.08em;color:#889390">DOWNLOADS</div>
+        <div style="display:flex;align-items:center;gap:16px;padding:9px 20px;border-bottom:1px solid #151C1A">
+          <div style="flex:1;min-width:0"><div style="font:400 12.5px Archivo,sans-serif;color:#DDE4E1">Save to</div></div>
+          <div style="display:flex;align-items:center;gap:7px"><div style="display:flex;align-items:center;gap:7px;height:30px;width:210px;padding:0 9px;border:1px solid #3A4442;border-radius:4px"><span style="font-family:'Material Symbols Rounded';font-size:16px;line-height:1;color:#889390">folder</span><span style="font:400 11.5px 'JetBrains Mono',monospace;color:#DDE4E1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">~/Downloads</span></div><button style="height:30px;padding:0 11px;border:1px solid #3A4442;border-radius:4px;background:transparent;color:#DDE4E1;font:500 12px Archivo,sans-serif;cursor:pointer" style-hover="background:#1A2220">Browse…</button></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:16px;padding:9px 20px;border-bottom:1px solid #151C1A">
+          <div style="flex:1;min-width:0"><div style="font:400 12.5px Archivo,sans-serif;color:#DDE4E1">Start torrents when added</div></div>
+          <div style="display:flex;align-items:center;gap:10px"><span style="font:400 10.5px 'JetBrains Mono',monospace;color:#889390">default on</span><div style="width:34px;height:20px;border-radius:10px;background:#4FD9C2;display:flex;align-items:center;justify-content:flex-end;padding:0 3px"><div style="width:14px;height:14px;border-radius:7px;background:#00382F"></div></div></div>
+        </div>
+
+        <div style="padding:16px 20px 6px;font:500 10px Archivo,sans-serif;letter-spacing:0.08em;color:#889390">NETWORK</div>
+        <div style="display:flex;align-items:center;gap:16px;padding:9px 20px;border-bottom:1px solid #151C1A">
+          <div style="flex:1;min-width:0"><div style="font:400 12.5px Archivo,sans-serif;color:#DDE4E1">Listening port</div><div style="margin-top:2px;font:400 10.5px Archivo,sans-serif;color:#889390">The first free port of 6881–6889 is taken if this one is busy.</div></div>
+          <div style="display:flex;align-items:center;gap:10px"><span style="font:400 10.5px 'JetBrains Mono',monospace;color:#889390">default 6881</span><div style="height:30px;width:76px;display:flex;align-items:center;justify-content:flex-end;padding:0 9px;border:1px solid #3A4442;border-radius:4px;font:400 12px 'JetBrains Mono',monospace;color:#DDE4E1">6881</div></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:16px;padding:9px 20px;border-bottom:1px solid #151C1A">
+          <div style="flex:1;min-width:0"><div style="font:400 12.5px Archivo,sans-serif;color:#DDE4E1">Connections to keep up</div><div style="margin-top:2px;font:400 10.5px Archivo,sans-serif;color:#889390">Also the second term of the buffer pool's working set.</div></div>
+          <div style="display:flex;align-items:center;gap:10px"><span style="font:400 10.5px 'JetBrains Mono',monospace;color:#889390">default 50</span><div style="height:30px;width:76px;display:flex;align-items:center;justify-content:flex-end;padding:0 9px;border:1px solid #3A4442;border-radius:4px;font:400 12px 'JetBrains Mono',monospace;color:#DDE4E1">50</div></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:16px;padding:9px 20px;border-bottom:1px solid #151C1A">
+          <div style="flex:1;min-width:0"><div style="font:400 12.5px Archivo,sans-serif;color:#DDE4E1">Requests outstanding per peer</div><div style="margin-top:2px;font:400 10.5px Archivo,sans-serif;color:#889390">Too few idles the link; too many hold pool buffers.</div></div>
+          <div style="display:flex;align-items:center;gap:10px"><span style="font:400 10.5px 'JetBrains Mono',monospace;color:#889390">default 16</span><div style="height:30px;width:76px;display:flex;align-items:center;justify-content:flex-end;padding:0 9px;border:1px solid #3A4442;border-radius:4px;font:400 12px 'JetBrains Mono',monospace;color:#DDE4E1">16</div></div>
+        </div>
+
+        <div style="padding:16px 20px 6px;font:500 10px Archivo,sans-serif;letter-spacing:0.08em;color:#889390">LIMITS</div>
+        <div style="display:flex;align-items:center;gap:16px;padding:9px 20px;border-bottom:1px solid #151C1A">
+          <div style="flex:1;min-width:0"><div style="font:400 12.5px Archivo,sans-serif;color:#DDE4E1">Upload limit</div><div style="margin-top:2px;font:400 10.5px Archivo,sans-serif;color:#889390">One budget for the session, not one per peer.</div></div>
+          <div style="display:flex;align-items:center;gap:8px"><span style="font:400 10.5px 'JetBrains Mono',monospace;color:#889390">default none</span><div style="height:30px;width:86px;display:flex;align-items:center;justify-content:flex-end;padding:0 9px;border:1px solid #3A4442;border-radius:4px;font:400 12px 'JetBrains Mono',monospace;color:#889390">no limit</div><span style="width:38px;font:400 10.5px 'JetBrains Mono',monospace;color:#889390">KiB/s</span></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:16px;padding:9px 20px;border-bottom:1px solid #151C1A">
+          <div style="flex:1;min-width:0"><div style="font:400 12.5px Archivo,sans-serif;color:#DDE4E1">Download limit</div></div>
+          <div style="display:flex;align-items:center;gap:8px"><span style="font:400 10.5px 'JetBrains Mono',monospace;color:#889390">default none</span><div style="height:30px;width:86px;display:flex;align-items:center;justify-content:flex-end;padding:0 9px;border:1px solid #4FD9C2;border-radius:4px;font:400 12px 'JetBrains Mono',monospace;color:#DDE4E1">12 000</div><span style="width:38px;font:400 10.5px 'JetBrains Mono',monospace;color:#889390">KiB/s</span></div>
+        </div>
+
+        <div style="padding:16px 20px 6px;font:500 10px Archivo,sans-serif;letter-spacing:0.08em;color:#889390">PRIVACY</div>
+        <div style="display:flex;align-items:flex-start;gap:16px;padding:9px 20px 14px">
+          <div style="flex:1;min-width:0">
+            <div style="font:400 12.5px Archivo,sans-serif;color:#DDE4E1">Join the DHT <span style="font:400 11px 'JetBrains Mono',monospace;color:#889390">(BEP 5)</span></div>
+            <p style="margin:4px 0 0;font:400 10.5px Archivo,sans-serif;line-height:1.6;color:#889390;text-wrap:pretty">Joining announces this machine's address to strangers, starting with three public bootstrap routers. kachok only needs it for a magnet link that names no tracker, so it is off until you ask. A private torrent never joins, whatever this says.</p>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;padding-top:2px"><span style="font:400 10.5px 'JetBrains Mono',monospace;color:#889390">default off</span><div style="width:34px;height:20px;border-radius:10px;background:#252D2B;border:1px solid #3A4442;display:flex;align-items:center;padding:0 3px"><div style="width:14px;height:14px;border-radius:7px;background:#889390"></div></div></div>
+        </div>
+
+        <div style="display:flex;align-items:center;gap:8px;padding:10px 20px;border-top:1px solid #1A2220;background:#111716">
+          <span style="font-family:'Material Symbols Rounded';font-size:15px;line-height:1;color:#889390">bolt</span>
+          <span style="font:400 11px Archivo,sans-serif;color:#889390">Changes apply to the running session immediately — no restart, no Apply button.</span>
+          <span style="font:400 9.5px Archivo,sans-serif;color:#F3C46B;border:1px solid #4A3608;border-radius:2px;padding:0 3px">planned</span>
+        </div>
+      </div>
+
+      <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:14px;padding-top:4px">
+        <p style="margin:0;font:400 12.5px Archivo,sans-serif;line-height:1.65;color:#BEC9C6;text-wrap:pretty">Every number here is a field on <span style="font:400 12px 'JetBrains Mono',monospace;color:#DDE4E1">SessionConfig</span>, and every default is one that was measured rather than guessed. So the default is printed beside the field instead of hidden in a blank: a user who changes the pipeline depth should be able to see what it was.</p>
+        <p style="margin:0;font:400 12.5px Archivo,sans-serif;line-height:1.65;color:#BEC9C6;text-wrap:pretty">The DHT toggle is the only setting with a paragraph. It is off by default and the paragraph is why — a switch that announces your address to strangers earns an explanation next to it, not in a help page.</p>
+        <p style="margin:0;font:400 12.5px Archivo,sans-serif;line-height:1.65;color:#BEC9C6;text-wrap:pretty">A limit of <span style="font:400 12px 'JetBrains Mono',monospace;color:#DDE4E1">no limit</span> is not a limit of zero. The field says the words; zero is not typeable.</p>
+        <div style="display:flex;flex-direction:column;gap:6px;padding:12px 14px;border:1px solid #2A3331;border-radius:4px;background:#111716">
+          <span style="font:500 10px Archivo,sans-serif;letter-spacing:0.08em;color:#889390">NOT IN SETTINGS</span>
+          <span style="font:400 11.5px Archivo,sans-serif;line-height:1.6;color:#BEC9C6">Theme (follows the system), choke interval, optimistic interval, flush and resume intervals, request timeout. They are <span style="font:400 11px 'JetBrains Mono',monospace">SessionConfig</span> fields with measured values and no user question behind them.</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="1g" style="display:flex;flex-direction:column;gap:14px;width:1200px">
+    <div style="display:flex;align-items:baseline;gap:12px">
+      <span style="font:400 11px 'JetBrains Mono',monospace;color:#4FD9C2;border:1px solid #005046;border-radius:3px;padding:2px 7px">1g</span>
+      <h2 style="margin:0;font:600 20px 'Source Serif 4',serif;color:#DDE4E1">Degraded session — the diagnosis, verbatim, where the symptom is</h2>
+      <span style="font:400 11.5px Archivo,sans-serif;color:#889390">window crop</span>
+    </div>
+    <div style="width:1200px;height:400px;background:#0F1513;border:1px solid #2A3331;border-radius:6px;overflow:hidden;display:flex">
+      <div style="flex:1;min-width:0;display:flex;flex-direction:column">
+        <div style="flex:none;display:flex;align-items:center;gap:10px;height:32px;padding:0 10px;background:#2A1A18;border-bottom:1px solid #4A2A27">
+          <span style="font-family:'Material Symbols Rounded';font-size:17px;line-height:1;color:#FFB4AB">error</span>
+          <span style="font:500 12px Archivo,sans-serif;color:#FFB4AB">openSUSE-Leap-16.1 is degraded.</span>
+          <span style="font:400 11.5px 'JetBrains Mono',monospace;color:#E5A9A1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">writer loop failed: java.nio.channels.ClosedChannelException</span>
+          <div style="flex:1"></div>
+          <button style="height:22px;padding:0 9px;border:1px solid #4A2A27;border-radius:4px;background:transparent;color:#FFB4AB;font:500 11.5px Archivo,sans-serif;cursor:pointer" style-hover="background:#3A2320">Copy report</button>
+          <button style="height:22px;padding:0 9px;border:none;border-radius:4px;background:#93000A;color:#FFDAD6;font:500 11.5px Archivo,sans-serif;cursor:pointer" style-hover="background:#A80D14">Restart session</button>
+        </div>
+        <div style="flex:none;display:grid;grid-template-columns:minmax(0,1fr) 60px 92px 70px 70px 100px 40px 52px 76px;gap:10px;align-items:center;height:28px;padding:0 10px;background:#161D1B;border-bottom:1px solid #2A3331">
+          <span style="font:500 10px Archivo,sans-serif;letter-spacing:0.05em;color:#DDE4E1">NAME</span>
+          <span style="text-align:right;font:500 10px Archivo,sans-serif;letter-spacing:0.05em;color:#889390">SIZE</span>
+          <span style="font:500 10px Archivo,sans-serif;letter-spacing:0.05em;color:#889390">PROGRESS</span>
+          <span style="text-align:right;font:500 10px Archivo,sans-serif;letter-spacing:0.03em;color:#889390">DOWN KIB/S</span>
+          <span style="text-align:right;font:500 10px Archivo,sans-serif;letter-spacing:0.03em;color:#889390">UP KIB/S</span>
+          <span style="text-align:right;font:500 10px Archivo,sans-serif;letter-spacing:0.05em;color:#889390">PEERS · OUT</span>
+          <span style="text-align:right;font:500 10px Archivo,sans-serif;letter-spacing:0.05em;color:#889390">RATIO</span>
+          <span style="text-align:right;font:500 10px Archivo,sans-serif;letter-spacing:0.05em;color:#889390">ETA</span>
+          <span style="font:500 10px Archivo,sans-serif;letter-spacing:0.05em;color:#889390">STATE</span>
+        </div>
+        <div style="display:grid;grid-template-columns:minmax(0,1fr) 60px 92px 70px 70px 100px 40px 52px 76px;gap:10px;align-items:center;height:28px;padding:0 10px;background:#93000A;border-bottom:1px solid #A80D14">
+          <div style="display:flex;align-items:center;gap:7px;min-width:0"><span style="font-family:'Material Symbols Rounded';font-size:15px;line-height:1;color:#FFDAD6">error</span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:500 13px Archivo,sans-serif;color:#FFDAD6">openSUSE-Leap-16.1-DVD-x86_64.iso</span></div>
+          <span style="text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#FFDAD6">4.38 GiB</span>
+          <div style="display:flex;align-items:center;gap:7px"><div style="flex:1;height:4px;border-radius:2px;background:#69000522;overflow:hidden"><div style="width:63%;height:100%;background:#FFDAD6"></div></div><span style="width:29px;text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#FFDAD6">63%</span></div>
+          <span style="text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#FFDAD6">0</span>
+          <span style="text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#FFDAD6">0</span>
+          <span style="text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#FFDAD6">0/0 · 0</span>
+          <span style="text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#FFDAD6">0.19</span>
+          <span style="text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#FFDAD6">—</span>
+          <span style="font:500 11.5px Archivo,sans-serif;color:#FFDAD6">Error</span>
+        </div>
+        <div style="display:grid;grid-template-columns:minmax(0,1fr) 60px 92px 70px 70px 100px 40px 52px 76px;gap:10px;align-items:center;height:28px;padding:0 10px;border-bottom:1px solid #151C1A">
+          <div style="display:flex;align-items:center;gap:7px;min-width:0"><span style="font-family:'Material Symbols Rounded';font-size:15px;line-height:1;color:#F3C46B">warning</span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:400 13px Archivo,sans-serif;color:#DDE4E1">Tears-of-Steel-4k-master.mkv</span></div>
+          <span style="text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#BEC9C6">8.03 GiB</span>
+          <div style="display:flex;align-items:center;gap:7px"><div style="flex:1;height:4px;border-radius:2px;background:#2A3331;overflow:hidden"><div style="width:44%;height:100%;background:#4FD9C2"></div></div><span style="width:29px;text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#DDE4E1">44%</span></div>
+          <span style="text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#DDE4E1">0</span>
+          <span style="text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#889390">0</span>
+          <span style="text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#F3C46B">18/0 · 0</span>
+          <span style="text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#BEC9C6">0.02</span>
+          <span style="text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#889390">—</span>
+          <span style="font:500 11.5px Archivo,sans-serif;color:#DDE4E1">Downloading</span>
+        </div>
+        <div style="display:grid;grid-template-columns:minmax(0,1fr) 60px 92px 70px 70px 100px 40px 52px 76px;gap:10px;align-items:center;height:28px;padding:0 10px;border-bottom:1px solid #151C1A">
+          <div style="display:flex;align-items:center;gap:7px;min-width:0"><span style="font-family:'Material Symbols Rounded';font-size:15px;line-height:1;color:#4FD9C2">arrow_downward</span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:400 13px Archivo,sans-serif;color:#DDE4E1">ubuntu-26.04-desktop-amd64.iso</span></div>
+          <span style="text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#BEC9C6">5.14 GiB</span>
+          <div style="display:flex;align-items:center;gap:7px"><div style="flex:1;height:4px;border-radius:2px;background:#2A3331;overflow:hidden"><div style="width:12%;height:100%;background:#4FD9C2"></div></div><span style="width:29px;text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#DDE4E1">12%</span></div>
+          <span style="text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#DDE4E1">9 604</span>
+          <span style="text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#BEC9C6">204</span>
+          <span style="text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#DDE4E1">42/4 · 64</span>
+          <span style="text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#BEC9C6">0.01</span>
+          <span style="text-align:right;font:400 12px 'JetBrains Mono',monospace;color:#BEC9C6">8m 04s</span>
+          <span style="font:500 11.5px Archivo,sans-serif;color:#DDE4E1">Downloading</span>
+        </div>
+        <div style="flex:1"></div>
+        <div style="height:24px;flex:none;background:#161D1B;border-top:1px solid #2A3331;display:flex;align-items:center;gap:12px;padding:0 10px">
+          <span style="font:400 11.5px 'JetBrains Mono',monospace;color:#DDE4E1">↓ 9 604 KiB/s   ↑ 204 KiB/s</span>
+          <span style="color:#3A4442">·</span>
+          <span style="display:flex;align-items:center;gap:4px"><span style="font-family:'Material Symbols Rounded';font-size:13px;line-height:1;color:#FFB4AB">error</span><span style="font:400 11.5px 'JetBrains Mono',monospace;color:#FFB4AB">1 degraded</span></span>
+          <div style="flex:1"></div>
+          <span style="font:400 11.5px 'JetBrains Mono',monospace;color:#BEC9C6">DHT 214 nodes</span>
+          <span style="color:#3A4442">·</span>
+          <span style="font:400 11.5px 'JetBrains Mono',monospace;color:#BEC9C6">port 6881 listening</span>
+        </div>
+      </div>
+
+      <div style="width:340px;flex:none;border-left:1px solid #2A3331;background:#0D1211;display:flex;flex-direction:column">
+        <div style="flex:none;padding:10px 12px;border-bottom:1px solid #1A2220">
+          <div style="font:500 13px Archivo,sans-serif;color:#DDE4E1;word-break:break-all">openSUSE-Leap-16.1-DVD-x86_64.iso</div>
+          <div style="margin-top:4px;display:flex;align-items:center;gap:7px"><span style="font:500 11.5px Archivo,sans-serif;color:#FFB4AB">Error</span><span style="color:#3A4442">·</span><span style="font:400 11.5px 'JetBrains Mono',monospace;color:#BEC9C6">2.76 of 4.38 GiB kept</span></div>
+        </div>
+        <div style="flex:1;min-height:0;overflow:auto;padding:12px">
+          <div style="display:flex;flex-direction:column;gap:5px;padding:9px 10px;border:1px solid #4A2A27;border-radius:4px;background:#231615;margin-bottom:8px">
+            <span style="font:500 9.5px Archivo,sans-serif;letter-spacing:0.06em;color:#FFB4AB">SESSION</span>
+            <span style="font:400 11px 'JetBrains Mono',monospace;color:#FFB4AB;line-height:1.55;word-break:break-word">writer loop failed: java.nio.channels.ClosedChannelException at FileStorage.write(FileStorage.kt:118)</span>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:5px;padding:9px 10px;border:1px solid #4A3608;border-radius:4px;background:#231B0C;margin-bottom:8px">
+            <span style="font:500 9.5px Archivo,sans-serif;letter-spacing:0.06em;color:#F3C46B">TRACKER</span>
+            <span style="font:400 11px 'JetBrains Mono',monospace;color:#F0D9A8;line-height:1.55;word-break:break-word">announce failed: connection timed out after 15s</span>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:5px;padding:9px 10px;border:1px solid #3A4442;border-radius:4px;background:#141A19;margin-bottom:12px">
+            <span style="font:500 9.5px Archivo,sans-serif;letter-spacing:0.06em;color:#889390">LAST PEER</span>
+            <span style="font:400 11px 'JetBrains Mono',monospace;color:#BEC9C6;line-height:1.55;word-break:break-word">88.99.242.17:6881 — broken pipe</span>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;height:24px;border-bottom:1px solid #151C1A"><span style="font:400 11.5px Archivo,sans-serif;color:#BEC9C6">Hash failures</span><span style="font:400 11.5px 'JetBrains Mono',monospace;color:#F3C46B">37</span></div>
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;height:24px;border-bottom:1px solid #151C1A"><span style="font:400 11.5px Archivo,sans-serif;color:#BEC9C6">Pieces</span><span style="font:400 11.5px 'JetBrains Mono',monospace;color:#DDE4E1">1 322 / 2 102</span></div>
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;height:24px;border-bottom:1px solid #151C1A"><span style="font:400 11.5px Archivo,sans-serif;color:#BEC9C6">Resume record</span><span style="font:400 11.5px 'JetBrains Mono',monospace;color:#DDE4E1">written 12 s ago</span></div>
+          <div style="margin-top:12px;display:flex;gap:8px">
+            <button style="flex:1;height:30px;border:none;border-radius:4px;background:#93000A;color:#FFDAD6;font:500 12px Archivo,sans-serif;cursor:pointer" style-hover="background:#A80D14">Restart session</button>
+            <button style="flex:1;height:30px;border:1px solid #3A4442;border-radius:4px;background:transparent;color:#DDE4E1;font:500 12px Archivo,sans-serif;cursor:pointer" style-hover="background:#1A2220">Force re-check</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <sc-if value="{{ showAnnotations }}" hint-placeholder-val="{{ true }}">
+      <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px 28px">
+        <p style="margin:0;font:400 12px Archivo,sans-serif;line-height:1.6;color:#BEC9C6;text-wrap:pretty"><span style="font:500 12px Archivo,sans-serif;color:#DDE4E1">Three complaints, three sources, three boxes.</span> A failed writer, a timed-out tracker and a broken pipe are not one message, and merging them is how a client loses the one that mattered.</p>
+        <p style="margin:0;font:400 12px Archivo,sans-serif;line-height:1.6;color:#BEC9C6;text-wrap:pretty"><span style="font:500 12px Archivo,sans-serif;color:#DDE4E1">The second row is the stall the brief is about.</span> <span style="font:400 11.5px 'JetBrains Mono',monospace;color:#F3C46B">18/0 · 0</span> — eighteen peers, none unchoked, nothing in flight. No error anywhere, and still nothing is arriving. The column says it without a word.</p>
+        <p style="margin:0;font:400 12px Archivo,sans-serif;line-height:1.6;color:#BEC9C6;text-wrap:pretty"><span style="font:500 12px Archivo,sans-serif;color:#DDE4E1">Copy report</span> puts the three lines, the info hash and the config on the clipboard as text. A bug report about a stall is exactly these numbers, and asking a user to retype them loses them.</p>
+      </div>
+    </sc-if>
+  </div>
+
+  <div id="1h" style="display:flex;flex-direction:column;gap:14px;width:1200px">
+    <div style="display:flex;align-items:baseline;gap:12px">
+      <span style="font:400 11px 'JetBrains Mono',monospace;color:#4FD9C2;border:1px solid #005046;border-radius:3px;padding:2px 7px">1h</span>
+      <h2 style="margin:0;font:600 20px 'Source Serif 4',serif;color:#DDE4E1">Component inventory — what maps to M3, and what does not</h2>
+    </div>
+    <div style="border:1px solid #2A3331;border-radius:6px;overflow:hidden;background:#0F1513">
+      <div style="display:grid;grid-template-columns:230px 250px 88px minmax(0,1fr);gap:16px;align-items:center;height:28px;padding:0 14px;background:#161D1B;border-bottom:1px solid #2A3331">
+        <span style="font:500 10px Archivo,sans-serif;letter-spacing:0.05em;color:#889390">ELEMENT</span>
+        <span style="font:500 10px Archivo,sans-serif;letter-spacing:0.05em;color:#889390">MATERIAL 3 COMPONENT</span>
+        <span style="font:500 10px Archivo,sans-serif;letter-spacing:0.05em;color:#889390">DRAWING</span>
+        <span style="font:500 10px Archivo,sans-serif;letter-spacing:0.05em;color:#889390">CALIBRATION</span>
+      </div>
+      <div style="display:grid;grid-template-columns:230px 250px 88px minmax(0,1fr);gap:16px;align-items:center;min-height:32px;padding:6px 14px;border-bottom:1px solid #151C1A"><span style="font:400 12.5px Archivo,sans-serif;color:#DDE4E1">Torrent list</span><span style="font:400 12px 'JetBrains Mono',monospace;color:#BEC9C6">LazyColumn + ListItem</span><span style="font:500 11px Archivo,sans-serif;color:#F3C46B">custom</span><span style="font:400 11.5px Archivo,sans-serif;color:#889390">ListItem cannot do nine fixed columns; a Row of Box cells with fixed widths.</span></div>
+      <div style="display:grid;grid-template-columns:230px 250px 88px minmax(0,1fr);gap:16px;align-items:center;min-height:32px;padding:6px 14px;border-bottom:1px solid #151C1A"><span style="font:400 12.5px Archivo,sans-serif;color:#DDE4E1">Column header, sort</span><span style="font:400 12px 'JetBrains Mono',monospace;color:#BEC9C6">Text + Icon, clickable</span><span style="font:500 11px Archivo,sans-serif;color:#BEC9C6">stock</span><span style="font:400 11.5px Archivo,sans-serif;color:#889390">labelSmall at 10 sp, 0.05 em, onSurfaceVariant. Sort arrow in primary.</span></div>
+      <div style="display:grid;grid-template-columns:230px 250px 88px minmax(0,1fr);gap:16px;align-items:center;min-height:32px;padding:6px 14px;border-bottom:1px solid #151C1A"><span style="font:400 12.5px Archivo,sans-serif;color:#DDE4E1">Progress cell</span><span style="font:400 12px 'JetBrains Mono',monospace;color:#BEC9C6">LinearProgressIndicator</span><span style="font:500 11px Archivo,sans-serif;color:#F3C46B">custom</span><span style="font:400 11.5px Archivo,sans-serif;color:#889390">4 dp track, no M3-Expressive wave, no stop indicator: it redraws at 1 Hz.</span></div>
+      <div style="display:grid;grid-template-columns:230px 250px 88px minmax(0,1fr);gap:16px;align-items:center;min-height:32px;padding:6px 14px;border-bottom:1px solid #151C1A"><span style="font:400 12.5px Archivo,sans-serif;color:#DDE4E1">Peers · out cell</span><span style="font:400 12px 'JetBrains Mono',monospace;color:#BEC9C6">Text</span><span style="font:500 11px Archivo,sans-serif;color:#F3C46B">custom</span><span style="font:400 11.5px Archivo,sans-serif;color:#889390">One AnnotatedString, three spans, tabular figures. Colour carries the state.</span></div>
+      <div style="display:grid;grid-template-columns:230px 250px 88px minmax(0,1fr);gap:16px;align-items:center;min-height:32px;padding:6px 14px;border-bottom:1px solid #151C1A"><span style="font:400 12.5px Archivo,sans-serif;color:#DDE4E1">Toolbar</span><span style="font:400 12px 'JetBrains Mono',monospace;color:#BEC9C6">TopAppBar (small)</span><span style="font:500 11px Archivo,sans-serif;color:#BEC9C6">stock</span><span style="font:400 11.5px Archivo,sans-serif;color:#889390">48 dp instead of 64, no title (the window has one), surface not surfaceContainer.</span></div>
+      <div style="display:grid;grid-template-columns:230px 250px 88px minmax(0,1fr);gap:16px;align-items:center;min-height:32px;padding:6px 14px;border-bottom:1px solid #151C1A"><span style="font:400 12.5px Archivo,sans-serif;color:#DDE4E1">Add torrent</span><span style="font:400 12px 'JetBrains Mono',monospace;color:#BEC9C6">FilledTonalButton</span><span style="font:500 11px Archivo,sans-serif;color:#BEC9C6">stock</span><span style="font:400 11.5px Archivo,sans-serif;color:#889390">28 dp high, 4 dp radius. The only tonal button in the chrome.</span></div>
+      <div style="display:grid;grid-template-columns:230px 250px 88px minmax(0,1fr);gap:16px;align-items:center;min-height:32px;padding:6px 14px;border-bottom:1px solid #151C1A"><span style="font:400 12.5px Archivo,sans-serif;color:#DDE4E1">Toolbar actions</span><span style="font:400 12px 'JetBrains Mono',monospace;color:#BEC9C6">IconButton / IconToggleButton</span><span style="font:500 11px Archivo,sans-serif;color:#BEC9C6">stock</span><span style="font:400 11.5px Archivo,sans-serif;color:#889390">28 dp box, 18 dp glyph. Toggled state is primaryContainer, not a ripple.</span></div>
+      <div style="display:grid;grid-template-columns:230px 250px 88px minmax(0,1fr);gap:16px;align-items:center;min-height:32px;padding:6px 14px;border-bottom:1px solid #151C1A"><span style="font:400 12.5px Archivo,sans-serif;color:#DDE4E1">Filter field</span><span style="font:400 12px 'JetBrains Mono',monospace;color:#BEC9C6">OutlinedTextField</span><span style="font:500 11px Archivo,sans-serif;color:#BEC9C6">stock</span><span style="font:400 11.5px Archivo,sans-serif;color:#889390">Dense, 28 dp, no floating label — a placeholder is enough for one word.</span></div>
+      <div style="display:grid;grid-template-columns:230px 250px 88px minmax(0,1fr);gap:16px;align-items:center;min-height:32px;padding:6px 14px;border-bottom:1px solid #151C1A"><span style="font:400 12.5px Archivo,sans-serif;color:#DDE4E1">Details panel</span><span style="font:400 12px 'JetBrains Mono',monospace;color:#BEC9C6">Surface + VerticalDivider</span><span style="font:500 11px Archivo,sans-serif;color:#F3C46B">custom</span><span style="font:400 11.5px Archivo,sans-serif;color:#889390">Draggable splitter, 280–520 dp. Becomes a ModalBottomSheet under 800 dp.</span></div>
+      <div style="display:grid;grid-template-columns:230px 250px 88px minmax(0,1fr);gap:16px;align-items:center;min-height:32px;padding:6px 14px;border-bottom:1px solid #151C1A"><span style="font:400 12.5px Archivo,sans-serif;color:#DDE4E1">Panel tabs</span><span style="font:400 12px 'JetBrains Mono',monospace;color:#BEC9C6">SecondaryTabRow</span><span style="font:500 11px Archivo,sans-serif;color:#BEC9C6">stock</span><span style="font:400 11.5px Archivo,sans-serif;color:#889390">32 dp, no icons, 2 dp indicator. Scrollable is not needed at four tabs.</span></div>
+      <div style="display:grid;grid-template-columns:230px 250px 88px minmax(0,1fr);gap:16px;align-items:center;min-height:32px;padding:6px 14px;border-bottom:1px solid #151C1A"><span style="font:400 12.5px Archivo,sans-serif;color:#DDE4E1">Field rows in Overview</span><span style="font:400 12px 'JetBrains Mono',monospace;color:#BEC9C6">Row + Text ×2</span><span style="font:500 11px Archivo,sans-serif;color:#BEC9C6">stock</span><span style="font:400 11.5px Archivo,sans-serif;color:#889390">24 dp, label bodySmall / value mono. HorizontalDivider at outlineVariant.</span></div>
+      <div style="display:grid;grid-template-columns:230px 250px 88px minmax(0,1fr);gap:16px;align-items:center;min-height:32px;padding:6px 14px;border-bottom:1px solid #151C1A"><span style="font:400 12.5px Archivo,sans-serif;color:#DDE4E1">Error boxes</span><span style="font:400 12px 'JetBrains Mono',monospace;color:#BEC9C6">Surface, outlined</span><span style="font:500 11px Archivo,sans-serif;color:#BEC9C6">stock</span><span style="font:400 11.5px Archivo,sans-serif;color:#889390">errorContainer / the custom warning container. Text is selectable and mono.</span></div>
+      <div style="display:grid;grid-template-columns:230px 250px 88px minmax(0,1fr);gap:16px;align-items:center;min-height:32px;padding:6px 14px;border-bottom:1px solid #151C1A"><span style="font:400 12.5px Archivo,sans-serif;color:#DDE4E1">Degraded banner</span><span style="font:400 12px 'JetBrains Mono',monospace;color:#BEC9C6">Snackbar</span><span style="font:500 11px Archivo,sans-serif;color:#F3C46B">custom</span><span style="font:400 11.5px Archivo,sans-serif;color:#889390">Docked and permanent, not floating and not dismissible on a timer.</span></div>
+      <div style="display:grid;grid-template-columns:230px 250px 88px minmax(0,1fr);gap:16px;align-items:center;min-height:32px;padding:6px 14px;border-bottom:1px solid #151C1A"><span style="font:400 12.5px Archivo,sans-serif;color:#DDE4E1">Add torrent dialog</span><span style="font:400 12px 'JetBrains Mono',monospace;color:#BEC9C6">AlertDialog</span><span style="font:500 11px Archivo,sans-serif;color:#BEC9C6">stock</span><span style="font:400 11.5px Archivo,sans-serif;color:#889390">6 dp radius instead of 28, no tonal elevation — a 1 dp outline instead.</span></div>
+      <div style="display:grid;grid-template-columns:230px 250px 88px minmax(0,1fr);gap:16px;align-items:center;min-height:32px;padding:6px 14px;border-bottom:1px solid #151C1A"><span style="font:400 12.5px Archivo,sans-serif;color:#DDE4E1">Drop overlay</span><span style="font:400 12px 'JetBrains Mono',monospace;color:#BEC9C6">—</span><span style="font:500 11px Archivo,sans-serif;color:#F3C46B">custom</span><span style="font:400 11.5px Archivo,sans-serif;color:#889390">1 dp dashed primary inset 8 dp over a primaryContainer scrim at 22 %.</span></div>
+      <div style="display:grid;grid-template-columns:230px 250px 88px minmax(0,1fr);gap:16px;align-items:center;min-height:32px;padding:6px 14px;border-bottom:1px solid #151C1A"><span style="font:400 12.5px Archivo,sans-serif;color:#DDE4E1">Settings rows</span><span style="font:400 12px 'JetBrains Mono',monospace;color:#BEC9C6">ListItem + Switch / TextField</span><span style="font:500 11px Archivo,sans-serif;color:#BEC9C6">stock</span><span style="font:400 11.5px Archivo,sans-serif;color:#889390">trailingContent holds the default label and the control together.</span></div>
+      <div style="display:grid;grid-template-columns:230px 250px 88px minmax(0,1fr);gap:16px;align-items:center;min-height:32px;padding:6px 14px;border-bottom:1px solid #151C1A"><span style="font:400 12.5px Archivo,sans-serif;color:#DDE4E1">Status bar</span><span style="font:400 12px 'JetBrains Mono',monospace;color:#BEC9C6">BottomAppBar</span><span style="font:500 11px Archivo,sans-serif;color:#F3C46B">custom</span><span style="font:400 11.5px Archivo,sans-serif;color:#889390">24 dp; BottomAppBar's 80 dp minimum is an Android number.</span></div>
+      <div style="display:grid;grid-template-columns:230px 250px 88px minmax(0,1fr);gap:16px;align-items:center;min-height:32px;padding:6px 14px;border-bottom:1px solid #151C1A"><span style="font:400 12.5px Archivo,sans-serif;color:#DDE4E1">Context menu</span><span style="font:400 12px 'JetBrains Mono',monospace;color:#BEC9C6">DropdownMenu</span><span style="font:500 11px Archivo,sans-serif;color:#BEC9C6">stock</span><span style="font:400 11.5px Archivo,sans-serif;color:#889390">The only place elevation is allowed, and only level 2.</span></div>
+      <div style="display:grid;grid-template-columns:230px 250px 88px minmax(0,1fr);gap:16px;align-items:center;min-height:32px;padding:6px 14px"><span style="font:400 12.5px Archivo,sans-serif;color:#DDE4E1">Icons</span><span style="font:400 12px 'JetBrains Mono',monospace;color:#BEC9C6">Material Symbols Rounded</span><span style="font:500 11px Archivo,sans-serif;color:#BEC9C6">stock</span><span style="font:400 11.5px Archivo,sans-serif;color:#889390">Weight 400, fill 0, optical size 20. Fifteen glyphs in the whole app.</span></div>
+    </div>
+    <sc-if value="{{ showAnnotations }}" hint-placeholder-val="{{ true }}">
+      <p style="margin:0;max-width:900px;font:400 12px Archivo,sans-serif;line-height:1.6;color:#889390;text-wrap:pretty">Seven custom pieces, and each is custom for a reason that is written down. The calibration itself is three global decisions — shapes at 4&nbsp;dp, elevation replaced by 1&nbsp;dp outlineVariant hairlines, and every vertical dimension cut to a desktop number — applied through the theme rather than per component, so a component that is not in this table still comes out right.</p>
+    </sc-if>
+  </div>
+
+</section>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;showAnnotations&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Document&quot;},&quot;showErrorBanner&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Main window&quot;},&quot;dhtOn&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Main window&quot;}}">
+class Component extends DCLogic {
+  renderVals() {
+    const dht = this.props.dhtOn ?? true;
+    return {
+      dhtOn: dht,
+      dhtOff: !dht,
+      showAnnotations: this.props.showAnnotations ?? true,
+      showErrorBanner: this.props.showErrorBanner ?? true,
+    };
+  }
+}
+</script>
+</body>
+</html>

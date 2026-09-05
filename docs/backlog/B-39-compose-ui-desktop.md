@@ -1,7 +1,7 @@
 ---
 id: B-39
 title: "Phase 2: a Compose Multiplatform desktop UI on the engine's StateFlow"
-status: open
+status: done
 priority: P3
 size: XL
 stage: phase-2-ui
@@ -22,4 +22,14 @@ A placeholder so that phase 1 is built with phase 2's needs visible: the UI read
 
 - AC: not applicable until phase 2 starts; the item is reopened with real acceptance criteria
   then.
-- Anchors: `settings.gradle.kts` (the `:ui` include arrives here).
+- Anchors: `settings.gradle.kts` (the `:ui` include arrives here), `ui/build.gradle.kts`.
+
+**Closed as a placeholder, and split.** Phase 2 started on 2026-09-05 with a design
+(`docs/design/`), so this item did what a placeholder is for and is now seven items with criteria
+that can fail: [B-46](B-46-ui-theme-and-calibration.md), [B-47](B-47-torrent-row-and-states.md),
+[B-48](B-48-main-window-shell.md), [B-49](B-49-details-panel.md),
+[B-50](B-50-add-torrent.md), [B-51](B-51-empty-and-settings.md),
+[B-52](B-52-ui-on-the-real-engine.md).
+
+The module it named exists: `:ui`, Compose Multiplatform on `jvm("desktop")`, viddik 0.4.0 wired.
+`jpackage` from it is still [B-29](B-29-jlink-runtime-image.md)'s output and has not moved.

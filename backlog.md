@@ -46,17 +46,23 @@ which is also the order of work.
 
 <!-- BEGIN INDEX -->
 
-## Open (5)
+## Open (11)
 
 | Task | | Priority | Size | Blocked by |
 |---|---|---|---|---|
+| [B-46](docs/backlog/B-46-ui-theme-and-calibration.md) `[ ]` | The theme: colour roles, type, and the desktop calibration | P1 | S/M | B-39 |
+| [B-47](docs/backlog/B-47-torrent-row-and-states.md) `[ ]` | The torrent row and its seven states | P1 | M | B-46 |
+| [B-48](docs/backlog/B-48-main-window-shell.md) `[ ]` | The main window: toolbar, column header, status bar, degraded banner | P1 | M | B-47 |
+| [B-52](docs/backlog/B-52-ui-on-the-real-engine.md) `[ ]` | The UI on the real engine, not on a fixture | P1 | M | B-48 |
+| [B-49](docs/backlog/B-49-details-panel.md) `[ ]` | The details panel and its four tabs | P2 | M | B-48 |
+| [B-50](docs/backlog/B-50-add-torrent.md) `[ ]` | Add torrent: the dialog, the drop target, the clipboard magnet | P2 | M | B-48 |
+| [B-51](docs/backlog/B-51-empty-and-settings.md) `[ ]` | The empty state and the settings screen | P2 | S/M | B-48 |
 | [B-37](docs/backlog/B-37-v2-and-hybrid-torrents.md) `[?]` | v2 and hybrid torrents (BEP 52): SHA-256 piece layers | P3 | L | B-04 |
-| [B-39](docs/backlog/B-39-compose-ui-desktop.md) `[ ]` | Phase 2: a Compose Multiplatform desktop UI on the engine's StateFlow | P3 | XL | B-19 |
 | [B-40](docs/backlog/B-40-wasmjs-ui-is-a-client-of-the-headless-engine.md) `[ ]` | Phase 2: the wasmJs UI is a client of the JVM headless engine | P3 | L | B-39 |
 | [B-41](docs/backlog/B-41-android-and-ios-targets.md) `[ ]` | Phase 3: Android and iOS targets on the engine | P3 | XL | B-39 |
 | [B-02](docs/backlog/B-02-ci-runs-build-and-docs-gates.md) `[ ]` | CI runs the build and the documentation gates on every push | infra | S | B-01 |
 
-## Closed (40)
+## Closed (41)
 
 **M0 — The build and its gates**
 
@@ -124,6 +130,10 @@ which is also the order of work.
 - [B-36](docs/backlog/B-36-ut-metadata-and-magnets.md) `[x]` - Metadata exchange (BEP 9): make magnet links downloadable
 - [B-38](docs/backlog/B-38-ipv6.md) `[x]` - IPv6 peers and trackers (BEP 7)
 - [B-45](docs/backlog/B-45-serve-metadata-to-peers.md) `[x]` - Serve the info dictionary to peers that ask (BEP 9)
+
+**Phase 2 — UI**
+
+- [B-39](docs/backlog/B-39-compose-ui-desktop.md) `[x]` - Phase 2: a Compose Multiplatform desktop UI on the engine's StateFlow
 
 <!-- END INDEX -->
 
