@@ -31,7 +31,31 @@ engine over a socket.
   serialisation (kotlinx.serialization is in the shared catalog), authentication for a socket
   that is not only local, and how the browser build is served.
 
-- AC: not applicable until phase 2 starts; the item is reopened with the transport, the
-  serialisation format and a security model as real acceptance criteria.
+## What the desktop stage settled, and what is still a question (2026-09-05)
+
+The desktop half closed — [B-46](B-46-ui-theme-and-calibration.md) through
+[B-55](B-55-magnets-in-the-window.md) — and three of this item's assumptions are now facts rather
+than intentions:
+
+* **The wire contract held.** `SessionState` is still plain data with no platform types, no
+  callbacks and no connections in it, and the desktop window reads nothing else. Putting it behind
+  a socket is a serialisation task, which is what phase 1 was asked to leave possible.
+* **The UI's own layer is transport-agnostic already.** `rowOf`, `detailsOf`, `statusOf`,
+  `settingsOf` and `addFrom` are pure functions of a `SessionState`, a `Metainfo` or a
+  `MagnetLink`, with no engine types beyond those and no suspension. A browser build that received
+  those three over a socket would call the same functions unchanged; what is desktop-only is
+  `App.kt`, `TorrentSet` and the file chooser.
+* **The backend process exists.** `TorrentSet` is what would hold the sessions behind the socket,
+  and it already routes an incoming peer by info hash — which a multi-torrent backend needs and a
+  single-torrent CLI did not.
+
+**Still the owner's to decide, and the reason this item stays open:** the transport, the
+serialisation format, and what happens when the socket is not only local. Nothing in the desktop
+work forces any of the three, and guessing one would put a security model in the repository that
+nobody chose. Recorded here rather than started.
+
+- AC: the item is reopened with the transport, the serialisation format and a security model as
+  real acceptance criteria. Until those three are answered there is nothing here a test could
+  fail.
 - Anchors: `engine/src/commonMain/kotlin/ru/workinprogress/kachok/engine/session/`,
   `cli/src/main/kotlin/ru/workinprogress/kachok/cli/`.

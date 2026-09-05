@@ -270,6 +270,22 @@ accept.
 *Not measured: what happens at sixteen torrents, which is what the design's list draws. The two
 numbers above are linear in the count only if the peers are, and a real swarm decides that.*
 
+### 1.2c3 What the desktop stage did not decide
+
+Recorded because [B-40](../backlog/B-40-wasmjs-ui-is-a-client-of-the-headless-engine.md) is the one
+phase-2 item that cannot be built without an answer somebody else owns.
+
+The browser build was answered in phase 1 as *the JVM headless client is the backend, the browser
+build of the UI is its client*. The desktop stage has since made three of that answer's assumptions
+checkable rather than hopeful — `SessionState` is still plain data, the UI's whole mapping layer is
+pure functions of it, and `TorrentSet` is a process that already holds several sessions and routes
+an incoming peer by info hash.
+
+**Three questions remain and none of them is a measurement:** which transport, which serialisation,
+and what happens when the socket is not only local. Nothing built so far forces any of the three,
+and picking one would put an authentication model in the repository that nobody chose. Left open on
+purpose; the item says so too.
+
 ### 1.2d The collector, the headers and the heap, measured against each other
 
 Six configurations, the same 1 GB download three times each, round robin so that whatever else the
