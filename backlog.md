@@ -61,7 +61,7 @@ which is also the order of work.
 | [B-34](docs/backlog/B-34-peer-exchange.md) `[ ]` | Peer exchange (BEP 11, ut_pex) | P2 | M | B-10 |
 | [B-35](docs/backlog/B-35-dht.md) `[ ]` | Mainline DHT (BEP 5) | P2 | L | - |
 | [B-36](docs/backlog/B-36-ut-metadata-and-magnets.md) `[ ]` | Metadata exchange (BEP 9): make magnet links downloadable | P2 | M | B-05, B-10 |
-| [B-43](docs/backlog/B-43-picker-allocates-per-decision.md) `[ ]` | The picker allocates a candidate list on every request | P2 | S | B-26 |
+| [B-43](docs/backlog/B-43-picker-allocates-per-decision.md) `[ ]` | The picker allocates a candidate list on every request | P2 | S | - |
 | [B-31](docs/backlog/B-31-verify-codec-dispatch-is-a-tableswitch.md) `[ ]` | Check with javap that the message dispatch compiles to a tableswitch | P3 | XS | B-06 |
 | [B-37](docs/backlog/B-37-v2-and-hybrid-torrents.md) `[?]` | v2 and hybrid torrents (BEP 52): SHA-256 piece layers | P3 | L | B-04 |
 | [B-38](docs/backlog/B-38-ipv6.md) `[ ]` | IPv6 peers and trackers (BEP 7) | P3 | S | B-15 |

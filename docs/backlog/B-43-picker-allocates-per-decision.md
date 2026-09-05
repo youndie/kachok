@@ -6,7 +6,6 @@ priority: P2
 size: S
 stage: m7-measure
 epic: feature-download
-blocked_by: [B-26]
 ---
 
 # B-43 — The picker allocates a candidate list on every request
@@ -19,10 +18,11 @@ itself contributes none, which is the design working.
 - **The decision and its reason.** Keep an availability structure the picker can query instead of
   rebuilding: pieces bucketed by availability, updated when a `have` or a `bitfield` moves one. The
   cost then follows the *number of candidate buckets* rather than the number of pieces.
-- Rejected for now: doing it before there is a number. On a 3 020-piece torrent it cost nothing
-  measurable, and a data structure added for a profile nobody took is how a picker becomes
-  unreadable. That is why this is blocked on [B-26](B-26-jfr-baseline-of-the-hot-path.md) rather
-  than open: the baseline decides whether it matters at a hundred thousand pieces.
+- **The baseline named the mechanism** ([B-26](B-26-jfr-baseline-of-the-hot-path.md), research
+  §1.2c): the allocated type is `java.lang.Integer`, so what costs is the boxing in the candidate
+  `List<Int>`, not the scan itself. On a 3 020-piece torrent it cost nothing measurable — no GC
+  pressure, six megabytes live — which is why this stays P2. At a hundred thousand pieces it is a
+  hundred thousand boxed integers per request.
 - Not covered: the allocation in `next` itself, which is the returned list and is the point.
 
 - AC: a torrent with 100 000 pieces chooses a block without allocating proportionally to the piece
