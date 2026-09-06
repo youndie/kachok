@@ -104,7 +104,7 @@ format each — the host picks from `targetFormats`:
 |---|---|---|---|
 | macOS | `LOCAL=1 ./gradlew :ui:packageDistributionForCurrentOS` | `ui/build/compose/binaries/main/dmg/kachok-1.0.0.dmg` | — |
 | Linux | `~/.claude/bin/wsl-run './gradlew :ui:packageDeb'` | `.../deb/kachok_0.1.0_amd64.deb` | `fakeroot` |
-| Windows | `gradlew.bat :ui:packageMsi` | — | **WiX, and there is no free one that installs without a decision** — see [B-82](../backlog/B-82-an-installer-per-platform.md) |
+| Windows | `gradlew.bat :ui:packageMsi` | `.../msi/kachok-0.1.0.msi` | none — the Compose plugin downloads WiX 3.11.2 into `~/.gradle/compose-jb/` and passes it as `WIX_PATH`; `compose.desktop.application.downloadWix=false` turns that off |
 
 The macOS bundle says **1.0.0** while the project is at 0.1.0, and that is deliberate: Apple refuses
 a `CFBundleShortVersionString` whose first component is zero, so `0.1.0` cannot be packaged on macOS

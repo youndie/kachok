@@ -1,7 +1,7 @@
 ---
 id: B-82
-title: "An installer per platform: macOS and Linux ship, Windows needs a WiX decision"
-status: question
+title: "An installer per platform, and the version that stops one"
+status: done
 priority: P2
 size: M
 stage: phase-2-ui
@@ -48,7 +48,7 @@ not at is its own small lie — so the decision is between an override and movin
 - Anchors: [`ui/build.gradle.kts`](../../ui/build.gradle.kts),
   [`docs/services/ui.md`](../services/ui.md) §5.
 
-## Done — two platforms of three, and the third is the owner's decision
+## Done
 
 **No format was declared at all.** `targetFormats` was never called, so
 `packageDistributionForCurrentOS` ran, reported `BUILD SUCCESSFUL` in under a second and wrote
@@ -64,7 +64,69 @@ qualifier `jpackage` will not take.
 |---|---|---|---|
 | macOS 27.0 | `LOCAL=1 ./gradlew :ui:packageDistributionForCurrentOS` | `kachok-1.0.0.dmg`, 71 MB | 2026-09-06 |
 | Ubuntu 24.04 | `~/.claude/bin/wsl-run './gradlew :ui:packageDeb'` | `kachok_0.1.0_amd64.deb`, 57 MB | 2026-09-06 |
-| Windows 11 | `gradlew.bat :ui:packageMsi` | — | **blocked, see below** |
+| Windows 11 | `gradlew.bat :ui:packageMsi` | `kachok-0.1.0.msi`, 66 MB | 2026-09-06 |
+
+The `.deb` carries the icon and a `kachok-kachok.desktop`, checked with `dpkg-deb -c`; the `.app`
+carries `kachok.icns` and reports `CFBundleShortVersionString 1.0.0`. `fakeroot` had to be installed
+on the Linux machine — `jpackage` skips the DEB bundler without it, with a message that names the
+missing program, which is the good kind of failure.
+
+**macOS says 1.0.0 while the project says 0.1.0, and that is on purpose.** Apple's
+`CFBundleShortVersionString` must start at 1 or higher, so `0.1.0` cannot be packaged there at all —
+the failure this item was filed for. `macOS { packageVersion = "1.0.0" }` overrides it for that
+platform only; Linux and Windows carry the project's own number. The gap is written into
+`ui/build.gradle.kts` beside the line that causes it.
+
+### The Windows installer needed nothing, and finding that out took a detour
+
+`jpackage` builds an MSI through WiX, the machine had none, and every way of putting one there looked
+like somebody's decision: v7 installs and then refuses every command until the Open Source
+Maintenance Fee EULA is accepted (`WIX7015`), and v3.14 wants the `NetFx3` Windows feature, which
+its installer could not enable — `Failed to enable [NetFx3] feature: 5`, elevation.
+
+**None of that was on the path.** The Compose Gradle plugin downloads WiX itself:
+`compose-gradle-plugin-1.12.0`'s `WixToolsetKt` fetches
+`https://github.com/wixtoolset/wix3/releases/download/wix3112rtm/wix311-binaries.zip` into
+`~/.gradle/compose-jb/wix311.zip` and hands `jpackage` the path as `WIX_PATH`. The binaries archive
+is `candle.exe` and `light.exe` with their libraries — no installer, so no `NetFx3` and no
+elevation — and 3.11 predates the maintenance fee entirely. Turned off with
+`compose.desktop.application.downloadWix=false`, which is the switch to reach for if the build must
+not fetch anything at build time.
+
+Measured on 2026-09-06: with `where wix.exe candle.exe light.exe` finding nothing at all,
+`gradlew.bat :ui:packageMsi` wrote a 66 MB `kachok-0.1.0.msi`.
+
+**How the detour happened is worth more than the conclusion.** The first `packageMsi` of this item
+was run *after* WiX v7 had already been installed by hand, so `jpackage` found that one and failed
+on its EULA — and the failure was read as "this project needs a WiX", which produced a table of
+licences and Windows features and a decision to escalate. The build was never asked what it could do
+on its own. A tool installed to make a build work is a change to the question the build was being
+asked, and the order matters: run it clean first, and only then reach for the thing that seems to be
+missing.
+
+- AC: each platform's installer is produced by one documented command on that platform; a macOS
+  build is possible at all; the version a package reports is the version the project is at, or the
+  difference is written down where somebody reading the build file will see it.
+- Anchors: [`ui/build.gradle.kts`](../../ui/build.gradle.kts),
+  [`docs/services/ui.md`](../services/ui.md) §5.
+
+## Done
+
+**No format was declared at all.** `targetFormats` was never called, so
+`packageDistributionForCurrentOS` ran, reported `BUILD SUCCESSFUL` in under a second and wrote
+nothing. That is worse than the app-image-only shipping this item was filed about: a task that
+succeeds and produces no file is one nobody thinks to check. `TargetFormat.Dmg, Msi, Deb` now, one
+per platform.
+
+**The version had two homes and now has one.** `packageVersion` was the literal `"0.1.0"` beside
+`version=0.1.0-SNAPSHOT` in `gradle.properties`; it is now derived from the project's, minus the
+qualifier `jpackage` will not take.
+
+| Platform | Command | Produced | Verified |
+|---|---|---|---|
+| macOS 27.0 | `LOCAL=1 ./gradlew :ui:packageDistributionForCurrentOS` | `kachok-1.0.0.dmg`, 71 MB | 2026-09-06 |
+| Ubuntu 24.04 | `~/.claude/bin/wsl-run './gradlew :ui:packageDeb'` | `kachok_0.1.0_amd64.deb`, 57 MB | 2026-09-06 |
+| Windows 11 | `gradlew.bat :ui:packageMsi` | `kachok-0.1.0.msi`, 66 MB | 2026-09-06 |
 
 The `.deb` carries the icon and a `kachok-kachok.desktop`, checked with `dpkg-deb -c`; the `.app`
 carries `kachok.icns` and reports `CFBundleShortVersionString 1.0.0`. `fakeroot` had to be installed
@@ -118,6 +180,7 @@ fee, an older one means WiX 3 and `NetFx3`. **Waiting on the owner: which WiX go
 machine.**
 
 The machine was left as it was found: WiX v7 was installed, proved unusable without the EULA, and
-uninstalled. **Automated:** none — a packaging run is minutes long and produces a 57–71 MB file, so
-it is a documented command rather than a gate; what `./gradlew build` does check is that the build
-script configures without error.
+uninstalled. **Automated:** none — a packaging run is minutes long and produces a 57–71 MB file, so it is a
+documented command rather than a gate. What `./gradlew build` does check is the app image the three
+installers wrap, through
+[B-78](B-78-nothing-runs-the-packaged-application.md)'s `:ui:checkDistributable`.

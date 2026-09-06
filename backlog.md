@@ -46,14 +46,13 @@ which is also the order of work.
 
 <!-- BEGIN INDEX -->
 
-## Open (11)
+## Open (10)
 
 | Task | | Priority | Size | Blocked by |
 |---|---|---|---|---|
 | [B-81](docs/backlog/B-81-the-torrent-list-survives-a-restart.md) `[ ]` | The list of torrents survives a restart | P1 | L | - |
 | [B-79](docs/backlog/B-79-the-windows-state-outlives-its-composition.md) `[ ]` | The window's state outlives its composition | P2 | L | - |
 | [B-80](docs/backlog/B-80-the-ui-moves-to-commonmain.md) `[ ]` | The UI moves to commonMain | P2 | L | B-79 |
-| [B-82](docs/backlog/B-82-an-installer-per-platform.md) `[?]` | An installer per platform: macOS and Linux ship, Windows needs a WiX decision | P2 | M | - |
 | [B-84](docs/backlog/B-84-torrent-files-open-with-the-client.md) `[ ]` | A .torrent opens with the client, on all three platforms | P2 | M | B-82 |
 | [B-37](docs/backlog/B-37-v2-and-hybrid-torrents.md) `[?]` | v2 and hybrid torrents (BEP 52): SHA-256 piece layers | P3 | L | B-04 |
 | [B-40](docs/backlog/B-40-wasmjs-ui-is-a-client-of-the-headless-engine.md) `[ ]` | Phase 2: the wasmJs UI is a client of the JVM headless engine | P3 | L | B-39 |
@@ -62,7 +61,7 @@ which is also the order of work.
 | [B-85](docs/backlog/B-85-open-a-file-from-the-files-tab.md) `[ ]` | Double-clicking a file in the Files tab opens it | P3 | S | - |
 | [B-02](docs/backlog/B-02-ci-runs-build-and-docs-gates.md) `[ ]` | CI runs the build and the documentation gates on every push | infra | S | B-01 |
 
-## Closed (75)
+## Closed (76)
 
 **M0 — The build and its gates**
 
@@ -167,6 +166,7 @@ which is also the order of work.
 - [B-76](docs/backlog/B-76-the-last-dead-controls.md) `[x]` - The copy button, Show it, and the add dialog's ticks
 - [B-77](docs/backlog/B-77-the-rate-column-reads-zero.md) `[x]` - The rate column reads zero while the torrent is downloading
 - [B-78](docs/backlog/B-78-nothing-runs-the-packaged-application.md) `[x]` - Nothing runs the packaged application
+- [B-82](docs/backlog/B-82-an-installer-per-platform.md) `[x]` - An installer per platform, and the version that stops one
 - [B-86](docs/backlog/B-86-the-application-icon.md) `[x]` - The application icon, drawn from its own geometry
 
 <!-- END INDEX -->
