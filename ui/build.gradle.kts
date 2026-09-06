@@ -63,6 +63,20 @@ compose.desktop {
             packageVersion = "0.1.0"
             description = "A BitTorrent client"
             vendor = "workinprogress"
+
+            // **The runtime is cut down by `jlink`, and what is not named here is not in it.**
+            //
+            // Shipped once without them: the packaged application died on the first announce with
+            // `NoClassDefFoundError: java/net/http/HttpClient`. Nothing caught it because
+            // `:ui:run` and every test use the *full* JDK — a trimmed runtime only exists inside
+            // `createDistributable`, and nothing runs what that produces (B-78).
+            //
+            // The first three are what `:ui:suggestRuntimeModules` reports, which is `jdeps` over
+            // the jars. The fourth is not, and cannot be: JCA providers are loaded by name, so no
+            // static analysis sees them. `jdk.crypto.ec` is the elliptic-curve provider, and
+            // without it a TLS handshake with any modern server fails at ECDHE — which for this
+            // client means every `https://` tracker in an announce list.
+            modules("java.instrument", "java.net.http", "jdk.unsupported", "jdk.crypto.ec")
         }
     }
 }
