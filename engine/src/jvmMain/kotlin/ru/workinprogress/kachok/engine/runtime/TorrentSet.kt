@@ -9,9 +9,11 @@ import ru.workinprogress.kachok.engine.io.PeerListener
 import ru.workinprogress.kachok.engine.io.SocketPeerConnection
 import ru.workinprogress.kachok.engine.metainfo.Metainfo
 import ru.workinprogress.kachok.engine.session.Command
+import ru.workinprogress.kachok.engine.storage.FileSet
 import ru.workinprogress.kachok.engine.tracker.TrackerProtocol
 import java.io.IOException
 import java.net.BindException
+import java.nio.file.Path
 import java.util.concurrent.ConcurrentHashMap
 
 /** What the whole process chooses, as opposed to what one torrent does. */
@@ -130,6 +132,12 @@ public class TorrentSet(
     ): TorrentRuntime {
         val key = metainfo.infoHash.bytes.toHex()
         require(!byInfoHash.containsKey(key)) { "this set already has ${metainfo.name}" }
+        // By path and not by name: two torrents can name a hundred files each and collide on one.
+        // Both would open a `FileChannel` on it and interleave two downloads into one file, and
+        // neither would then hash — found by driving the window, not by a test.
+        collisionWith(metainfo, options.directory)?.let { (path, owner) ->
+            throw IllegalArgumentException("$path already belongs to $owner")
+        }
         val runtime =
             TorrentRuntime.open(
                 metainfo = metainfo,
@@ -143,6 +151,24 @@ public class TorrentSet(
         byInfoHash[key] = runtime
         startAccepting()
         return runtime
+    }
+
+    /**
+     * The first path this torrent would open that a running one already owns, and whose it is.
+     *
+     * Public so that a caller can ask *before* offering to add — the add dialog's whole job is to
+     * let somebody choose a different directory, and it needs something to offer it from. `add`
+     * asks the same question and refuses, so a caller that does not ask is still safe.
+     */
+    public fun collisionWith(
+        metainfo: Metainfo,
+        directory: Path,
+    ): Pair<Path, String>? {
+        val taken =
+            byInfoHash.values.flatMap { runtime -> runtime.paths.map { it to runtime.metainfo.name } }.toMap()
+        return FileSet
+            .pathsIn(directory, metainfo)
+            .firstNotNullOfOrNull { path -> taken[path]?.let { path to it } }
     }
 
     /** Stops one torrent and forgets it. The set stays open; the others keep running. */

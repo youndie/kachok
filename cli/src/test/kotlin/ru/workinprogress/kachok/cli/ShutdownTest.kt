@@ -165,8 +165,20 @@ class ShutdownTest {
             "the tracker never heard `stopped`; announces were $announces",
         )
 
-        val record = out.resolve("payload.bin.resume")
-        assertTrue(Files.exists(record), "no resume record was written; output was $output")
+        // `payload.bin.<hash>.resume`, not `payload.bin.resume`: two different torrents can be
+        // called `payload.bin`, and the name alone had them sharing one record (B-60). Matched by
+        // shape rather than spelled out, because the hash is the fixture's and not this test's
+        // business.
+        val record =
+            Files
+                .list(out)
+                .use { paths -> paths.filter { it.fileName.toString().endsWith(".resume") }.toList() }
+                .singleOrNull()
+        assertTrue(record != null, "no resume record was written; output was $output")
+        assertTrue(
+            record.fileName.toString().startsWith("payload.bin."),
+            "the record is not named after its torrent: ${record.fileName}",
+        )
         val read = ResumeRecord.decode(Files.readAllBytes(record), infoHash, pieceCount = 245)
         assertTrue(read.verified.cardinality > 0, "the record vouches for nothing, so it saved nothing")
 

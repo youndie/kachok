@@ -208,7 +208,13 @@ public class TorrentRuntime internal constructor(
                     storage = FileStorage(PieceLayout(metainfo), files, pool),
                     resume =
                         FileResumeStore(
-                            path = options.directory.resolve("${metainfo.name}.resume"),
+                            // The info hash in the name, not just the torrent's name. Two different
+                            // torrents can be called `payload.bin`, and both wrote to
+                            // `payload.bin.resume`: whichever saved last won, and the loser's record
+                            // was then refused on the next start for the piece count — the resume
+                            // path doing the right thing with a file it should never have been
+                            // handed (B-60).
+                            path = options.directory.resolve(resumeName(metainfo)),
                             infoHash = metainfo.infoHash,
                             pieceCount = metainfo.pieceCount,
                             dispatcher = dispatchers.io,
@@ -273,6 +279,23 @@ public class TorrentRuntime internal constructor(
             val blocksPerPiece = (metainfo.pieceLength + PeerWire.BLOCK_SIZE - 1) / PeerWire.BLOCK_SIZE
             return (STARTED_PIECES * blocksPerPiece + maxPeers).coerceAtLeast(MIN_POOL)
         }
+
+        /**
+         * `payload.bin.2b3a91c4.resume` — the torrent's name and eight hex of its info hash.
+         *
+         * The name is kept because a directory of records nobody can read is its own problem; the
+         * hash is what makes a record one torrent's. Two different torrents can be called
+         * `payload.bin` and both wrote to `payload.bin.resume` (B-60).
+         */
+        internal fun resumeName(metainfo: Metainfo): String {
+            val hash =
+                metainfo.infoHash.bytes
+                    .take(RESUME_HASH_BYTES)
+                    .joinToString("") { (it.toInt() and 0xFF).toString(16).padStart(2, '0') }
+            return "${metainfo.name}.$hash.resume"
+        }
+
+        private const val RESUME_HASH_BYTES = 4
 
         /**
          * BEP 20's Azureus style: `-KA0100-` and twelve random bytes.

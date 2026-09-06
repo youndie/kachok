@@ -43,6 +43,7 @@ import ru.workinprogress.kachok.engine.runtime.SetOptions
 import ru.workinprogress.kachok.engine.runtime.TorrentRuntime
 import ru.workinprogress.kachok.engine.runtime.TorrentSet
 import ru.workinprogress.kachok.engine.runtime.fetchMetainfo
+import ru.workinprogress.kachok.engine.storage.FileSet
 import ru.workinprogress.kachok.ui.add.AddTorrentState
 import ru.workinprogress.kachok.ui.details.DetailsTab
 import ru.workinprogress.kachok.ui.main.MainWindow
@@ -416,6 +417,12 @@ internal fun Client(
                             running.associate {
                                 it.metainfo.infoHash.hex() to it.metainfo.pieceLength.toLong()
                             },
+                        // Every file a running torrent owns, so the add dialog can refuse *before*
+                        // the button rather than throwing out of `add` after it.
+                        occupied =
+                            running
+                                .flatMap { runtime -> runtime.paths.map { it.toString() to runtime.metainfo.name } }
+                                .toMap(),
                         listenPort = set.listenPort,
                         dhtNodes =
                             if (set.dhtEnabled) {
@@ -494,7 +501,9 @@ internal fun Client(
                         tab = tab,
                     )
                 },
-            adding = pending?.shown,
+            // Checked here and not in the dialog: what a file would land on depends on the folder,
+            // and the folder is the one thing the dialog lets somebody change.
+            adding = pending?.let { refusedIfOccupied(it, snapshot.occupied) },
             removing = removing,
             settings = if (settingsOpen) settingsOf(preferences.boundTo(snapshot.listenPort)) else null,
             sort = sort,
@@ -629,6 +638,30 @@ internal fun Client(
 }
 
 /**
+ * The dialog, refused when its files would land on a running torrent's.
+ *
+ * The message names both the path and the other torrent, because "already in use" without either is
+ * a refusal a person cannot act on — and the action is right there: *Browse…* is two rows above it.
+ */
+private fun refusedIfOccupied(
+    pending: Pending,
+    occupied: Map<String, String>,
+): AddTorrentState {
+    val metainfo = pending.metainfo ?: return pending.shown
+    val here =
+        java.nio.file.Path
+            .of(pending.shown.saveTo)
+    val clash =
+        FileSet
+            .pathsIn(here, metainfo)
+            .firstNotNullOfOrNull { path -> occupied[path.toString()]?.let { path to it } }
+            ?: return pending.shown
+    return pending.shown.refused(
+        "${clash.first.fileName} here already belongs to ${clash.second} — choose another folder",
+    )
+}
+
+/**
  * Delete what a removed torrent wrote, and its directory if that is now empty.
  *
  * Quietly, and one file at a time: a file the person moved, renamed or already deleted is not a
@@ -714,6 +747,8 @@ private class EngineSnapshot(
     val samples: List<Sample>,
     val fetching: List<MagnetLink>,
     val pieceLengths: Map<String, Long>,
+    /** Path to the name of the torrent that owns it. Two torrents may not write to one file. */
+    val occupied: Map<String, String>,
     val listenPort: Int,
     val dhtNodes: Int?,
     val heapUsedBytes: Long,

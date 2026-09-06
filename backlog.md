@@ -46,11 +46,10 @@ which is also the order of work.
 
 <!-- BEGIN INDEX -->
 
-## Open (10)
+## Open (9)
 
 | Task | | Priority | Size | Blocked by |
 |---|---|---|---|---|
-| [B-60](docs/backlog/B-60-two-torrents-one-path.md) `[ ]` | Two torrents saving to the same file, and nothing that notices | P1 | M | B-54 |
 | [B-70](docs/backlog/B-70-settings-reach-a-running-session.md) `[ ]` | Settings that reach a running session | P2 | M | B-62 |
 | [B-73](docs/backlog/B-73-drop-and-paste.md) `[ ]` | Dropping a file on the window, and a magnet on the clipboard | P2 | M | B-72 |
 | [B-37](docs/backlog/B-37-v2-and-hybrid-torrents.md) `[?]` | v2 and hybrid torrents (BEP 52): SHA-256 piece layers | P3 | L | B-04 |
@@ -61,7 +60,7 @@ which is also the order of work.
 | [B-75](docs/backlog/B-75-the-window-below-800dp.md) `[ ]` | The window below 800 dp | P3 | S | B-49 |
 | [B-02](docs/backlog/B-02-ci-runs-build-and-docs-gates.md) `[ ]` | CI runs the build and the documentation gates on every push | infra | S | B-01 |
 
-## Closed (66)
+## Closed (67)
 
 **M0 — The build and its gates**
 
@@ -147,6 +146,7 @@ which is also the order of work.
 - [B-57](docs/backlog/B-57-a-paused-torrent.md) `[x]` - A paused torrent, which the engine does not have
 - [B-58](docs/backlog/B-58-remove-a-torrent.md) `[x]` - Removing a torrent, and the dialog the ellipsis promises
 - [B-59](docs/backlog/B-59-force-re-check.md) `[x]` - Force re-check: verifying a torrent that is already running
+- [B-60](docs/backlog/B-60-two-torrents-one-path.md) `[x]` - Two torrents saving to the same file, and nothing that notices
 - [B-61](docs/backlog/B-61-appframe-title-bar.md) `[x]` - The title bar the design draws, which is not the operating system's
 - [B-62](docs/backlog/B-62-dead-controls-on-two-more-screens.md) `[x]` - Controls on two more screens that reported nothing, and the guard that missed them
 - [B-63](docs/backlog/B-63-joining-the-dht-at-runtime.md) `[x]` - Joining the DHT from the settings screen, not from a restart

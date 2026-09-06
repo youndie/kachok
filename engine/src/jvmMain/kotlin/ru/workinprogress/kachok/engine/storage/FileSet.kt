@@ -115,6 +115,24 @@ public class FileSet private constructor(
             )
 
         /**
+         * Where a torrent's files would go, without creating anything.
+         *
+         * Shared with [open] rather than repeated beside it: a caller asking "is this path already
+         * taken" has to be asking about the paths this class would actually open, and a second copy
+         * of the single-file rule below is a second chance to answer about the wrong ones.
+         */
+        public fun pathsIn(
+            root: Path,
+            metainfo: Metainfo,
+        ): List<Path> {
+            // A single-file torrent's `name` IS the file; a multi-file torrent's is the directory
+            // its files sit in (BEP 3). Treating the first as the second writes the download one
+            // level too deep, into a directory named after the file it should have been.
+            val base = if (metainfo.isSingleFile) root else root.resolve(metainfo.name)
+            return metainfo.files.map { file -> base.resolve(file.path.joinToString("/")).normalize() }
+        }
+
+        /**
          * Opens every file of [metainfo] under [root], creating directories and sparse files as
          * needed. A file that already exists is kept and extended, never truncated: that is how a
          * resumed download finds its data.
@@ -123,11 +141,7 @@ public class FileSet private constructor(
             root: Path,
             metainfo: Metainfo,
         ): FileSet {
-            // A single-file torrent's `name` IS the file; a multi-file torrent's is the directory
-            // its files sit in (BEP 3). Treating the first as the second writes the download one
-            // level too deep, into a directory named after the file it should have been.
-            val base = if (metainfo.isSingleFile) root else root.resolve(metainfo.name)
-            val paths = metainfo.files.map { file -> base.resolve(file.path.joinToString("/")).normalize() }
+            val paths = pathsIn(root, metainfo)
             paths.forEach { Files.createDirectories(it.parent) }
 
             paths.forEachIndexed { index, path -> size(path, metainfo.files[index].length) }
