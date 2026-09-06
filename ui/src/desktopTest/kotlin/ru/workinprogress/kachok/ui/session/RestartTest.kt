@@ -3,6 +3,8 @@ package ru.workinprogress.kachok.ui.session
 import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.v2.runComposeUiTest
 import ru.workinprogress.kachok.engine.hex
 import ru.workinprogress.kachok.engine.metainfo.MetainfoParser
@@ -144,6 +146,39 @@ class RestartTest {
             val stored = loadStoredTorrents(list).single()
             assertEquals("delta.bin", stored.name)
             assertTrue(stored.metainfo != null, "the copy did not come back: ${stored.problem}")
+        }
+
+    /**
+     * The dialog that deletes files names the folder the files are in.
+     *
+     * It named `preferences.directory` — the settings' default — for every torrent, including the
+     * ones that are somewhere else, which since [B-81] is any torrent added through *Browse…* or
+     * restored from the list. A checkbox that deletes data, beside a folder the data is not in, is
+     * asking somebody to agree to something other than what will happen. Found by using the
+     * application on Windows, and it is the same defect as the *Save to* field in
+     * [B-85](../../../../../../../../docs/backlog/B-85-open-a-file-from-the-files-tab.md) — fixed
+     * there as an instance rather than as a class.
+     */
+    @Test
+    fun theRemoveDialogNamesTheTorrentsOwnFolderAndNotTheDefault() =
+        runComposeUiTest {
+            val elsewhere = Files.createDirectory(root.resolve("elsewhere"))
+            val metainfo = MetainfoParser.parse(TestTorrents.bytes("alpha.bin"))
+            rememberTorrent(list, metainfo, saveTo = elsewhere.toString())
+            openWithNothing()
+            await("alpha.bin")
+
+            onNodeWithContentDescription("Remove…").performClick()
+            waitUntil(timeoutMillis = WAIT) {
+                onAllNodesWithText(elsewhere.toString(), substring = true).fetchSemanticsNodes().isNotEmpty()
+            }
+            assertEquals(
+                0,
+                onAllNodesWithText(root.toString() + java.io.File.separator + "alpha", substring = true)
+                    .fetchSemanticsNodes()
+                    .size,
+                "the dialog named a folder this torrent is not in",
+            )
         }
 
     private companion object {

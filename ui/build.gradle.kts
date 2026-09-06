@@ -1,5 +1,16 @@
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
 
+/**
+ * The heap the desktop application gets, and the heap its tests get.
+ *
+ * 64m rather than the engine's 128m, asked for after watching the status bar on Windows. Research
+ * §1.2d's own 64m row is about the *headless* client — it trades 35 MB of resident memory for twice
+ * the total pause over a gigabyte — and says nothing about a window, whose largest surfaces are
+ * Skiko's and are not on the heap at all. What says something about a window is the test task
+ * below, which now runs in this same number.
+ */
+val maxHeap = "64m"
+
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
     alias(libs.plugins.composeMultiplatform)
@@ -52,7 +63,7 @@ kotlin {
 compose.desktop {
     application {
         mainClass = "ru.workinprogress.kachok.ui.AppKt"
-        jvmArgs += listOf("-XX:+UseG1GC", "-XX:+UseCompactObjectHeaders", "-Xmx128m")
+        jvmArgs += listOf("-XX:+UseG1GC", "-XX:+UseCompactObjectHeaders", "-Xmx$maxHeap")
 
         // The app image `createDistributable` writes, and what it is called inside it.
         //
@@ -277,6 +288,18 @@ val checkDistributable by tasks.registering(Exec::class) {
 }
 
 tasks.named("check") { dependsOn(checkDistributable) }
+
+// **The window's tests run in the heap the window ships with.**
+//
+// The number was 128m, chosen because it is the engine's budget (research §1.2d) — and nothing ever
+// ran the *UI* in it: Gradle gives a test JVM its own default, which is a gigabyte or more, so
+// lowering the shipped heap was a change nothing could disagree with until somebody's window died.
+// Now the two are one constant and 255 tests, including a real download driven through `Client`,
+// are the evidence for whatever it says.
+tasks.withType<Test>().configureEach {
+    maxHeapSize = maxHeap
+    jvmArgs("-XX:+UseG1GC", "-XX:+UseCompactObjectHeaders")
+}
 
 viddik {
     // **Only where the goldens were recorded.**

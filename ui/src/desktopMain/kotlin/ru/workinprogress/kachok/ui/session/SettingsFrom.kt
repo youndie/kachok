@@ -26,6 +26,15 @@ internal data class Preferences(
     val dht: Boolean = false,
     val autostart: Boolean = false,
     /**
+     * The folder the last torrent was actually saved to, which is not the *setting*.
+     *
+     * Somebody who browses elsewhere for one torrent expects the next add dialog to open there, and
+     * nothing else about their configuration to have changed. Writing it into [directory] would do
+     * the first by doing the second: the settings screen would quietly show a folder they never
+     * chose as a default, and the row would say `changed` about a decision they made once.
+     */
+    val lastDirectory: String? = null,
+    /**
      * How wide the details panel is, in dp.
      *
      * A setting and not window state: a panel a person widened once and finds back at 340 every
@@ -42,6 +51,9 @@ internal data class Preferences(
     /** Clamped here rather than at the drag, so no caller can store a width the panel cannot draw. */
     fun withDetailsWidth(width: Float): Preferences =
         copy(detailsWidth = width.coerceIn(MIN_DETAILS_WIDTH, MAX_DETAILS_WIDTH))
+
+    /** Where an add dialog should open: where the last one ended, or the setting on a first run. */
+    val addFrom: String get() = lastDirectory?.takeIf { it.isNotBlank() } ?: directory
 
     fun toggled(
         key: SettingKey,

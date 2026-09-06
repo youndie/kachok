@@ -131,4 +131,30 @@ class StoredPreferencesTest {
         file.writeText("detailsWidth=9000\n")
         assertEquals(MAX_DETAILS_WIDTH, loadPreferences(file, defaults).detailsWidth)
     }
+
+    /**
+     * Where the last torrent went, kept apart from the setting.
+     *
+     * Somebody who browses elsewhere for one torrent expects the next dialog to open there and
+     * nothing else about their configuration to have changed. Folding it into `directory` would do
+     * the first by doing the second — the settings screen would show a folder they never chose as
+     * their default, on a row marked `changed`.
+     */
+    @Test
+    fun theLastFolderUsedIsRememberedWithoutBecomingTheSetting() {
+        val file = root.resolve("settings.properties")
+        savePreferences(file, Preferences(directory = "/srv/default", lastDirectory = "/srv/elsewhere"))
+
+        val back = loadPreferences(file, Preferences(directory = "/nothing"))
+        assertEquals("/srv/default", back.directory, "browsing once rewrote the setting")
+        assertEquals("/srv/elsewhere", back.lastDirectory)
+        assertEquals("/srv/elsewhere", back.addFrom, "the next dialog would open at the setting")
+    }
+
+    /** A first run has no last folder, and then the setting is the answer. */
+    @Test
+    fun withNoLastFolderTheDialogOpensAtTheSetting() {
+        assertEquals("/srv/default", Preferences(directory = "/srv/default").addFrom)
+        assertEquals("/srv/default", Preferences(directory = "/srv/default", lastDirectory = "").addFrom)
+    }
 }

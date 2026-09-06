@@ -354,6 +354,9 @@ internal fun Client(
     // one direction that matters — claiming the client starts with the computer when it does not.
     val autostart = remember { autostartFor() }
     var autostartProblem by remember { mutableStateOf(autostart.refusal) }
+    // Where the last torrent actually went, back from the engine loop to the composition that owns
+    // the preferences. Conflated: only the most recent one is the answer.
+    val saved = remember { Channel<String>(Channel.CONFLATED) }
     var pendingDrop by remember { mutableStateOf<Path?>(null) }
     var settingsOpen by remember { mutableStateOf(false) }
     // What the settings screen has been told. Held for the session and not written anywhere: there
@@ -394,11 +397,17 @@ internal fun Client(
         }
     }
 
+    LaunchedEffect(saved) {
+        for (directory in saved) {
+            if (directory != preferences.lastDirectory) preferences = preferences.copy(lastDirectory = directory)
+        }
+    }
+
     // A dropped file, read here rather than in the drop callback: that runs while a composition is
     // already in flight, and this effect has `preferences` to hand.
     LaunchedEffect(pendingDrop) {
         pendingDrop?.let { path ->
-            pending = torrentAt(path, preferences.directory)
+            pending = torrentAt(path, preferences.addFrom)
             pendingDrop = null
         }
     }
@@ -408,8 +417,8 @@ internal fun Client(
     LaunchedEffect(shortcut) {
         when (shortcut?.what) {
             null -> Unit
-            Shortcut.Kind.OpenFile -> pending = chooseTorrent(preferences.directory)
-            Shortcut.Kind.PasteMagnet -> pending = magnetFromClipboard(preferences.directory)
+            Shortcut.Kind.OpenFile -> pending = chooseTorrent(preferences.addFrom)
+            Shortcut.Kind.PasteMagnet -> pending = magnetFromClipboard(preferences.addFrom)
         }
     }
     var sort by remember { mutableStateOf(SortOrder()) }
@@ -541,6 +550,9 @@ internal fun Client(
                             unwanted = next.unwanted(),
                             sequential = next.shown.sequential,
                         )
+                        // So the next add dialog opens where this one ended. The *setting* is left
+                        // alone: browsing elsewhere once is not a person changing their default.
+                        saved.trySend(next.shown.saveTo)
                     }
                     next.magnet?.let { fetching += Fetching(it) }
                 }
@@ -774,11 +786,11 @@ internal fun Client(
                 }
 
                 ToolbarCommand.AddTorrent -> {
-                    pending = chooseTorrent(preferences.directory)
+                    pending = chooseTorrent(preferences.addFrom)
                 }
 
                 ToolbarCommand.PasteMagnet -> {
-                    pending = magnetFromClipboard(preferences.directory)
+                    pending = magnetFromClipboard(preferences.addFrom)
                 }
 
                 // `rowKeys[index]`, not `selected`: nothing selected means the first row is the
@@ -803,7 +815,14 @@ internal fun Client(
                         removing =
                             RemoveState(
                                 name = sample.state.name,
-                                where = preferences.directory,
+                                // **The torrent's own folder, not the settings' default.** The
+                                // checkbox beside this line deletes files, so a dialog naming a
+                                // folder the data is not in is asking somebody to agree to
+                                // something else — the same defect as the *Save to* field in B-85,
+                                // in a second place, found by using the application on Windows.
+                                where =
+                                    snapshot.directories[sample.state.infoHash.hex()]
+                                        ?: preferences.directory,
                                 howMuch = "${Figures.bytes(sample.state.downloaded)} on disk",
                             )
                     }
@@ -826,7 +845,7 @@ internal fun Client(
         onSequential = { on -> pending = pending?.sequentially(on) },
         onResizeDetails = { width -> preferences = preferences.withDetailsWidth(width.value) },
         onClipboardAdd = {
-            clipboardMagnet?.let { pending = magnetFromClipboard(preferences.directory) }
+            clipboardMagnet?.let { pending = magnetFromClipboard(preferences.addFrom) }
             clipboardMagnet = null
         },
         onClipboardDismiss = { clipboardMagnet = null },
@@ -837,9 +856,11 @@ internal fun Client(
         },
         onTab = { chosenTab -> tab = chosenTab },
         onSelect = { row -> rowKeys.getOrNull(row)?.let { selected = it } },
-        onAddTorrent = { pending = chooseTorrent(preferences.directory) },
+        onAddTorrent = { pending = chooseTorrent(preferences.addFrom) },
         onBrowse = {
-            chooseDirectory("Save to", preferences.directory)?.let { chosen ->
+            // Opens where the dialog is currently pointing, not at the setting: browsing twice in
+            // one dialog should start from where the first browse landed.
+            chooseDirectory("Save to", pending?.shown?.saveTo ?: preferences.addFrom)?.let { chosen ->
                 pending = pending?.savingTo(chosen)
             }
         },
