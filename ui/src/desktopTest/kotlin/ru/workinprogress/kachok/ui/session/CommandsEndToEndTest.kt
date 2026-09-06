@@ -188,7 +188,15 @@ class CommandsEndToEndTest {
                 runtime.resume()
 
                 runtime.recheck()
-                runtime.waitUntil("the pass notices") { runtime.state.value.completedPieces < before }
+                try {
+                    runtime.waitUntil("the pass notices") { runtime.state.value.completedPieces < before }
+                } catch (stuck: IllegalStateException) {
+                    // Two very different faults look the same from a timeout: a pass that did not
+                    // read the disk, and a disk that no longer holds what was written to it. The
+                    // bytes at the offset say which.
+                    val now = Files.readAllBytes(file).copyOfRange(at.toInt(), at.toInt() + damage.size)
+                    error("${stuck.message} — the file now holds ${now.decodeToString()} at $at")
+                }
                 assertTrue(
                     runtime.state.value.completedPieces < before,
                     "the re-check believed a piece that is not on the disk any more",
