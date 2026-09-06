@@ -72,6 +72,10 @@ internal fun windowOf(
      */
     allRows: List<TorrentRowModel> = rows,
     filter: String = "",
+    /** Files hovering over the window right now, by name. Empty means nothing is being dragged. */
+    dropping: List<String> = emptyList(),
+    /** A magnet noticed on the clipboard when the window came back into focus. */
+    clipboardMagnet: String? = null,
     sort: SortOrder = SortOrder(),
 ): MainWindowState =
     MainWindowState(
@@ -82,6 +86,8 @@ internal fun windowOf(
         settings = settings,
         removing = removing,
         hiddenByFilter = allRows.size - rows.size,
+        dropping = dropping,
+        clipboardMagnet = clipboardMagnet,
         status = statusOf(allRows, rates, listenPort, dhtNodes, heapUsedBytes, heapMaxBytes),
         // What Pause and Resume may do is decided by the row that is selected, so the bar is built
         // from the list rather than defaulted and left.

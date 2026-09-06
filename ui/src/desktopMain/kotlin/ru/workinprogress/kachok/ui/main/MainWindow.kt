@@ -157,7 +157,14 @@ internal fun MainWindow(
         // waiting for an answer, a clipboard offer is neither and sits at the bottom.
         if (state.dropping.isNotEmpty()) DropOverlay(state.dropping)
         state.clipboardMagnet?.let { link ->
-            Box(Modifier.align(Alignment.BottomCenter).padding(14.dp)) {
+            // Above the status bar, not over it. The prompt is anchored to the bottom of the window
+            // and the status bar is the bottom of the window; without the bar's own height in the
+            // padding it covered the rates and the port.
+            Box(
+                Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(start = 14.dp, end = 14.dp, top = 14.dp, bottom = Chrome.statusHeight + 10.dp),
+            ) {
                 ClipboardMagnetPrompt(link, onAdd = onClipboardAdd, onDismiss = onClipboardDismiss)
             }
         }

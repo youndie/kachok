@@ -46,12 +46,11 @@ which is also the order of work.
 
 <!-- BEGIN INDEX -->
 
-## Open (9)
+## Open (8)
 
 | Task | | Priority | Size | Blocked by |
 |---|---|---|---|---|
 | [B-70](docs/backlog/B-70-settings-reach-a-running-session.md) `[ ]` | Settings that reach a running session | P2 | M | B-62 |
-| [B-73](docs/backlog/B-73-drop-and-paste.md) `[ ]` | Dropping a file on the window, and a magnet on the clipboard | P2 | M | B-72 |
 | [B-37](docs/backlog/B-37-v2-and-hybrid-torrents.md) `[?]` | v2 and hybrid torrents (BEP 52): SHA-256 piece layers | P3 | L | B-04 |
 | [B-40](docs/backlog/B-40-wasmjs-ui-is-a-client-of-the-headless-engine.md) `[ ]` | Phase 2: the wasmJs UI is a client of the JVM headless engine | P3 | L | B-39 |
 | [B-41](docs/backlog/B-41-android-and-ios-targets.md) `[ ]` | Phase 3: Android and iOS targets on the engine | P3 | XL | B-39 |
@@ -60,7 +59,7 @@ which is also the order of work.
 | [B-75](docs/backlog/B-75-the-window-below-800dp.md) `[ ]` | The window below 800 dp | P3 | S | B-49 |
 | [B-02](docs/backlog/B-02-ci-runs-build-and-docs-gates.md) `[ ]` | CI runs the build and the documentation gates on every push | infra | S | B-01 |
 
-## Closed (67)
+## Closed (68)
 
 **M0 — The build and its gates**
 
@@ -157,6 +156,7 @@ which is also the order of work.
 - [B-69](docs/backlog/B-69-the-trackers-list.md) `[x]` - A status per tracker, and re-announcing by hand
 - [B-71](docs/backlog/B-71-settings-that-survive-a-restart.md) `[x]` - Settings that survive a restart
 - [B-72](docs/backlog/B-72-the-keyboard-map.md) `[x]` - The keyboard map the empty state advertises
+- [B-73](docs/backlog/B-73-drop-and-paste.md) `[x]` - Dropping a file on the window, and a magnet on the clipboard
 - [B-76](docs/backlog/B-76-the-last-dead-controls.md) `[x]` - The copy button, Show it, and the add dialog's ticks
 
 <!-- END INDEX -->

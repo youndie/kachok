@@ -1,6 +1,7 @@
 package ru.workinprogress.kachok.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.draganddrop.dragAndDropTarget
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -15,12 +16,16 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draganddrop.DragAndDropEvent
+import androidx.compose.ui.draganddrop.DragAndDropTarget
+import androidx.compose.ui.draganddrop.awtTransferable
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.isCtrlPressed
 import androidx.compose.ui.input.key.isMetaPressed
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.application
@@ -257,6 +262,13 @@ internal fun Client(
     var selected by remember { mutableStateOf<String?>(null) }
     var removing by remember { mutableStateOf<RemoveState?>(null) }
     var filter by remember { mutableStateOf("") }
+    var dropping by remember { mutableStateOf<List<String>>(emptyList()) }
+    var clipboardMagnet by remember { mutableStateOf<String?>(null) }
+    // The last magnet this window offered, so returning to it ten times does not offer the same one
+    // ten times. Cleared by dismissing, which is a person saying no to *this* link.
+    var offeredMagnet by remember { mutableStateOf<String?>(null) }
+
+    var pendingDrop by remember { mutableStateOf<Path?>(null) }
     var settingsOpen by remember { mutableStateOf(false) }
     // What the settings screen has been told. Held for the session and not written anywhere: there
     // is no settings file yet, and inventing one is a decision about where it lives.
@@ -275,6 +287,15 @@ internal fun Client(
     LaunchedEffect(preferences) {
         delay(SETTINGS_SETTLE)
         savePreferences(settingsFile, preferences)
+    }
+
+    // A dropped file, read here rather than in the drop callback: that runs while a composition is
+    // already in flight, and this effect has `preferences` to hand.
+    LaunchedEffect(pendingDrop) {
+        pendingDrop?.let { path ->
+            pending = torrentAt(path, preferences.directory)
+            pendingDrop = null
+        }
     }
 
     // Keyed on the object and not on the enum: pressing Cmd+O twice is two requests, and an effect
@@ -504,12 +525,60 @@ internal fun Client(
             // Checked here and not in the dialog: what a file would land on depends on the folder,
             // and the folder is the one thing the dialog lets somebody change.
             adding = pending?.let { refusedIfOccupied(it, snapshot.occupied) },
+            dropping = dropping,
+            clipboardMagnet = clipboardMagnet,
             removing = removing,
             settings = if (settingsOpen) settingsOf(preferences.boundTo(snapshot.listenPort)) else null,
             sort = sort,
         )
+    // The clipboard is read when the window comes back into focus, and only then: a poll is what
+    // puts an application in the system's clipboard-access indicator once a second.
+    val focused = LocalWindowInfo.current.isWindowFocused
+    LaunchedEffect(focused) {
+        if (!focused) return@LaunchedEffect
+        val magnet = magnetOnClipboard() ?: return@LaunchedEffect
+        // Offered once per link. Returning to the window ten times with the same magnet on the
+        // clipboard is one offer, and dismissing it is a person saying no to *this* link.
+        if (magnet != offeredMagnet) {
+            clipboardMagnet = magnet
+            offeredMagnet = magnet
+        }
+    }
+
     MainWindow(
         window,
+        modifier =
+            Modifier.dragAndDropTarget(
+                shouldStartDragAndDrop = { true },
+                target =
+                    remember {
+                        object : DragAndDropTarget {
+                            override fun onEntered(event: DragAndDropEvent) {
+                                dropping = droppedPaths(event).map { it.fileName.toString() }
+                            }
+
+                            override fun onExited(event: DragAndDropEvent) {
+                                dropping = emptyList()
+                            }
+
+                            override fun onEnded(event: DragAndDropEvent) {
+                                dropping = emptyList()
+                            }
+
+                            override fun onDrop(event: DragAndDropEvent): Boolean {
+                                dropping = emptyList()
+                                // The first `.torrent` and not all of them: the dialog asks about
+                                // one torrent, and four would need a queue the window has not got.
+                                val path =
+                                    droppedPaths(event)
+                                        .firstOrNull { it.toString().endsWith(".torrent") }
+                                        ?: return false
+                                pendingDrop = path
+                                return true
+                            }
+                        }
+                    },
+            ),
         // Exhaustive on purpose, and on the command rather than on the label: a control that
         // reports itself and nobody listens is what B-56 was.
         onAction = { action ->
@@ -572,6 +641,11 @@ internal fun Client(
         onSort = { column -> sort = sort.clicked(column) },
         onFilter = { typed -> filter = typed },
         onAddFile = { index, wanted -> pending = pending?.withFile(index, wanted) },
+        onClipboardAdd = {
+            clipboardMagnet?.let { pending = magnetFromClipboard(preferences.directory) }
+            clipboardMagnet = null
+        },
+        onClipboardDismiss = { clipboardMagnet = null },
         onAnnounce = {
             rowKeys.getOrNull(index)?.let {
                 commanded.trySend(TorrentCommand(it, TorrentCommand.Kind.Announce))
@@ -780,19 +854,80 @@ private fun chooseTorrent(directory: String): Pending? {
     dialog.directory = directory
     dialog.isVisible = true
     val file = dialog.file ?: return null
-    val path = Path.of(dialog.directory, file)
-    val here = directory
-    return try {
+    return torrentAt(Path.of(dialog.directory, file), directory)
+}
+
+/**
+ * A `.torrent` read off the disk, however it was named.
+ *
+ * Shared by the file chooser, the drop target and `⌘O`: three gestures that arrive at one path, and
+ * three copies of this would be three places for the error handling to differ.
+ */
+private fun torrentAt(
+    path: Path,
+    directory: String,
+): Pending? =
+    try {
         val metainfo = MetainfoParser.parse(Files.readAllBytes(path))
-        Pending(metainfo, null, addFrom(metainfo, file, saveTo = here, defaultDirectory = here))
+        Pending(
+            metainfo,
+            null,
+            addFrom(metainfo, path.fileName.toString(), saveTo = directory, defaultDirectory = directory),
+        )
     } catch (unreadable: IOException) {
         System.err.println("kachok: cannot read $path: ${unreadable.message}")
         null
     } catch (malformed: IllegalArgumentException) {
-        System.err.println("kachok: $file is not a usable torrent: ${malformed.message}")
+        System.err.println("kachok: $path is not a usable torrent: ${malformed.message}")
         null
     }
-}
+
+/**
+ * The files an AWT drop is carrying, or empty for a drop of something else.
+ *
+ * Wrapped in the same way the clipboard is: a transferable whose flavour is not what it advertised
+ * throws, and a window that fell over because somebody dragged a browser tab onto it would be worse
+ * than one that ignores the drop.
+ */
+@OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
+@Suppress("UNCHECKED_CAST")
+private fun droppedPaths(event: DragAndDropEvent): List<Path> =
+    try {
+        val transferable = event.awtTransferable
+        if (!transferable.isDataFlavorSupported(DataFlavor.javaFileListFlavor)) {
+            emptyList()
+        } else {
+            (transferable.getTransferData(DataFlavor.javaFileListFlavor) as List<java.io.File>)
+                .map { it.toPath() }
+        }
+    } catch (unsupported: UnsupportedFlavorException) {
+        emptyList()
+    } catch (unreadable: IOException) {
+        emptyList()
+    }
+
+/**
+ * A magnet on the clipboard, or null — read without deciding anything about it.
+ *
+ * Separate from [magnetFromClipboard], which parses and builds a dialog: this only answers "is there
+ * a link here", which is what the prompt needs and all it should cost to answer.
+ */
+private fun magnetOnClipboard(): String? =
+    try {
+        (Toolkit.getDefaultToolkit().systemClipboard.getData(DataFlavor.stringFlavor) as? String)
+            ?.trim()
+            ?.takeIf { it.startsWith("magnet:") }
+    } catch (unavailable: UnsupportedFlavorException) {
+        null
+    } catch (unreadable: IOException) {
+        null
+    } catch (busy: IllegalStateException) {
+        null
+    } catch (headless: java.awt.HeadlessException) {
+        // There is no clipboard on a machine with no display. Not hypothetical: the window's own
+        // end-to-end test runs headless, and this threw out of the focus effect the first time.
+        null
+    }
 
 /**
  * The info hash, on the clipboard.
@@ -806,6 +941,8 @@ private fun copyToClipboard(text: String) {
         Toolkit.getDefaultToolkit().systemClipboard.setContents(StringSelection(text), null)
     } catch (busy: IllegalStateException) {
         System.err.println("kachok: the clipboard is busy: ${busy.message}")
+    } catch (headless: java.awt.HeadlessException) {
+        System.err.println("kachok: there is no clipboard on this display")
     }
 }
 
@@ -823,6 +960,8 @@ private fun magnetFromClipboard(directory: String): Pending? {
         } catch (unavailable: UnsupportedFlavorException) {
             null
         } catch (unreadable: IOException) {
+            null
+        } catch (headless: java.awt.HeadlessException) {
             null
         } ?: return null
     if (!text.trim().startsWith("magnet:")) return null

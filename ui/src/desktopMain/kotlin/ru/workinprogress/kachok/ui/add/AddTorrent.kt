@@ -492,7 +492,11 @@ internal fun ClipboardMagnetPrompt(
             Text("Add it", style = ChromeText.copy(fontWeight = FontWeight.Medium), color = KachokPalette.primaryBright)
         }
         Box(
-            Modifier.height(PROMPT_BUTTON).width(PROMPT_BUTTON).clickable(onClick = onDismiss),
+            Modifier
+                .height(PROMPT_BUTTON)
+                .width(PROMPT_BUTTON)
+                .clickable(onClick = onDismiss)
+                .semantics { contentDescription = "Dismiss" },
             contentAlignment = Alignment.Center,
         ) {
             Glyph(Icons.CLOSE, size = CONTROL_GLYPH, tint = scheme.onSurfaceVariant)

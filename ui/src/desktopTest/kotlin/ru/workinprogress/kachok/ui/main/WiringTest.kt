@@ -1,6 +1,7 @@
 package ru.workinprogress.kachok.ui.main
 
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -81,6 +82,54 @@ class WiringTest {
             }
             onNodeWithText("Browse…").performClick()
             assertEquals(1, browsed)
+        }
+
+    /**
+     * The clipboard prompt's two answers, and the overlay a drag draws.
+     *
+     * What a test can reach here is the state and the presses. Turning an AWT drop into that state
+     * is the half no test drives: `DragAndDropEvent` wraps a type a test cannot construct, and
+     * dragging a file between two applications needs a second application.
+     */
+    @Test
+    fun theClipboardPromptsAnswersLeaveTheWindow(): Unit =
+        runComposeUiTest {
+            var added = 0
+            var dismissed = 0
+            setContent {
+                KachokTheme {
+                    MainWindow(
+                        MainWindowState(
+                            torrents = window.torrents,
+                            status = window.status,
+                            clipboardMagnet = "magnet:?xt=urn:btih:2b3a91c4",
+                        ),
+                        onClipboardAdd = { added++ },
+                        onClipboardDismiss = { dismissed++ },
+                    )
+                }
+            }
+            onNodeWithText("Add it").performClick()
+            onNodeWithContentDescription("Dismiss").performClick()
+            assertEquals(1, added)
+            assertEquals(1, dismissed)
+        }
+
+    @Test
+    fun aDragOverTheWindowDrawsTheOverlayNamingWhatIsBeingDropped(): Unit =
+        runComposeUiTest {
+            setContent {
+                KachokTheme {
+                    MainWindow(
+                        MainWindowState(
+                            torrents = window.torrents,
+                            status = window.status,
+                            dropping = listOf("debian-13.1.0-amd64-DVD-1.iso.torrent"),
+                        ),
+                    )
+                }
+            }
+            onNodeWithText("debian-13.1.0-amd64-DVD-1.iso.torrent", substring = true).assertIsDisplayed()
         }
 
     /** Every file row in the add dialog reports, not one of them. */
