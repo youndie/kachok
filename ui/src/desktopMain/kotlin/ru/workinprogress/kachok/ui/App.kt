@@ -29,7 +29,11 @@ import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Notification
+import androidx.compose.ui.window.Tray
 import androidx.compose.ui.window.application
+import androidx.compose.ui.window.isTraySupported
+import androidx.compose.ui.window.rememberTrayState
 import androidx.compose.ui.window.rememberWindowState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
@@ -211,8 +215,58 @@ private fun run(args: Array<String>) {
         // lower the bar came out of the *default* light scheme while everything under it was dark.
         // Nothing caught it: the golden renders the same bar inside the theme, because a golden
         // cannot open a window, so it drew the right thing while the application drew the wrong one.
+        // **The tray, and the two facts that decide whether there is one.**
+        //
+        // `isTraySupported` is false on a desktop that dropped the status-icon protocol — GNOME did
+        // — and a client that closes into a tray that does not exist is one somebody has to kill
+        // from a terminal. So it is read once, here, and everything below asks it rather than
+        // assuming: with no tray the close button does what it always did (B-88).
+        val hasTray = remember { isTraySupported }
+        // *Quit* from the tray means stop for real, so the close path below must not send the
+        // window back into the tray it was just quit from.
+        var quitting by remember { mutableStateOf(false) }
+        // Mirrored up from `Client`, which owns the settings file; the tray is above the composition
+        // that reads it. A callback rather than a second read of the file: two readers of one
+        // setting is two answers whenever somebody changes it.
+        var closeToTray by remember { mutableStateOf(true) }
+        var explainTray by remember { mutableStateOf(false) }
+        // Hidden rather than minimised when the system started it *and* there is a tray to come
+        // back from — which is the case B-83 could not have and had to settle for minimised.
+        var windowVisible by remember { mutableStateOf(!(AUTOSTART_FLAG in flags && hasTray)) }
+        val trayState = rememberTrayState()
+
+        if (hasTray) {
+            Tray(
+                icon = appIcon,
+                state = trayState,
+                tooltip = "kachok",
+                // Double-clicking the icon is what a person tries first, before finding a menu.
+                onAction = { windowVisible = true },
+            ) {
+                Item("Show kachok", onClick = { windowVisible = true })
+                Item("Quit", onClick = {
+                    windowVisible = true
+                    quitting = true
+                })
+            }
+        }
+
+        // One notice, the first time a window goes into the tray. The alternative failure is
+        // somebody pressing close, seeing nothing, and pressing it again.
+        LaunchedEffect(explainTray) {
+            if (!explainTray) return@LaunchedEffect
+            trayState.sendNotification(
+                Notification(
+                    "kachok is still running",
+                    "Its icon is in the tray. Quit from there.",
+                    Notification.Type.Info,
+                ),
+            )
+        }
+
         KachokTheme {
-            var closing by remember { mutableStateOf(false) }
+            var closing by remember { mutableStateOf(quitting) }
+            LaunchedEffect(quitting) { if (quitting) closing = true }
             // The title bar is drawn, not the operating system's: the design draws it in its own
             // colours — `#161D1B`, a hairline under it, the name centred — which no OS chrome is
             // going to produce. AppFrame is the library for it, and the controls are still the
@@ -228,19 +282,31 @@ private fun run(args: Array<String>) {
             // that handles the press keeps it and an unfocused window gets it here.
             var shortcut by remember { mutableStateOf<Shortcut?>(null) }
             AppFrame(
-                onCloseRequest = { closing = true },
+                // **Close means "leave it running", when there is somewhere for it to run.** A
+                // torrent client whose close button stops every transfer is one that has to be
+                // left open to do its job. With no tray, or with the setting off, it still stops:
+                // vanishing into a tray that is not there would be worse than stopping.
+                onCloseRequest = {
+                    if (hasTray && closeToTray && !quitting) {
+                        windowVisible = false
+                        explainTray = true
+                    } else {
+                        closing = true
+                    }
+                },
+                visible = windowVisible,
                 title = "kachok",
                 // The same drawing the installer puts on the desktop, so a window in the dock or
                 // the taskbar is the application somebody launched, not a Java coffee cup.
                 icon = appIcon,
-                // **Minimised when the system started it, and only then.** That is what the
-                // autostart setting means: a login should not be interrupted by a window somebody
-                // did not ask for at that moment, and starting the engine with no window at all
-                // needs a tray for it to come back from, which this client does not have (B-83).
+                // **Out of the way when the system started it.** A login should not be
+                // interrupted by a window nobody asked for at that moment. Minimised where there is
+                // no tray, and hidden entirely where there is — which is what B-83 wanted and could
+                // not have until this item gave the window somewhere to come back from.
                 state =
                     rememberWindowState(
                         size = DpSize(WINDOW_WIDTH, WINDOW_HEIGHT),
-                        isMinimized = AUTOSTART_FLAG in flags,
+                        isMinimized = AUTOSTART_FLAG in flags && !hasTray,
                     ),
                 style = KACHOK_TITLE_BAR,
                 onKeyEvent = { event ->
@@ -270,6 +336,14 @@ private fun run(args: Array<String>) {
                         onStopped = ::exitApplication,
                         shortcut = shortcut,
                         directoryOverrides = given.size > 1,
+                        onPreferences = { closeToTray = it.closeToTray && hasTray },
+                        trayProblem =
+                            if (hasTray) {
+                                null
+                            } else {
+                                "This desktop has no tray, so the close button stops the torrents."
+                            },
+                        explainedTray = explainTray,
                     )
                 }
             }
@@ -363,6 +437,17 @@ internal fun Client(
      */
     opened: ReceiveChannel<Path>? = null,
     /**
+     * What the settings say, reported up as they change.
+     *
+     * The tray lives above this composition and needs one of them; a second read of the settings
+     * file up there would be a second answer whenever somebody changes it.
+     */
+    onPreferences: (Preferences) -> Unit = {},
+    /** Why this desktop has no tray, or null when it has one. Drawn on the row it disables. */
+    trayProblem: String? = null,
+    /** The tray has explained itself once; the settings file remembers so the next run does not. */
+    explainedTray: Boolean = false,
+    /**
      * A directory named on the command line beats the stored one, for this run only.
      *
      * Without it the file wins and `kachok x.torrent /srv/here` quietly ignores its second
@@ -443,6 +528,13 @@ internal fun Client(
             snapshotFlow { pendingDrop == null && pending == null }.first { it }
             pendingDrop = path
         }
+    }
+
+    LaunchedEffect(preferences) { onPreferences(preferences) }
+
+    // Written down once, so a second run does not explain the tray to somebody who has seen it.
+    LaunchedEffect(explainedTray) {
+        if (explainedTray && !preferences.trayExplained) preferences = preferences.copy(trayExplained = true)
     }
 
     LaunchedEffect(saved) {

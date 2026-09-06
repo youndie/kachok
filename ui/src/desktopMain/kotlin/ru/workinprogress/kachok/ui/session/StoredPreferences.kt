@@ -90,6 +90,8 @@ internal fun loadPreferences(
         // of the system when the screen opens, because somebody can remove it without this client.
         autostart = text(AUTOSTART)?.toBooleanStrictOrNull() ?: fallback.autostart,
         lastDirectory = text(LAST_DIRECTORY) ?: fallback.lastDirectory,
+        closeToTray = text(CLOSE_TO_TRAY)?.toBooleanStrictOrNull() ?: fallback.closeToTray,
+        trayExplained = text(TRAY_EXPLAINED)?.toBooleanStrictOrNull() ?: fallback.trayExplained,
         // Through `withDetailsWidth` so a hand-edited file cannot ask for a panel the window
         // cannot draw.
         detailsWidth =
@@ -117,6 +119,8 @@ internal fun savePreferences(
             setProperty(DHT, preferences.dht.toString())
             setProperty(AUTOSTART, preferences.autostart.toString())
             preferences.lastDirectory?.let { setProperty(LAST_DIRECTORY, it) }
+            setProperty(CLOSE_TO_TRAY, preferences.closeToTray.toString())
+            setProperty(TRAY_EXPLAINED, preferences.trayExplained.toString())
             setProperty(DETAILS_WIDTH, preferences.detailsWidth.toString())
             preferences.maxPeers?.let { setProperty(MAX_PEERS, it.toString()) }
             preferences.pipelineDepth?.let { setProperty(PIPELINE_DEPTH, it.toString()) }
@@ -144,4 +148,6 @@ private const val DOWNLOAD_LIMIT = "downloadLimitKibPerSecond"
 private const val DHT = "dht"
 private const val AUTOSTART = "autostart"
 private const val LAST_DIRECTORY = "lastDirectory"
+private const val CLOSE_TO_TRAY = "closeToTray"
+private const val TRAY_EXPLAINED = "trayExplained"
 private const val DETAILS_WIDTH = "detailsWidth"

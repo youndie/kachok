@@ -24,6 +24,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -70,6 +71,7 @@ internal enum class SettingKey(
     DownloadLimit,
     Dht,
     Autostart,
+    CloseToTray,
     ;
 
     val editable: Boolean get() = disabledBecause == null
@@ -92,6 +94,15 @@ internal class Setting(
     val absent: Boolean = false,
     /** A directory rather than a number: a wider field with a folder in it, and a Browse button. */
     val folder: Boolean = false,
+    /**
+     * Whether this row can be changed *on this machine*, as opposed to ever.
+     *
+     * [SettingKey.disabledBecause] is the permanent answer — the listening port is bound when the
+     * process starts, on every machine. This is the one that depends on where the application is
+     * running: a desktop with no tray has nothing to close to, and a row that could be switched on
+     * there would be a promise the close button does not keep.
+     */
+    val enabled: Boolean = true,
 )
 
 internal class SettingsSection(
@@ -191,7 +202,7 @@ private fun SettingRow(
                 Text("default ${setting.default}", style = DEFAULT, color = scheme.onSurfaceVariant)
                 when {
                     setting.toggle != null -> {
-                        Toggle(setting.toggle, setting.key, setting.label) {
+                        Toggle(setting.toggle, setting.key, setting.label, setting.enabled) {
                             onChange(SettingChange.Toggled(setting.key, !setting.toggle))
                         }
                     }
@@ -323,13 +334,20 @@ private fun Toggle(
     on: Boolean,
     key: SettingKey,
     label: String,
+    enabled: Boolean,
     onToggle: () -> Unit,
 ) {
     val scheme = MaterialTheme.colorScheme
     Box(
         Modifier
-            .semantics { contentDescription = label }
-            .clickable(enabled = key.editable, onClick = onToggle)
+            .semantics {
+                contentDescription = label
+                // **The switch says which way it is.** It is a drawn `Box` and not a `Switch`, so
+                // until this it announced nothing: a screen reader read the label and stopped, and
+                // a test could press it but not read it. The column heads have said their sort
+                // order this way since B-58.
+                stateDescription = if (on) "on" else "off"
+            }.clickable(enabled = enabled && key.editable, onClick = onToggle)
             .width(TOGGLE_WIDTH)
             .height(TOGGLE_HEIGHT)
             .background(

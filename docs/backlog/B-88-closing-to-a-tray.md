@@ -1,7 +1,7 @@
 ---
 id: B-88
 title: "Closing the window leaves the client running, in a tray"
-status: open
+status: done
 priority: P2
 size: M
 stage: phase-2-ui
@@ -36,5 +36,50 @@ somewhere for the window to come back from — and that somewhere is this item.
 - AC: closing the window leaves the transfers running and the client reachable from a tray icon;
   the icon's menu can show the window again and can quit; on a desktop with no tray the close button
   says what it will do instead of doing something invisible.
+
+## Done
+
+**Close leaves it running, with a setting and a notice — not a prompt.** Of the three answers the
+item listed, "always exit" is the one that makes a torrent client something you have to leave open
+to do its job, and "a preference with a first-time prompt" puts a dialog in front of somebody who
+pressed *close*. What is here is the middle one plus the cheap half of the third: closing hides the
+window, and **the first time** — once, remembered in the settings file — the tray says *kachok is
+still running*. That is the answer to the failure the item named: press close, see nothing, press
+again, conclude it is broken.
+
+**Compose's `Tray`, not AWT's `SystemTray` directly**, because `isTraySupported` is the same
+question and the composable is already inside `application {}` where the window lives.
+
+**A desktop with no tray is the case that decides the shape.** GNOME dropped the status-icon
+protocol, and a client that closes into a tray that is not there is one somebody has to kill from a
+terminal. So `isTraySupported` is read once and everything asks it: with no tray the close button
+stops the torrents exactly as before, the settings row says *this desktop has no tray, so the close
+button stops the torrents*, and the row is **not clickable** — a switch that could be turned on
+there would be a promise the close button does not keep. `Setting.enabled` is new for that, and it
+is deliberately not `SettingKey.disabledBecause`: that one is the permanent answer — the listening
+port is bound at start-up on every machine — and this one depends on where the application is
+running.
+
+**And it closes B-83's loop.** Autostart had to settle for *minimised* because "start the engine
+with no window" needed somewhere for the window to come back from. With a tray it starts **hidden**,
+and the settings row says which of the two it will do.
+
+### A defect found on the way in
+
+The toggles announced nothing. They are drawn `Box`es rather than `Switch`es, so a screen reader
+read the label and stopped, and a test could press one but not read it — which is how the no-tray
+case was going to be asserted. They carry `stateDescription` now, the way the column heads already carry
+their sort order.
+
+The settings golden is re-recorded: `STARTUP` has two rows, and the autostart note now says *starts
+in the tray* where there is one.
+
+Not covered, as filed: a notification when a torrent finishes.
+
+**Automated:** `ui/src/desktopTest/.../settings/SettingsScreenTest.kt` — the row asks for the
+change, and with no tray it says so and reads `off` rather than claiming to be on ·
+`ui/src/desktopTest/.../session/StoredPreferencesTest.kt` for the two settings that persist ·
+the `settings_screen` golden. Not automated: the tray icon itself, its menu, and the notification —
+`java.awt.SystemTray` needs a desktop session, and a headless runner has none.
 - Anchors: [`ui/src/desktopMain/kotlin/ru/workinprogress/kachok/ui/App.kt`](../../ui/src/desktopMain/kotlin/ru/workinprogress/kachok/ui/App.kt),
   [`ui/src/desktopMain/resources/icon/`](../../ui/src/desktopMain/resources/icon).

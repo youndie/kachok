@@ -25,6 +25,16 @@ internal data class Preferences(
     val downloadLimitKibPerSecond: Long? = null,
     val dht: Boolean = false,
     val autostart: Boolean = false,
+    /** Closing the window leaves the client running in the tray rather than stopping the torrents. */
+    val closeToTray: Boolean = true,
+    /**
+     * Whether the tray has already explained itself once.
+     *
+     * The failure this exists for: somebody presses close, sees nothing happen, presses it again,
+     * and concludes the application is broken. One notice the first time answers that; a notice
+     * every time is an application that nags.
+     */
+    val trayExplained: Boolean = false,
     /**
      * The folder the last torrent was actually saved to, which is not the *setting*.
      *
@@ -63,6 +73,7 @@ internal data class Preferences(
             SettingKey.StartWhenAdded -> copy(startWhenAdded = on)
             SettingKey.Dht -> copy(dht = on)
             SettingKey.Autostart -> copy(autostart = on)
+            SettingKey.CloseToTray -> copy(closeToTray = on)
             else -> this
         }
 
@@ -145,6 +156,8 @@ internal fun settingsOf(
      * checkbox that has just refused to stay pressed.
      */
     autostartProblem: String? = null,
+    /** Why this desktop has no tray to close to, or null when it has one. */
+    trayProblem: String? = null,
 ): SettingsState {
     val defaultPort = TrackerProtocol.PORT_RANGE.first
     return SettingsState(
@@ -226,14 +239,29 @@ internal fun settingsOf(
                     "STARTUP",
                     listOf(
                         Setting(
+                            key = SettingKey.CloseToTray,
+                            label = "Close to the tray",
+                            note =
+                                trayProblem
+                                    ?: (
+                                        "The close button leaves the torrents running. The tray " +
+                                            "icon brings the window back, and quits."
+                                    ),
+                            default = "on",
+                            value = "",
+                            toggle = preferences.closeToTray && trayProblem == null,
+                            enabled = trayProblem == null,
+                        ),
+                        Setting(
                             key = SettingKey.Autostart,
                             label = "Start with the computer",
                             note =
                                 autostartProblem
-                                    ?: (
-                                        "Starts minimised, so a login is not interrupted by a " +
-                                            "window."
-                                    ),
+                                    ?: if (trayProblem == null) {
+                                        "Starts in the tray, so a login is not interrupted by a window."
+                                    } else {
+                                        "Starts minimised, so a login is not interrupted by a window."
+                                    },
                             default = "off",
                             value = "",
                             toggle = preferences.autostart,

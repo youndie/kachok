@@ -1,5 +1,6 @@
 package ru.workinprogress.kachok.ui.settings
 
+import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -66,6 +67,53 @@ class SettingsScreenTest {
             val toggled = changes.filterIsInstance<SettingChange.Toggled>().single()
             assertEquals(SettingKey.StartWhenAdded, toggled.key)
             assertEquals(false, toggled.on, "it is on, so a click asks for off")
+        }
+
+    /** Closing to the tray is the difference between a client that keeps working and one that stops. */
+    @Test
+    fun closingToTheTrayCanBeTurnedOffFromHere() =
+        runComposeUiTest {
+            val changes = mutableListOf<SettingChange>()
+            setContent { KachokTheme { SettingsScreen(settingsOf(preferences)) { changes += it } } }
+            onNodeWithContentDescription("Close to the tray").performClick()
+            val toggled = changes.filterIsInstance<SettingChange.Toggled>().single()
+            assertEquals(SettingKey.CloseToTray, toggled.key)
+            assertEquals(false, toggled.on, "it is on by default, so a click asks for off")
+        }
+
+    /**
+     * A desktop with no tray says so on the row, and the toggle is not drawn on.
+     *
+     * GNOME dropped the status-icon protocol. A checkbox promising that closing leaves the client
+     * running, on a desktop where closing stops it, is the worst of the three states this can be in
+     * ([B-88](../../../../../../../../docs/backlog/B-88-closing-to-a-tray.md)).
+     */
+    @Test
+    fun withNoTrayTheRowSaysSoAndDoesNotClaimToBeOn() =
+        runComposeUiTest {
+            setContent {
+                KachokTheme {
+                    SettingsScreen(
+                        settingsOf(
+                            preferences,
+                            trayProblem = "This desktop has no tray, so the close button stops the torrents.",
+                        ),
+                    )
+                }
+            }
+            assertEquals(
+                1,
+                onAllNodesWithText("no tray", substring = true).fetchSemanticsNodes().size,
+                "the row does not say the tray is missing",
+            )
+            assertEquals(
+                "off",
+                onNodeWithContentDescription("Close to the tray")
+                    .fetchSemanticsNode()
+                    .config
+                    .getOrNull(androidx.compose.ui.semantics.SemanticsProperties.StateDescription),
+                "the toggle claimed to be on with no tray to close to",
+            )
         }
 
     /** Starting with the computer is a decision a person takes, and taking it writes a file. */
