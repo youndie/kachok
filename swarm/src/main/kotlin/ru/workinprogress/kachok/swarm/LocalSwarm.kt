@@ -4,6 +4,7 @@ import com.sun.net.httpserver.HttpExchange
 import com.sun.net.httpserver.HttpServer
 import ru.workinprogress.kachok.engine.bencode.BDictionary
 import ru.workinprogress.kachok.engine.bencode.BInteger
+import ru.workinprogress.kachok.engine.bencode.BList
 import ru.workinprogress.kachok.engine.bencode.BString
 import ru.workinprogress.kachok.engine.bencode.Bencode
 import ru.workinprogress.kachok.engine.metainfo.Metainfo
@@ -68,8 +69,23 @@ public class LocalSwarm private constructor(
              * buffers however large the torrent is.
              */
             pieceLength: Int = PeerWire.BLOCK_SIZE,
+            /**
+             * Names and lengths, when the torrent is to be a multi-file one.
+             *
+             * The seed does not care: it serves pieces of one byte stream, and BEP 3's multi-file
+             * case is that same stream cut up by the *metainfo*. So this changes the torrent and
+             * nothing else — which is what makes it the right way to test a client that skips a
+             * file, because the swarm behaves identically whether the client wants that file or
+             * not.
+             *
+             * Must add up to `content.size`.
+             */
+            files: List<Pair<String, Int>>? = null,
         ): LocalSwarm {
-            val torrentBytes = torrentBytes(content, pieceLength, placeholderTracker())
+            require(files == null || files.sumOf { it.second } == content.size) {
+                "the files must add up to the content: ${files?.sumOf { it.second }} of ${content.size}"
+            }
+            val torrentBytes = torrentBytes(content, pieceLength, placeholderTracker(), files)
             val metainfo = MetainfoParser.parse(torrentBytes)
             val seed =
                 if (failure != null) {
@@ -88,7 +104,7 @@ public class LocalSwarm private constructor(
             val url = "http://127.0.0.1:${tracker.address.port}/annc"
             // Built twice on purpose: the info hash a peer is asked for has to be the one in the
             // torrent the client reads, and the announce URL is only known after the tracker binds.
-            val finalTorrent = torrentBytes(content, pieceLength, url)
+            val finalTorrent = torrentBytes(content, pieceLength, url, files)
             // The announce URL is outside the `info` dictionary, so the info hash and the bytes the
             // seed serves are the same in both — which is the whole reason the hash is taken over
             // that dictionary and not over the file.
@@ -102,6 +118,7 @@ public class LocalSwarm private constructor(
             content: ByteArray,
             pieceLength: Int,
             trackerUrl: String,
+            files: List<Pair<String, Int>>? = null,
         ): ByteArray {
             val digest = MessageDigest.getInstance("SHA-1")
             val pieces = (content.size + pieceLength - 1) / pieceLength
@@ -113,14 +130,37 @@ public class LocalSwarm private constructor(
                 digest.update(content, from, to - from)
                 digest.digest().copyInto(hashes, index * Metainfo.HASH_SIZE)
             }
-            val info =
-                BDictionary(
+            // BEP 3: single-file torrents carry `length` and a `name` that *is* the file;
+            // multi-file ones carry `files` and a `name` that is the directory they sit in.
+            val shape =
+                if (files == null) {
                     mapOf(
                         BString("length") to BInteger(content.size.toLong()),
                         BString("name") to BString("payload.bin"),
-                        BString("piece length") to BInteger(pieceLength.toLong()),
-                        BString("pieces") to BString(hashes),
-                    ),
+                    )
+                } else {
+                    mapOf(
+                        BString("files") to
+                            BList(
+                                files.map { (name, length) ->
+                                    BDictionary(
+                                        mapOf(
+                                            BString("length") to BInteger(length.toLong()),
+                                            BString("path") to BList(listOf(BString(name))),
+                                        ),
+                                    )
+                                },
+                            ),
+                        BString("name") to BString("bundle"),
+                    )
+                }
+            val info =
+                BDictionary(
+                    shape +
+                        mapOf(
+                            BString("piece length") to BInteger(pieceLength.toLong()),
+                            BString("pieces") to BString(hashes),
+                        ),
                 )
             return Bencode.encode(
                 BDictionary(mapOf(BString("announce") to BString(trackerUrl), BString("info") to info)),
