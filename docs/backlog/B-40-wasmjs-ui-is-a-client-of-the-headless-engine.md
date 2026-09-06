@@ -1,10 +1,10 @@
 ---
 id: B-40
-title: "Phase 2: the wasmJs UI is a client of the JVM headless engine"
+title: "The browser build of the UI is a client of the headless engine"
 status: open
 priority: P3
 size: L
-stage: phase-2-ui
+stage: phase-3-server
 blocked_by: [B-80]
 ---
 
@@ -53,6 +53,12 @@ than intentions:
 serialisation format, and what happens when the socket is not only local. Nothing in the desktop
 work forces any of the three, and guessing one would put a security model in the repository that
 nobody chose. Recorded here rather than started.
+
+> **Deferred out of phase 2 on 2026-09-06, with its transport half built and shipped.** What is
+> left needs the screens in `commonMain` — [B-80](B-80-the-ui-moves-to-commonmain.md), a phase-3
+> item — so this item was the only thing keeping phase 2 open and the only thing it was waiting on
+> was phase 3. It sits beside [B-87](B-87-a-server-with-a-web-face.md) now, which wants the same
+> page for the same reason.
 
 ## The three answers, taken by the owner on 2026-09-06
 

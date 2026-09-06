@@ -37,9 +37,9 @@ which is also the order of work.
 | `m6-resume` | M6 — Resume | Atomic resume files, start-up verification, graceful shutdown. |
 | `m7-measure` | M7 — Measure and ship | JFR baseline, heap and collector, the run-time image, the AOT cache — every hypothesis in the research gets its number here. |
 | `m8-extensions` | M8 — Extensions | UDP trackers, fast extension, PEX, DHT, magnets, v2, IPv6. |
-| `phase-2-ui` | Phase 2 — UI | Compose desktop in-process; the browser build as a client of the headless engine. Placeholders. |
+| `phase-2-ui` | Phase 2 — UI | Compose desktop in-process: the window, its screens, the installers and the OS integration. |
 | `phase-3-mobile` | Phase 3 — Mobile | Android and iOS targets. Placeholder. |
-| `phase-3-server` | Phase 3 — Server | The headless client as a service on a box that is always on, with a web face. Placeholder. |
+| `phase-3-server` | Phase 3 — Server | The headless client as a service on a box that is always on, and the browser build that is its face. Placeholder. |
 
 ## Marks
 
@@ -54,7 +54,7 @@ which is also the order of work.
 | [B-79](docs/backlog/B-79-the-windows-state-outlives-its-composition.md) `[ ]` | The window's state outlives its composition | P2 | L | - |
 | [B-80](docs/backlog/B-80-the-ui-moves-to-commonmain.md) `[ ]` | The UI moves to commonMain | P2 | L | B-79 |
 | [B-37](docs/backlog/B-37-v2-and-hybrid-torrents.md) `[?]` | v2 and hybrid torrents (BEP 52): SHA-256 piece layers | P3 | L | B-04 |
-| [B-40](docs/backlog/B-40-wasmjs-ui-is-a-client-of-the-headless-engine.md) `[ ]` | Phase 2: the wasmJs UI is a client of the JVM headless engine | P3 | L | B-80 |
+| [B-40](docs/backlog/B-40-wasmjs-ui-is-a-client-of-the-headless-engine.md) `[ ]` | The browser build of the UI is a client of the headless engine | P3 | L | B-80 |
 | [B-41](docs/backlog/B-41-android-and-ios-targets.md) `[ ]` | Phase 3: Android and iOS targets on the engine | P3 | XL | B-39 |
 | [B-87](docs/backlog/B-87-a-server-with-a-web-face.md) `[ ]` | Phase 3: a headless server with a web face, installable on a box that is always on | P3 | XL | B-80 |
 | [B-02](docs/backlog/B-02-ci-runs-build-and-docs-gates.md) `[ ]` | CI runs the build and the documentation gates on every push | infra | S | B-01 |

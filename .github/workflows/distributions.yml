@@ -1,0 +1,97 @@
+name: distributions
+
+# **`workflow_dispatch` and nothing else.** A run produces about 200 MB of installers on three
+# runners; a build on every push would be storage and minutes spent on artifacts nobody downloads.
+# The gate that must run on every push is in `ci.yml`, and it is a different question.
+on:
+  workflow_dispatch:
+    inputs:
+      retention-days:
+        description: "How long to keep the artifacts (days, 1-30)"
+        required: false
+        default: "30"
+
+permissions:
+  contents: read
+
+jobs:
+  # **`jpackage` cannot cross-compile**, which is why this is a matrix and not a loop: a macOS
+  # bundle is built on macOS, an `.msi` on Windows, a `.deb` on Linux, and there is no host that
+  # can produce another host's installer.
+  desktop:
+    strategy:
+      # One platform failing must not cancel the other two: a run that produced two of three
+      # installers is worth having, and which one broke is the thing to find out.
+      fail-fast: false
+      matrix:
+        include:
+          # `macos-latest` is arm64. An Intel `.dmg` is `macos-13` and one more matrix entry, added
+          # when somebody has an Intel Mac to give it to — the artifact's name says which it is.
+          - os: macos-latest
+            format: dmg
+          - os: windows-latest
+            format: msi
+          - os: ubuntu-latest
+            format: deb
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: youndie/sborka/.github/actions/setup-kotlin@main
+
+      # `jpackage` skips the DEB bundler without `fakeroot` — with a message that names it, which is
+      # the good kind of failure — and `:ui:patchDesktopEntry` repacks the package with it.
+      - if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y fakeroot
+
+      # **Before the packaging, on the platform that will ship it.** The trimmed `jlink` runtime is
+      # the only place a missing module can exist, and it shipped once without `java.net.http`
+      # (B-78). This runs the packaged launcher's own preflight, so a broken image fails the job
+      # instead of reaching whoever downloads the artifact.
+      - run: ./gradlew :ui:checkDistributable --stacktrace
+
+      - run: ./gradlew :ui:packageDistributionForCurrentOS --stacktrace
+
+      # So the log says what was built rather than only that something was.
+      - name: What came out
+        shell: bash
+        run: ls -lh ui/build/compose/binaries/main/${{ matrix.format }}/
+
+      - uses: actions/upload-artifact@v7
+        with:
+          # The commit is in the name because two artifacts from two commits are otherwise told
+          # apart only by the run they came from, and a downloaded file keeps none of that.
+          name: kachok-${{ runner.os }}-${{ runner.arch }}-${{ github.sha }}
+          path: ui/build/compose/binaries/main/${{ matrix.format }}/*.${{ matrix.format }}
+          # **The guard.** `packageDistributionForCurrentOS` with no format configured succeeded in
+          # under a second and wrote nothing, which is how B-82 was filed; without this a run that
+          # produces no installer is a green run.
+          if-no-files-found: error
+          retention-days: ${{ inputs.retention-days }}
+
+  # The headless client, which is a different artifact for a different machine: no window, no
+  # installer, a `jlink` image with a launcher that fixes the JVM flags. It is what the always-on
+  # box in [B-87](../../docs/backlog/B-87-a-server-with-a-web-face.md) would run.
+  headless:
+    # Linux only, and that is a fact rather than a choice: the generated launcher is `#!/bin/sh`
+    # with a colon-separated class path, so it does not run on Windows at all.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: youndie/sborka/.github/actions/setup-kotlin@main
+
+      - run: ./gradlew :cli:runtimeImage --stacktrace
+
+      # **A tarball, and not the directory.** `upload-artifact` zips what it is given and a zip
+      # keeps no executable bit, so an uploaded `bin/kachok` arrives unrunnable — a distribution
+      # that looks complete and is not.
+      - name: Tar it, so the launcher stays executable
+        run: tar -czf kachok-headless-linux-x64.tar.gz -C cli/build kachok
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: kachok-headless-Linux-X64-${{ github.sha }}
+          path: kachok-headless-linux-x64.tar.gz
+          if-no-files-found: error
+          retention-days: ${{ inputs.retention-days }}
