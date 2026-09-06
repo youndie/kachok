@@ -170,10 +170,21 @@ class CommandsEndToEndTest {
                 // order.
                 runtime.pause()
                 runtime.waitUntil("the pause lands") { runtime.state.value.paused }
+                val at = local.metainfo.pieceLength + 21L
+                val damage = "CORRUPT".encodeToByteArray()
                 Files.newByteChannel(file, StandardOpenOption.WRITE).use { channel ->
-                    channel.position(local.metainfo.pieceLength + 21L)
-                    channel.write(java.nio.ByteBuffer.wrap("CORRUPT".encodeToByteArray()))
+                    channel.position(at)
+                    channel.write(java.nio.ByteBuffer.wrap(damage))
                 }
+                // Read back before asking for anything. The engine holds its own handle on this
+                // file, and "the re-check found nothing wrong" has two causes — a pass that does
+                // not look, and a write that never landed. A timeout cannot tell them apart, and on
+                // Windows it was the second.
+                assertContentEquals(
+                    damage,
+                    Files.readAllBytes(file).copyOfRange(at.toInt(), at.toInt() + damage.size),
+                    "the corruption never reached the disk, so the re-check has nothing to find",
+                )
                 runtime.resume()
 
                 runtime.recheck()
