@@ -2,6 +2,8 @@ package ru.workinprogress.kachok.cli
 
 import com.sun.net.httpserver.HttpExchange
 import com.sun.net.httpserver.HttpServer
+import org.junit.jupiter.api.condition.EnabledOnOs
+import org.junit.jupiter.api.condition.OS
 import ru.workinprogress.kachok.engine.InfoHash
 import ru.workinprogress.kachok.engine.bencode.BDictionary
 import ru.workinprogress.kachok.engine.bencode.BInteger
@@ -30,6 +32,15 @@ import kotlin.test.assertTrue
  * A shutdown sequence is only worth anything if it survives the way it is actually triggered, so
  * this spawns the client in its own JVM and sends it `SIGINT` — the same thing a user pressing
  * Ctrl-C sends. Everything else about it is in-process; this one cannot be.
+ *
+ * **POSIX only, and it says so rather than failing.** `SIGINT` is what a shutdown hook is *for*,
+ * and there is no way to send one on Windows: `Process.destroy` there is `TerminateProcess`, which
+ * runs no hook and would test nothing. Running the suite on Windows found this as a red build with
+ * `Cannot run program "kill"` — which is a test that cannot run, reported as a client that does not
+ * work. It is skipped there, loudly, and the client's shutdown on Windows is not covered by
+ * anything: what a person there presses is the window's close button, which is
+ * [B-53](../../../../../../../docs/backlog/B-53-a-window-that-closes-cleanly.md)'s path and not
+ * this one.
  */
 class ShutdownTest {
     private val root: Path = Files.createTempDirectory("kachok-shutdown")
@@ -104,6 +115,7 @@ class ShutdownTest {
     }
 
     @Test
+    @EnabledOnOs(OS.LINUX, OS.MAC)
     fun anInterruptedDownloadTellsTheTrackerAndLeavesAUsableRecord() {
         val placeholder = startTracker(1)
         val infoHash: InfoHash = MetainfoParser.parse(torrentBytes(placeholder)).infoHash
@@ -155,6 +167,8 @@ class ShutdownTest {
             peer.served.size >= BLOCKS_BEFORE_THE_SIGNAL,
             "the download never started, so the signal would prove nothing: $output",
         )
+        // `kill -INT` and not `Process.destroy()`: on POSIX the latter sends SIGTERM, which this
+        // client does not install a hook for, and the whole point is the signal Ctrl-C sends.
         ProcessBuilder("kill", "-INT", process.pid().toString()).start().waitFor()
 
         assertTrue(process.waitFor(30, TimeUnit.SECONDS), "the client did not stop: $output")
