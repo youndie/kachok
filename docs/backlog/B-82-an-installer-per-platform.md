@@ -87,8 +87,35 @@ an agreement and installable without administrator rights. Measured on the build
 |---|---|
 | WiX v7 (`winget install WiXToolset.WiXCLI`) | installs cleanly, then refuses every command: `WIX7015: You must accept the Open Source Maintenance Fee (OSMF) EULA`. Accepting a licence is the owner's signature, not a build step. |
 | WiX v3.14 (`winget install WiXToolset.WiXToolset`) | needs the `NetFx3` Windows feature, which the installer could not enable: `Failed to enable [NetFx3] feature: 5` — elevation. |
-| WiX v5 (MIT, no fee) | `dotnet tool install --global wix --version 5.*`, which needs a .NET **SDK**; the machine has the runtimes 6, 8 and 10 and no SDK. |
+| WiX v5.0.2 | **nothing.** Corrected below — this line first said it needed a .NET SDK, which was wrong. |
 | Ship the app image | what happens today. It is also why `.torrent` cannot be double-clicked ([B-84](B-84-torrent-files-open-with-the-client.md)). |
+
+**The route that costs nothing was missed because `winget` does not list it.** `winget search wix`
+offers 3.14 and 7.0 and nothing between, and from that it looked as though v4 and v5 were the
+`dotnet tool` line — which would need a .NET SDK the machine does not have. They are not, from
+v5.0.1 onward: every release since carries a plain `wix-cli-x64.msi`, the same standalone installer
+v7 uses. Read off the project's own releases on 2026-09-06:
+
+| Version | Released | Standalone `wix-cli-x64.msi` | Maintenance fee |
+|---|---|---|---|
+| 3.14.1 | — | no, its own installer | none, and needs `NetFx3` |
+| 4.0.6 | 2024-10-05 | no | none |
+| **5.0.2** | **2024-10-05** | **yes** | **none** |
+| 6.0.0 | 2025-04-08 | yes | first release carrying the OSMF notice |
+| 7.0.0 | 2026-04-06 | yes | OSMF, and `wix.exe` refuses every command until it is accepted |
+
+`jpackage` on JDK 25 speaks both dialects, which is the other half of why this is a free choice
+rather than a forced one: `jdk.jpackage.internal.WixToolset$WixToolsetType` has `Wix3` and `Wix4`,
+it looks for `candle.exe`/`light.exe` and for `wix.exe`, it searches `C:\Program Files\WiX Toolset
+v*\bin` along with `%USERPROFILE%\.dotnet\tools`, and it ships `wix3-to-wix4-conv.xsl` to convert
+its own sources between them. Read out of the module image on the build machine rather than
+remembered.
+
+**So the decision is smaller than this item first said**: v5.0.2's MSI needs neither elevation nor a
+licence, and `wix extension add -g WixToolset.Util.wixext WixToolset.UI.wixext` is the only step
+after it. It is a version behind the maintained line, and that is the trade — a newer WiX means the
+fee, an older one means WiX 3 and `NetFx3`. **Waiting on the owner: which WiX goes on that
+machine.**
 
 The machine was left as it was found: WiX v7 was installed, proved unusable without the EULA, and
 uninstalled. **Automated:** none — a packaging run is minutes long and produces a 57–71 MB file, so
