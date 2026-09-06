@@ -1,5 +1,7 @@
 package ru.workinprogress.kachok.engine.storage
 
+import org.junit.jupiter.api.condition.EnabledOnOs
+import org.junit.jupiter.api.condition.OS
 import ru.workinprogress.kachok.engine.metainfo.MetainfoParser
 import java.nio.ByteBuffer
 import java.nio.file.Files
@@ -66,8 +68,14 @@ class FileSetTest {
      * The check shells out to `du`. The JDK exposes no allocated-block count portably — the unix
      * attribute view on macOS offers `size` and not `blocks` — and a test that quietly skipped
      * would be indistinguishable from one that passed.
+     *
+     * **POSIX only, because `du` is.** NTFS has sparse files and `StandardOpenOption.SPARSE` asks
+     * for one, but nothing on Windows measures allocated blocks from Java, so there is nothing to
+     * assert there. Skipped rather than weakened: the claim is about bytes on a disk and a version
+     * of it that only looked at `size` would pass on a preallocated file.
      */
     @Test
+    @EnabledOnOs(OS.LINUX, OS.MAC)
     fun aFreshFileIsSparseRatherThanPreallocated() {
         assertTrue(isUnix(), "phase 1 does not test Windows, and du is how this is measured")
         val big = MetainfoParser.parse(eightMegabytes.encodeToByteArray())

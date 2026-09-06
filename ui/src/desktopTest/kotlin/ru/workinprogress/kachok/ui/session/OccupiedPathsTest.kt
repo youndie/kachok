@@ -36,9 +36,26 @@ class OccupiedPathsTest {
         return Pending(metainfo, null, addFrom(metainfo, "$name.torrent", saveTo = saveTo, defaultDirectory = saveTo))
     }
 
-    private val here = "/srv/torrents"
+    /**
+     * A directory the running platform would actually produce.
+     *
+     * `/srv/torrents` is not a path on Windows, and `"$here/payload.bin"` is not how `FileSet`
+     * spells one there — it uses `Path`, which on Windows writes backslashes. Two of these tests
+     * passed on macOS and failed on Windows for exactly that: the map they were given could never
+     * match the paths the code computes. Both sides go through `Path` now.
+     */
+    private val here: String = Path.of(System.getProperty("java.io.tmpdir"), "kachok-occupied").toString()
 
-    private fun occupied(vararg entries: Pair<String, String>) = entries.toMap()
+    private val elsewhere: String = Path.of(here).resolveSibling("kachok-elsewhere").toString()
+
+    /** Keyed the way `FileSet.pathsIn` keys them, which is the only way the lookup can hit. */
+    private fun occupied(vararg entries: Pair<String, String>) =
+        entries.associate { (name, owner) -> Path.of(here, name).toString() to owner }
+
+    private fun occupiedIn(
+        directory: String,
+        vararg entries: Pair<String, String>,
+    ) = entries.associate { (name, owner) -> Path.of(directory, name).toString() to owner }
 
     @Test
     fun anEmptyDirectoryRefusesNothing() {
@@ -55,11 +72,7 @@ class OccupiedPathsTest {
      */
     @Test
     fun aFileAnotherTorrentOwnsIsRefusedByName() {
-        val state =
-            refusedIfOccupied(
-                pending("payload.bin", 2048, here),
-                occupied("$here/payload.bin" to "payload.bin"),
-            )
+        val state = refusedIfOccupied(pending("payload.bin", 2048, here), occupied("payload.bin" to "payload.bin"))
         assertTrue(!state.canAdd, "the dialog offered to add a torrent the set will refuse")
         val why = state.whyNot.orEmpty()
         assertTrue("payload.bin" in why, why)
@@ -71,10 +84,7 @@ class OccupiedPathsTest {
     @Test
     fun theSameNameInAnotherDirectoryIsFine() {
         val state =
-            refusedIfOccupied(
-                pending("payload.bin", 2048, "/srv/elsewhere"),
-                occupied("$here/payload.bin" to "payload.bin"),
-            )
+            refusedIfOccupied(pending("payload.bin", 2048, elsewhere), occupied("payload.bin" to "payload.bin"))
         assertTrue(state.canAdd)
     }
 
@@ -84,7 +94,7 @@ class OccupiedPathsTest {
         val state =
             refusedIfOccupied(
                 pending("payload.bin", 1024, here),
-                occupied("$here/something-else.bin" to "something-else.bin"),
+                occupied("something-else.bin" to "something-else.bin"),
             )
         assertTrue(state.canAdd)
     }
@@ -103,32 +113,28 @@ class OccupiedPathsTest {
                 magnet = null,
                 shown = addFrom(torrent("payload.bin", 1024), "x.torrent", saveTo = here, defaultDirectory = here),
             )
-        val state = refusedIfOccupied(magnet, occupied("$here/payload.bin" to "payload.bin"))
+        val state = refusedIfOccupied(magnet, occupied("payload.bin" to "payload.bin"))
         assertTrue(state.canAdd, "a torrent with no metainfo was judged on paths nobody knows")
     }
 
     /** The paths are judged where the dialog says the files will go, not where the settings do. */
     @Test
     fun theCheckFollowsTheFolderTheDialogIsShowing() {
-        val moved = pending("payload.bin", 1024, here).savingTo("/srv/elsewhere")
+        val moved = pending("payload.bin", 1024, here).savingTo(elsewhere)
         assertTrue(
-            refusedIfOccupied(moved, occupied("$here/payload.bin" to "payload.bin")).canAdd,
+            refusedIfOccupied(moved, occupied("payload.bin" to "payload.bin")).canAdd,
             "the check used the old folder after Browse… moved it",
         )
         assertTrue(
-            !refusedIfOccupied(moved, occupied("/srv/elsewhere/payload.bin" to "payload.bin")).canAdd,
+            !refusedIfOccupied(moved, occupiedIn(elsewhere, "payload.bin" to "payload.bin")).canAdd,
             "the check did not follow Browse… to the new folder",
         )
     }
 
-    /** And the directory in the message is a real path, not the string that was typed. */
+    /** The message names the file, not the whole path, which nobody needs read back to them. */
     @Test
     fun theRefusalNamesTheFileRatherThanTheWholePath() {
-        val state =
-            refusedIfOccupied(
-                pending("payload.bin", 2048, here),
-                occupied(Path.of(here, "payload.bin").toString() to "payload.bin"),
-            )
+        val state = refusedIfOccupied(pending("payload.bin", 2048, here), occupied("payload.bin" to "payload.bin"))
         assertTrue(!state.canAdd)
         assertTrue(here !in state.whyNot.orEmpty(), "the message reads out the whole path: ${state.whyNot}")
     }

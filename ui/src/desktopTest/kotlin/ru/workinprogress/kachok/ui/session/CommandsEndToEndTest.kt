@@ -5,7 +5,6 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.withTimeout
 import ru.workinprogress.kachok.engine.io.EngineDispatchers
 import ru.workinprogress.kachok.engine.runtime.RuntimeOptions
 import ru.workinprogress.kachok.engine.runtime.TorrentRuntime
@@ -76,13 +75,34 @@ class CommandsEndToEndTest {
             }
         }
 
+    /**
+     * Waits, and says what the session looked like when it gave up.
+     *
+     * A `TimeoutCancellationException` on its own names the line and nothing else, which is what a
+     * failure on another machine looks like from here: the Windows run said only "timed out" and
+     * the interesting part — whether it was still paused, whether it had a peer, what the last dial
+     * said — was not in the report.
+     */
     private suspend fun TorrentRuntime.waitUntil(
         what: String,
         timeout: kotlin.time.Duration = 30.seconds,
         condition: () -> Boolean,
     ) {
-        withTimeout(timeout) {
-            while (!condition()) delay(SAMPLE)
+        val deadline =
+            kotlin.time.TimeSource.Monotonic
+                .markNow() + timeout
+        while (!condition()) {
+            if (deadline.hasPassedNow()) {
+                val now = state.value
+                error(
+                    "timed out waiting for $what — paused=${now.paused} peers=${now.connectedPeers} " +
+                        "unchoked=${now.unchokedPeers} " +
+                        "known=${now.knownPeers} pieces=${now.completedPieces}/${now.pieceCount} " +
+                        "outstanding=${now.outstandingRequests} lastPeer=${now.lastPeerError} " +
+                        "tracker=${now.trackerError} session=${now.sessionError}",
+                )
+            }
+            delay(SAMPLE)
         }
     }
 

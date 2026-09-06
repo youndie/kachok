@@ -1,5 +1,7 @@
 package ru.workinprogress.kachok.engine.io
 
+import org.junit.jupiter.api.condition.EnabledOnOs
+import org.junit.jupiter.api.condition.OS
 import java.io.IOException
 import java.net.InetSocketAddress
 import java.net.StandardSocketOptions
@@ -92,7 +94,17 @@ class BlockedTransferTest {
         assertTrue(!ended.get(), "the writer was never blocked, so this test measures nothing")
     }
 
+    /**
+     * **POSIX only, and Windows is the reason this probe exists at all.**
+     *
+     * Run there, it fails — `close()` *does* end a transfer in flight on Windows, where on Linux
+     * and macOS it does not. That is the platform difference `SocketPeerConnection.close` carries
+     * its `shutdownOutput` for, and a probe that asserted the POSIX behaviour on Windows would be
+     * reporting a client that works as a client that is broken. Written down in the research beside
+     * §1.3d rather than left as a red build.
+     */
     @Test
+    @EnabledOnOs(OS.LINUX, OS.MAC)
     fun closingTheSocketDoesNotEndATransferInFlight() {
         blockedTransfer()
 

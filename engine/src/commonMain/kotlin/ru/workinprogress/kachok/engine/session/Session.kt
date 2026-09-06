@@ -143,6 +143,22 @@ public class Session(
     private val failed = HashMap<PeerAddress, kotlin.time.TimeMark>()
 
     /**
+     * Peers this client hung up on deliberately — for a pause or a re-check.
+     *
+     * [serve]'s `finally` records every disconnection in [failed] so that a peer which accepts and
+     * immediately hangs up is not redialled in a tight loop. A peer *we* closed is not that, and
+     * treating it as one is a race with a visible cost: `resume` and `recheck` clear [failed] and
+     * dial, and the `finally` blocks of the peers they just closed are still draining and put every
+     * address back — after which nothing dials until the reconnect delay expires.
+     *
+     * `resume` worked around it by clearing after the announce, which is a bet on how long a
+     * `finally` takes. This is the same fix without the bet, and it covers `recheck` too, where the
+     * bet was losing: a re-check that found a bad piece then sat there with a connected peer and no
+     * requests until the delay ran out.
+     */
+    private val closedByUs = HashSet<PeerAddress>()
+
+    /**
      * How many peers to keep up, which [Command.Reconfigure] may change.
      *
      * A field rather than `config.maxPeers` because a running session can be told a new number and
@@ -385,6 +401,7 @@ public class Session(
         publish {
             it.copy(paused = true, connectedPeers = 0, unchokedPeers = 0, outstandingRequests = 0)
         }
+        closedByUs += connected.keys
         connected.snapshot().forEach { it.connection.close() }
         connected.clear()
         storage.flush()
@@ -426,6 +443,7 @@ public class Session(
             it.copy(paused = true, connectedPeers = 0, unchokedPeers = 0, outstandingRequests = 0)
         }
         announce(AnnounceEvent.STOPPED)
+        closedByUs += connected.keys
         connected.snapshot().forEach { it.connection.close() }
         connected.clear()
         storage.flush()
@@ -441,10 +459,10 @@ public class Session(
      * recorded as a failure by [serve]'s `finally`, and without this a resume would sit through the
      * reconnect delay before touching a swarm it was talking to a moment ago.
      *
-     * Cleared **after** the announce and not before it. Those `finally` blocks are still draining
-     * while the announce suspends, so a clear at the top of this function is undone by the peers
-     * the pause has not finished hanging up on — which showed up as a resume that announced,
-     * reported itself un-paused, and dialled nobody.
+     * It used to matter that this happened *after* the announce: the `finally` blocks were still
+     * draining and would undo a clear made at the top. [closedByUs] removes that bet — a peer this
+     * client hung up on is never recorded as a failure in the first place — and the ordering here
+     * is now only about announcing before dialling.
      */
     private suspend fun resume(scope: CoroutineScope) {
         if (!paused || stopping) return
@@ -455,6 +473,8 @@ public class Session(
             known += peers
             publish { it.copy(knownPeers = known.size) }
         }
+        // Everything this pause closed is exempt through [closedByUs]; this is for peers that had
+        // genuinely failed before it, which a person pressing *Resume* is entitled to have retried.
         failed.clear()
         connectMore(scope)
     }
@@ -738,8 +758,9 @@ public class Session(
             connection.close()
             // The same wait as after a failed dial, and for a stronger reason: a peer that accepts
             // and immediately hangs up would otherwise be redialled in a tight loop, which is a
-            // busy wait against somebody else's machine as well as our own.
-            failed[address] = timeSource.markNow()
+            // busy wait against somebody else's machine as well as our own. A peer this client hung
+            // up on for a pause or a re-check is not that, and must not be made to serve the delay.
+            if (!closedByUs.remove(address)) failed[address] = timeSource.markNow()
             publish { it.copy(connectedPeers = connected.size) }
             if (!stopping && !paused && scope.isActive) connectMore(scope)
         }
