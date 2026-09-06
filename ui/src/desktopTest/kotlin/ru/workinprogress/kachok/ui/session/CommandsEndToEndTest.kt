@@ -5,6 +5,8 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
+import org.junit.jupiter.api.condition.EnabledOnOs
+import org.junit.jupiter.api.condition.OS
 import ru.workinprogress.kachok.engine.io.EngineDispatchers
 import ru.workinprogress.kachok.engine.runtime.RuntimeOptions
 import ru.workinprogress.kachok.engine.runtime.TorrentRuntime
@@ -150,8 +152,24 @@ class CommandsEndToEndTest {
             }
         }
 
-    /** A re-check reads the disk again and finds what went bad under it. */
+    /**
+     * A re-check reads the disk again and finds what went bad under it.
+     *
+     * **POSIX only, because the damage is.** The test corrupts the file through a second handle
+     * while the client holds its own — and on Windows that write does not survive: the client's
+     * next `force()` writes back its own cached view of the page and the file is whole again. Read
+     * back immediately the corruption is there; after the flush it is gone, which the failure
+     * message on Windows said in as many words.
+     *
+     * That is the *test's* premise being unportable, not the client's behaviour: a file that goes
+     * bad in the real world does so while nothing has it open, or through the handle that has it.
+     * The re-check itself is covered on every platform by
+     * `SessionTest#aRecheckFindsAPieceThatWentBadOnTheDisk`, which corrupts by lying to the hasher
+     * and needs no second handle. What only this test can reach — the reconnect around a re-check —
+     * found two real bugs in the engine, and both are fixed everywhere.
+     */
     @Test
+    @EnabledOnOs(OS.LINUX, OS.MAC)
     fun aRecheckFindsAPieceThatWentBadOnTheDiskAndFetchesItAgain(): Unit =
         runBlocking {
             downloading(blockMillis = 0) { local, _, runtime, _ ->
