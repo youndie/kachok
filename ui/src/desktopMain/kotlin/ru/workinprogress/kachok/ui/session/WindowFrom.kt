@@ -1,6 +1,8 @@
 package ru.workinprogress.kachok.ui.session
 
+import androidx.compose.ui.unit.Dp
 import ru.workinprogress.kachok.ui.add.AddTorrentState
+import ru.workinprogress.kachok.ui.details.Details
 import ru.workinprogress.kachok.ui.details.DetailsState
 import ru.workinprogress.kachok.ui.list.TorrentRowModel
 import ru.workinprogress.kachok.ui.list.TorrentState
@@ -76,6 +78,7 @@ internal fun windowOf(
     dropping: List<String> = emptyList(),
     /** A magnet noticed on the clipboard when the window came back into focus. */
     clipboardMagnet: String? = null,
+    detailsWidth: Dp = Details.width,
     sort: SortOrder = SortOrder(),
 ): MainWindowState =
     MainWindowState(
@@ -88,6 +91,7 @@ internal fun windowOf(
         hiddenByFilter = allRows.size - rows.size,
         dropping = dropping,
         clipboardMagnet = clipboardMagnet,
+        detailsWidth = detailsWidth,
         status = statusOf(allRows, rates, listenPort, dhtNodes, heapUsedBytes, heapMaxBytes),
         // What Pause and Resume may do is decided by the row that is selected, so the bar is built
         // from the list rather than defaulted and left.

@@ -24,11 +24,23 @@ internal data class Preferences(
     val uploadLimitKibPerSecond: Long? = null,
     val downloadLimitKibPerSecond: Long? = null,
     val dht: Boolean = false,
+    /**
+     * How wide the details panel is, in dp.
+     *
+     * A setting and not window state: a panel a person widened once and finds back at 340 every
+     * launch is a panel they widen every launch. It is not on the settings screen — the way to set
+     * it is to drag it.
+     */
+    val detailsWidth: Float = DEFAULT_DETAILS_WIDTH,
 ) {
     /** The same preferences with the port the listener actually bound written into them. */
     fun boundTo(port: Int): Preferences = copy(port = port)
 
     fun withDirectory(path: String): Preferences = copy(directory = path)
+
+    /** Clamped here rather than at the drag, so no caller can store a width the panel cannot draw. */
+    fun withDetailsWidth(width: Float): Preferences =
+        copy(detailsWidth = width.coerceIn(MIN_DETAILS_WIDTH, MAX_DETAILS_WIDTH))
 
     fun toggled(
         key: SettingKey,
@@ -88,6 +100,13 @@ internal data class Preferences(
             sequential = sequential,
         )
 }
+
+/** The design's own three: 340 drawn, 280–520 allowed. Floats because a drag is in fractions. */
+internal const val DEFAULT_DETAILS_WIDTH: Float = 340f
+
+internal const val MIN_DETAILS_WIDTH: Float = 280f
+
+internal const val MAX_DETAILS_WIDTH: Float = 520f
 
 private const val KIB = 1024L
 

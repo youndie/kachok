@@ -3,12 +3,16 @@ package ru.workinprogress.kachok.ui.details
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -28,6 +32,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.PointerIcon
+import androidx.compose.ui.input.pointer.pointerHoverIcon
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
@@ -49,6 +56,7 @@ import ru.workinprogress.kachok.ui.theme.PathText
 import ru.workinprogress.kachok.ui.theme.RowName
 import ru.workinprogress.kachok.ui.theme.RowStateLabel
 import ru.workinprogress.kachok.ui.theme.warningColors
+import java.awt.Cursor
 import kotlin.time.Duration.Companion.milliseconds
 
 /**
@@ -200,10 +208,33 @@ internal fun DetailsPanel(
     onTab: (DetailsTab) -> Unit = {},
     onCopy: (String) -> Unit = {},
     onAnnounce: () -> Unit = {},
+    /** Where the drag has put the edge, clamped by the caller to [Details.minimumWidth]..[Details.maximumWidth]. */
+    width: Dp = Details.width,
+    onResize: (Dp) -> Unit = {},
 ) {
     val scheme = MaterialTheme.colorScheme
-    Row(modifier.width(Details.width + HAIRLINE)) {
-        Box(Modifier.width(HAIRLINE).fillMaxSize().background(scheme.outlineVariant))
+    val density = LocalDensity.current
+    Row(modifier.width(width + HAIRLINE)) {
+        // The hairline between the list and the panel *is* the handle. A separate grab strip would
+        // be either invisible or a second line the design does not draw; this widens the pointer's
+        // reach instead of the line, so what is drawn is the design's one pixel and what can be
+        // caught is eight.
+        Box(
+            Modifier
+                .width(HAIRLINE)
+                .fillMaxHeight()
+                .background(scheme.outlineVariant)
+                .pointerHoverIcon(PointerIcon(Cursor(Cursor.E_RESIZE_CURSOR)))
+                .draggable(
+                    orientation = Orientation.Horizontal,
+                    state =
+                        rememberDraggableState { delta ->
+                            // Dragging the edge left makes the panel wider: the panel is on the
+                            // right, so its width grows as the divider moves the other way.
+                            onResize(width - with(density) { delta.toDp() })
+                        },
+                ).semantics { contentDescription = "Resize the details panel" },
+        )
         Column(Modifier.fillMaxSize().background(KachokPalette.panel)) {
             Header(state)
             Tabs(state.tab, onTab)

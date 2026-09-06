@@ -80,6 +80,13 @@ internal fun loadPreferences(
         uploadLimitKibPerSecond = number(UPLOAD_LIMIT) ?: fallback.uploadLimitKibPerSecond,
         downloadLimitKibPerSecond = number(DOWNLOAD_LIMIT) ?: fallback.downloadLimitKibPerSecond,
         dht = text(DHT)?.toBooleanStrictOrNull() ?: fallback.dht,
+        // Through `withDetailsWidth` so a hand-edited file cannot ask for a panel the window
+        // cannot draw.
+        detailsWidth =
+            text(DETAILS_WIDTH)
+                ?.toFloatOrNull()
+                ?.let { fallback.withDetailsWidth(it).detailsWidth }
+                ?: fallback.detailsWidth,
     )
 }
 
@@ -98,6 +105,7 @@ internal fun savePreferences(
             setProperty(DIRECTORY, preferences.directory)
             setProperty(START_WHEN_ADDED, preferences.startWhenAdded.toString())
             setProperty(DHT, preferences.dht.toString())
+            setProperty(DETAILS_WIDTH, preferences.detailsWidth.toString())
             preferences.maxPeers?.let { setProperty(MAX_PEERS, it.toString()) }
             preferences.pipelineDepth?.let { setProperty(PIPELINE_DEPTH, it.toString()) }
             preferences.uploadLimitKibPerSecond?.let { setProperty(UPLOAD_LIMIT, it.toString()) }
@@ -122,3 +130,4 @@ private const val PIPELINE_DEPTH = "pipelineDepth"
 private const val UPLOAD_LIMIT = "uploadLimitKibPerSecond"
 private const val DOWNLOAD_LIMIT = "downloadLimitKibPerSecond"
 private const val DHT = "dht"
+private const val DETAILS_WIDTH = "detailsWidth"

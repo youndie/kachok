@@ -538,6 +538,7 @@ internal fun Client(
             adding = pending?.let { refusedIfOccupied(it, snapshot.occupied) },
             dropping = dropping,
             clipboardMagnet = clipboardMagnet,
+            detailsWidth = preferences.detailsWidth.dp,
             removing = removing,
             settings = if (settingsOpen) settingsOf(preferences.boundTo(snapshot.listenPort)) else null,
             sort = sort,
@@ -653,6 +654,7 @@ internal fun Client(
         onFilter = { typed -> filter = typed },
         onAddFile = { index, wanted -> pending = pending?.withFile(index, wanted) },
         onSequential = { on -> pending = pending?.sequentially(on) },
+        onResizeDetails = { width -> preferences = preferences.withDetailsWidth(width.value) },
         onClipboardAdd = {
             clipboardMagnet?.let { pending = magnetFromClipboard(preferences.directory) }
             clipboardMagnet = null

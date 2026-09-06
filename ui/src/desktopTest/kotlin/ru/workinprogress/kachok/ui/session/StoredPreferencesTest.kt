@@ -110,4 +110,25 @@ class StoredPreferencesTest {
         assertTrue("kachok" in path, path)
         assertTrue("Downloads" !in path, "a settings file that moves when you change a setting is one you lose")
     }
+
+    /** The panel's width outlives the process, because a panel widened once is widened once. */
+    @Test
+    fun theDetailsPanelWidthComesBack() {
+        savePreferences(file, defaults.withDetailsWidth(460f))
+        assertEquals(460f, loadPreferences(file, defaults).detailsWidth)
+    }
+
+    /**
+     * And a width outside the design's range is clamped rather than obeyed.
+     *
+     * The clamp is in `withDetailsWidth` and not at the drag, so a hand-edited file cannot ask for
+     * a panel the window cannot draw either.
+     */
+    @Test
+    fun aWidthOutsideTheDesignsRangeIsClamped() {
+        assertEquals(MAX_DETAILS_WIDTH, defaults.withDetailsWidth(9_000f).detailsWidth)
+        assertEquals(MIN_DETAILS_WIDTH, defaults.withDetailsWidth(1f).detailsWidth)
+        file.writeText("detailsWidth=9000\n")
+        assertEquals(MAX_DETAILS_WIDTH, loadPreferences(file, defaults).detailsWidth)
+    }
 }

@@ -15,11 +15,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import ru.workinprogress.kachok.ui.add.AddTorrentDialog
 import ru.workinprogress.kachok.ui.add.AddTorrentState
 import ru.workinprogress.kachok.ui.add.ClipboardMagnetPrompt
 import ru.workinprogress.kachok.ui.add.DropOverlay
+import ru.workinprogress.kachok.ui.details.Details
 import ru.workinprogress.kachok.ui.details.DetailsPanel
 import ru.workinprogress.kachok.ui.details.DetailsState
 import ru.workinprogress.kachok.ui.details.DetailsTab
@@ -64,6 +66,8 @@ internal class MainWindowState(
      * and an empty table with this above zero means something different from an empty table.
      */
     val hiddenByFilter: Int = 0,
+    /** Where the details panel's edge has been dragged to, within the design's 280–520 dp. */
+    val detailsWidth: Dp = Details.width,
 )
 
 /**
@@ -98,6 +102,7 @@ internal fun MainWindow(
     onAddFile: (Int, Boolean) -> Unit = { _, _ -> },
     onAnnounce: () -> Unit = {},
     onSequential: (Boolean) -> Unit = {},
+    onResizeDetails: (Dp) -> Unit = {},
 ) {
     Box(modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)) {
@@ -149,7 +154,16 @@ internal fun MainWindow(
                     }
                 }
                 if (state.torrents.isNotEmpty() && state.settings == null) {
-                    state.details?.let { DetailsPanel(it, onTab = onTab, onCopy = onCopy, onAnnounce = onAnnounce) }
+                    state.details?.let {
+                        DetailsPanel(
+                            it,
+                            onTab = onTab,
+                            onCopy = onCopy,
+                            onAnnounce = onAnnounce,
+                            width = state.detailsWidth,
+                            onResize = onResizeDetails,
+                        )
+                    }
                 }
             }
             StatusBar(state.status)
