@@ -52,9 +52,18 @@ class AppDownloadTest {
     @Test
     fun theListShowsARealDownloadProgressingAndThenSeeding(): Unit =
         runBlocking {
-            // Slow enough that a sample lands mid-download; a seed at full speed finishes before
-            // the first tick and proves only that the last frame is right.
-            val local = LocalSwarm.start(delayPerBlockMillis = 20).also { swarm = it }
+            // **Big enough that a sample cannot miss the middle**, which is not the same as slow
+            // enough. The default 40 000 bytes is three blocks: at 20 ms each the whole download is
+            // 60 ms wide and the loop below samples every 50, so whether it ever sees a state that
+            // is started and not finished is a coin flip — it landed on both of this project's
+            // machines and came up tails on the first CI runner. Twenty-five blocks makes the
+            // window half a second against a 50 ms poll, so the observation is arithmetic rather
+            // than luck ([the same class of defect as the re-check
+            // test's](../../../../../../../../docs/backlog/B-52-ui-on-the-real-engine.md)).
+            val local =
+                LocalSwarm
+                    .start(content = LocalSwarm.content(400_000), delayPerBlockMillis = 20)
+                    .also { swarm = it }
             val dispatchers = EngineDispatchers()
             val job = SupervisorJob()
             val scope = CoroutineScope(coroutineContext + dispatchers.io + job)

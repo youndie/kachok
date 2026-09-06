@@ -29,11 +29,18 @@ gate:
 	@# runner the script writes the other two and compares those, and the container nobody can
 	@# rebuild there is checked on the mac. Both machines run the same command.
 	$(PY) scripts/make_icon.py --check
-	@# The UI's goldens, on the machine that recorded them. They are a gate — a screen that stopped
-	@# looking like the design is a defect — and they cannot run on the Linux build machine, whose
-	@# rasteriser is not the one the pictures came from. `LOCAL=1` is the prefer-wsl hook's own
-	@# escape for exactly this: a target that must run here.
-	@if [ -d ui/src/desktopTest/snapshots ]; then LOCAL=1 ./gradlew --quiet --console=plain :ui:viddikVerify; fi
+	@# The UI's goldens, on the machine that recorded them — **and the condition is the machine, not
+	@# the directory**. This used to ask whether `snapshots/` exists, which is true everywhere the
+	@# repository is checked out: the first CI run on Linux therefore compared macOS pictures against
+	@# a Linux rasteriser, and got as far as Gradle refusing to start on the runner's Java 17 before
+	@# it could report the diff it was going to find. The Gradle build makes the same decision in
+	@# `viddik { verifyOnCheck }`; this line was the one place that disagreed with it.
+	@#
+	@# `LOCAL=1` is the prefer-wsl hook's own escape: a target that must run here and not on the
+	@# build machine.
+	@if [ "$$(uname -s)" = "Darwin" ] && [ -d ui/src/desktopTest/snapshots ]; then \
+		LOCAL=1 ./gradlew --quiet --console=plain :ui:viddikVerify; \
+	fi
 
 # Non-blocking, on purpose. bdd_report counts scenarios; demanding a percentage is meaningless while
 # acceptance is done by hand. code_anchors cannot tell a live path from one quoted as a target that
