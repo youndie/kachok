@@ -1,7 +1,7 @@
 ---
 id: B-82
-title: "An installer per platform, and the version that stops one"
-status: open
+title: "An installer per platform: macOS and Linux ship, Windows needs a WiX decision"
+status: question
 priority: P2
 size: M
 stage: phase-2-ui
@@ -45,4 +45,52 @@ not at is its own small lie — so the decision is between an override and movin
 - AC: each platform's installer is produced by one documented command on that platform; a macOS
   build is possible at all; the version a package reports is the version the project is at, or the
   difference is written down where somebody reading the build file will see it.
-- Anchors: `ui/build.gradle.kts`, `docs/services/` (whichever document describes shipping).
+- Anchors: [`ui/build.gradle.kts`](../../ui/build.gradle.kts),
+  [`docs/services/ui.md`](../services/ui.md) §5.
+
+## Done — two platforms of three, and the third is the owner's decision
+
+**No format was declared at all.** `targetFormats` was never called, so
+`packageDistributionForCurrentOS` ran, reported `BUILD SUCCESSFUL` in under a second and wrote
+nothing. That is worse than the app-image-only shipping this item was filed about: a task that
+succeeds and produces no file is one nobody thinks to check. `TargetFormat.Dmg, Msi, Deb` now, one
+per platform.
+
+**The version had two homes and now has one.** `packageVersion` was the literal `"0.1.0"` beside
+`version=0.1.0-SNAPSHOT` in `gradle.properties`; it is now derived from the project's, minus the
+qualifier `jpackage` will not take.
+
+| Platform | Command | Produced | Verified |
+|---|---|---|---|
+| macOS 27.0 | `LOCAL=1 ./gradlew :ui:packageDistributionForCurrentOS` | `kachok-1.0.0.dmg`, 71 MB | 2026-09-06 |
+| Ubuntu 24.04 | `~/.claude/bin/wsl-run './gradlew :ui:packageDeb'` | `kachok_0.1.0_amd64.deb`, 57 MB | 2026-09-06 |
+| Windows 11 | `gradlew.bat :ui:packageMsi` | — | **blocked, see below** |
+
+The `.deb` carries the icon and a `kachok-kachok.desktop`, checked with `dpkg-deb -c`; the `.app`
+carries `kachok.icns` and reports `CFBundleShortVersionString 1.0.0`. `fakeroot` had to be installed
+on the Linux machine — `jpackage` skips the DEB bundler without it, with a message that names the
+missing program, which is the good kind of failure.
+
+**macOS says 1.0.0 while the project says 0.1.0, and that is on purpose.** Apple's
+`CFBundleShortVersionString` must start at 1 or higher, so `0.1.0` cannot be packaged there at all —
+the failure this item was filed for. `macOS { packageVersion = "1.0.0" }` overrides it for that
+platform only; Linux and Windows carry the project's own number. The gap is written into
+`ui/build.gradle.kts` beside the line that causes it.
+
+### The Windows installer needs a decision nobody but the owner can take
+
+`jpackage` builds an MSI through WiX, and there is no longer a version of WiX that is both free of
+an agreement and installable without administrator rights. Measured on the build machine on
+2026-09-06:
+
+| Route | What it costs |
+|---|---|
+| WiX v7 (`winget install WiXToolset.WiXCLI`) | installs cleanly, then refuses every command: `WIX7015: You must accept the Open Source Maintenance Fee (OSMF) EULA`. Accepting a licence is the owner's signature, not a build step. |
+| WiX v3.14 (`winget install WiXToolset.WiXToolset`) | needs the `NetFx3` Windows feature, which the installer could not enable: `Failed to enable [NetFx3] feature: 5` — elevation. |
+| WiX v5 (MIT, no fee) | `dotnet tool install --global wix --version 5.*`, which needs a .NET **SDK**; the machine has the runtimes 6, 8 and 10 and no SDK. |
+| Ship the app image | what happens today. It is also why `.torrent` cannot be double-clicked ([B-84](B-84-torrent-files-open-with-the-client.md)). |
+
+The machine was left as it was found: WiX v7 was installed, proved unusable without the EULA, and
+uninstalled. **Automated:** none — a packaging run is minutes long and produces a 57–71 MB file, so
+it is a documented command rather than a gate; what `./gradlew build` does check is that the build
+script configures without error.

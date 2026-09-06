@@ -1,3 +1,5 @@
+import org.jetbrains.compose.desktop.application.dsl.TargetFormat
+
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
     alias(libs.plugins.composeMultiplatform)
@@ -60,9 +62,28 @@ compose.desktop {
         // called `ui.exe` is one nobody recognises in a task list.
         nativeDistributions {
             packageName = "kachok"
-            packageVersion = "0.1.0"
             description = "A BitTorrent client"
             vendor = "workinprogress"
+
+            // **One version, from `gradle.properties`.** It was written out here as a literal and
+            // was already a second place the number lives; `jpackage` will not take `-SNAPSHOT`,
+            // which is the whole reason somebody typed it twice.
+            packageVersion = project.version.toString().substringBefore("-")
+
+            // **One format per platform, because `packageDistributionForCurrentOS` with none
+            // configured is a task that succeeds and produces nothing.** That is what it did: the
+            // build's last step was `createDistributable`, an app *image* — a directory somebody
+            // zips — which registers nothing with the operating system, and is why a `.torrent`
+            // cannot be double-clicked ([B-84](../docs/backlog/B-84-torrent-files-open-with-the-client.md))
+            // and an autostart entry has nowhere stable to point
+            // ([B-83](../docs/backlog/B-83-autostart-and-its-setting.md)).
+            //
+            // `jpackage` cannot cross-compile, so each of these is produced on its own platform and
+            // the host picks from this list. One each, deliberately: `.pkg` beside `.dmg` and
+            // `.exe` beside `.msi` are two installers for one platform, and two is the number that
+            // makes somebody ask which one they want. `.rpm` is not here because the build machine
+            // has no `rpmbuild` and an untested format is worse than an absent one.
+            targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
 
             // **The runtime is cut down by `jlink`, and what is not named here is not in it.**
             //
@@ -92,9 +113,45 @@ compose.desktop {
             // `make check` runs that script with `--check`, so an icon edited by hand is a red
             // build rather than a silent divergence from the geometry it claims to be.
             val icons = project.layout.projectDirectory.dir("src/desktopMain/resources/icon")
-            macOS { iconFile.set(icons.file("icon.icns")) }
-            windows { iconFile.set(icons.file("icon.ico")) }
-            linux { iconFile.set(icons.file("icon.png")) }
+            macOS {
+                iconFile.set(icons.file("icon.icns"))
+
+                // **macOS will not package a version starting with zero, and says so late.**
+                //
+                //     Bundler Mac Application Image skipped because of a configuration problem:
+                //     The first number in an app-version cannot be zero or negative.
+                //
+                // `CFBundleShortVersionString` is Apple's namespace, not the project's, and its
+                // first component must be at least 1 — so `0.1.0` cannot be a macOS build at all,
+                // and every distribution anyone has produced so far was a Windows one (B-82).
+                //
+                // The bundle therefore says 1.0.0 while the project says 0.1.0, and that gap is
+                // real: the number in a macOS *Get Info* panel is not this project's version. What
+                // the project is at is on the settings screen, which is somewhere a person can read
+                // it and Apple has no opinion about.
+                packageVersion = "1.0.0"
+            }
+            windows {
+                iconFile.set(icons.file("icon.ico"))
+
+                // Without this every `.msi` is a *separate product*: installing 0.2.0 leaves 0.1.0
+                // in place and two entries in the control panel. The value is arbitrary and must
+                // never change again — it is the identity Windows upgrades along.
+                upgradeUuid = "f5d8042f-8065-4a63-bb60-dd440a0f1411"
+                menuGroup = "kachok"
+                // A client is not a machine-wide service, and a per-user install is the one that
+                // does not ask for the administrator password.
+                perUserInstall = true
+                dirChooser = true
+            }
+            linux {
+                iconFile.set(icons.file("icon.png"))
+                // `.deb` refuses to build without a maintainer, and the default jpackage invents
+                // is the build user's login at the build host's name.
+                debMaintainer = "youndie@users.noreply.github.com"
+                menuGroup = "Network"
+                appCategory = "Network"
+            }
         }
     }
 }

@@ -54,7 +54,7 @@ which is also the order of work.
 | [B-81](docs/backlog/B-81-the-torrent-list-survives-a-restart.md) `[ ]` | The list of torrents survives a restart | P1 | L | - |
 | [B-79](docs/backlog/B-79-the-windows-state-outlives-its-composition.md) `[ ]` | The window's state outlives its composition | P2 | L | - |
 | [B-80](docs/backlog/B-80-the-ui-moves-to-commonmain.md) `[ ]` | The UI moves to commonMain | P2 | L | B-79 |
-| [B-82](docs/backlog/B-82-an-installer-per-platform.md) `[ ]` | An installer per platform, and the version that stops one | P2 | M | - |
+| [B-82](docs/backlog/B-82-an-installer-per-platform.md) `[?]` | An installer per platform: macOS and Linux ship, Windows needs a WiX decision | P2 | M | - |
 | [B-84](docs/backlog/B-84-torrent-files-open-with-the-client.md) `[ ]` | A .torrent opens with the client, on all three platforms | P2 | M | B-82 |
 | [B-37](docs/backlog/B-37-v2-and-hybrid-torrents.md) `[?]` | v2 and hybrid torrents (BEP 52): SHA-256 piece layers | P3 | L | B-04 |
 | [B-40](docs/backlog/B-40-wasmjs-ui-is-a-client-of-the-headless-engine.md) `[ ]` | Phase 2: the wasmJs UI is a client of the JVM headless engine | P3 | L | B-39 |

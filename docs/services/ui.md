@@ -88,10 +88,27 @@ The colour rule lives outside the composables (`RowColors.kt`) so that "is this 
 
 ## 5. Infrastructure and deploy
 
-* `./gradlew :ui:run` opens the window. No installer in phase 2 yet; `jpackage` through
-  `compose.desktop` is what [B-39](../backlog/B-39-compose-ui-desktop.md)'s successors will use.
+* `./gradlew :ui:run` opens the window against the *full* JDK. Nothing a run like that does proves
+  anything about the shipped application: the distribution carries a `jlink` runtime cut down to the
+  modules `nativeDistributions` names, and a module missing from it is a `NoClassDefFoundError` on
+  somebody else's machine ([B-78](../backlog/B-78-nothing-runs-the-packaged-application.md)).
 * The JVM flags are the CLI's three, pinned in `ui/build.gradle.kts` for the same reason: a UI does
   not get to run a different VM from the one every measurement was taken on.
+
+### Building an installer
+
+`jpackage` cannot cross-compile, so each is produced on its own platform. One command each, and one
+format each — the host picks from `targetFormats`:
+
+| Platform | Command | Output | Prerequisite |
+|---|---|---|---|
+| macOS | `LOCAL=1 ./gradlew :ui:packageDistributionForCurrentOS` | `ui/build/compose/binaries/main/dmg/kachok-1.0.0.dmg` | — |
+| Linux | `~/.claude/bin/wsl-run './gradlew :ui:packageDeb'` | `.../deb/kachok_0.1.0_amd64.deb` | `fakeroot` |
+| Windows | `gradlew.bat :ui:packageMsi` | — | **WiX, and there is no free one that installs without a decision** — see [B-82](../backlog/B-82-an-installer-per-platform.md) |
+
+The macOS bundle says **1.0.0** while the project is at 0.1.0, and that is deliberate: Apple refuses
+a `CFBundleShortVersionString` whose first component is zero, so `0.1.0` cannot be packaged on macOS
+at all. The override is on `macOS { }` alone; the `.deb` carries the project's own number.
 
 ## 6. Local setup
 
