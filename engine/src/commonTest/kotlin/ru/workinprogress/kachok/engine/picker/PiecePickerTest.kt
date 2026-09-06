@@ -326,4 +326,75 @@ class PiecePickerTest {
             picker.skip(Bitfield(tenPieces.pieceCount).apply { set(0) })
         }
     }
+
+    /**
+     * In order, and the order is the whole rule.
+     *
+     * Not "rarest first with a window": that window exists to keep a player fed, and streaming is
+     * explicitly not part of this. Choosing how wide it should be with no player to measure against
+     * would be inventing a number.
+     */
+    @Test
+    fun sequentialAsksForTheLowestPieceThePeerHas() {
+        val picker = PiecePicker(tenPieces, maxStartedPieces = 1, random = Random(1), sequential = true)
+        picker.peerWith(a, *(0..9).toList().toIntArray())
+
+        val order =
+            (0..4).map {
+                val request = picker.next(a, 1).single()
+                picker.blockReceived(a, request.piece, 0)
+                picker.pieceVerified(request.piece)
+                request.piece.value
+            }
+        assertEquals(listOf(0, 1, 2, 3, 4), order)
+    }
+
+    /** A piece the peer has not got is skipped rather than waited for. */
+    @Test
+    fun sequentialTakesTheLowestThatIsActuallyAvailable() {
+        val picker = PiecePicker(tenPieces, maxStartedPieces = 1, random = Random(1), sequential = true)
+        picker.peerWith(a, 3, 4, 9)
+        assertEquals(
+            3,
+            picker
+                .next(a, 1)
+                .single()
+                .piece.value,
+        )
+    }
+
+    /** And it obeys the same skip list a wanted-file selection sets. */
+    @Test
+    fun sequentialStillSkipsUnwantedPieces() {
+        val picker = PiecePicker(tenPieces, maxStartedPieces = 1, random = Random(1), sequential = true)
+        picker.skip(Bitfield(tenPieces.pieceCount).apply { (0..2).forEach { set(it) } })
+        picker.peerWith(a, *(0..9).toList().toIntArray())
+        assertEquals(
+            3,
+            picker
+                .next(a, 1)
+                .single()
+                .piece.value,
+        )
+    }
+
+    /** Rarest-first is untouched and stays the default: every measured number assumes it. */
+    @Test
+    fun theDefaultIsStillRarestFirst() {
+        val picker = PiecePicker(tenPieces, random = Random(1))
+        picker.peerWith(a, *(0..9).toList().toIntArray())
+        picker.peerWith(b, *(0..9).filter { it != 7 }.toIntArray())
+        picker.peerWith(c, *(0..9).filter { it != 7 }.toIntArray())
+        val first = picker.next(a, 1).single()
+        picker.blockReceived(a, first.piece, 0)
+        picker.pieceVerified(first.piece)
+        assertEquals(
+            7,
+            picker
+                .next(a, 1)
+                .single()
+                .piece.value,
+            "the rare piece was not preferred",
+        )
+    }
 }

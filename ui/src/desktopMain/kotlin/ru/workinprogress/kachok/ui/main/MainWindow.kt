@@ -97,6 +97,7 @@ internal fun MainWindow(
     onFilter: (String) -> Unit = {},
     onAddFile: (Int, Boolean) -> Unit = { _, _ -> },
     onAnnounce: () -> Unit = {},
+    onSequential: (Boolean) -> Unit = {},
 ) {
     Box(modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)) {
@@ -179,6 +180,7 @@ internal fun MainWindow(
                     onAdd = onConfirmAdd,
                     onBrowse = onBrowse,
                     onFile = onAddFile,
+                    onSequential = onSequential,
                 )
             }
         }

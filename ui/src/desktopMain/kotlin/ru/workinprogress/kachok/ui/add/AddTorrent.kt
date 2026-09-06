@@ -96,6 +96,8 @@ internal data class AddTorrentState(
      * about: unticking the 3.6 GiB ISO out of a 3.7 GiB torrent has to be visible somewhere other
      * than on the row itself.
      */
+    internal fun sequentially(on: Boolean): AddTorrentState = copy(sequential = on)
+
     internal fun withFile(
         index: Int,
         wanted: Boolean,
@@ -105,6 +107,9 @@ internal data class AddTorrentState(
     }
 
     internal companion object {
+        /** The label is the handle: the checkbox has no text of its own for a test to reach. */
+        internal const val SEQUENTIAL: String = "Sequential download"
+
         /** `8 of 9 wanted · 3.61 GiB`, which is the design's own line. */
         internal fun wantedSummaryOf(files: List<AddFile>): String =
             "${files.count { it.wanted }} of ${files.size} wanted" +
@@ -132,6 +137,7 @@ internal fun AddTorrentDialog(
     onAdd: () -> Unit = {},
     onBrowse: () -> Unit = {},
     onFile: (Int, Boolean) -> Unit = { _, _ -> },
+    onSequential: (Boolean) -> Unit = {},
 ) {
     val scheme = MaterialTheme.colorScheme
     Column(
@@ -149,7 +155,7 @@ internal fun AddTorrentDialog(
         SourceCard(state)
         SaveTo(state, onBrowse)
         if (state.files.isNotEmpty()) Files(state, onFile)
-        Sequential(state)
+        Sequential(state, onSequential)
         StartMode(state)
         Row(
             Modifier.fillMaxWidth().padding(EDGE),
@@ -309,21 +315,30 @@ private fun Files(
 }
 
 @Composable
-private fun Sequential(state: AddTorrentState) {
+private fun Sequential(
+    state: AddTorrentState,
+    onSequential: (Boolean) -> Unit,
+) {
     Row(
-        Modifier.fillMaxWidth().padding(start = EDGE, end = EDGE, top = 16.dp),
+        Modifier
+            .fillMaxWidth()
+            .padding(start = EDGE, end = EDGE, top = 16.dp)
+            .clickable { onSequential(!state.sequential) }
+            .semantics { contentDescription = AddTorrentState.SEQUENTIAL },
         horizontalArrangement = Arrangement.spacedBy(9.dp),
     ) {
         Glyph(
             if (state.sequential) Icons.CHECK_BOX else Icons.CHECK_BOX_OUTLINE_BLANK,
             size = CONTROL_GLYPH,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            tint =
+                if (state.sequential) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                },
         )
         Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                Text("Sequential download", style = CHOICE, color = MaterialTheme.colorScheme.onSurface)
-                PlannedBadge()
-            }
+            Text(AddTorrentState.SEQUENTIAL, style = CHOICE, color = MaterialTheme.colorScheme.onSurface)
             Text(
                 "Ask for pieces in order rather than rarest first. Slower overall, and it makes " +
                     "this client a worse swarm member.",

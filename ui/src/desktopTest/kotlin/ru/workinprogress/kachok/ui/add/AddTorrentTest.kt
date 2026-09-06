@@ -3,7 +3,9 @@ package ru.workinprogress.kachok.ui.add
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.v2.runComposeUiTest
 import ru.workinprogress.kachok.ui.theme.KachokTheme
 import kotlin.test.Test
@@ -19,11 +21,11 @@ class AddTorrentTest {
     /**
      * Nothing in this dialog is drawn live and connected to nothing.
      *
-     * What is left is *Sequential download*
-     * ([B-65](../../../../../../../../docs/backlog/B-65-sequential-download.md)) and *Add paused*
-     * — the latter drawn before the engine had a paused state and still waiting on the dialog to
-     * pass the choice through. The file ticks used to be here and are live now
-     * ([B-67](../../../../../../../../docs/backlog/B-67-per-file-selection.md)).
+     * One is left: *Add paused*, drawn before the engine had a paused state and still waiting on
+     * the dialog to pass the choice through. The file ticks
+     * ([B-67](../../../../../../../../docs/backlog/B-67-per-file-selection.md)) and *Sequential
+     * download* ([B-65](../../../../../../../../docs/backlog/B-65-sequential-download.md)) used to
+     * be here and are live now.
      *
      * The failure this catches is somebody deleting a badge because the control "looks finished",
      * which is how three screens in this window got the way they were.
@@ -38,13 +40,23 @@ class AddTorrentTest {
             assertEquals(
                 PLANNED_CONTROLS,
                 onAllNodesWithText("planned").fetchSemanticsNodes().size,
-                "sequential download and add-paused carry one each",
+                "add-paused is the one control still waiting on something",
             )
             onNodeWithText("Add paused").assertIsDisplayed()
             onNodeWithText("Sequential download").assertIsDisplayed()
         }
 
+    /** And the one that stopped waiting reports, like every other control in this dialog. */
+    @Test
+    fun theSequentialTickLeavesTheDialog(): Unit =
+        runComposeUiTest {
+            val asked = mutableListOf<Boolean>()
+            setContent { KachokTheme { AddTorrentDialog(designTorrentToAdd, onSequential = { asked += it }) } }
+            onNodeWithContentDescription(AddTorrentState.SEQUENTIAL).performClick()
+            assertEquals(listOf(true), asked, "the box is off, so a click asks for on")
+        }
+
     private companion object {
-        const val PLANNED_CONTROLS = 2
+        const val PLANNED_CONTROLS = 1
     }
 }

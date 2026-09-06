@@ -168,4 +168,24 @@ class SettingsFromTest {
             "a row cannot be both unchangeable and changeable-later",
         )
     }
+
+    /**
+     * The two per-torrent choices reach the engine's options, and are not settings.
+     *
+     * Everything else `runtimeOptions` carries outlives the torrent; which files to skip and
+     * whether to ask in order are decisions about *this* one, taken in its own dialog. They are
+     * parameters for that reason, and this is the seam between the dialog and the picker.
+     */
+    @Test
+    fun thePerTorrentChoicesReachTheEnginesOptions() {
+        val here = Preferences(directory = DEFAULT_DIRECTORY)
+        val plain = here.runtimeOptions()
+        assertEquals(emptySet(), plain.unwantedFiles)
+        assertEquals(false, plain.sequential, "rarest-first is the default and stays it")
+
+        val chosen = here.runtimeOptions(unwanted = setOf(0, 4), sequential = true)
+        assertEquals(setOf(0, 4), chosen.unwantedFiles)
+        assertEquals(true, chosen.sequential)
+        assertEquals(plain.directory, chosen.directory, "a per-torrent choice moved a setting")
+    }
 }

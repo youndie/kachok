@@ -45,6 +45,19 @@ public class PiecePicker(
     private val metainfo: Metainfo,
     private val maxStartedPieces: Int = DEFAULT_MAX_STARTED,
     private val random: Random = Random.Default,
+    /**
+     * Ask for the lowest missing piece rather than the rarest one.
+     *
+     * **Strict order, bounded by [maxStartedPieces] and nothing else.** The usual compromise is
+     * rarest-first with a sequential window of N pieces ahead of what has been played; that window
+     * exists to serve a player, and streaming is explicitly not part of this. Choosing an N with no
+     * player to measure it against would be inventing a number, so the order is the order the
+     * design's own checkbox promises and the concurrency stays the picker's existing bound.
+     *
+     * Off by default, and it stays off: the picker's cost was measured rarest-first, and every
+     * number in the research assumes it.
+     */
+    private val sequential: Boolean = false,
 ) {
     private val have = Bitfield(metainfo.pieceCount)
     private val availability = IntArray(metainfo.pieceCount)
@@ -406,6 +419,16 @@ public class PiecePicker(
      * list-and-index version did with a list.
      */
     private fun rarestUnstarted(bitfield: Bitfield): Int? {
+        // In order, and the first candidate wins — there is nothing to compare and no first-piece
+        // randomisation to get past, because "the lowest one" is the whole rule.
+        if (sequential) {
+            for (index in 0 until metainfo.pieceCount) {
+                if (!bitfield[index] || have[index] || isStarted[index]) continue
+                if (unwanted?.get(index) == true) continue
+                return index
+            }
+            return null
+        }
         val chooseAtRandom = have.cardinality == 0 && started.isEmpty()
         var best = -1
         var rarest = Int.MAX_VALUE

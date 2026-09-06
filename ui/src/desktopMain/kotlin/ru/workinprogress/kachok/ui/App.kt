@@ -179,6 +179,9 @@ private class Pending(
     /** Where this one goes, which is a choice about this torrent and not about the next. */
     fun savingTo(path: String): Pending = Pending(metainfo, magnet, shown.savingTo(path))
 
+    /** In order rather than rarest first, decided in this torrent's own dialog. */
+    fun sequentially(on: Boolean): Pending = Pending(metainfo, magnet, shown.sequentially(on))
+
     /** One file ticked or unticked in the dialog, before anything has been opened. */
     fun withFile(
         index: Int,
@@ -398,6 +401,7 @@ internal fun Client(
                             chosenPreferences.withDirectory(next.shown.saveTo),
                             scope,
                             unwanted = next.unwanted(),
+                            sequential = next.shown.sequential,
                         )
                     }
                     next.magnet?.let { fetching += Fetching(it) }
@@ -648,6 +652,7 @@ internal fun Client(
         onSort = { column -> sort = sort.clicked(column) },
         onFilter = { typed -> filter = typed },
         onAddFile = { index, wanted -> pending = pending?.withFile(index, wanted) },
+        onSequential = { on -> pending = pending?.sequentially(on) },
         onClipboardAdd = {
             clipboardMagnet?.let { pending = magnetFromClipboard(preferences.directory) }
             clipboardMagnet = null
@@ -847,8 +852,9 @@ private suspend fun open(
     scope: CoroutineScope,
     /** Files unticked in this torrent's own dialog. Not a setting: it is about this torrent. */
     unwanted: Set<Int> = emptySet(),
+    sequential: Boolean = false,
 ): TorrentRuntime =
-    set.add(metainfo, preferences.runtimeOptions(unwanted)).also {
+    set.add(metainfo, preferences.runtimeOptions(unwanted, sequential)).also {
         it.restore()
         it.start(scope)
     }

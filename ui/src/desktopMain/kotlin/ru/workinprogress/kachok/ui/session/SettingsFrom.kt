@@ -72,7 +72,10 @@ internal data class Preferences(
      * [unwanted] is a parameter and not a field for the same reason: everything else here is a
      * setting that outlives this torrent, and which files to skip is a decision about this one.
      */
-    fun runtimeOptions(unwanted: Set<Int> = emptySet()): RuntimeOptions =
+    fun runtimeOptions(
+        unwanted: Set<Int> = emptySet(),
+        sequential: Boolean = false,
+    ): RuntimeOptions =
         RuntimeOptions(
             directory =
                 java.nio.file.Path
@@ -82,6 +85,7 @@ internal data class Preferences(
             uploadLimitBytesPerSecond = (uploadLimitKibPerSecond ?: 0) * KIB,
             downloadLimitBytesPerSecond = (downloadLimitKibPerSecond ?: 0) * KIB,
             unwantedFiles = unwanted,
+            sequential = sequential,
         )
 }
 

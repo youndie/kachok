@@ -50,6 +50,8 @@ public class RuntimeOptions(
      * picker to give back pieces it has started, which is the item's own not-covered case.
      */
     public val unwantedFiles: Set<Int> = emptySet(),
+    /** Ask for pieces in order rather than rarest first. Slower, and a worse swarm member. */
+    public val sequential: Boolean = false,
 ) {
     public companion object {
         public const val DEFAULT_MAX_PEERS: Int = 50
@@ -249,6 +251,7 @@ public class TorrentRuntime internal constructor(
                             downloadLimitBytesPerSecond = options.downloadLimitBytesPerSecond,
                         ),
                     unwantedFiles = options.unwantedFiles,
+                    sequential = options.sequential,
                 )
             return TorrentRuntime(
                 metainfo = metainfo,

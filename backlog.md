@@ -46,19 +46,18 @@ which is also the order of work.
 
 <!-- BEGIN INDEX -->
 
-## Open (7)
+## Open (6)
 
 | Task | | Priority | Size | Blocked by |
 |---|---|---|---|---|
 | [B-37](docs/backlog/B-37-v2-and-hybrid-torrents.md) `[?]` | v2 and hybrid torrents (BEP 52): SHA-256 piece layers | P3 | L | B-04 |
 | [B-40](docs/backlog/B-40-wasmjs-ui-is-a-client-of-the-headless-engine.md) `[ ]` | Phase 2: the wasmJs UI is a client of the JVM headless engine | P3 | L | B-39 |
 | [B-41](docs/backlog/B-41-android-and-ios-targets.md) `[ ]` | Phase 3: Android and iOS targets on the engine | P3 | XL | B-39 |
-| [B-65](docs/backlog/B-65-sequential-download.md) `[ ]` | Sequential download, which the add dialog offers and the picker does not do | P3 | M | B-54 |
 | [B-74](docs/backlog/B-74-resizing-the-details-panel.md) `[ ]` | Dragging the details panel's edge | P3 | S | B-49 |
 | [B-75](docs/backlog/B-75-the-window-below-800dp.md) `[ ]` | The window below 800 dp | P3 | S | B-49 |
 | [B-02](docs/backlog/B-02-ci-runs-build-and-docs-gates.md) `[ ]` | CI runs the build and the documentation gates on every push | infra | S | B-01 |
 
-## Closed (70)
+## Closed (71)
 
 **M0 — The build and its gates**
 
@@ -149,6 +148,7 @@ which is also the order of work.
 - [B-62](docs/backlog/B-62-dead-controls-on-two-more-screens.md) `[x]` - Controls on two more screens that reported nothing, and the guard that missed them
 - [B-63](docs/backlog/B-63-joining-the-dht-at-runtime.md) `[x]` - Joining the DHT from the settings screen, not from a restart
 - [B-64](docs/backlog/B-64-a-click-waited-for-the-tick.md) `[x]` - A click waited for the tick
+- [B-65](docs/backlog/B-65-sequential-download.md) `[x]` - Sequential download, which the add dialog offers and the picker does not do
 - [B-66](docs/backlog/B-66-the-filter-field.md) `[x]` - The filter field, which is a box with the word Filter in it
 - [B-67](docs/backlog/B-67-per-file-selection.md) `[x]` - Per-file progress and choosing which files to fetch
 - [B-68](docs/backlog/B-68-the-peers-list.md) `[x]` - The peers list, which the session counts and does not name

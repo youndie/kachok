@@ -117,8 +117,10 @@ public class Session(
      * counts as complete, and what the *Files* tab draws a tick against.
      */
     private val unwantedFiles: Set<Int> = emptySet(),
+    /** Ask for pieces in order. Decided when the torrent is opened, like [unwantedFiles]. */
+    private val sequential: Boolean = false,
 ) {
-    private val picker = PiecePicker(metainfo, config.maxStartedPieces, random)
+    private val picker = PiecePicker(metainfo, config.maxStartedPieces, random, sequential)
     private val choker = Choker(config.maxUnchoked, random = random)
     private val writer = BlockWriter(metainfo, hasher, storage)
     private val commands = Channel<Command>(Channel.BUFFERED)
