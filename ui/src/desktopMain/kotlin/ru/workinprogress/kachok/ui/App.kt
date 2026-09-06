@@ -15,6 +15,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.isCtrlPressed
+import androidx.compose.ui.input.key.isMetaPressed
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.application
@@ -106,11 +112,27 @@ public fun main(args: Array<String>) {
             //
             // 10 dp of padding and a 6 dp radius are the design's, measured off `main-window.png`;
             // everything else in `TitleBarStyle.MacOs` already was.
+            // The two keys the empty state advertises, and the two the design's own map names.
+            //
+            // **`onKeyEvent`, deliberately, and never `onPreviewKeyEvent`.** Preview runs top-down
+            // and would take Cmd+V out of the filter field and every number in the settings before
+            // they saw it; this runs after the focused component has had its turn, so a text field
+            // that handles the press keeps it and an unfocused window gets it here.
+            var shortcut by remember { mutableStateOf<Shortcut?>(null) }
             AppFrame(
                 onCloseRequest = { closing = true },
                 title = "kachok",
                 state = rememberWindowState(size = DpSize(WINDOW_WIDTH, WINDOW_HEIGHT)),
                 style = KACHOK_TITLE_BAR,
+                onKeyEvent = { event ->
+                    // A new object each time, so pressing the same keys twice is two requests
+                    // rather than one the effect below cannot tell from the first.
+                    shortcutFor(
+                        event.type,
+                        event.key,
+                        modified = event.isMetaPressed || event.isCtrlPressed,
+                    )?.let { shortcut = Shortcut(it) } != null
+                },
             ) {
                 Column(Modifier.fillMaxSize()) {
                     // The line under the title bar belongs to the content: the bar is a `Surface`
@@ -121,7 +143,13 @@ public fun main(args: Array<String>) {
                             .height(1.dp)
                             .background(MaterialTheme.colorScheme.surfaceContainerHigh),
                     )
-                    Client(torrent, directory, stopping = closing, onStopped = ::exitApplication)
+                    Client(
+                        torrent,
+                        directory,
+                        stopping = closing,
+                        onStopped = ::exitApplication,
+                        shortcut = shortcut,
+                    )
                 }
             }
         }
@@ -169,6 +197,8 @@ internal fun Client(
     directory: Path,
     stopping: Boolean = false,
     onStopped: () -> Unit = {},
+    /** The last key press the window turned into a request, or null. */
+    shortcut: Shortcut? = null,
 ) {
     // **What the engine says, sampled once a second — and nothing else.**
     //
@@ -192,6 +222,16 @@ internal fun Client(
     // What the settings screen has been told. Held for the session and not written anywhere: there
     // is no settings file yet, and inventing one is a decision about where it lives.
     var preferences by remember { mutableStateOf(Preferences(directory = directory.toAbsolutePath().toString())) }
+
+    // Keyed on the object and not on the enum: pressing Cmd+O twice is two requests, and an effect
+    // keyed on `OpenFile` would run once.
+    LaunchedEffect(shortcut) {
+        when (shortcut?.what) {
+            null -> Unit
+            Shortcut.Kind.OpenFile -> pending = chooseTorrent(preferences.directory)
+            Shortcut.Kind.PasteMagnet -> pending = magnetFromClipboard(preferences.directory)
+        }
+    }
     var sort by remember { mutableStateOf(SortOrder()) }
     // Read through a state, not captured: the effect is launched once and these change later, so
     // a plain read inside it would be the value from before the click.
@@ -533,6 +573,44 @@ internal fun deleteQuietly(paths: List<Path>) {
         } catch (refused: IOException) {
             System.err.println("kachok: leaving $directory: ${refused.message}")
         }
+    }
+}
+
+/**
+ * A key press the window turned into a request.
+ *
+ * A class around an enum rather than the enum itself: the effect that acts on it is keyed on this
+ * value, and two presses of the same key have to be two different values or the second one does
+ * nothing.
+ */
+internal class Shortcut(
+    val what: Kind,
+) {
+    internal enum class Kind { OpenFile, PasteMagnet }
+}
+
+/**
+ * Which of the two shortcuts a key press is, or null.
+ *
+ * **The three values, not the `KeyEvent`.** In Compose Multiplatform 1.12 a `KeyEvent` wraps an
+ * `InternalKeyEvent` that a test cannot construct — building one from `java.awt.event.KeyEvent`
+ * compiles and throws `ClassCastException` on the first accessor. Taking what the decision actually
+ * reads leaves the whole of it testable and the window's handler one call around it.
+ *
+ * **[modified] is meta *or* control, decided at the call site.** The empty state prints `⌘O` on
+ * macOS and the same keys are Ctrl elsewhere; a handler that checked only one would leave the hint
+ * on the Windows build pointing at nothing.
+ */
+internal fun shortcutFor(
+    type: KeyEventType,
+    key: Key,
+    modified: Boolean,
+): Shortcut.Kind? {
+    if (type != KeyEventType.KeyDown || !modified) return null
+    return when (key) {
+        Key.O -> Shortcut.Kind.OpenFile
+        Key.V -> Shortcut.Kind.PasteMagnet
+        else -> null
     }
 }
 
