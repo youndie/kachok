@@ -235,6 +235,9 @@ public class PiecePicker(
         started.values.forEach { it.forget(peer) }
     }
 
+    /** How many pieces a peer has said it holds. Zero for one that has said nothing yet. */
+    public fun piecesHeldBy(peer: PeerAddress): Int = peers[peer]?.cardinality ?: 0
+
     /**
      * Throw away every piece this picker thinks it has, and every piece it has begun.
      *
@@ -244,6 +247,7 @@ public class PiecePicker(
      * first — a `forget` with requests still in flight would hand out blocks somebody is already
      * sending.
      */
+
     public fun forget() {
         started.clear()
         isStarted.fill(false)

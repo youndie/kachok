@@ -1,6 +1,7 @@
 package ru.workinprogress.kachok.ui.main
 
 import ru.workinprogress.kachok.engine.InfoHash
+import ru.workinprogress.kachok.engine.session.PeerView
 import ru.workinprogress.kachok.engine.session.SessionState
 import ru.workinprogress.kachok.ui.details.DetailsState
 import ru.workinprogress.kachok.ui.details.DetailsTab
@@ -21,6 +22,41 @@ private const val GIB = MIB * KIB
  * `left` is set rather than subtracted because BEP 3 says it is not `total - downloaded` after a
  * resume — and because the design's own two numbers do not subtract to its third.
  */
+private val designPeers: List<PeerView> =
+    listOf(
+        designPeer("88.99.242.17:6881", "libtorrent 2.0", down = 1_842, unchoked = true, interested = true),
+        designPeer("37.120.185.9:51413", "Transmission 4.0", down = 1_204, unchoked = true, interested = true),
+        designPeer("92.61.34.108:6889", "qBittorrent 5.1", down = 918, unchoked = true, interested = true),
+        designPeer("185.21.216.4:6881", "kachok 0.1", down = 348, unchoked = true, interested = true),
+        designPeer("45.83.220.66:24810", "Deluge 2.1.1", down = 0, unchoked = false, interested = true),
+        designPeer("213.152.180.3:6881", "libtorrent 1.2", down = 0, unchoked = false, interested = true),
+        designPeer("109.201.152.20:1337", "unknown", down = 0, unchoked = false, interested = false),
+        designPeer("5.181.190.7:6892", "BiglyBT 3.7", down = 0, unchoked = false, interested = true),
+        designPeer("31.14.40.221:51413", "Transmission 3.0", down = 0, unchoked = false, interested = false),
+    )
+
+private fun designPeer(
+    address: String,
+    client: String,
+    down: Long,
+    unchoked: Boolean,
+    interested: Boolean,
+) = PeerView(
+    address = address,
+    client = client,
+    dialled = true,
+    choking = !unchoked,
+    choked = false,
+    interested = interested,
+    peerInterested = true,
+    fast = false,
+    extended = true,
+    outstanding = if (unchoked) 8 else 0,
+    pieces = 1772,
+    downBytesPerSecond = down * KIB,
+    upBytesPerSecond = 0,
+)
+
 internal val designSession: SessionState =
     SessionState(
         infoHash =
@@ -66,6 +102,10 @@ internal val designSession: SessionState =
         verifyingOf = 1772,
         trackerError = "announce failed: 502 from http://bttracker.debian.org:6969/announce",
         lastPeerError = "185.21.216.4:51413 — connection reset",
+        // The design's own nine, in its own order: the four this client unchoked at the top and
+        // the five choking it below. `109.201.152.20` is the one whose id said nothing usable, so
+        // the reference draws a dash where its client would be.
+        peers = designPeers,
     )
 
 internal fun designDetails(tab: DetailsTab = DetailsTab.Overview): DetailsState =

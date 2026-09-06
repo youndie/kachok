@@ -154,6 +154,7 @@ public fun main(args: Array<String>) {
                         stopping = closing,
                         onStopped = ::exitApplication,
                         shortcut = shortcut,
+                        directoryOverrides = args.size > 1,
                     )
                 }
             }
@@ -204,6 +205,21 @@ internal fun Client(
     onStopped: () -> Unit = {},
     /** The last key press the window turned into a request, or null. */
     shortcut: Shortcut? = null,
+    /**
+     * Where the settings live.
+     *
+     * A parameter and not a constant, because otherwise this window reads the machine's real
+     * settings file wherever it runs — which a test found by downloading into the developer's own
+     * `~/Downloads` and joining the DHT, because that is what the file on that machine said.
+     */
+    settingsFile: Path = preferencesFile(),
+    /**
+     * A directory named on the command line beats the stored one, for this run only.
+     *
+     * Without it the file wins and `kachok x.torrent /srv/here` quietly ignores its second
+     * argument; with it always on, the stored directory could never take effect.
+     */
+    directoryOverrides: Boolean = false,
 ) {
     // **What the engine says, sampled once a second — and nothing else.**
     //
@@ -226,14 +242,13 @@ internal fun Client(
     var settingsOpen by remember { mutableStateOf(false) }
     // What the settings screen has been told. Held for the session and not written anywhere: there
     // is no settings file yet, and inventing one is a decision about where it lives.
-    val settingsFile = remember { preferencesFile() }
     // Read once, at the start, and not on every recomposition: the file is the previous run's
     // answer, and this run's answer is the state below it.
     var preferences by
         remember {
-            mutableStateOf(
-                loadPreferences(settingsFile, Preferences(directory = directory.toAbsolutePath().toString())),
-            )
+            val here = directory.toAbsolutePath().toString()
+            val stored = loadPreferences(settingsFile, Preferences(directory = here))
+            mutableStateOf(if (directoryOverrides) stored.withDirectory(here) else stored)
         }
 
     // Written back after half a second of quiet. `LaunchedEffect` cancels the previous one when the

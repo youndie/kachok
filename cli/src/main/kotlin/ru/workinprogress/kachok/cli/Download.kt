@@ -287,10 +287,10 @@ class Download(
         }
     }
 
-    /** BEP 20's Azureus style: `-KA0001-` and twelve random bytes. */
+    /** BEP 20's Azureus style: `-KA0100-` and twelve random bytes — 0.1.0.0, the project version. */
     private fun randomPeerId(): PeerId {
         val bytes = ByteArray(PeerId.SIZE)
-        "-KA0001-".encodeToByteArray().copyInto(bytes)
+        "-KA0100-".encodeToByteArray().copyInto(bytes)
         Random.Default.nextBytes(bytes, 8, PeerId.SIZE)
         return PeerId(bytes)
     }

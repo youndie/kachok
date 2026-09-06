@@ -263,10 +263,15 @@ public class TorrentRuntime internal constructor(
             return (STARTED_PIECES * blocksPerPiece + maxPeers).coerceAtLeast(MIN_POOL)
         }
 
-        /** BEP 20's Azureus style: `-KA0001-` and twelve random bytes. */
+        /**
+         * BEP 20's Azureus style: `-KA0100-` and twelve random bytes.
+         *
+         * The four digits are the version — 0.1.0.0 — and they were `0001` until the *Peers* tab
+         * made this client visible to itself, announcing 0.0.0.1 to every swarm it joined.
+         */
         private fun randomPeerId(): PeerId {
             val bytes = ByteArray(PeerId.SIZE)
-            "-KA0001-".encodeToByteArray().copyInto(bytes)
+            "-KA0100-".encodeToByteArray().copyInto(bytes)
             Random.Default.nextBytes(bytes, 8, PeerId.SIZE)
             return PeerId(bytes)
         }

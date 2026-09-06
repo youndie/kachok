@@ -70,7 +70,7 @@ internal fun MainWindowSheet() {
  * actually say about them, which is nothing yet and why. See the deviation recorded in
  * [B-49](../../../../../../../../docs/backlog/B-49-details-panel.md).
  */
-@ViddikScreenshot(name = "planned-tabs", group = "details", width = 1023, height = 300)
+@ViddikScreenshot(name = "planned-tabs", group = "details", width = 1023, height = 440)
 @Composable
 internal fun DetailsTabsSheet() {
     KachokTheme {

@@ -62,11 +62,54 @@ public class SessionState(
      * its peers and kept everything it had verified.
      */
     public val paused: Boolean = false,
+    /**
+     * Who is on the other end, one entry per connected peer.
+     *
+     * Rebuilt on the session's timer and never on the hot path: this is the one field whose cost is
+     * proportional to the number of peers, and republishing fifty of them every time a block
+     * arrives would be an allocation per block. It is a second behind, which is what a table
+     * redrawn once a second wants anyway.
+     */
+    public val peers: List<PeerView> = emptyList(),
 ) {
     override fun toString(): String =
         "$name $completedPieces/$pieceCount pieces, $connectedPeers peers" +
             (trackerError?.let { ", tracker: $it" } ?: "")
 }
+
+/**
+ * One connected peer, as far as anything outside the engine is allowed to see it.
+ *
+ * Plain data for the same reason [SessionState] is: this goes over a socket for the browser build
+ * ([B-40]), so a peer is a row and never a handle. A UI holding a `PeerConnection` is a UI that can
+ * keep a dead peer alive.
+ */
+public class PeerView(
+    /** `10.0.0.1:6881`. For an accepted connection this is an ephemeral port nobody can dial back. */
+    public val address: String,
+    /** Whatever the peer id admits to, per BEP 20's convention. A peer is free to lie here. */
+    public val client: String,
+    /** This client dialled them, rather than the other way round (BEP 11 cares, and so does a reader). */
+    public val dialled: Boolean,
+    /** They are choking us: nothing can be asked of them except BEP 6's allowed-fast pieces. */
+    public val choking: Boolean,
+    /** We are choking them. */
+    public val choked: Boolean,
+    /** We want something they have. */
+    public val interested: Boolean,
+    /** They want something we have. */
+    public val peerInterested: Boolean,
+    /** BEP 6 agreed by both sides. */
+    public val fast: Boolean,
+    /** BEP 10's handshake arrived, so this peer's extension ids are known. */
+    public val extended: Boolean,
+    /** Requests sent to this peer and not yet answered. */
+    public val outstanding: Int,
+    /** Pieces of this torrent they have said they hold. */
+    public val pieces: Int,
+    public val downBytesPerSecond: Long,
+    public val upBytesPerSecond: Long,
+)
 
 /** What a caller can ask a running session to do. */
 public sealed interface Command {

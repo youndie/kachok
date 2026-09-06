@@ -1633,6 +1633,88 @@ class SessionTest {
             job.cancelAndJoin()
         }
 
+    /**
+     * The peer list is a list of rows, not a list of connections.
+     *
+     * It carries what the *Peers* tab draws — who, how, and what they are doing — and nothing a
+     * reader could hold on to. It is rebuilt on the timer, so this waits for one tick rather than
+     * asserting on the state a connect published.
+     */
+    @Test
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    fun theSessionNamesItsPeersAndNotJustCountsThem() =
+        runTest {
+            val metainfo = torrent(pieces = 4)
+            val dialer = FakeDialer(metainfo.infoHash)
+            val session =
+                session(
+                    metainfo,
+                    dialer,
+                    FakeTracker(listOf(peerA, peerB)),
+                    FakeStorage(),
+                    AgreeableHasher(metainfo),
+                )
+            val job = session.start(kotlinx.coroutines.CoroutineScope(coroutineContext + handler))
+            testScheduler.runCurrent()
+            val connection = dialer.connections.getValue(peerA)
+            connection.incoming.send(PeerEvent.Received(Message.Bitfield(allOf(metainfo.pieceCount))))
+            connection.incoming.send(PeerEvent.Received(Message.Unchoke))
+            testScheduler.runCurrent()
+            testScheduler.advanceTimeBy(SessionConfig().tick.inWholeMilliseconds + 1)
+            testScheduler.runCurrent()
+
+            val peers = session.state.value.peers
+            assertEquals(
+                session.state.value.connectedPeers,
+                peers.size,
+                "the count and the list disagree about how many peers there are",
+            )
+            val a = peers.single { it.address == peerA.toString() }
+            assertEquals(true, a.dialled, "this client dialled it")
+            assertEquals(false, a.choking, "it unchoked us")
+            assertEquals(metainfo.pieceCount, a.pieces, "it said it has everything")
+            assertTrue(a.client.isNotBlank(), "a row with no client is a row that looks broken")
+            val b = peers.single { it.address == peerB.toString() }
+            assertEquals(true, b.choking, "it has said nothing, so it is still choking us")
+            assertEquals(0, b.pieces)
+
+            job.cancelAndJoin()
+        }
+
+    /** And a peer that goes leaves the list, rather than lingering as a row of stale numbers. */
+    @Test
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    fun aPeerThatGoesLeavesTheList() =
+        runTest {
+            val metainfo = torrent(pieces = 2)
+            val dialer = FakeDialer(metainfo.infoHash)
+            val session =
+                session(
+                    metainfo,
+                    dialer,
+                    FakeTracker(listOf(peerA, peerB)),
+                    FakeStorage(),
+                    AgreeableHasher(metainfo),
+                )
+            val job = session.start(kotlinx.coroutines.CoroutineScope(coroutineContext + handler))
+            testScheduler.runCurrent()
+            dialer.connections
+                .getValue(peerA)
+                .incoming
+                .close()
+            testScheduler.runCurrent()
+            testScheduler.advanceTimeBy(SessionConfig().tick.inWholeMilliseconds + 1)
+            testScheduler.runCurrent()
+
+            assertTrue(
+                session.state.value.peers
+                    .none { it.address == peerA.toString() },
+                "a closed peer was still in the list",
+            )
+
+            job.cancelAndJoin()
+        }
+
     @Test
     fun cancellingTheScopeClosesEveryPeer() =
         runTest {

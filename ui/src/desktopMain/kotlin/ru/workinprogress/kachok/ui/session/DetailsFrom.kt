@@ -8,6 +8,7 @@ import ru.workinprogress.kachok.ui.details.DetailsSection
 import ru.workinprogress.kachok.ui.details.DetailsState
 import ru.workinprogress.kachok.ui.details.DetailsTab
 import ru.workinprogress.kachok.ui.details.FieldTone
+import ru.workinprogress.kachok.ui.details.PeerRow
 
 /**
  * What the torrent is, from what the session knows.
@@ -111,8 +112,36 @@ internal fun detailsOf(
             ),
         sessionError = state.sessionError,
         tab = tab,
+        peers = peersOf(state),
     )
 }
+
+/**
+ * The design's peer rows, sorted by rate.
+ *
+ * **Descending, which is the design's own note**: the handful the engine unchoked sit at the top
+ * and the twenty choking us sit below, so the top of the list is the part worth reading.
+ *
+ * **Ties keep the engine's order, which is the order the peers connected in.** `sortedByDescending`
+ * is stable, and the session's own table is a `LinkedHashMap`, so twenty idle peers stay put
+ * instead of reshuffling every second. Breaking ties on the address was the first version and is
+ * wrong twice over: it is a text sort of IPv4, which puts `5.181.190.7` after `45.83.220.66`, and
+ * it reorders the design's own reference.
+ */
+private fun peersOf(state: SessionState): List<PeerRow> =
+    state.peers
+        .sortedByDescending { it.downBytesPerSecond }
+        .map { peer ->
+            PeerRow(
+                address = peer.address,
+                // A client that said nothing usable is a dash, the same one every unknown figure in
+                // this window uses — not an empty cell, which reads as a rendering fault.
+                client = peer.client.takeIf { it.isNotBlank() && it != "unknown" } ?: Figures.DASH,
+                unchoked = !peer.choking,
+                interested = peer.interested,
+                rate = Figures.rate(peer.downBytesPerSecond),
+            )
+        }
 
 /**
  * `2b3a…c7f1`.

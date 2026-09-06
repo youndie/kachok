@@ -1,5 +1,7 @@
 package ru.workinprogress.kachok.ui.session
 
+import ru.workinprogress.kachok.engine.session.PeerView
+import ru.workinprogress.kachok.engine.session.SessionState
 import ru.workinprogress.kachok.ui.details.DetailsTab
 import ru.workinprogress.kachok.ui.details.FieldTone
 import ru.workinprogress.kachok.ui.main.designDetails
@@ -117,14 +119,102 @@ class DetailsFromTest {
 
     /** Three tabs the engine cannot fill, and each says which engine change it is waiting for. */
     @Test
-    fun theThreePlannedTabsSayWhatTheyAreWaitingFor() {
+    fun everyTabIsEitherRealOrSaysWhatItIsWaitingFor() {
         assertEquals(null, DetailsTab.Overview.plannedBecause, "Overview is real")
-        listOf(DetailsTab.Files, DetailsTab.Peers, DetailsTab.Trackers).forEach { tab ->
+        assertEquals(
+            null,
+            DetailsTab.Peers.plannedBecause,
+            "the engine names its peers now (B-68); this tab draws them",
+        )
+        listOf(DetailsTab.Files, DetailsTab.Trackers).forEach { tab ->
             val reason = tab.plannedBecause
             assertTrue(!reason.isNullOrBlank(), "$tab must say why it is empty")
             assertTrue(reason.length > SHORT, "$tab's reason is a shrug: $reason")
         }
     }
+
+    /**
+     * The peer rows, in the order the design puts them: doing something at the top.
+     *
+     * Descending by rate, and ties left exactly where the engine had them. A tiebreak on the
+     * address was the first version and is wrong twice: it is a text sort of IPv4, which puts
+     * `5.181.190.7` after `45.83.220.66`, and it reorders the design's own reference.
+     */
+    @Test
+    fun thePeerRowsAreSortedByRateAndTiesKeepTheEnginesOrder() {
+        val rows =
+            rowsFor(
+                peer("10.0.0.3:6881", down = 0, choking = true),
+                peer("10.0.0.1:6881", down = 0, choking = true),
+                peer("10.0.0.2:6881", down = 1_842 * 1024, choking = false, interested = true),
+            )
+
+        assertEquals(
+            listOf("10.0.0.2:6881", "10.0.0.3:6881", "10.0.0.1:6881"),
+            rows.map { it.address },
+            "the two idle peers were reordered",
+        )
+        assertEquals(true, rows.first().unchoked)
+        assertEquals(true, rows.first().interested)
+        assertEquals(false, rows.last().unchoked)
+    }
+
+    /** And an address is never compared as text: `5.181` is below `45.83`, not above it. */
+    @Test
+    fun anAddressIsNeverUsedToOrderTheList() {
+        val rows =
+            rowsFor(
+                peer("45.83.220.66:24810", down = 0, choking = true),
+                peer("5.181.190.7:6892", down = 0, choking = true),
+            )
+        assertEquals(listOf("45.83.220.66:24810", "5.181.190.7:6892"), rows.map { it.address })
+    }
+
+    /** A peer whose id said nothing usable gets the same dash every other unknown figure gets. */
+    @Test
+    fun aPeerWithNoUsableClientStringIsADashRatherThanAnEmptyCell() {
+        assertEquals(
+            Figures.DASH,
+            rowsFor(peer("10.0.0.9:6881", down = 0, choking = true, client = "unknown")).single().client,
+        )
+    }
+
+    /** The peer rows `detailsOf` makes out of a session carrying exactly these peers. */
+    private fun rowsFor(vararg peers: PeerView) =
+        detailsOf(
+            SessionState(
+                infoHash = designSession.infoHash,
+                name = designSession.name,
+                totalLength = designSession.totalLength,
+                pieceCount = designSession.pieceCount,
+                peers = peers.toList(),
+            ),
+            Rates(),
+            pieceLength = 0,
+            directory = "/tmp",
+        ).peers
+
+    private fun peer(
+        address: String,
+        down: Long,
+        choking: Boolean,
+        interested: Boolean = false,
+        client: String = "qBittorrent 5.0.1.0",
+    ) = PeerView(
+        address = address,
+        client = client,
+        dialled = true,
+        choking = choking,
+        choked = true,
+        interested = interested,
+        peerInterested = false,
+        fast = false,
+        extended = false,
+        outstanding = 0,
+        pieces = 0,
+        downBytesPerSecond = down,
+        upBytesPerSecond = 0,
+    )
 
     private companion object {
         const val SHORT = 40

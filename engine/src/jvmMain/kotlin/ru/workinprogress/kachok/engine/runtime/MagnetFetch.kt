@@ -65,7 +65,7 @@ public suspend fun fetchMetainfo(
  */
 private fun randomPeerId(): PeerId {
     val bytes = ByteArray(PeerId.SIZE)
-    "-KA0001-".encodeToByteArray().copyInto(bytes)
+    "-KA0100-".encodeToByteArray().copyInto(bytes)
     Random.Default.nextBytes(bytes, PREFIX, PeerId.SIZE)
     return PeerId(bytes)
 }

@@ -172,7 +172,10 @@ class AppDownloadTest {
             val local = LocalSwarm.start(delayPerBlockMillis = 20).also { swarm = it }
             val file = root.resolve("fixture.torrent")
             Files.write(file, local.torrent)
-            setContent { KachokTheme { Client(file, root) } }
+            // Its own settings file, in the test's own directory. Without this the window reads
+            // the machine's real one — which is how this test first failed: it downloaded into the
+            // developer's `~/Downloads` and joined the DHT, because that is what their file said.
+            setContent { KachokTheme { Client(file, root, settingsFile = root.resolve("settings.properties")) } }
             waitUntil(timeoutMillis = WAIT) {
                 onAllNodesWithText("payload.bin").fetchSemanticsNodes().isNotEmpty()
             }

@@ -24,6 +24,7 @@ import ru.workinprogress.kachok.engine.peer.PeerAddress
 import ru.workinprogress.kachok.engine.peer.PeerConnection
 import ru.workinprogress.kachok.engine.peer.PeerDialer
 import ru.workinprogress.kachok.engine.peer.PeerEvent
+import ru.workinprogress.kachok.engine.peer.clientOf
 import ru.workinprogress.kachok.engine.picker.Bitfield
 import ru.workinprogress.kachok.engine.picker.PiecePicker
 import ru.workinprogress.kachok.engine.resume.ResumeRecord
@@ -1241,11 +1242,16 @@ public class Session(
     /** Recomputed rather than tracked: two counters that must agree with the peer table. */
     private fun publishPeerCounts() {
         val links = connected.values
+        val now = elapsedMillis()
         publish {
             it.copy(
                 connectedPeers = links.size,
                 unchokedPeers = links.count { link -> !link.choked },
                 outstandingRequests = links.sumOf { link -> link.outstanding },
+                // Built here and nowhere else. This is the one field whose cost grows with the
+                // swarm, and the timer is the one place in the session that already runs at the
+                // rate a table is redrawn at.
+                peers = links.map { link -> link.view(now, picker.piecesHeldBy(link.connection.address)) },
             )
         }
     }
@@ -1310,6 +1316,27 @@ public class Session(
     private class PeerLink(
         val connection: PeerConnection,
     ) {
+        /** This peer as a row: everything a reader is allowed to know, and nothing they can hold. */
+        fun view(
+            nowMillis: Long,
+            pieces: Int,
+        ): PeerView =
+            PeerView(
+                address = connection.address.toString(),
+                client = clientOf(connection.handshake.peerId),
+                dialled = dialled,
+                choking = choked,
+                choked = choking,
+                interested = interested,
+                peerInterested = peerInterested,
+                fast = fast,
+                extended = extensions != null,
+                outstanding = outstanding,
+                pieces = pieces,
+                downBytesPerSecond = download.bytesPerSecond(nowMillis),
+                upBytesPerSecond = upload.bytesPerSecond(nowMillis),
+            )
+
         /** BEP 3: "Connections start out choked and not interested." Four flags, two per side. */
         var choked: Boolean = true
         var interested: Boolean = false
@@ -1393,6 +1420,7 @@ private fun SessionState.copy(
     sessionError: String? = this.sessionError,
     isComplete: Boolean = this.isComplete,
     paused: Boolean = this.paused,
+    peers: List<PeerView> = this.peers,
 ): SessionState =
     SessionState(
         infoHash = infoHash,
@@ -1417,4 +1445,5 @@ private fun SessionState.copy(
         sessionError = sessionError,
         isComplete = isComplete,
         paused = paused,
+        peers = peers,
     )

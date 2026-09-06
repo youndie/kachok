@@ -63,11 +63,7 @@ internal enum class DetailsTab(
         "The engine opens a FileSet and never reports it: there is no per-file progress, and no " +
             "way to mark a file unwanted.",
     ),
-    Peers(
-        "Peers",
-        "SessionState counts peers and does not name them: no address, no client string, no " +
-            "per-peer rate.",
-    ),
+    Peers("Peers"),
     Trackers(
         "Trackers",
         "There is one trackerError for the whole session, not a status for each tracker in the " +
@@ -108,6 +104,23 @@ internal class Complaint(
     val warning: Boolean,
 )
 
+/**
+ * One peer, as the design's *Peers* tab draws it.
+ *
+ * The flags are two booleans and not a string: the design gives each its own colour, and a
+ * pre-joined `"U I"` would have to be taken apart again to draw it.
+ */
+internal class PeerRow(
+    val address: String,
+    val client: String,
+    /** They are not choking us, so something can actually be asked of them. */
+    val unchoked: Boolean,
+    /** We want something they have. */
+    val interested: Boolean,
+    /** `1 842`, grouped the way every other figure in this window is. */
+    val rate: String,
+)
+
 internal class DetailsState(
     val name: String,
     val state: TorrentState,
@@ -117,6 +130,8 @@ internal class DetailsState(
     val complaints: List<Complaint>,
     val sessionError: String?,
     val tab: DetailsTab = DetailsTab.Overview,
+    /** Sorted by rate, which is what puts the peers doing something at the top. */
+    val peers: List<PeerRow> = emptyList(),
 )
 
 internal object Details {
@@ -155,6 +170,7 @@ internal fun DetailsPanel(
             Tabs(state.tab, onTab)
             when (state.tab) {
                 DetailsTab.Overview -> Overview(state, onCopy)
+                DetailsTab.Peers -> Peers(state.peers)
                 else -> Planned(state.tab)
             }
         }
@@ -401,6 +417,122 @@ private fun ComplaintCard(complaint: Complaint) {
 }
 
 /**
+ * The design's four columns, sorted by rate.
+ *
+ * **The legend is drawn and not a tooltip.** `U`, `C` and `I` are one character each; a person who
+ * has not seen them before has no way to guess, and the design puts the key at the foot of the tab
+ * for exactly that reason.
+ *
+ * **An empty list says which of the two empties it is.** A torrent with no peers and a torrent
+ * whose peers have not been sampled yet look identical, and the first is a thing to act on.
+ */
+@Composable
+private fun ColumnScope.Peers(peers: List<PeerRow>) {
+    val scheme = MaterialTheme.colorScheme
+    Column(Modifier.fillMaxSize()) {
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .height(PEER_HEAD)
+                .padding(horizontal = Details.edge),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text("ADDRESS", style = PEER_HEADING, color = scheme.onSurfaceVariant, modifier = Modifier.weight(1f))
+            Text("CLIENT", style = PEER_HEADING, color = scheme.onSurfaceVariant, modifier = Modifier.width(CLIENT))
+            Text("FLAG", style = PEER_HEADING, color = scheme.onSurfaceVariant, modifier = Modifier.width(FLAGS))
+            Text(
+                "KIB/S",
+                style = PEER_HEADING,
+                color = scheme.onSurfaceVariant,
+                textAlign = TextAlign.End,
+                modifier = Modifier.width(PEER_RATE),
+            )
+        }
+        Box(Modifier.fillMaxWidth().height(HAIRLINE).background(KachokPalette.rowHairline))
+        if (peers.isEmpty()) {
+            Text(
+                "No peers connected.",
+                style = FIELD_LABEL,
+                color = scheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = Details.edge, vertical = 10.dp),
+            )
+        }
+        Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
+            peers.forEach { peer -> PeerLine(peer) }
+        }
+        Box(Modifier.fillMaxWidth().height(HAIRLINE).background(KachokPalette.rowHairline))
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = Details.edge, vertical = 9.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Legend("U", "unchoked", scheme.primary)
+            Legend("C", "choked", scheme.onSurfaceVariant)
+            Legend("I", "interested", scheme.primary)
+        }
+    }
+}
+
+@Composable
+private fun PeerLine(peer: PeerRow) {
+    val scheme = MaterialTheme.colorScheme
+    Row(
+        Modifier.fillMaxWidth().height(Details.rowHeight).padding(horizontal = Details.edge),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            peer.address,
+            style = MonoSmall,
+            color = scheme.onSurface,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
+        )
+        Text(
+            peer.client,
+            style = FIELD_LABEL,
+            color = KachokPalette.onSurfaceMuted,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.width(CLIENT),
+        )
+        Row(Modifier.width(FLAGS), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+            Text(
+                if (peer.unchoked) "U" else "C",
+                style = PEER_FLAG,
+                color = if (peer.unchoked) scheme.primary else scheme.onSurfaceVariant,
+            )
+            Text(
+                if (peer.interested) "I" else "·",
+                style = PEER_FLAG,
+                color = if (peer.interested) scheme.primary else scheme.onSurfaceVariant,
+            )
+        }
+        Text(
+            peer.rate,
+            style = MonoSmall,
+            // A rate of nothing is drawn as a figure that is not there rather than as a number,
+            // which is the same rule the table's own zero columns follow.
+            color = if (peer.rate == "0") scheme.onSurfaceVariant else KachokPalette.onSurfaceMuted,
+            textAlign = TextAlign.End,
+            maxLines = 1,
+            modifier = Modifier.width(PEER_RATE),
+        )
+    }
+}
+
+@Composable
+private fun Legend(
+    flag: String,
+    meaning: String,
+    tint: Color,
+) {
+    Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+        Text(flag, style = PEER_FLAG, color = tint)
+        Text(meaning, style = FIELD_LABEL, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+/**
  * A tab whose list the engine cannot fill yet.
  *
  * It says which engine change it is waiting for, in the engine's own vocabulary, rather than
@@ -431,6 +563,19 @@ private fun ColumnScope.Planned(tab: DetailsTab) {
 
 /** Every label in the panel is Archivo at the panel's one size. */
 private val FIELD_LABEL = ChromeText.copy(fontSize = 11.5.sp)
+
+/** The design's column heads: the same 9.5 sp, letter-spaced capitals the table's header uses. */
+private val PEER_HEADING = ChromeText.copy(fontSize = 9.5.sp, letterSpacing = 0.08.em)
+
+private val PEER_FLAG = MonoSmall.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.Medium)
+
+private val PEER_HEAD = 24.dp
+
+private val CLIENT = 100.dp
+
+private val FLAGS = 30.dp
+
+private val PEER_RATE = 42.dp
 
 private val HAIRLINE = 1.dp
 
