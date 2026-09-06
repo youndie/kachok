@@ -21,9 +21,15 @@ import ru.workinprogress.kachok.ui.icons.Glyph
 import ru.workinprogress.kachok.ui.icons.Icons
 import ru.workinprogress.kachok.ui.list.TorrentColumns
 
-/** Which column the list is sorted by, and which way. There is always one. */
-internal enum class SortColumn { Name, Size, Progress, Down, Up, Peers, Ratio, Eta, State }
+/**
+ * The table's nine columns.
+ *
+ * Public because [ru.workinprogress.kachok.ui.list.TorrentRow] is: a row is told which columns to
+ * draw, and the vocabulary for saying so has to be as visible as the row.
+ */
+public enum class SortColumn { Name, Size, Progress, Down, Up, Peers, Ratio, Eta, State }
 
+/** Which column the list is sorted by, and which way. There is always one. */
 internal class SortOrder(
     val column: SortColumn = SortColumn.Name,
     val ascending: Boolean = true,
@@ -44,6 +50,7 @@ internal fun ColumnHeader(
     sort: SortOrder,
     modifier: Modifier = Modifier,
     onSort: (SortColumn) -> Unit = {},
+    visible: Set<SortColumn> = SortColumn.entries.toSet(),
 ) {
     Bar(
         height = Chrome.headerHeight,
@@ -53,13 +60,23 @@ internal fun ColumnHeader(
         horizontalArrangement = Arrangement.spacedBy(TorrentColumns.gap),
     ) {
         Head("NAME", SortColumn.Name, sort, null, onSort)
-        Head("SIZE", SortColumn.Size, sort, TorrentColumns.size, onSort, TextAlign.End)
+        if (SortColumn.Size in visible) {
+            Head("SIZE", SortColumn.Size, sort, TorrentColumns.size, onSort, TextAlign.End)
+        }
         Head("PROGRESS", SortColumn.Progress, sort, TorrentColumns.progress, onSort)
         Head("DOWN KIB/S", SortColumn.Down, sort, TorrentColumns.down, onSort, TextAlign.End, TIGHT)
-        Head("UP KIB/S", SortColumn.Up, sort, TorrentColumns.up, onSort, TextAlign.End, TIGHT)
-        Head("PEERS · OUT", SortColumn.Peers, sort, TorrentColumns.peers, onSort, TextAlign.End)
-        Head("RATIO", SortColumn.Ratio, sort, TorrentColumns.ratio, onSort, TextAlign.End)
-        Head("ETA", SortColumn.Eta, sort, TorrentColumns.eta, onSort, TextAlign.End)
+        if (SortColumn.Up in visible) {
+            Head("UP KIB/S", SortColumn.Up, sort, TorrentColumns.up, onSort, TextAlign.End, TIGHT)
+        }
+        if (SortColumn.Peers in visible) {
+            Head("PEERS · OUT", SortColumn.Peers, sort, TorrentColumns.peers, onSort, TextAlign.End)
+        }
+        if (SortColumn.Ratio in visible) {
+            Head("RATIO", SortColumn.Ratio, sort, TorrentColumns.ratio, onSort, TextAlign.End)
+        }
+        if (SortColumn.Eta in visible) {
+            Head("ETA", SortColumn.Eta, sort, TorrentColumns.eta, onSort, TextAlign.End)
+        }
         Head("STATE", SortColumn.State, sort, TorrentColumns.state, onSort)
     }
 }

@@ -25,6 +25,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import ru.workinprogress.kachok.ui.icons.Glyph
 import ru.workinprogress.kachok.ui.icons.Icons
+import ru.workinprogress.kachok.ui.main.SortColumn
 import ru.workinprogress.kachok.ui.theme.KachokPalette
 import ru.workinprogress.kachok.ui.theme.MonoFigure
 import ru.workinprogress.kachok.ui.theme.RowName
@@ -168,7 +169,10 @@ private fun RowScope.Figure(
 }
 
 @Composable
-private fun ColumnScope.Cells(model: TorrentRowModel) {
+private fun ColumnScope.Cells(
+    model: TorrentRowModel,
+    visible: Set<SortColumn>,
+) {
     val scheme = MaterialTheme.colorScheme
     val warning = MaterialTheme.warningColors
 
@@ -197,13 +201,15 @@ private fun ColumnScope.Cells(model: TorrentRowModel) {
                 overflow = TextOverflow.Ellipsis,
             )
         }
-        Figure(model.size, TorrentColumns.size, color(RowCell.Size))
+        if (SortColumn.Size in visible) Figure(model.size, TorrentColumns.size, color(RowCell.Size))
         ProgressCell(model)
         Figure(model.down, TorrentColumns.down, color(RowCell.Down))
-        Figure(model.up, TorrentColumns.up, color(RowCell.Up))
-        Figure(peersText(model), TorrentColumns.peers, color(RowCell.Peers))
-        Figure(model.ratio, TorrentColumns.ratio, color(RowCell.Ratio))
-        Figure(model.eta, TorrentColumns.eta, color(RowCell.Eta))
+        if (SortColumn.Up in visible) Figure(model.up, TorrentColumns.up, color(RowCell.Up))
+        if (SortColumn.Peers in visible) {
+            Figure(peersText(model), TorrentColumns.peers, color(RowCell.Peers))
+        }
+        if (SortColumn.Ratio in visible) Figure(model.ratio, TorrentColumns.ratio, color(RowCell.Ratio))
+        if (SortColumn.Eta in visible) Figure(model.eta, TorrentColumns.eta, color(RowCell.Eta))
         Row(
             Modifier.width(TorrentColumns.state),
             verticalAlignment = Alignment.CenterVertically,
@@ -223,6 +229,13 @@ public fun TorrentRow(
     model: TorrentRowModel,
     modifier: Modifier = Modifier,
     onSelect: (() -> Unit)? = null,
+    /**
+     * Which columns this row draws.
+     *
+     * The row is told rather than measuring: every row and the header have to agree, and nine
+     * independent measurements of the same width is nine chances to disagree by a pixel.
+     */
+    visible: Set<SortColumn> = SortColumn.entries.toSet(),
 ) {
     // Selection is a ground, and error is the only *state* allowed to colour a whole row, because
     // it is the only one that is not going to fix itself. Selection wins where they meet: it is
@@ -241,7 +254,7 @@ public fun TorrentRow(
             .background(tint)
             .then(if (onSelect == null) Modifier else Modifier.clickable(onClick = onSelect)),
     ) {
-        Cells(model)
+        Cells(model, visible)
         Box(
             Modifier
                 .fillMaxWidth()

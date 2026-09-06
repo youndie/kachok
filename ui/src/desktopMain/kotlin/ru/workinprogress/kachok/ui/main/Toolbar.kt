@@ -153,12 +153,13 @@ private fun AddTorrentButton(onClick: () -> Unit) {
 private fun FilterField(
     text: String,
     onFilter: (String) -> Unit,
+    narrow: Boolean,
 ) {
     val scheme = MaterialTheme.colorScheme
     Row(
         Modifier
             .height(Chrome.controlHeight)
-            .width(FILTER_WIDTH)
+            .width(if (narrow) NARROW_FILTER_WIDTH else FILTER_WIDTH)
             .border(Chrome.hairline, scheme.outline, RoundedCornerShape(CONTROL_RADIUS))
             .padding(horizontal = 9.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -315,6 +316,14 @@ internal fun Toolbar(
     modifier: Modifier = Modifier,
     onAction: (ToolbarAction) -> Unit = {},
     onFilter: (String) -> Unit = {},
+    /**
+     * The window is under 800 dp, so the filter gives up most of its width.
+     *
+     * At 600 dp the bar's fixed contents — the button, eight controls and a 220 dp field — come to
+     * more than the window, and the last glyph was drawn half off the edge. The field is the only
+     * thing here that can be smaller without becoming a different control.
+     */
+    narrow: Boolean = false,
 ) {
     Bar(
         height = Chrome.toolbarHeight,
@@ -330,7 +339,7 @@ internal fun Toolbar(
             IconAction(action) { onAction(action) }
         }
         Spacer()
-        FilterField(state.filter, onFilter)
+        FilterField(state.filter, onFilter, narrow)
         ToolbarSeparator()
         IconAction(state.details) { onAction(state.details) }
         IconAction(state.settings) { onAction(state.settings) }
@@ -351,5 +360,8 @@ private val SEARCH_GLYPH = 16.sp
  * dimension in the design happens to have no padding or border to add.
  */
 private val FILTER_WIDTH = 220.dp
+
+/** Enough for the glyph, a word and the clear button, which is what the field is for. */
+private val NARROW_FILTER_WIDTH = 110.dp
 
 private val CONTROL_RADIUS = 4.dp

@@ -2,6 +2,7 @@ package ru.workinprogress.kachok.ui.main
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -25,6 +26,7 @@ import ru.workinprogress.kachok.ui.details.Details
 import ru.workinprogress.kachok.ui.details.DetailsPanel
 import ru.workinprogress.kachok.ui.details.DetailsState
 import ru.workinprogress.kachok.ui.details.DetailsTab
+import ru.workinprogress.kachok.ui.list.NarrowTable
 import ru.workinprogress.kachok.ui.list.TorrentRow
 import ru.workinprogress.kachok.ui.list.TorrentRowModel
 import ru.workinprogress.kachok.ui.remove.RemoveState
@@ -104,7 +106,15 @@ internal fun MainWindow(
     onSequential: (Boolean) -> Unit = {},
     onResizeDetails: (Dp) -> Unit = {},
 ) {
-    Box(modifier.fillMaxSize()) {
+    BoxWithConstraints(modifier.fillMaxSize()) {
+        // Two decisions, both from the window's own width and neither from the display's: a window
+        // dragged narrow on a wide screen is the case this is for.
+        val narrow = maxWidth < NarrowTable.panelBecomesAnOverlay
+        val panelOpen = state.details != null && state.torrents.isNotEmpty() && state.settings == null
+        // What the table has left after the panel takes its share — and the whole width when the
+        // panel is over it rather than beside it.
+        val forTable = if (panelOpen && !narrow) maxWidth - state.detailsWidth else maxWidth
+        val visible = NarrowTable.columnsFor(forTable)
         Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)) {
             // The toggle says what the panel is doing rather than carrying its own opinion: two
             // places recording "the panel is open" is one place for it to be wrong.
@@ -112,6 +122,7 @@ internal fun MainWindow(
                 state.toolbar.withDetails(state.details != null, settings = state.settings != null),
                 onAction = onAction,
                 onFilter = onFilter,
+                narrow = narrow,
             )
             Row(Modifier.fillMaxWidth().weight(1f)) {
                 Column(Modifier.weight(1f).fillMaxHeight()) {
@@ -144,17 +155,19 @@ internal fun MainWindow(
                         }
 
                         else -> {
-                            ColumnHeader(state.sort, onSort = onSort)
+                            ColumnHeader(state.sort, onSort = onSort, visible = visible)
                             LazyColumn(Modifier.fillMaxWidth().weight(1f)) {
                                 itemsIndexed(state.torrents) { at, torrent ->
-                                    TorrentRow(torrent, onSelect = { onSelect(at) })
+                                    TorrentRow(torrent, onSelect = { onSelect(at) }, visible = visible)
                                 }
                             }
                         }
                     }
                 }
-                if (state.torrents.isNotEmpty() && state.settings == null) {
-                    state.details?.let {
+                // Beside the list only while there is room for both. Below 800 dp it goes over the
+                // list instead — see the overlay after this Row.
+                if (panelOpen && !narrow) {
+                    state.details.let {
                         DetailsPanel(
                             it,
                             onTab = onTab,
@@ -167,6 +180,24 @@ internal fun MainWindow(
                 }
             }
             StatusBar(state.status)
+        }
+        // The panel, over the list rather than beside it. Right-aligned and full height, so the
+        // gesture that opens and closes it is the same toolbar toggle at every width.
+        if (panelOpen && narrow) {
+            state.details.let {
+                DetailsPanel(
+                    it,
+                    Modifier
+                        .align(
+                            Alignment.CenterEnd,
+                        ).padding(top = Chrome.toolbarHeight, bottom = Chrome.statusHeight),
+                    onTab = onTab,
+                    onCopy = onCopy,
+                    onAnnounce = onAnnounce,
+                    width = state.detailsWidth,
+                    onResize = onResizeDetails,
+                )
+            }
         }
         // Over everything, in the order a person meets them: a drag is happening now, a dialog is
         // waiting for an answer, a clipboard offer is neither and sits at the bottom.

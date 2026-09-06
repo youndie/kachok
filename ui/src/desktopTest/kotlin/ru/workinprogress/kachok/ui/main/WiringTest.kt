@@ -1,5 +1,6 @@
 package ru.workinprogress.kachok.ui.main
 
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -182,7 +183,19 @@ class WiringTest {
     fun everyColumnHeadLeavesTheWindow(): Unit =
         runComposeUiTest {
             val sorted = mutableListOf<SortColumn>()
-            setContent { KachokTheme { MainWindow(window, onSort = { sorted += it }) } }
+            // Without the details panel, so the table has the whole window. Below 800 dp of table
+            // the lesser columns are given up on purpose
+            // ([B-75](../../../../../../../../docs/backlog/B-75-the-window-below-800dp.md)), and
+            // the harness's surface is 1024 — RATIO and ETA are simply not drawn with the panel
+            // open. This test is about the heads being wired, not about which of them fit.
+            setContent {
+                KachokTheme {
+                    MainWindow(
+                        MainWindowState(torrents = window.torrents, status = window.status),
+                        onSort = { sorted += it },
+                    )
+                }
+            }
             listOf(
                 "NAME",
                 "SIZE",

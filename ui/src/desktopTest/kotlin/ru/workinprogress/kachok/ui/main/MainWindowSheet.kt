@@ -86,6 +86,29 @@ internal fun DetailsTabsSheet() {
 }
 
 /**
+ * The same window at 600 dp, which is what the design's own note asks for and never draws.
+ *
+ * Two things happen: the table gives up its lesser columns — ETA and RATIO first, being arithmetic
+ * on the others — and the details panel stops being a column beside the list and becomes an overlay
+ * over it. The alternative was a horizontal scrollbar, which keeps every column and makes the
+ * window useless at exactly the width where it appears.
+ */
+@ViddikScreenshot(name = "narrow", group = "main", width = 600, height = 420)
+@Composable
+internal fun NarrowWindowSheet() {
+    KachokTheme {
+        MainWindow(
+            MainWindowState(
+                torrents = designTorrents,
+                status = designStatus,
+                details = designDetails(),
+            ),
+            Modifier.fillMaxSize(),
+        )
+    }
+}
+
+/**
  * The one row whose value is longer than its cell, at a length a real machine produces.
  *
  * `Save to` was drawn touching its own label and cut at the end — `Save to/private/tmp/claude-501/…`
