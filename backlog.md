@@ -46,7 +46,7 @@ which is also the order of work.
 
 <!-- BEGIN INDEX -->
 
-## Open (12)
+## Open (13)
 
 | Task | | Priority | Size | Blocked by |
 |---|---|---|---|---|
@@ -56,6 +56,7 @@ which is also the order of work.
 | [B-80](docs/backlog/B-80-the-ui-moves-to-commonmain.md) `[ ]` | The UI moves to commonMain | P2 | L | B-79 |
 | [B-82](docs/backlog/B-82-an-installer-per-platform.md) `[ ]` | An installer per platform, and the version that stops one | P2 | M | - |
 | [B-84](docs/backlog/B-84-torrent-files-open-with-the-client.md) `[ ]` | A .torrent opens with the client, on all three platforms | P2 | M | B-82 |
+| [B-86](docs/backlog/B-86-the-application-icon.md) `[ ]` | The application icon, drawn from its own geometry | P2 | M | - |
 | [B-37](docs/backlog/B-37-v2-and-hybrid-torrents.md) `[?]` | v2 and hybrid torrents (BEP 52): SHA-256 piece layers | P3 | L | B-04 |
 | [B-40](docs/backlog/B-40-wasmjs-ui-is-a-client-of-the-headless-engine.md) `[ ]` | Phase 2: the wasmJs UI is a client of the JVM headless engine | P3 | L | B-39 |
 | [B-41](docs/backlog/B-41-android-and-ios-targets.md) `[ ]` | Phase 3: Android and iOS targets on the engine | P3 | XL | B-39 |
