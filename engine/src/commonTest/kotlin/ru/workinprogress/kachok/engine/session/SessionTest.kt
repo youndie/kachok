@@ -92,6 +92,53 @@ class SessionTest {
 
     private fun privateTorrent(pieces: Int): Metainfo = torrent(pieces, private = true)
 
+    /** Two files of `pieces / 2` blocks each, so one of them can be skipped. */
+    private fun twoFileTorrent(pieces: Int): Metainfo {
+        val half = pieces / 2 * PeerWire.BLOCK_SIZE.toLong()
+        val info =
+            BDictionary(
+                mapOf(
+                    BString("files") to
+                        ru.workinprogress.kachok.engine.bencode.BList(
+                            listOf(
+                                BDictionary(
+                                    mapOf(
+                                        BString("length") to BInteger(half),
+                                        BString("path") to
+                                            ru.workinprogress.kachok.engine.bencode.BList(
+                                                listOf(BString("wanted.bin")),
+                                            ),
+                                    ),
+                                ),
+                                BDictionary(
+                                    mapOf(
+                                        BString("length") to BInteger(half),
+                                        BString("path") to
+                                            ru.workinprogress.kachok.engine.bencode.BList(
+                                                listOf(BString("skipped.bin")),
+                                            ),
+                                    ),
+                                ),
+                            ),
+                        ),
+                    BString("name") to BString("pair"),
+                    BString("piece length") to BInteger(PeerWire.BLOCK_SIZE.toLong()),
+                    BString("pieces") to BString(ByteArray(pieces * Metainfo.HASH_SIZE) { it.toByte() }),
+                ),
+            )
+        val root =
+            BDictionary(
+                mapOf(
+                    BString("announce") to BString("http://tracker.example/annc"),
+                    BString("info") to info,
+                ),
+            )
+        return MetainfoParser.parse(
+            ru.workinprogress.kachok.engine.bencode.Bencode
+                .encode(root),
+        )
+    }
+
     /** [pieces] pieces of exactly one block each. */
     private fun torrent(
         pieces: Int,
@@ -1151,6 +1198,7 @@ class SessionTest {
         hasher: PieceHasher,
         config: SessionConfig = SessionConfig(maxStartedPieces = 4, pipelineDepth = 2, maxPeers = 10),
         random: kotlin.random.Random = kotlin.random.Random(1),
+        unwantedFiles: Set<Int> = emptySet(),
     ) = Session(
         metainfo = metainfo,
         peerId = ourPeerId,
@@ -1161,6 +1209,7 @@ class SessionTest {
         storage = storage,
         config = config,
         random = random,
+        unwantedFiles = unwantedFiles,
     ).also { sessions += it }
 
     @Test
@@ -1710,6 +1759,58 @@ class SessionTest {
                 session.state.value.peers
                     .none { it.address == peerA.toString() },
                 "a closed peer was still in the list",
+            )
+
+            job.cancelAndJoin()
+        }
+
+    /**
+     * A file nobody wants is never asked for, all the way from the options to the wire.
+     *
+     * The engine-level pieces of this are tested where they live; this is the seam — a session
+     * built with one file unwanted asks the swarm for the other one's pieces and no others, and
+     * announces `left` as the wanted half rather than the whole torrent.
+     */
+    @Test
+    fun anUnwantedFileIsNeverRequested() =
+        runTest {
+            val metainfo = twoFileTorrent(pieces = 8)
+            val dialer = FakeDialer(metainfo.infoHash)
+            val storage = FakeStorage()
+            val session =
+                session(
+                    metainfo,
+                    dialer,
+                    FakeTracker(listOf(peerA)),
+                    storage,
+                    AgreeableHasher(metainfo),
+                    config = SessionConfig(maxStartedPieces = 8, pipelineDepth = 8, maxPeers = 10),
+                    unwantedFiles = setOf(1),
+                )
+            session.restore(AgreeableHasher(metainfo))
+            assertEquals(
+                metainfo.totalLength / 2,
+                session.state.value.left,
+                "`left` counts the whole torrent, not the half this client wants",
+            )
+
+            val job = session.start(kotlinx.coroutines.CoroutineScope(coroutineContext + handler))
+            testScheduler.runCurrent()
+            val connection = dialer.connections.getValue(peerA)
+            connection.incoming.send(PeerEvent.Received(Message.Bitfield(allOf(metainfo.pieceCount))))
+            connection.incoming.send(PeerEvent.Received(Message.Unchoke))
+            testScheduler.runCurrent()
+
+            val asked =
+                connection.sent
+                    .filterIsInstance<Message.Request>()
+                    .map { it.piece.value }
+                    .toSet()
+            assertTrue(asked.isNotEmpty(), "nothing was asked for at all")
+            assertEquals(
+                emptySet(),
+                asked.filter { it >= metainfo.pieceCount / 2 }.toSet(),
+                "a piece belonging only to the skipped file was requested",
             )
 
             job.cancelAndJoin()

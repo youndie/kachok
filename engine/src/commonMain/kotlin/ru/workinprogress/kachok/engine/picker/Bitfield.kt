@@ -34,6 +34,14 @@ public class Bitfield(
         count++
     }
 
+    /** Clears one bit. The counterpart of [set], for building a field by exclusion. */
+    public fun clear(index: Int) {
+        require(index in 0 until size) { "piece $index is outside 0..${size - 1}" }
+        if (!get(index)) return
+        words[index / WORD_BITS] = words[index / WORD_BITS] and (1L shl (index % WORD_BITS)).inv()
+        count--
+    }
+
     /**
      * Empties the whole field.
      *

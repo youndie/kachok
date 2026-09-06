@@ -67,7 +67,43 @@ public class PiecePicker(
     /** Pieces this client has verified. */
     public val completed: Bitfield get() = have
 
-    public val isComplete: Boolean get() = have.isComplete
+    /**
+     * Every piece this client *wants* is verified.
+     *
+     * Counted rather than derived from [have]: after a restore, `have` can hold pieces belonging to
+     * files nobody wants — they were already on the disk — and `cardinality + skipped >= size` then
+     * says complete while wanted pieces are still missing.
+     */
+    public val isComplete: Boolean get() = wantedHave >= wantedPieces
+
+    /**
+     * Pieces this client will not ask for, or null while it wants all of them.
+     *
+     * A piece is skipped only when *every* byte of it belongs to an unwanted file. One that
+     * straddles a wanted and an unwanted file is fetched: the swarm serves pieces, not files, and
+     * there is no way to have the first half without the second.
+     */
+    private var unwanted: Bitfield? = null
+
+    private var wantedPieces: Int = metainfo.pieceCount
+
+    private var wantedHave: Int = 0
+
+    /**
+     * Ask for none of these.
+     *
+     * Only before anything has been asked for, like [restore]: a picker that has handed out blocks
+     * of a piece it is now told to skip has requests outstanding for bytes nobody wants.
+     */
+    public fun skip(pieces: Bitfield) {
+        require(pieces.size == metainfo.pieceCount) {
+            "a bitfield for ${pieces.size} pieces cannot skip in a torrent of ${metainfo.pieceCount}"
+        }
+        check(started.isEmpty()) { "the picker is already in use" }
+        unwanted = pieces
+        wantedPieces = metainfo.pieceCount - pieces.cardinality
+        wantedHave = (0 until metainfo.pieceCount).count { have[it] && !pieces[it] }
+    }
 
     /**
      * True when there is work outstanding and nothing left to ask for a first time; the picker
@@ -171,6 +207,8 @@ public class PiecePicker(
         nowMillis: Long = 0L,
     ): List<BlockRequest> {
         if (count <= 0 || have[piece.value]) return emptyList()
+        // A peer offering a fast piece of a file nobody wants is offering nothing.
+        if (unwanted?.get(piece.value) == true) return emptyList()
         val bitfield = peers[peer] ?: return emptyList()
         if (!bitfield[piece.value]) return emptyList()
         this.now = nowMillis
@@ -252,6 +290,7 @@ public class PiecePicker(
         started.clear()
         isStarted.fill(false)
         have.clear()
+        wantedHave = 0
     }
 
     /**
@@ -266,11 +305,13 @@ public class PiecePicker(
         }
         check(started.isEmpty() && have.cardinality == 0) { "the picker is already in use" }
         (0 until metainfo.pieceCount).forEach { if (verified[it]) have.set(it) }
+        wantedHave = (0 until metainfo.pieceCount).count { have[it] && unwanted?.get(it) != true }
     }
 
     /** The writer verified a piece. */
     public fun pieceVerified(piece: PieceIndex) {
         finish(piece.value)
+        if (!have[piece.value] && unwanted?.get(piece.value) != true) wantedHave++
         have.set(piece.value)
     }
 
@@ -371,6 +412,7 @@ public class PiecePicker(
         var seen = 0
         for (index in 0 until metainfo.pieceCount) {
             if (!bitfield[index] || have[index] || isStarted[index]) continue
+            if (unwanted?.get(index) == true) continue
             seen++
             if (chooseAtRandom) {
                 if (random.nextInt(seen) == 0) best = index

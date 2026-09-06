@@ -34,7 +34,9 @@ import ru.workinprogress.kachok.engine.storage.BlockWriter
 import ru.workinprogress.kachok.engine.storage.PieceHasher
 import ru.workinprogress.kachok.engine.storage.PieceOutcome
 import ru.workinprogress.kachok.engine.storage.Storage
+import ru.workinprogress.kachok.engine.storage.unwantedPieces
 import ru.workinprogress.kachok.engine.storage.verifiedBytesPerFile
+import ru.workinprogress.kachok.engine.storage.wantedBytes
 import ru.workinprogress.kachok.engine.tracker.AnnounceEvent
 import ru.workinprogress.kachok.engine.tracker.AnnounceRequest
 import ru.workinprogress.kachok.engine.tracker.TrackerClient
@@ -107,6 +109,14 @@ public class Session(
      * can only say that somebody did.
      */
     private val random: Random = Random.Default,
+    /**
+     * Files this client will not ask for, by their index in [metainfo].
+     *
+     * The picker is told which *pieces* that makes skippable — only those every byte of which
+     * belongs to an unwanted file — and everything else follows: what is announced as `left`, what
+     * counts as complete, and what the *Files* tab draws a tick against.
+     */
+    private val unwantedFiles: Set<Int> = emptySet(),
 ) {
     private val picker = PiecePicker(metainfo, config.maxStartedPieces, random)
     private val choker = Choker(config.maxUnchoked, random = random)
@@ -182,6 +192,9 @@ public class Session(
         record: ResumeRecord?,
         hasher: PieceHasher,
     ) {
+        // Before the restore, and every time: `skip` refuses a picker that has begun a piece, and
+        // `forget` has just emptied it, so a re-check re-applies the same set rather than losing it.
+        if (unwantedFiles.isNotEmpty()) picker.skip(unwantedPieces(metainfo, unwantedFiles))
         val verified =
             StartupVerifier(metainfo, storage, hasher).verify(record) { checked, total ->
                 publish { it.copy(verifiedPieces = checked, verifyingOf = total) }
@@ -191,11 +204,14 @@ public class Session(
             (0 until metainfo.pieceCount)
                 .filter { verified[it] }
                 .sumOf { metainfo.pieceLengthAt(PieceIndex(it)).toLong() }
+        // BEP 3's `left` is what this client still needs, and it does not need the files it is
+        // skipping. With nothing skipped this is the torrent's own length, as before.
+        val wanted = wantedBytes(metainfo, unwantedFiles)
         publish {
             it.copy(
                 completedPieces = verified.cardinality,
                 downloaded = bytes,
-                left = metainfo.totalLength - bytes,
+                left = (wanted - bytes).coerceAtLeast(0),
                 uploaded = record?.uploaded ?: 0,
                 isComplete = verified.isComplete,
                 verifiedPieces = metainfo.pieceCount,
@@ -1253,6 +1269,7 @@ public class Session(
                 path = file.path.joinToString("/"),
                 length = file.length,
                 verifiedBytes = verified[at],
+                wanted = at !in unwantedFiles,
             )
         }
     }

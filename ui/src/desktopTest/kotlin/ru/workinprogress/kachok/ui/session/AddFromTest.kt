@@ -24,7 +24,11 @@ class AddFromTest {
     fun aTorrentSaysEverythingItCarries() {
         assertEquals("debian-13.1.0-amd64-DVD-1.iso.torrent", designTorrentToAdd.source)
         assertEquals("3.70 GiB · 1 772 pieces of 2.00 MiB · 9 files", designTorrentToAdd.summary)
-        assertEquals("9 of 9 wanted · 3.70 GiB", designTorrentToAdd.wantedSummary)
+        // 3.61 and not the header's 3.70: this line adds up the nine rows the dialog is showing,
+        // which is what has to change when one of them is unticked. The design's own two numbers
+        // disagree — its file list sums to 3.61 GiB under a header that says 3.70 — and the derived
+        // one is the one this dialog can defend.
+        assertEquals("9 of 9 wanted · 3.61 GiB", designTorrentToAdd.wantedSummary)
         assertEquals(designMetainfo.files.size, designTorrentToAdd.files.size)
         assertEquals("debian-13.1.0-amd64-DVD-1.iso", designTorrentToAdd.files.first().name)
         assertEquals("dists/stable/Release", designTorrentToAdd.files[FIVE].name)
@@ -92,5 +96,25 @@ class AddFromTest {
     private companion object {
         const val FIVE = 5
         const val HASH_HEX = 40
+    }
+
+    /** Unticking a file changes the line that counts them, and nothing else about the dialog. */
+    @Test
+    fun untickingAFileIsVisibleInTheSummary() {
+        val without = designTorrentToAdd.withFile(0, wanted = false)
+        assertEquals("8 of 9 wanted · 68.6 KiB", without.wantedSummary)
+        assertEquals(false, without.files.first().wanted)
+        assertEquals(designTorrentToAdd.files.size, without.files.size, "a row went missing")
+        assertEquals(designTorrentToAdd.saveTo, without.saveTo)
+    }
+
+    /** And unticking everything is a torrent that would fetch nothing, said out loud. */
+    @Test
+    fun untickingEveryFileSaysZeroWanted() {
+        val none =
+            designTorrentToAdd.files.indices.fold(designTorrentToAdd) { state, at ->
+                state.withFile(at, wanted = false)
+            }
+        assertEquals("0 of 9 wanted · 0 B", none.wantedSummary)
     }
 }

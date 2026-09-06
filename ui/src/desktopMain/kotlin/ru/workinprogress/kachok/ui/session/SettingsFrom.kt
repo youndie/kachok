@@ -68,8 +68,11 @@ internal data class Preferences(
      * The port is not here: the listener is the set's and is bound once. A limit is given in
      * kibibytes on the screen and in bytes to the engine, which is the same conversion the headless
      * client makes from `--up` and `--down`.
+     *
+     * [unwanted] is a parameter and not a field for the same reason: everything else here is a
+     * setting that outlives this torrent, and which files to skip is a decision about this one.
      */
-    fun runtimeOptions(): RuntimeOptions =
+    fun runtimeOptions(unwanted: Set<Int> = emptySet()): RuntimeOptions =
         RuntimeOptions(
             directory =
                 java.nio.file.Path
@@ -78,6 +81,7 @@ internal data class Preferences(
             pipelineDepth = pipelineDepth ?: RuntimeOptions.DEFAULT_PIPELINE,
             uploadLimitBytesPerSecond = (uploadLimitKibPerSecond ?: 0) * KIB,
             downloadLimitBytesPerSecond = (downloadLimitKibPerSecond ?: 0) * KIB,
+            unwantedFiles = unwanted,
         )
 }
 

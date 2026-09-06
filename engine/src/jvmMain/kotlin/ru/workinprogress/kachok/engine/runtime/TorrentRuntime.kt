@@ -43,6 +43,13 @@ public class RuntimeOptions(
     public val dht: Boolean = false,
     public val uploadLimitBytesPerSecond: Long = NO_LIMIT,
     public val downloadLimitBytesPerSecond: Long = NO_LIMIT,
+    /**
+     * Files this client will not fetch, by their index in the metainfo.
+     *
+     * Decided when the torrent is added and never after: changing it while a torrent runs needs the
+     * picker to give back pieces it has started, which is the item's own not-covered case.
+     */
+    public val unwantedFiles: Set<Int> = emptySet(),
 ) {
     public companion object {
         public const val DEFAULT_MAX_PEERS: Int = 50
@@ -216,6 +223,7 @@ public class TorrentRuntime internal constructor(
                             uploadLimitBytesPerSecond = options.uploadLimitBytesPerSecond,
                             downloadLimitBytesPerSecond = options.downloadLimitBytesPerSecond,
                         ),
+                    unwantedFiles = options.unwantedFiles,
                 )
             return TorrentRuntime(
                 metainfo = metainfo,

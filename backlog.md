@@ -46,12 +46,11 @@ which is also the order of work.
 
 <!-- BEGIN INDEX -->
 
-## Open (12)
+## Open (11)
 
 | Task | | Priority | Size | Blocked by |
 |---|---|---|---|---|
 | [B-60](docs/backlog/B-60-two-torrents-one-path.md) `[ ]` | Two torrents saving to the same file, and nothing that notices | P1 | M | B-54 |
-| [B-67](docs/backlog/B-67-per-file-selection.md) `[ ]` | Per-file progress and choosing which files to fetch | P2 | L | B-54 |
 | [B-69](docs/backlog/B-69-the-trackers-list.md) `[ ]` | A status per tracker, and re-announcing by hand | P2 | M | B-54 |
 | [B-70](docs/backlog/B-70-settings-reach-a-running-session.md) `[ ]` | Settings that reach a running session | P2 | M | B-62 |
 | [B-73](docs/backlog/B-73-drop-and-paste.md) `[ ]` | Dropping a file on the window, and a magnet on the clipboard | P2 | M | B-72 |
@@ -63,7 +62,7 @@ which is also the order of work.
 | [B-75](docs/backlog/B-75-the-window-below-800dp.md) `[ ]` | The window below 800 dp | P3 | S | B-49 |
 | [B-02](docs/backlog/B-02-ci-runs-build-and-docs-gates.md) `[ ]` | CI runs the build and the documentation gates on every push | infra | S | B-01 |
 
-## Closed (64)
+## Closed (65)
 
 **M0 — The build and its gates**
 
@@ -154,6 +153,7 @@ which is also the order of work.
 - [B-63](docs/backlog/B-63-joining-the-dht-at-runtime.md) `[x]` - Joining the DHT from the settings screen, not from a restart
 - [B-64](docs/backlog/B-64-a-click-waited-for-the-tick.md) `[x]` - A click waited for the tick
 - [B-66](docs/backlog/B-66-the-filter-field.md) `[x]` - The filter field, which is a box with the word Filter in it
+- [B-67](docs/backlog/B-67-per-file-selection.md) `[x]` - Per-file progress and choosing which files to fetch
 - [B-68](docs/backlog/B-68-the-peers-list.md) `[x]` - The peers list, which the session counts and does not name
 - [B-71](docs/backlog/B-71-settings-that-survive-a-restart.md) `[x]` - Settings that survive a restart
 - [B-72](docs/backlog/B-72-the-keyboard-map.md) `[x]` - The keyboard map the empty state advertises

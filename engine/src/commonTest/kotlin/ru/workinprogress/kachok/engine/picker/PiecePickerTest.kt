@@ -9,6 +9,8 @@ import kotlin.random.Random
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 /**
@@ -256,5 +258,72 @@ class PiecePickerTest {
         val requests = picker.next(a, 10)
         assertContentEquals(listOf(0, 16384, 32768), requests.map { it.begin })
         assertContentEquals(listOf(16384, 16384, 7232), requests.map { it.length })
+    }
+
+    /**
+     * A skipped piece is never asked for, by any route.
+     *
+     * Three routes reach the picker: the ordinary one, BEP 6's allowed-fast, and the endgame. The
+     * first two are here; the endgame draws from started pieces, and a skipped piece is never
+     * started.
+     */
+    @Test
+    fun aSkippedPieceIsNeverAskedFor() {
+        val picker = PiecePicker(tenPieces, random = Random(1))
+        val skip = Bitfield(tenPieces.pieceCount).apply { (0..4).forEach { set(it) } }
+        picker.skip(skip)
+        picker.peerWith(a, *(0..9).toList().toIntArray())
+
+        val asked = (1..20).flatMap { picker.next(a, 4) }.map { it.piece.value }.toSet()
+        assertTrue(asked.isNotEmpty(), "nothing was asked for at all")
+        assertEquals(emptySet(), asked.filter { it <= 4 }.toSet(), "a skipped piece was requested")
+
+        assertEquals(
+            emptyList(),
+            picker.nextFrom(a, PieceIndex(0), 4),
+            "a peer offering a skipped piece as allowed-fast was taken up on it",
+        )
+    }
+
+    /** And the torrent is complete when the *wanted* pieces are, not when every piece is. */
+    @Test
+    fun completeMeansEveryWantedPiece() {
+        val picker = PiecePicker(tenPieces, random = Random(1))
+        picker.skip(Bitfield(tenPieces.pieceCount).apply { (0..4).forEach { set(it) } })
+        picker.peerWith(a, *(0..9).toList().toIntArray())
+
+        (5..9).forEach { picker.pieceVerified(PieceIndex(it)) }
+
+        assertTrue(picker.isComplete, "five wanted pieces of five is not complete")
+        assertEquals(5, picker.completed.cardinality, "and it still holds only what it fetched")
+    }
+
+    /**
+     * A restore that finds skipped pieces already on the disk does not make the torrent complete.
+     *
+     * This is why the count is kept rather than derived: `have.cardinality + skipped >= size` is
+     * true here while four wanted pieces are missing.
+     */
+    @Test
+    fun skippedPiecesAlreadyOnTheDiskDoNotFinishTheTorrent() {
+        val picker = PiecePicker(tenPieces, random = Random(1))
+        picker.skip(Bitfield(tenPieces.pieceCount).apply { (0..4).forEach { set(it) } })
+        picker.restore(Bitfield(tenPieces.pieceCount).apply { (0..5).forEach { set(it) } })
+
+        assertFalse(picker.isComplete, "four wanted pieces are still missing")
+        picker.peerWith(a, *(0..9).toList().toIntArray())
+        (6..9).forEach { picker.pieceVerified(PieceIndex(it)) }
+        assertTrue(picker.isComplete)
+    }
+
+    /** Skipping is a decision taken before anything is asked for, and says so. */
+    @Test
+    fun skippingRefusesAPickerThatHasAlreadyStartedAPiece() {
+        val picker = PiecePicker(tenPieces, random = Random(1))
+        picker.peerWith(a, *(0..9).toList().toIntArray())
+        picker.next(a, 1)
+        assertFailsWith<IllegalStateException> {
+            picker.skip(Bitfield(tenPieces.pieceCount).apply { set(0) })
+        }
     }
 }

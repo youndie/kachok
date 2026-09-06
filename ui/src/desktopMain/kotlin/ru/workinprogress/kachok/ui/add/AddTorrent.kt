@@ -14,7 +14,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -25,6 +27,8 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -32,6 +36,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ru.workinprogress.kachok.ui.icons.Glyph
 import ru.workinprogress.kachok.ui.icons.Icons
+import ru.workinprogress.kachok.ui.session.Figures
 import ru.workinprogress.kachok.ui.theme.ChromeButton
 import ru.workinprogress.kachok.ui.theme.ChromeText
 import ru.workinprogress.kachok.ui.theme.DialogButton
@@ -42,9 +47,11 @@ import ru.workinprogress.kachok.ui.theme.RowName
 import ru.workinprogress.kachok.ui.theme.warningColors
 
 /** One file inside a torrent, as the dialog lists it. */
-internal class AddFile(
+internal data class AddFile(
     val name: String,
     val size: String,
+    /** The same number the [size] prints, kept so the summary can add them up. */
+    val bytes: Long,
     val wanted: Boolean,
 )
 
@@ -54,7 +61,7 @@ internal class AddFile(
  * Built by `addFrom` out of a `.torrent`'s bytes or a magnet URI, so the dialog cannot show a
  * detail the source did not carry — which is the whole point of the magnet case.
  */
-internal class AddTorrentState(
+internal data class AddTorrentState(
     val source: String,
     /** `3.70 GiB · 1 772 pieces of 2.00 MiB · 9 files`, or what a magnet can say instead. */
     val summary: String,
@@ -77,38 +84,32 @@ internal class AddTorrentState(
     val whyNot: String? = null,
 ) {
     /** The same recognition, saved somewhere else. */
-    internal fun savingTo(path: String): AddTorrentState =
-        AddTorrentState(
-            source = source,
-            summary = summary,
-            hash = hash,
-            magnet = magnet,
-            saveTo = path,
-            defaultNote = defaultNote,
-            files = files,
-            wantedSummary = wantedSummary,
-            sequential = sequential,
-            startImmediately = startImmediately,
-            canAdd = canAdd,
-            whyNot = whyNot,
-        )
+    internal fun savingTo(path: String): AddTorrentState = copy(saveTo = path)
 
     /** The same recognition, with the button off and a reason beside it. */
-    internal fun refused(reason: String): AddTorrentState =
-        AddTorrentState(
-            source = source,
-            summary = summary,
-            hash = hash,
-            magnet = magnet,
-            saveTo = saveTo,
-            defaultNote = defaultNote,
-            files = files,
-            wantedSummary = wantedSummary,
-            sequential = sequential,
-            startImmediately = startImmediately,
-            canAdd = false,
-            whyNot = reason,
-        )
+    internal fun refused(reason: String): AddTorrentState = copy(canAdd = false, whyNot = reason)
+
+    /**
+     * One file ticked or unticked, and the summary line kept honest about it.
+     *
+     * The size in the summary is the *wanted* size, because that is the number a person is deciding
+     * about: unticking the 3.6 GiB ISO out of a 3.7 GiB torrent has to be visible somewhere other
+     * than on the row itself.
+     */
+    internal fun withFile(
+        index: Int,
+        wanted: Boolean,
+    ): AddTorrentState {
+        val changed = files.mapIndexed { at, file -> if (at == index) file.copy(wanted = wanted) else file }
+        return copy(files = changed, wantedSummary = wantedSummaryOf(changed))
+    }
+
+    internal companion object {
+        /** `8 of 9 wanted · 3.61 GiB`, which is the design's own line. */
+        internal fun wantedSummaryOf(files: List<AddFile>): String =
+            "${files.count { it.wanted }} of ${files.size} wanted" +
+                " · ${Figures.bytes(files.filter { it.wanted }.sumOf { it.bytes })}"
+    }
 }
 
 /**
@@ -130,6 +131,7 @@ internal fun AddTorrentDialog(
     onCancel: () -> Unit = {},
     onAdd: () -> Unit = {},
     onBrowse: () -> Unit = {},
+    onFile: (Int, Boolean) -> Unit = { _, _ -> },
 ) {
     val scheme = MaterialTheme.colorScheme
     Column(
@@ -146,7 +148,7 @@ internal fun AddTorrentDialog(
         )
         SourceCard(state)
         SaveTo(state, onBrowse)
-        if (state.files.isNotEmpty()) Files(state)
+        if (state.files.isNotEmpty()) Files(state, onFile)
         Sequential(state)
         StartMode(state)
         Row(
@@ -243,7 +245,10 @@ private fun SaveTo(
 }
 
 @Composable
-private fun Files(state: AddTorrentState) {
+private fun Files(
+    state: AddTorrentState,
+    onFile: (Int, Boolean) -> Unit,
+) {
     val scheme = MaterialTheme.colorScheme
     Column(
         Modifier.fillMaxWidth().padding(start = EDGE, end = EDGE, top = 16.dp),
@@ -251,20 +256,28 @@ private fun Files(state: AddTorrentState) {
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("Files", style = SECTION_LABEL, color = KachokPalette.onSurfaceMuted)
-            PlannedBadge()
             Box(Modifier.weight(1f))
             Text(state.wantedSummary, style = CARD_MONO, color = scheme.onSurfaceVariant)
         }
+        // Scrollable, because the box is four rows high and a torrent has as many files as it has.
+        // Without this the fifth file and everything after it was drawn outside the box and could
+        // not be reached at all — found by a test that ticked all nine and heard from four.
         Column(
             Modifier
                 .fillMaxWidth()
                 .heightIn(max = FILE_LIST_HEIGHT)
                 .background(KachokPalette.neutralCard, RoundedCornerShape(4.dp))
-                .border(HAIRLINE, scheme.outline, RoundedCornerShape(4.dp)),
+                .border(HAIRLINE, scheme.outline, RoundedCornerShape(4.dp))
+                .verticalScroll(rememberScrollState()),
         ) {
-            state.files.forEach { file ->
+            state.files.forEachIndexed { index, file ->
                 Row(
-                    Modifier.fillMaxWidth().height(FILE_ROW).padding(horizontal = 10.dp),
+                    Modifier
+                        .fillMaxWidth()
+                        .height(FILE_ROW)
+                        .clickable { onFile(index, !file.wanted) }
+                        .semantics { contentDescription = file.name }
+                        .padding(horizontal = 10.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(9.dp),
                 ) {

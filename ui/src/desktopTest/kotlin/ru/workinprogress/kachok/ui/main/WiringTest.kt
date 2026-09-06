@@ -4,6 +4,7 @@ import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.v2.runComposeUiTest
 import ru.workinprogress.kachok.ui.add.designTorrentToAdd
@@ -80,6 +81,36 @@ class WiringTest {
             }
             onNodeWithText("Browse…").performClick()
             assertEquals(1, browsed)
+        }
+
+    /** Every file row in the add dialog reports, not one of them. */
+    @Test
+    fun everyFileTickInTheAddDialogLeavesTheWindow(): Unit =
+        runComposeUiTest {
+            val ticked = mutableListOf<Pair<Int, Boolean>>()
+            setContent {
+                KachokTheme {
+                    MainWindow(
+                        MainWindowState(
+                            torrents = window.torrents,
+                            status = window.status,
+                            adding = designTorrentToAdd,
+                        ),
+                        onAddFile = { at, wanted -> ticked += at to wanted },
+                    )
+                }
+            }
+            designTorrentToAdd.files.forEach { file ->
+                // Scrolled to first: the box is four rows high, and the fifth file used to be drawn
+                // outside it with no way to reach it — which is what this loop found.
+                onNodeWithContentDescription(file.name).performScrollTo().performClick()
+            }
+            assertEquals(
+                designTorrentToAdd.files.indices.toList(),
+                ticked.map { it.first },
+                "a row reported another row's index",
+            )
+            assertTrue(ticked.all { !it.second }, "a ticked row asked to be ticked again")
         }
 
     @Test

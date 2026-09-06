@@ -95,6 +95,7 @@ internal fun MainWindow(
     onToggleRemoveData: (Boolean) -> Unit = {},
     onConfirmRemove: () -> Unit = {},
     onFilter: (String) -> Unit = {},
+    onAddFile: (Int, Boolean) -> Unit = { _, _ -> },
 ) {
     Box(modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)) {
@@ -164,7 +165,13 @@ internal fun MainWindow(
                 Modifier.fillMaxSize().background(SCRIM),
                 contentAlignment = Alignment.Center,
             ) {
-                AddTorrentDialog(adding, onCancel = onCancelAdd, onAdd = onConfirmAdd, onBrowse = onBrowse)
+                AddTorrentDialog(
+                    adding,
+                    onCancel = onCancelAdd,
+                    onAdd = onConfirmAdd,
+                    onBrowse = onBrowse,
+                    onFile = onAddFile,
+                )
             }
         }
         state.removing?.let { removing ->

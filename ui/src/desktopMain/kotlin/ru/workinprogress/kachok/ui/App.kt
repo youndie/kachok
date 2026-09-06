@@ -173,6 +173,23 @@ private class Pending(
     /** Where this one goes, which is a choice about this torrent and not about the next. */
     fun savingTo(path: String): Pending = Pending(metainfo, magnet, shown.savingTo(path))
 
+    /** One file ticked or unticked in the dialog, before anything has been opened. */
+    fun withFile(
+        index: Int,
+        wanted: Boolean,
+    ): Pending = Pending(metainfo, magnet, shown.withFile(index, wanted))
+
+    /**
+     * The files this torrent will not fetch, by index.
+     *
+     * Read off the dialog at the moment *Add* is pressed, because that is when the decision is
+     * final: the picker is told once and cannot be told again.
+     */
+    fun unwanted(): Set<Int> =
+        shown.files
+            .mapIndexedNotNull { at, file -> at.takeIf { !file.wanted } }
+            .toSet()
+
     fun directory(): java.nio.file.Path =
         java.nio.file.Path
             .of(shown.saveTo)
@@ -342,7 +359,13 @@ internal fun Client(
                     // Where *this* torrent goes was decided in its own dialog; everything else
                     // about it comes from the settings.
                     next.metainfo?.let {
-                        open(set, it, chosenPreferences.withDirectory(next.shown.saveTo), scope)
+                        open(
+                            set,
+                            it,
+                            chosenPreferences.withDirectory(next.shown.saveTo),
+                            scope,
+                            unwanted = next.unwanted(),
+                        )
                     }
                     next.magnet?.let { fetching += Fetching(it) }
                 }
@@ -535,6 +558,7 @@ internal fun Client(
         },
         onSort = { column -> sort = sort.clicked(column) },
         onFilter = { typed -> filter = typed },
+        onAddFile = { index, wanted -> pending = pending?.withFile(index, wanted) },
         onTab = { chosenTab -> tab = chosenTab },
         onSelect = { row -> rowKeys.getOrNull(row)?.let { selected = it } },
         onAddTorrent = { pending = chooseTorrent(preferences.directory) },
@@ -693,8 +717,10 @@ private suspend fun open(
     metainfo: Metainfo,
     preferences: Preferences,
     scope: CoroutineScope,
+    /** Files unticked in this torrent's own dialog. Not a setting: it is about this torrent. */
+    unwanted: Set<Int> = emptySet(),
 ): TorrentRuntime =
-    set.add(metainfo, preferences.runtimeOptions()).also {
+    set.add(metainfo, preferences.runtimeOptions(unwanted)).also {
         it.restore()
         it.start(scope)
     }

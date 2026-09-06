@@ -19,11 +19,14 @@ class AddTorrentTest {
     /**
      * Nothing in this dialog is drawn live and connected to nothing.
      *
-     * Three of its controls wait on an engine change — the file ticks and *Sequential download* on
-     * [B-67](../../../../../../../../docs/backlog/B-67-per-file-selection.md), *Add paused* on
-     * [B-57](../../../../../../../../docs/backlog/B-57-a-paused-torrent.md) — and each says so with
-     * the design's badge. The failure this catches is somebody deleting a badge because the control
-     * "looks finished", which is how three screens in this window got the way they were.
+     * What is left is *Sequential download*
+     * ([B-65](../../../../../../../../docs/backlog/B-65-sequential-download.md)) and *Add paused*
+     * — the latter drawn before the engine had a paused state and still waiting on the dialog to
+     * pass the choice through. The file ticks used to be here and are live now
+     * ([B-67](../../../../../../../../docs/backlog/B-67-per-file-selection.md)).
+     *
+     * The failure this catches is somebody deleting a badge because the control "looks finished",
+     * which is how three screens in this window got the way they were.
      *
      * *Start immediately* carries no badge and needs none: it is the option already chosen, and
      * pressing the selected radio does nothing in any dialog ever written.
@@ -35,13 +38,13 @@ class AddTorrentTest {
             assertEquals(
                 PLANNED_CONTROLS,
                 onAllNodesWithText("planned").fetchSemanticsNodes().size,
-                "the file list, sequential download and add-paused carry one each",
+                "sequential download and add-paused carry one each",
             )
             onNodeWithText("Add paused").assertIsDisplayed()
             onNodeWithText("Sequential download").assertIsDisplayed()
         }
 
     private companion object {
-        const val PLANNED_CONTROLS = 3
+        const val PLANNED_CONTROLS = 2
     }
 }

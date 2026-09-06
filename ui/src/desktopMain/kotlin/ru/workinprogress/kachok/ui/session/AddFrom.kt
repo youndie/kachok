@@ -34,11 +34,17 @@ internal fun addFrom(
         defaultNote = "Default: the folder from Settings — $defaultDirectory",
         files =
             metainfo.files.map { file ->
-                AddFile(file.path.joinToString("/"), Figures.bytes(file.length), wanted = true)
+                AddFile(
+                    file.path.joinToString("/"),
+                    Figures.bytes(file.length),
+                    bytes = file.length,
+                    wanted = true,
+                )
             },
         wantedSummary =
-            "${metainfo.files.size} of ${metainfo.files.size} wanted" +
-                "$SEPARATOR${Figures.bytes(metainfo.totalLength)}",
+            AddTorrentState.wantedSummaryOf(
+                metainfo.files.map { AddFile("", "", it.length, wanted = true) },
+            ),
     )
 
 /**
