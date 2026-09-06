@@ -39,6 +39,7 @@ which is also the order of work.
 | `m8-extensions` | M8 — Extensions | UDP trackers, fast extension, PEX, DHT, magnets, v2, IPv6. |
 | `phase-2-ui` | Phase 2 — UI | Compose desktop in-process; the browser build as a client of the headless engine. Placeholders. |
 | `phase-3-mobile` | Phase 3 — Mobile | Android and iOS targets. Placeholder. |
+| `phase-3-server` | Phase 3 — Server | The headless client as a service on a box that is always on, with a web face. Placeholder. |
 
 ## Marks
 
@@ -46,7 +47,7 @@ which is also the order of work.
 
 <!-- BEGIN INDEX -->
 
-## Open (6)
+## Open (7)
 
 | Task | | Priority | Size | Blocked by |
 |---|---|---|---|---|
@@ -55,6 +56,7 @@ which is also the order of work.
 | [B-37](docs/backlog/B-37-v2-and-hybrid-torrents.md) `[?]` | v2 and hybrid torrents (BEP 52): SHA-256 piece layers | P3 | L | B-04 |
 | [B-40](docs/backlog/B-40-wasmjs-ui-is-a-client-of-the-headless-engine.md) `[ ]` | Phase 2: the wasmJs UI is a client of the JVM headless engine | P3 | L | B-80 |
 | [B-41](docs/backlog/B-41-android-and-ios-targets.md) `[ ]` | Phase 3: Android and iOS targets on the engine | P3 | XL | B-39 |
+| [B-87](docs/backlog/B-87-a-server-with-a-web-face.md) `[ ]` | Phase 3: a headless server with a web face, installable on a box that is always on | P3 | XL | B-80 |
 | [B-02](docs/backlog/B-02-ci-runs-build-and-docs-gates.md) `[ ]` | CI runs the build and the documentation gates on every push | infra | S | B-01 |
 
 ## Closed (80)
