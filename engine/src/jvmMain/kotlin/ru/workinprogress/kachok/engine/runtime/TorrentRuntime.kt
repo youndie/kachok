@@ -169,6 +169,16 @@ public class TorrentRuntime internal constructor(
     public suspend fun recheck(): Unit = session.send(Command.Recheck)
 
     /**
+     * Ask for pieces in order, or stop.
+     *
+     * Its own call rather than a field on [reconfigure]'s options: those are the *settings*, sent
+     * to every torrent at once when somebody edits them, and this is a decision about one film
+     * ([B-89](../../../../../../../../docs/backlog/B-89-sequential-on-a-running-torrent.md)).
+     * Sending it through the settings would turn one torrent's order into all of them.
+     */
+    public suspend fun sequential(inOrder: Boolean): Unit = session.send(Command.Reconfigure(sequential = inOrder))
+
+    /**
      * New values for the settings that can change under a running torrent.
      *
      * Everything else in [RuntimeOptions] is decided when the torrent is opened: the directory is

@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -39,6 +40,7 @@ import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -184,6 +186,13 @@ internal class DetailsState(
     val files: List<FileRow> = emptyList(),
     /** `9 files · 3.70 GiB · 8 wanted`. */
     val filesSummary: String = "",
+    /**
+     * Pieces are being asked for in order.
+     *
+     * From the session rather than from what was last clicked: a control that showed the request
+     * would disagree with the client the moment one was lost or refused.
+     */
+    val sequential: Boolean = false,
     /** In the metainfo's own order, so a row does not move when a tracker fails. */
     val trackers: List<TrackerRow> = emptyList(),
     /** `3 trackers + DHT`. */
@@ -229,6 +238,14 @@ internal fun DetailsPanel(
      * the list carry a sentence about a click somebody made a minute ago.
      */
     onOpenFile: (FileRow) -> String? = { null },
+    /**
+     * The order this torrent asks for pieces in was changed.
+     *
+     * On the *Files* tab because that is where the order is visible — which file fills first — and
+     * on a running torrent because that is when anybody wants it
+     * ([B-89](../../../../../../../../docs/backlog/B-89-sequential-on-a-running-torrent.md)).
+     */
+    onSequential: (Boolean) -> Unit = {},
     /** Where the drag has put the edge, clamped by the caller to [Details.minimumWidth]..[Details.maximumWidth]. */
     width: Dp = Details.width,
     onResize: (Dp) -> Unit = {},
@@ -262,7 +279,7 @@ internal fun DetailsPanel(
             when (state.tab) {
                 DetailsTab.Overview -> Overview(state, onCopy)
                 DetailsTab.Peers -> Peers(state.peers)
-                DetailsTab.Files -> Files(state, onOpenFile)
+                DetailsTab.Files -> Files(state, onOpenFile, onSequential)
                 DetailsTab.Trackers -> Trackers(state, onAnnounce)
             }
         }
@@ -620,6 +637,7 @@ private fun toneColor(tone: FieldTone) =
 private fun ColumnScope.Files(
     state: DetailsState,
     onOpenFile: (FileRow) -> String?,
+    onSequential: (Boolean) -> Unit,
 ) {
     val scheme = MaterialTheme.colorScheme
     // Keyed on the torrent, so selecting another one does not leave a sentence about the last.
@@ -633,6 +651,28 @@ private fun ColumnScope.Files(
             // No badge any more: the ticks in the add dialog are live, and the ones here are
             // indicators of what that dialog decided rather than controls waiting on anything.
             Text(state.filesSummary, style = FIELD_LABEL, color = scheme.onSurfaceVariant)
+            Spacer(Modifier.weight(1f))
+            // **A control and not an indicator**, which is what every other tick on this tab is:
+            // the file ticks report what the add dialog decided and cannot be changed on a running
+            // torrent, and the order can.
+            //
+            // Drawn the way *Re-announce* is on the Trackers tab — the panel's own vocabulary for a
+            // pressable thing in a tab head — rather than as a new one. **The label says what
+            // pressing it will do**, because a two-state control that reads as a link and names its
+            // current state is one nobody can tell from a label. What it *is* is in the semantics,
+            // where a test and a screen reader can both read it.
+            Text(
+                if (state.sequential) "Ask rarest first" else "Ask in order",
+                style = FIELD_LABEL,
+                color = scheme.primary,
+                maxLines = 1,
+                modifier =
+                    Modifier
+                        .semantics {
+                            contentDescription = "piece order"
+                            stateDescription = if (state.sequential) "in order" else "rarest first"
+                        }.clickable { onSequential(!state.sequential) },
+            )
         }
         Box(Modifier.fillMaxWidth().height(HAIRLINE).background(KachokPalette.rowHairline))
         if (state.files.isEmpty()) {

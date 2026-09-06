@@ -187,16 +187,37 @@ internal fun rememberPaused(
     directory: Path,
     infoHash: String,
     paused: Boolean,
+): Unit = rememberOne(directory, infoHash, PAUSED, paused)
+
+/** And the order, which a person can change while the torrent runs (B-89). */
+internal fun rememberSequential(
+    directory: Path,
+    infoHash: String,
+    sequential: Boolean,
+): Unit = rememberOne(directory, infoHash, SEQUENTIAL, sequential)
+
+/**
+ * One flag of an entry that already exists, rewritten in place.
+ *
+ * It never creates the file: an entry appears when a torrent is added, and a pause or an order
+ * change for a torrent this client does not remember is a race with a removal rather than a torrent
+ * to invent.
+ */
+private fun rememberOne(
+    directory: Path,
+    infoHash: String,
+    key: String,
+    value: Boolean,
 ) {
     val file = directory.resolve("$infoHash$PROPERTIES_SUFFIX")
     try {
         if (!Files.exists(file)) return
         val properties = Properties().apply { Files.newInputStream(file).use { load(it) } }
-        if (properties.getProperty(PAUSED) == paused.toString()) return
-        properties.setProperty(PAUSED, paused.toString())
+        if (properties.getProperty(key) == value.toString()) return
+        properties.setProperty(key, value.toString())
         writeAtomically(file) { properties.store(it, "kachok") }
     } catch (unwritable: IOException) {
-        System.err.println("kachok: cannot record the pause of $infoHash: ${unwritable.message}")
+        System.err.println("kachok: cannot record $key for $infoHash: ${unwritable.message}")
     } catch (malformed: IllegalArgumentException) {
         System.err.println("kachok: $file is not a settings file: ${malformed.message}")
     }

@@ -90,6 +90,7 @@ import ru.workinprogress.kachok.ui.session.openFile
 import ru.workinprogress.kachok.ui.session.preferencesFile
 import ru.workinprogress.kachok.ui.session.ratesOf
 import ru.workinprogress.kachok.ui.session.rememberPaused
+import ru.workinprogress.kachok.ui.session.rememberSequential
 import ru.workinprogress.kachok.ui.session.rememberTorrent
 import ru.workinprogress.kachok.ui.session.rowOf
 import ru.workinprogress.kachok.ui.session.savePreferences
@@ -641,6 +642,14 @@ internal fun Client(
                             runtime.recheck()
                         }
 
+                        TorrentCommand.Kind.Sequential -> {
+                            runtime.sequential(command.on)
+                            // Written down as well as sent: the order is a decision about this
+                            // torrent, and one that does not survive a restart is one somebody has
+                            // to take again every time (B-89).
+                            rememberSequential(torrents, command.infoHash, command.on)
+                        }
+
                         TorrentCommand.Kind.Announce -> {
                             runtime.announce()
                         }
@@ -1046,6 +1055,13 @@ internal fun Client(
         // Straight through: `openFile` is where every refusal is decided, and the sentence it
         // returns is drawn under the list by the panel that asked.
         onOpenFile = { file -> openFile(file) },
+        // Named for the panel it comes from: `onSequential` above is the *add dialog's* tick, which
+        // decides the order before there is a session to ask.
+        onSequentialOrder = { on ->
+            chosenSample?.let {
+                commanded.trySend(TorrentCommand(it.state.infoHash.hex(), TorrentCommand.Kind.Sequential, on))
+            }
+        },
         onShowDegraded = {
             degraded?.let { sample ->
                 selected = sample.state.infoHash.hex()
@@ -1173,8 +1189,10 @@ internal fun shortcutFor(
 private class TorrentCommand(
     val infoHash: String,
     val kind: Kind,
+    /** Only [Kind.Sequential] carries anything: which way the order is being switched. */
+    val on: Boolean = false,
 ) {
-    enum class Kind { Pause, Resume, Recheck, Announce, Remove, RemoveWithData }
+    enum class Kind { Pause, Resume, Recheck, Announce, Remove, RemoveWithData, Sequential }
 }
 
 /**

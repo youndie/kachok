@@ -1,5 +1,8 @@
 package ru.workinprogress.kachok.ui.details
 
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.semantics.getOrNull
+import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.doubleClick
@@ -103,6 +106,51 @@ class FilesTabTest {
             onNodeWithContentDescription("file SHA512SUMS.sign").performTouchInput { doubleClick() }
             onNodeWithText("truncated", substring = true).assertIsDisplayed()
         }
+
+    /**
+     * The order is a control here, and the file ticks are not — which is the whole difference.
+     *
+     * Somebody asks for sequential order because they have started watching, and they start
+     * watching after the download has started; before this the only place to say so was the add
+     * dialog, so the answer was to remove the torrent and add it again
+     * ([B-89](../../../../../../../../docs/backlog/B-89-sequential-on-a-running-torrent.md)).
+     */
+    @Test
+    fun theOrderCanBeChangedFromTheTab() =
+        runComposeUiTest {
+            val asked = mutableListOf<Boolean>()
+            setContent { KachokTheme { DetailsPanel(details, onSequential = { asked += it }) } }
+            onNodeWithContentDescription("piece order").performClick()
+            assertEquals(listOf(true), asked, "the tab did not ask for the order it does not have")
+        }
+
+    /** And it reports what the session is doing, not what was last pressed. */
+    @Test
+    fun theOrderShowsWhatTheSessionSaysRatherThanTheLastClick() =
+        runComposeUiTest {
+            setContent { KachokTheme { DetailsPanel(details) } }
+            assertEquals("rarest first", stateOfOrder())
+        }
+
+    @Test
+    fun aTorrentAlreadyInOrderSaysSoAndAsksToBeTurnedOff() =
+        runComposeUiTest {
+            val asked = mutableListOf<Boolean>()
+            setContent {
+                KachokTheme {
+                    DetailsPanel(designDetails(DetailsTab.Files, sequential = true), onSequential = { asked += it })
+                }
+            }
+            assertEquals("in order", stateOfOrder())
+            onNodeWithContentDescription("piece order").performClick()
+            assertEquals(listOf(false), asked, "a torrent already in order could not be switched back")
+        }
+
+    private fun ComposeUiTest.stateOfOrder(): String? =
+        onNodeWithContentDescription("piece order")
+            .fetchSemanticsNode()
+            .config
+            .getOrNull(SemanticsProperties.StateDescription)
 
     /** A file this client is not fetching says `skip` rather than `0%`, which is what a stall says. */
     @Test

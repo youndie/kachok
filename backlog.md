@@ -47,7 +47,7 @@ which is also the order of work.
 
 <!-- BEGIN INDEX -->
 
-## Open (8)
+## Open (7)
 
 | Task | | Priority | Size | Blocked by |
 |---|---|---|---|---|
@@ -57,10 +57,9 @@ which is also the order of work.
 | [B-40](docs/backlog/B-40-wasmjs-ui-is-a-client-of-the-headless-engine.md) `[ ]` | The browser build of the UI is a client of the headless engine | P3 | L | B-80 |
 | [B-41](docs/backlog/B-41-android-and-ios-targets.md) `[ ]` | Phase 3: Android and iOS targets on the engine | P3 | XL | B-39 |
 | [B-87](docs/backlog/B-87-a-server-with-a-web-face.md) `[ ]` | Phase 3: a headless server with a web face, installable on a box that is always on | P3 | XL | B-80 |
-| [B-89](docs/backlog/B-89-sequential-on-a-running-torrent.md) `[ ]` | Sequential download can be turned on for a torrent that is already running | P3 | M | - |
 | [B-02](docs/backlog/B-02-ci-runs-build-and-docs-gates.md) `[ ]` | CI runs the build and the documentation gates on every push | infra | S | B-01 |
 
-## Closed (81)
+## Closed (82)
 
 **M0 — The build and its gates**
 
@@ -172,6 +171,7 @@ which is also the order of work.
 - [B-85](docs/backlog/B-85-open-a-file-from-the-files-tab.md) `[x]` - Double-clicking a file in the Files tab opens it
 - [B-86](docs/backlog/B-86-the-application-icon.md) `[x]` - The application icon, drawn from its own geometry
 - [B-88](docs/backlog/B-88-closing-to-a-tray.md) `[x]` - Closing the window leaves the client running, in a tray
+- [B-89](docs/backlog/B-89-sequential-on-a-running-torrent.md) `[x]` - Sequential download can be turned on for a torrent that is already running
 
 <!-- END INDEX -->
 

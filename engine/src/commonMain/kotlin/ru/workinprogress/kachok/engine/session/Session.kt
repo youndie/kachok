@@ -132,6 +132,10 @@ public class Session(
                 name = metainfo.name,
                 totalLength = metainfo.totalLength,
                 pieceCount = metainfo.pieceCount,
+                // From the first state and not from the first restore: a control reading this
+                // before the disk check finishes would show the wrong order for as long as the
+                // check takes, which on a large torrent is minutes.
+                sequential = sequential,
             ),
         )
 
@@ -263,6 +267,7 @@ public class Session(
                 isComplete = verified.isComplete,
                 verifiedPieces = metainfo.pieceCount,
                 verifyingOf = metainfo.pieceCount,
+                sequential = sequential,
             )
         }
     }
@@ -359,6 +364,16 @@ public class Session(
 
                 is Command.Reconfigure -> {
                     command.maxPeers?.let { maxPeers = it }
+                    // **What is already asked for is left alone**, and that is the decision this
+                    // command took. Cancelling the outstanding requests is a `Cancel` per peer per
+                    // block and a swarm asked for the same work twice; letting them land costs one
+                    // pipeline's worth of pieces in the old order — a second or two of mixture at
+                    // the front, and then the order somebody asked for. Nothing already verified is
+                    // touched either way.
+                    command.sequential?.let {
+                        picker.sequential = it
+                        publish { state -> state.copy(sequential = it) }
+                    }
                     command.uploadLimitBytesPerSecond?.let { uploadBudget.retune(it) }
                     command.downloadLimitBytesPerSecond?.let { downloadBudget.retune(it) }
                     // Both of these are wake-ups, and both are necessary. Raising the peer count
@@ -1629,6 +1644,7 @@ private fun SessionState.copy(
     sessionError: String? = this.sessionError,
     isComplete: Boolean = this.isComplete,
     paused: Boolean = this.paused,
+    sequential: Boolean = this.sequential,
     dhtAnnouncedSecondsAgo: Long? = this.dhtAnnouncedSecondsAgo,
     dhtNextInSeconds: Long? = this.dhtNextInSeconds,
     peers: List<PeerView> = this.peers,
@@ -1658,6 +1674,7 @@ private fun SessionState.copy(
         sessionError = sessionError,
         isComplete = isComplete,
         paused = paused,
+        sequential = sequential,
         dhtAnnouncedSecondsAgo = dhtAnnouncedSecondsAgo,
         dhtNextInSeconds = dhtNextInSeconds,
         peers = peers,

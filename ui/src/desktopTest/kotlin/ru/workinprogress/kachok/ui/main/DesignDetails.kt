@@ -105,8 +105,16 @@ private fun designPeer(
     upBytesPerSecond = 0,
 )
 
-internal val designSession: SessionState =
+/**
+ * The design's own torrent, as a `SessionState`.
+ *
+ * A function of the one field a test needs to vary, because `SessionState` is a plain class with no
+ * `copy` — deliberately, so that the wire contract stays a constructor and not a generated method
+ * nobody reads. `designSession` below is the value every other test uses.
+ */
+internal fun designSession(sequential: Boolean = false): SessionState =
     SessionState(
+        sequential = sequential,
         infoHash =
             InfoHash(
                 byteArrayOf(
@@ -165,11 +173,18 @@ internal val designSession: SessionState =
         trackers = designTrackers,
     )
 
-internal fun designDetails(tab: DetailsTab = DetailsTab.Overview): DetailsState =
+internal fun designDetails(
+    tab: DetailsTab = DetailsTab.Overview,
+    /** The design's own torrent is rarest-first; a test that wants the other order says so. */
+    sequential: Boolean = false,
+): DetailsState =
     detailsOf(
-        state = designSession,
+        state = designSession(sequential),
         rates = Rates(down = 4_312 * KIB, up = 812 * KIB),
         pieceLength = 2 * MIB,
         directory = "~/Downloads/iso",
         tab = tab,
     )
+
+/** The design's torrent in its usual, rarest-first order. */
+internal val designSession: SessionState = designSession(sequential = false)

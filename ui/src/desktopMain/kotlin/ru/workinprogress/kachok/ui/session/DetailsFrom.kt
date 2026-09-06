@@ -120,6 +120,7 @@ internal fun detailsOf(
         tab = tab,
         peers = peersOf(state),
         files = filesOf(state, paths),
+        sequential = state.sequential,
         filesSummary = filesSummaryOf(state),
         trackers = trackersOf(state),
         trackersSummary = trackersSummaryOf(state),

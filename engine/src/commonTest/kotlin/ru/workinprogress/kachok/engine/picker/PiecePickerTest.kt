@@ -349,6 +349,75 @@ class PiecePickerTest {
         assertEquals(listOf(0, 1, 2, 3, 4), order)
     }
 
+    /**
+     * Turned on halfway, which is when anybody wants it.
+     *
+     * Somebody asks for order because they have started watching, and they start watching after the
+     * download has started — so a picker whose order was fixed when the session was built could only
+     * be told before the event that makes anybody want it
+     * ([B-89](../../../../../../../../docs/backlog/B-89-sequential-on-a-running-torrent.md)). What
+     * is asserted here is that the *next* choice changes and nothing already verified is asked for
+     * again.
+     */
+    @Test
+    fun theOrderCanBeChangedUnderARunningPicker() {
+        val picker = PiecePicker(tenPieces, maxStartedPieces = 1, random = Random(1))
+        picker.peerWith(a, *(0..9).toList().toIntArray())
+        // Two pieces are already on the disk, wherever rarest-first put them.
+        val alreadyHad = mutableSetOf<Int>()
+        repeat(2) {
+            val request = picker.next(a, 1).single()
+            picker.blockReceived(a, request.piece, 0)
+            picker.pieceVerified(request.piece)
+            alreadyHad += request.piece.value
+        }
+
+        picker.sequential = true
+
+        val next =
+            (0..3).map {
+                picker
+                    .next(a, 1)
+                    .single()
+                    .piece.value
+                    .also { piece -> picker.pieceVerified(PieceIndex(piece)) }
+            }
+        assertEquals(next.sorted(), next, "the order did not change under the running picker")
+        assertTrue(
+            next.none { it in alreadyHad },
+            "a piece already verified was asked for again: had $alreadyHad, then asked for $next",
+        )
+    }
+
+    /** And off again: somebody who has finished watching is back to being a good swarm member. */
+    @Test
+    fun theOrderCanBeChangedBack() {
+        // Two, because the first piece stays started: `next` refuses to begin a second one at a
+        // bound of one, and this is asking what it *chooses*, not what it is allowed to hold.
+        val picker = PiecePicker(tenPieces, maxStartedPieces = 2, random = Random(1), sequential = true)
+        picker.peerWith(a, *(0..9).toList().toIntArray())
+        assertEquals(
+            0,
+            picker
+                .next(a, 1)
+                .single()
+                .piece.value,
+        )
+
+        picker.sequential = false
+        // Rarest-first with one peer holding everything picks at random on an empty picker; what
+        // this asserts is only that it is no longer forced to the lowest, which is the claim.
+        picker.peerWith(b, 9)
+        assertEquals(
+            9,
+            picker
+                .next(b, 1)
+                .single()
+                .piece.value,
+            "with the order off, a peer holding only piece 9 is still asked for piece 9",
+        )
+    }
+
     /** A piece the peer has not got is skipped rather than waited for. */
     @Test
     fun sequentialTakesTheLowestThatIsActuallyAvailable() {

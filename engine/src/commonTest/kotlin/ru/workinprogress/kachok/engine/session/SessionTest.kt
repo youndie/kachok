@@ -34,6 +34,7 @@ import ru.workinprogress.kachok.engine.wire.PexMessage
 import kotlin.test.Test
 import kotlin.test.assertContains
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
 
@@ -1200,6 +1201,7 @@ class SessionTest {
         config: SessionConfig = SessionConfig(maxStartedPieces = 4, pipelineDepth = 2, maxPeers = 10),
         random: kotlin.random.Random = kotlin.random.Random(1),
         unwantedFiles: Set<Int> = emptySet(),
+        sequential: Boolean = false,
     ) = Session(
         metainfo = metainfo,
         peerId = ourPeerId,
@@ -1211,6 +1213,7 @@ class SessionTest {
         config = config,
         random = random,
         unwantedFiles = unwantedFiles,
+        sequential = sequential,
     ).also { sessions += it }
 
     @Test
@@ -1928,6 +1931,72 @@ class SessionTest {
             testScheduler.runCurrent()
 
             assertEquals(3, session.state.value.connectedPeers, "the new limit did not reach the session")
+
+            job.cancelAndJoin()
+        }
+
+    /**
+     * The order can be changed under a running session, and the state says so.
+     *
+     * The seam this covers is the one that survived being deleted: the picker's own test knows the
+     * picker can be switched and the panel's test knows the control asks, and between them sat a
+     * `Command.Reconfigure` branch that nothing exercised
+     * ([B-89](../../../../../../../../docs/backlog/B-89-sequential-on-a-running-torrent.md)).
+     *
+     * The *state* and not only the picker, because that is what the control draws: a panel showing
+     * what it last asked for rather than what the session is doing would disagree with the client
+     * the first time a command was lost.
+     */
+    @Test
+    fun theOrderCanBeChangedOnARunningSession() =
+        runTest {
+            val metainfo = torrent(pieces = 8)
+            val session =
+                session(
+                    metainfo,
+                    FakeDialer(metainfo.infoHash),
+                    FakeTracker(listOf(peerA)),
+                    FakeStorage(),
+                    AgreeableHasher(metainfo),
+                )
+            val job = session.start(kotlinx.coroutines.CoroutineScope(coroutineContext + handler))
+            testScheduler.runCurrent()
+            assertFalse(session.state.value.sequential, "a session starts rarest-first")
+
+            session.send(Command.Reconfigure(sequential = true))
+            testScheduler.runCurrent()
+            assertTrue(session.state.value.sequential, "the order did not reach the running session")
+
+            session.send(Command.Reconfigure(sequential = false))
+            testScheduler.runCurrent()
+            assertFalse(session.state.value.sequential, "the order could not be turned back off")
+
+            job.cancelAndJoin()
+        }
+
+    /** A reconfigure that says nothing about the order leaves it where it was. */
+    @Test
+    fun aReconfigureThatDoesNotMentionTheOrderDoesNotChangeIt() =
+        runTest {
+            val metainfo = torrent(pieces = 8)
+            val session =
+                session(
+                    metainfo,
+                    FakeDialer(metainfo.infoHash),
+                    FakeTracker(listOf(peerA)),
+                    FakeStorage(),
+                    AgreeableHasher(metainfo),
+                    sequential = true,
+                )
+            val job = session.start(kotlinx.coroutines.CoroutineScope(coroutineContext + handler))
+            testScheduler.runCurrent()
+            assertTrue(session.state.value.sequential, "a session built in order did not say so")
+
+            // The settings screen sends this whenever a rate limit is typed into, and it must not
+            // take one torrent's order away with it.
+            session.send(Command.Reconfigure(maxPeers = 3))
+            testScheduler.runCurrent()
+            assertTrue(session.state.value.sequential, "editing a setting reset this torrent's order")
 
             job.cancelAndJoin()
         }

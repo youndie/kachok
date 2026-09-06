@@ -106,6 +106,8 @@ internal fun MainWindow(
     onAnnounce: () -> Unit = {},
     /** A file in the *Files* tab was double-clicked; returns what to say, or null when it opened. */
     onOpenFile: (FileRow) -> String? = { null },
+    /** The *Files* tab's order control, which is not the add dialog's tick of the same name. */
+    onSequentialOrder: (Boolean) -> Unit = {},
     onSequential: (Boolean) -> Unit = {},
     onResizeDetails: (Dp) -> Unit = {},
 ) {
@@ -177,6 +179,7 @@ internal fun MainWindow(
                             onCopy = onCopy,
                             onAnnounce = onAnnounce,
                             onOpenFile = onOpenFile,
+                            onSequential = onSequentialOrder,
                             width = state.detailsWidth,
                             onResize = onResizeDetails,
                         )
@@ -199,6 +202,7 @@ internal fun MainWindow(
                     onCopy = onCopy,
                     onAnnounce = onAnnounce,
                     onOpenFile = onOpenFile,
+                    onSequential = onSequentialOrder,
                     width = state.detailsWidth,
                     onResize = onResizeDetails,
                 )

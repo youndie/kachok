@@ -67,6 +67,15 @@ public class SessionState(
      */
     public val paused: Boolean = false,
     /**
+     * Pieces are asked for in order rather than rarest first.
+     *
+     * On the state and not only in the options because it can be changed while the torrent runs
+     * ([B-89](../../../../../../../../docs/backlog/B-89-sequential-on-a-running-torrent.md)), and a
+     * control that reported what it was *asked* for rather than what the session is doing would
+     * disagree with the session the moment a command was refused or lost.
+     */
+    public val sequential: Boolean = false,
+    /**
      * Who is on the other end, one entry per connected peer.
      *
      * Rebuilt on the session's timer and never on the hot path: this is the one field whose cost is
@@ -235,6 +244,15 @@ public sealed interface Command {
         public val maxPeers: Int? = null,
         public val uploadLimitBytesPerSecond: Long? = null,
         public val downloadLimitBytesPerSecond: Long? = null,
+        /**
+         * Ask for pieces in order, or stop asking for them in order.
+         *
+         * Unlike the three above, this one is **per torrent and not a setting**: it is a decision
+         * about the film somebody has started watching, not about how this client behaves. It
+         * changes what is chosen *next* and leaves what is already in flight alone — see
+         * [B-89](../../../../../../../../docs/backlog/B-89-sequential-on-a-running-torrent.md).
+         */
+        public val sequential: Boolean? = null,
     ) : Command
 
     /** Announce `stopped`, close the peers, flush, and finish. */

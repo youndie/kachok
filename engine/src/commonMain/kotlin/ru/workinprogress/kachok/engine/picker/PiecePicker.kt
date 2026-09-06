@@ -54,10 +54,16 @@ public class PiecePicker(
      * player to measure it against would be inventing a number, so the order is the order the
      * design's own checkbox promises and the concurrency stays the picker's existing bound.
      *
-     * Off by default, and it stays off: the picker's cost was measured rarest-first, and every
-     * number in the research assumes it.
+     * Off by default: the picker's cost was measured rarest-first, and every number in the research
+     * assumes it.
+     *
+     * **A `var`, because the moment somebody wants this is after the download has started.** They
+     * turn it on because they have begun watching, and they begin watching once there is something
+     * to watch — so a value fixed when the session was built is one that can only be set before the
+     * only event that makes anybody want it
+     * ([B-89](../../../../../../../../docs/backlog/B-89-sequential-on-a-running-torrent.md)).
      */
-    private val sequential: Boolean = false,
+    public var sequential: Boolean = false,
 ) {
     private val have = Bitfield(metainfo.pieceCount)
     private val availability = IntArray(metainfo.pieceCount)

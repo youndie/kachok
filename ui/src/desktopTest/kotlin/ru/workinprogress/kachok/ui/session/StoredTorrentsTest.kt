@@ -113,6 +113,36 @@ class StoredTorrentsTest {
         assertContains(stored.problem.orEmpty(), "a different torrent")
     }
 
+    /**
+     * The order changes while the torrent runs, so it has to be written down while it runs.
+     *
+     * A decision that does not survive a restart is one somebody takes again every time
+     * ([B-89](../../../../../../../../docs/backlog/B-89-sequential-on-a-running-torrent.md)).
+     */
+    @Test
+    fun theOrderIsRecordedWithoutDisturbingAnythingElse() {
+        val metainfo = torrent("alpha.bin")
+        rememberTorrent(root, metainfo, saveTo = "/srv/one", paused = true, unwanted = setOf(1))
+        rememberSequential(root, metainfo.infoHash.hex(), sequential = true)
+
+        val stored = loadStoredTorrents(root).single()
+        assertTrue(stored.sequential)
+        assertTrue(stored.paused, "recording the order lost the pause")
+        assertEquals(setOf(1), stored.unwanted)
+        assertEquals("/srv/one", stored.directory)
+
+        rememberSequential(root, metainfo.infoHash.hex(), sequential = false)
+        assertTrue(!loadStoredTorrents(root).single().sequential)
+    }
+
+    /** A torrent this client does not remember is a race with a removal, not one to invent. */
+    @Test
+    fun recordingSomethingForATorrentThatIsNotThereWritesNothing() {
+        rememberSequential(root, "0".repeat(40), sequential = true)
+        rememberPaused(root, "0".repeat(40), paused = true)
+        assertEquals(emptyList(), loadStoredTorrents(root))
+    }
+
     @Test
     fun pausingRecordsOnlyThePauseAndLeavesEverythingElse() {
         val metainfo = torrent("alpha.bin")
