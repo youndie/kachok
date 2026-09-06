@@ -175,7 +175,6 @@ class CommandsEndToEndTest {
             downloading(blockMillis = 0) { local, _, runtime, _ ->
                 runtime.waitUntil("the download finishes") { runtime.state.value.isComplete }
                 val file = runtime.paths.single()
-                val before = runtime.state.value.completedPieces
 
                 // Twenty-one bytes into the second piece, so the damage is not at an edge.
                 //
@@ -203,24 +202,43 @@ class CommandsEndToEndTest {
                     Files.readAllBytes(file).copyOfRange(at.toInt(), at.toInt() + damage.size),
                     "the corruption never reached the disk, so the re-check has nothing to find",
                 )
+                // **The re-check goes in immediately behind the resume, and that ordering is the
+                // test.** Waiting for the resume to land first — for anything at all, even for a
+                // read of the file — lets the dial finish before the pass begins, and a peer that
+                // connects *after* a pass computes its interest from the handshake like any other.
+                // Measured by deleting the fix in `Session.recheck` and re-running: with a wait in
+                // here the broken engine passes.
                 runtime.resume()
 
+                // **What is asserted is what survives, not what the client passes through.**
+                //
+                // The obvious assertion is that `completedPieces` dips below what it was. It does —
+                // for as long as it takes a peer with `blockMillis = 0` to send one piece back —
+                // and a `StateFlow` conflates, so whether a poll sees that dip is a race between
+                // two machines' timings and says nothing about the client. Green on the build
+                // machine and red on this mac, from identical behaviour on both.
+                //
+                // `downloaded` is not the substitute it looks like: after a re-check the session
+                // republishes it from the resume snapshot, so a piece fetched a second time does
+                // not move it, and `hashFailures` counts what arrives over the wire rather than
+                // what a pass disbelieves. What is unambiguous is the file. It was wrong a line
+                // ago; if it is right again, the pass read the disk, threw the piece away and
+                // pulled it back off the wire, because nothing else in this client can put those
+                // bytes there.
                 runtime.recheck()
                 try {
-                    runtime.waitUntil("the pass notices") { runtime.state.value.completedPieces < before }
+                    runtime.waitUntil("the pass notices and the piece comes back") {
+                        Files.readAllBytes(file).contentEquals(local.content)
+                    }
                 } catch (stuck: IllegalStateException) {
                     // Two very different faults look the same from a timeout: a pass that did not
                     // read the disk, and a disk that no longer holds what was written to it. The
                     // bytes at the offset say which.
                     val now = Files.readAllBytes(file).copyOfRange(at.toInt(), at.toInt() + damage.size)
-                    error("${stuck.message} — the file now holds ${now.decodeToString()} at $at")
+                    error("${stuck.message} — at $at the file holds ${now.toList()}")
                 }
-                assertTrue(
-                    runtime.state.value.completedPieces < before,
-                    "the re-check believed a piece that is not on the disk any more",
-                )
 
-                runtime.waitUntil("it is fetched again") { runtime.state.value.isComplete }
+                runtime.waitUntil("it counts as complete again") { runtime.state.value.isComplete }
                 assertContentEquals(
                     local.content,
                     Files.readAllBytes(file),

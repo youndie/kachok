@@ -419,7 +419,11 @@ adding the module fixed it, confirmed by a real download on Windows 11 (build 26
 CLI's image has `scripts/verify_runtime_image.sh`, which runs the client in a container with no JDK
 at all. The desktop image has nothing: `:ui:run` and all 559 tests use the full JDK, and the trimmed
 runtime exists only inside `createDistributable`, whose next step is to zip it. Filed as
-[B-78](../backlog/B-78-nothing-runs-the-packaged-application.md).
+[B-78](../backlog/B-78-nothing-runs-the-packaged-application.md), and **closed on 2026-09-06**: the
+distribution now answers `--preflight`, and `:ui:check` runs it against the image on the platform
+that produced it. There is no `java` in that image to run anything else with — `jlink` strips the
+native commands and `runtime/` has no `bin/` — so the application's own launcher is both the only
+way in and the most faithful one.
 
 **`jdk.crypto.ec` is not needed, and the reasoning that said it was is worth writing down.** The
 argument was: JCA providers are loaded by name, so `jdeps` cannot see them; this client speaks

@@ -88,6 +88,7 @@ import java.awt.datatransfer.UnsupportedFlavorException
 import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.Path
+import kotlin.system.exitProcess
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 
@@ -102,6 +103,12 @@ import kotlin.time.Duration.Companion.seconds
  * toolbar. Both go through the same door.
  */
 public fun main(args: Array<String>) {
+    // **The only way to ask the shipped artifact anything.** `jlink` strips the launchers, so the
+    // packaged image has no `java` to run a check with — this launcher is the one executable in it.
+    // See `Preflight.kt` and B-78; it exits before anything opens a window.
+    if (args.firstOrNull() == "--preflight") {
+        exitProcess(preflight(args.getOrNull(1)?.let { Path.of(it) }))
+    }
     val torrent = args.firstOrNull()?.let { Path.of(it) }
     // `~/Downloads` and not the working directory, which for an app launched from Finder or a
     // Start menu is wherever the launcher happened to be. It is also what the settings screen

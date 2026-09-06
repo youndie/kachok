@@ -156,6 +156,64 @@ compose.desktop {
     }
 }
 
+// **The one thing that runs what `createDistributable` produced.**
+//
+// A `jlink` runtime is the only place a missing module can exist, and until this task there was
+// nothing between "the image was linked" and "somebody downloaded it": `:ui:run` and every test use
+// the full JDK. It shipped once without `java.net.http` (B-78, research §1.3e).
+//
+// The launcher is the check's entry point because it is the only executable in the image — `jlink`
+// strips `runtime/bin`, so there is no `java` to run anything else with. That is also what makes
+// this worth having: the runtime, the classpath and the JVM flags are the ones a person gets.
+val preflightReport = layout.buildDirectory.file("compose/preflight.txt")
+
+val distributionLauncher =
+    layout.buildDirectory.file(
+        when {
+            System.getProperty("os.name").orEmpty().startsWith("Mac") -> {
+                "compose/binaries/main/app/kachok.app/Contents/MacOS/kachok"
+            }
+
+            System.getProperty("os.name").orEmpty().startsWith("Windows") -> {
+                "compose/binaries/main/app/kachok/kachok.exe"
+            }
+
+            else -> {
+                "compose/binaries/main/app/kachok/bin/kachok"
+            }
+        },
+    )
+
+val checkDistributable by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Runs the packaged application's own launcher against its trimmed runtime."
+    dependsOn(tasks.named("createDistributable"))
+    inputs.file(distributionLauncher)
+    outputs.file(preflightReport)
+
+    commandLine(
+        distributionLauncher.get().asFile.absolutePath,
+        "--preflight",
+        preflightReport.get().asFile.absolutePath,
+    )
+    // The report is read either way. A packaged launcher that fails has already written which check
+    // failed and why, and Gradle's own message for a non-zero exit is the exit code.
+    isIgnoreExitValue = true
+    val result = executionResult
+    val report = preflightReport
+    doLast {
+        // The launcher prints its own report as it goes, on every platform — including Windows,
+        // where a GUI subsystem executable was expected to swallow it and does not. This is the
+        // second copy, and it is only worth having when the run failed: a build that stops with
+        // "exit value 1" scrolled past the lines that say which check it was.
+        val file = report.get().asFile
+        if (result.get().exitValue != 0 && file.exists()) logger.error(file.readText().trimEnd())
+        result.get().assertNormalExitValue()
+    }
+}
+
+tasks.named("check") { dependsOn(checkDistributable) }
+
 viddik {
     // **Only where the goldens were recorded.**
     //
