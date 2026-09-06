@@ -444,6 +444,40 @@ adds a name and nothing else. **Consequence:** neither module list needs it, and
 reaches the same argument should stop here. A trimmed runtime stops being trimmed one plausible
 guess at a time.
 
+### 1.3f A real public swarm, on all three platforms
+
+Every measurement above this line was taken against `LocalSwarm` — one seed on loopback, which is a
+disk and a socket and no swarm at all. This is the other kind: Debian 13.6.0 netinst, 791 674 880
+bytes in 3 020 pieces, from whoever was seeding it on 2026-09-07, through `kachok download`.
+
+| | Wall | Rate | Peers connected, of known | Buffer pool at peak |
+|---|---|---|---|---|
+| macOS 27, aarch64 | 278 s | 2.7 MiB/s | 10–42 of up to 768 | 120 of 178 |
+| Ubuntu 24.04, x86-64 | 67 s | 11.3 MiB/s | 17–25 of up to 306 | 118 of 178 |
+| Windows 11 26200, x86-64 | 54 s | 14.0 MiB/s | 20–26 of up to 275 | 145 of 178 |
+
+All three finished, and all three produced a file whose SHA-256 is Debian's published one. The
+per-second progress line is the clock, so the wall times are ±1 s.
+
+**The rates are not a comparison of the three machines.** They share one connection and the macOS
+run went first and alone for its first ninety seconds, after which the other two ran beside it — so
+the mac's 2.7 MiB/s is a number measured *while two other clients on the same line were downloading
+the same torrent*, which is the least favourable of the three positions and not a property of the
+platform. What the table is evidence for is that each platform completes and verifies, and that the
+pool's cap holds on all of them: 178 buffers is `maxPeers + pipelineDepth × …` and the peak never
+reached it.
+
+**The known-peer counts are the tracker's, and they are much larger than the connected ones** — 768
+against 42 on the mac — which is `maxPeers = 50` doing its job rather than a failure to dial.
+
+Two things this exercised that no local swarm can:
+
+* **The port range.** The Windows run bound **6883**, because 6881 and 6882 were held by earlier
+  attempts on the same box. `TrackerProtocol.PORT_RANGE`'s fallback is normally only exercised by a
+  test that occupies ports on purpose.
+* **Resume, on data somebody else's swarm produced.** A second run over the finished directory said
+  `resuming with 3020 of 3020 pieces` and completed without asking the swarm for anything.
+
 ### 1.3a Sparse files: the mechanism is not interchangeable
 
 Measured on this machine (macOS 27, APFS, JDK 25.0.2, 2026-09-05) by creating a 4 MB file four
