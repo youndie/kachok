@@ -100,7 +100,11 @@ class CommandsEndToEndTest {
                         "unchoked=${now.unchokedPeers} " +
                         "known=${now.knownPeers} pieces=${now.completedPieces}/${now.pieceCount} " +
                         "outstanding=${now.outstandingRequests} lastPeer=${now.lastPeerError} " +
-                        "tracker=${now.trackerError} session=${now.sessionError}",
+                        "tracker=${now.trackerError} session=${now.sessionError} " +
+                        now.peers.joinToString(prefix = "peers[", postfix = "]") { peer ->
+                            "${peer.address} choking=${peer.choking} interested=${peer.interested} " +
+                                "has=${peer.pieces} outstanding=${peer.outstanding}"
+                        },
                 )
             }
             delay(SAMPLE)
