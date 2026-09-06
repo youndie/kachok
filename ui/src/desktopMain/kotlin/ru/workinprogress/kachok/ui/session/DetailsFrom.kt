@@ -2,6 +2,7 @@ package ru.workinprogress.kachok.ui.session
 
 import ru.workinprogress.kachok.engine.InfoHash
 import ru.workinprogress.kachok.engine.session.SessionState
+import ru.workinprogress.kachok.engine.session.TrackerView
 import ru.workinprogress.kachok.ui.details.Complaint
 import ru.workinprogress.kachok.ui.details.DetailsField
 import ru.workinprogress.kachok.ui.details.DetailsSection
@@ -10,6 +11,7 @@ import ru.workinprogress.kachok.ui.details.DetailsTab
 import ru.workinprogress.kachok.ui.details.FieldTone
 import ru.workinprogress.kachok.ui.details.FileRow
 import ru.workinprogress.kachok.ui.details.PeerRow
+import ru.workinprogress.kachok.ui.details.TrackerRow
 
 /**
  * What the torrent is, from what the session knows.
@@ -116,7 +118,71 @@ internal fun detailsOf(
         peers = peersOf(state),
         files = filesOf(state),
         filesSummary = filesSummaryOf(state),
+        trackers = trackersOf(state),
+        trackersSummary = trackersSummaryOf(state),
+        dht = dhtLine(state),
     )
+}
+
+/**
+ * The design's tracker cards, in the torrent's own order.
+ *
+ * **Not-tried is a status and not an absence.** BEP 12 has a client use the first tracker that
+ * answers, so a torrent with three trackers normally has one that worked and two nobody touched.
+ * Hiding those two would make a three-tracker torrent look like a one-tracker torrent.
+ */
+private fun trackersOf(state: SessionState): List<TrackerRow> =
+    state.trackers.map { tracker ->
+        TrackerRow(
+            url = tracker.url,
+            status =
+                when (tracker.status) {
+                    TrackerView.Status.Working -> "working"
+                    TrackerView.Status.Failed -> "failed"
+                    TrackerView.Status.NotTried -> "not tried"
+                },
+            tone =
+                when (tracker.status) {
+                    TrackerView.Status.Working -> FieldTone.Good
+                    TrackerView.Status.Failed -> FieldTone.Warning
+                    TrackerView.Status.NotTried -> FieldTone.Plain
+                },
+            detail = trackerDetail(tracker),
+            message = tracker.message,
+        )
+    }
+
+private fun trackerDetail(tracker: TrackerView): String {
+    val parts = mutableListOf<String>()
+    tracker.lastAnnounceSecondsAgo?.let { parts += "${Figures.ago(it)} ago" }
+    if (tracker.status == TrackerView.Status.Working) {
+        parts += "${tracker.peers} ${if (tracker.peers == 1) "peer" else "peers"}"
+        tracker.nextAnnounceInSeconds?.let { parts += "next in ${Figures.ago(it)}" }
+    }
+    // A tracker nobody has reached says nothing rather than a row of dashes: the status word beside
+    // it already carries the whole of what is known.
+    return parts.joinToString(" · ")
+}
+
+/**
+ * `214 nodes · announced 6 m ago · next in 9 m`, or null when the DHT is off.
+ *
+ * The times are absent until the first pass has announced — a routing table with nodes in it has
+ * not necessarily said anything yet, and a card claiming otherwise would be inventing a timestamp.
+ */
+private fun dhtLine(state: SessionState): String? {
+    if (state.dhtNodes <= 0) return null
+    val parts = mutableListOf("${state.dhtNodes} nodes")
+    state.dhtAnnouncedSecondsAgo?.let { parts += "announced ${Figures.ago(it)} ago" }
+    state.dhtNextInSeconds?.let { parts += "next in ${Figures.ago(it)}" }
+    return parts.joinToString(" · ")
+}
+
+/** `3 trackers + DHT`, which is the design's own line. */
+private fun trackersSummaryOf(state: SessionState): String {
+    val count = state.trackers.size
+    val trackers = "$count ${if (count == 1) "tracker" else "trackers"}"
+    return if (state.dhtNodes > 0) "$trackers + DHT" else trackers
 }
 
 /**

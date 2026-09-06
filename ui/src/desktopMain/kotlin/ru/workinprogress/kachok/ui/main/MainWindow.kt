@@ -96,6 +96,7 @@ internal fun MainWindow(
     onConfirmRemove: () -> Unit = {},
     onFilter: (String) -> Unit = {},
     onAddFile: (Int, Boolean) -> Unit = { _, _ -> },
+    onAnnounce: () -> Unit = {},
 ) {
     Box(modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)) {
@@ -147,7 +148,7 @@ internal fun MainWindow(
                     }
                 }
                 if (state.torrents.isNotEmpty() && state.settings == null) {
-                    state.details?.let { DetailsPanel(it, onTab = onTab, onCopy = onCopy) }
+                    state.details?.let { DetailsPanel(it, onTab = onTab, onCopy = onCopy, onAnnounce = onAnnounce) }
                 }
             }
             StatusBar(state.status)

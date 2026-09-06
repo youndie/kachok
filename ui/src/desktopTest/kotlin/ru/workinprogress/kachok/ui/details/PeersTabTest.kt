@@ -78,15 +78,15 @@ class PeersTabTest {
             onNodeWithText("No peers connected.").assertIsDisplayed()
         }
 
-    /** And the tab no longer says it is waiting for the engine, because it is not. */
+    /** And no tab says it is waiting for the engine any more, because none of them is. */
     @Test
-    fun theTabHasStoppedSayingItIsPlanned() =
+    fun noTabSaysItIsPlanned() =
         runComposeUiTest {
             setContent { KachokTheme { DetailsPanel(details) } }
             assertEquals(
                 0,
                 onAllNodesWithText("planned").fetchSemanticsNodes().size,
-                "the Peers tab still wears the badge it earned by being empty",
+                "a tab still wears the badge it earned by being empty",
             )
         }
 }

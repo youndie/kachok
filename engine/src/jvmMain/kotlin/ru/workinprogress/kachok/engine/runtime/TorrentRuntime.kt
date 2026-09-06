@@ -151,6 +151,9 @@ public class TorrentRuntime internal constructor(
      */
     public suspend fun recheck(): Unit = session.send(Command.Recheck)
 
+    /** Ask the trackers again, out of turn. Does not reset the interval they asked for. */
+    public suspend fun announce(): Unit = session.send(Command.Announce)
+
     /** Announce *stopped*, close the peers, flush, record. Bounded by the caller, not here. */
     public suspend fun stop(): Unit = session.send(Command.Stop)
 

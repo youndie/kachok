@@ -117,25 +117,38 @@ class DetailsFromTest {
         assertEquals(null, details.sessionError)
     }
 
-    /** Three tabs the engine cannot fill, and each says which engine change it is waiting for. */
+    /**
+     * The tracker cards, and the status the design does not have a colour for.
+     *
+     * BEP 12 has a client use the first tracker that answers, so a torrent with three trackers
+     * normally has one that worked and two nobody touched. Hiding the untouched ones would make a
+     * three-tracker torrent look like a one-tracker torrent, so *not tried* is a status of its own.
+     */
     @Test
-    fun everyTabIsEitherRealOrSaysWhatItIsWaitingFor() {
-        assertEquals(null, DetailsTab.Overview.plannedBecause, "Overview is real")
+    fun everyAnnounceUrlGetsACardIncludingTheOnesNobodyReached() {
+        val details = designDetails(DetailsTab.Trackers)
         assertEquals(
-            null,
-            DetailsTab.Peers.plannedBecause,
-            "the engine names its peers now (B-68); this tab draws them",
+            designSession.trackers.map { it.url },
+            details.trackers.map { it.url },
+            "a tracker was dropped, or the list was reordered",
         )
-        assertEquals(
-            null,
-            DetailsTab.Files.plannedBecause,
-            "the engine reports per-file progress now (B-67); this tab draws it",
-        )
-        listOf(DetailsTab.Trackers).forEach { tab ->
-            val reason = tab.plannedBecause
-            assertTrue(!reason.isNullOrBlank(), "$tab must say why it is empty")
-            assertTrue(reason.length > SHORT, "$tab's reason is a shrug: $reason")
-        }
+        assertEquals(listOf("failed", "working", "not tried"), details.trackers.map { it.status })
+        assertEquals("announce failed: 502 Bad Gateway", details.trackers.first().message)
+        assertEquals(null, details.trackers.last().message, "a tracker nobody tried has nothing to say")
+    }
+
+    /** The figures read the way the design writes them: one unit, coarsest that says something. */
+    @Test
+    fun aWorkingTrackerSaysWhenAndHowMany() {
+        val working = designDetails(DetailsTab.Trackers).trackers[1]
+        assertEquals("3 m ago · 142 peers · next in 27 m", working.detail)
+    }
+
+    @Test
+    fun theSummaryCountsTheTrackersAndSaysWhetherTheDhtIsIn() {
+        val details = designDetails(DetailsTab.Trackers)
+        assertEquals("3 trackers + DHT", details.trackersSummary)
+        assertEquals("214 nodes · announced 6 m ago · next in 9 m", details.dht)
     }
 
     /**

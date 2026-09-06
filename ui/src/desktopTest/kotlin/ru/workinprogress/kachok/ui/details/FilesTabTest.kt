@@ -48,19 +48,21 @@ class FilesTabTest {
         }
 
     /**
-     * The ticks are drawn and do nothing, and the tab says so.
+     * The badge is gone, because the ticks are live.
      *
-     * The badge is the difference between a control that is waiting and one that is broken. It goes
-     * when the picker learns about unwanted files, and not before.
+     * They are live in the *add dialog*; the ones here are indicators of what that dialog decided.
+     * Changing the selection on a running torrent needs the picker to give back pieces it has
+     * started, which the item leaves uncovered — and an indicator is not a control, so it wears no
+     * badge either way.
      */
     @Test
-    fun theTabStillCarriesTheBadgeItsTicksHaveNotEarnedTheirWayOutOf() =
+    fun theTabNoLongerSaysItIsWaitingForTheEngine() =
         runComposeUiTest {
             setContent { KachokTheme { DetailsPanel(details) } }
             assertEquals(
-                1,
+                0,
                 onAllNodesWithText("planned").fetchSemanticsNodes().size,
-                "the ticks respond to nothing and the tab no longer admits it",
+                "the ticks work now and the tab still says they do not",
             )
         }
 

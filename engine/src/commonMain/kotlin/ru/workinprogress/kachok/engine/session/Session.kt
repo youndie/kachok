@@ -142,6 +142,26 @@ public class Session(
     private var announceInterval = DEFAULT_ANNOUNCE_SECONDS
 
     /**
+     * What each tracker last said, by its URL.
+     *
+     * Keyed rather than indexed because the announce list is the metainfo's and this is a record of
+     * attempts: a tracker never reached has no entry, which is what [TrackerView.Status.NotTried]
+     * is drawn from.
+     */
+    private val trackerReports = LinkedHashMap<String, TrackerReport>()
+
+    /** When the last DHT pass finished announcing, so the panel can count down to the next. */
+    private var dhtAnnouncedAt: kotlin.time.TimeMark? = null
+
+    /** One tracker's last answer: when, what, and how long it asked to be left alone for. */
+    private class TrackerReport(
+        val at: kotlin.time.TimeMark,
+        val failure: String?,
+        val peers: Int,
+        val intervalSeconds: Long,
+    )
+
+    /**
      * The session's two rate limits (B-22). Both are unlimited by default, and an unlimited bucket
      * takes no decision — the code paths below are the same ones an unthrottled client runs.
      */
@@ -294,6 +314,17 @@ public class Session(
 
                 Command.Recheck -> {
                     recheck(scope)
+                }
+
+                Command.Announce -> {
+                    // Straight away and out of turn: the loop's own interval is the tracker's
+                    // request, and this is a person overriding it once.
+                    val peers = announce(null)
+                    if (peers.isNotEmpty()) {
+                        known += peers
+                        publish { it.copy(knownPeers = known.size) }
+                        connectMore(scope)
+                    }
                 }
 
                 Command.Stop -> {
@@ -487,8 +518,9 @@ public class Session(
                         connectMore(scope)
                     }
                 }
-                publish { it.copy(dhtNodes = node.table.size) }
                 node.announce(scope, metainfo.infoHash, listenPort, found.tokens)
+                dhtAnnouncedAt = timeSource.markNow()
+                publish { it.copy(dhtNodes = node.table.size) }
             }
             delay(config.dhtInterval)
         }
@@ -512,15 +544,61 @@ public class Session(
             try {
                 val response = trackerClient.announce(tracker, request)
                 announceInterval = response.interval.coerceAtLeast(MIN_ANNOUNCE_SECONDS)
-                publish { it.copy(trackerError = null) }
+                trackerReports[tracker] =
+                    TrackerReport(timeSource.markNow(), failure = null, response.peers.size, announceInterval.toLong())
+                publish { it.copy(trackerError = null, trackers = trackerViews()) }
                 return response.peers
             } catch (refused: TrackerException) {
                 lastError = refused.message
+                trackerReports[tracker] =
+                    TrackerReport(
+                        timeSource.markNow(),
+                        refused.message,
+                        peers = 0,
+                        intervalSeconds = announceInterval.toLong(),
+                    )
             }
         }
-        if (lastError != null) publish { it.copy(trackerError = lastError) }
+        publish { it.copy(trackerError = lastError, trackers = trackerViews()) }
         return emptyList()
     }
+
+    /**
+     * Every announce URL the torrent names, with whatever is known about it.
+     *
+     * In the metainfo's order and never in the order things were tried: the list is the torrent's,
+     * and a row that moved when a tracker failed would be a list nobody could read twice.
+     */
+    private fun trackerViews(): List<TrackerView> =
+        metainfo.trackers.map { url ->
+            val report = trackerReports[url]
+            when {
+                report == null -> {
+                    TrackerView(url, TrackerView.Status.NotTried)
+                }
+
+                report.failure != null -> {
+                    TrackerView(
+                        url = url,
+                        status = TrackerView.Status.Failed,
+                        message = report.failure,
+                        lastAnnounceSecondsAgo = report.at.elapsedNow().inWholeSeconds,
+                    )
+                }
+
+                else -> {
+                    TrackerView(
+                        url = url,
+                        status = TrackerView.Status.Working,
+                        peers = report.peers,
+                        lastAnnounceSecondsAgo = report.at.elapsedNow().inWholeSeconds,
+                        nextAnnounceInSeconds =
+                            (report.intervalSeconds - report.at.elapsedNow().inWholeSeconds)
+                                .coerceAtLeast(0),
+                    )
+                }
+            }
+        }
 
     private fun connectMore(scope: CoroutineScope) {
         if (paused) return
@@ -1288,6 +1366,14 @@ public class Session(
                 // rate a table is redrawn at.
                 peers = links.map { link -> link.view(now, picker.piecesHeldBy(link.connection.address)) },
                 files = fileViews(),
+                // Recomputed here so the countdowns tick down instead of standing still between
+                // announces, which are half an hour apart.
+                trackers = trackerViews(),
+                dhtAnnouncedSecondsAgo = dhtAnnouncedAt?.elapsedNow()?.inWholeSeconds,
+                dhtNextInSeconds =
+                    dhtAnnouncedAt?.let {
+                        (config.dhtInterval - it.elapsedNow()).inWholeSeconds.coerceAtLeast(0)
+                    },
             )
         }
     }
@@ -1456,8 +1542,11 @@ private fun SessionState.copy(
     sessionError: String? = this.sessionError,
     isComplete: Boolean = this.isComplete,
     paused: Boolean = this.paused,
+    dhtAnnouncedSecondsAgo: Long? = this.dhtAnnouncedSecondsAgo,
+    dhtNextInSeconds: Long? = this.dhtNextInSeconds,
     peers: List<PeerView> = this.peers,
     files: List<FileView> = this.files,
+    trackers: List<TrackerView> = this.trackers,
 ): SessionState =
     SessionState(
         infoHash = infoHash,
@@ -1482,6 +1571,9 @@ private fun SessionState.copy(
         sessionError = sessionError,
         isComplete = isComplete,
         paused = paused,
+        dhtAnnouncedSecondsAgo = dhtAnnouncedSecondsAgo,
+        dhtNextInSeconds = dhtNextInSeconds,
         peers = peers,
         files = files,
+        trackers = trackers,
     )

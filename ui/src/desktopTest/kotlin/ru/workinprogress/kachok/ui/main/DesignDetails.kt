@@ -4,6 +4,7 @@ import ru.workinprogress.kachok.engine.InfoHash
 import ru.workinprogress.kachok.engine.session.FileView
 import ru.workinprogress.kachok.engine.session.PeerView
 import ru.workinprogress.kachok.engine.session.SessionState
+import ru.workinprogress.kachok.engine.session.TrackerView
 import ru.workinprogress.kachok.ui.details.DetailsState
 import ru.workinprogress.kachok.ui.details.DetailsTab
 import ru.workinprogress.kachok.ui.session.Rates
@@ -23,6 +24,24 @@ private const val GIB = MIB * KIB
  * `left` is set rather than subtracted because BEP 3 says it is not `total - downloaded` after a
  * resume — and because the design's own two numbers do not subtract to its third.
  */
+private val designTrackers: List<TrackerView> =
+    listOf(
+        TrackerView(
+            url = "http://bttracker.debian.org:6969/announce",
+            status = TrackerView.Status.Failed,
+            message = "announce failed: 502 Bad Gateway",
+            lastAnnounceSecondsAgo = 41,
+        ),
+        TrackerView(
+            url = "udp://tracker.opentrackr.org:1337/announce",
+            status = TrackerView.Status.Working,
+            peers = 142,
+            lastAnnounceSecondsAgo = 180,
+            nextAnnounceInSeconds = 1_620,
+        ),
+        TrackerView(url = "udp://open.demonii.com:1337/announce", status = TrackerView.Status.NotTried),
+    )
+
 private val designFiles: List<FileView> =
     listOf(
         designFile("debian-13.1.0-amd64-DVD-1.iso", GIB * 361 / 100, percent = 79),
@@ -126,6 +145,8 @@ internal val designSession: SessionState =
         knownPeers = 187,
         extendedPeers = 19,
         dhtNodes = 214,
+        dhtAnnouncedSecondsAgo = 360,
+        dhtNextInSeconds = 540,
         hashFailures = 2,
         verifiedPieces = 1772,
         verifyingOf = 1772,
@@ -138,6 +159,10 @@ internal val designSession: SessionState =
         // The design's nine, at the sizes and percentages its reference prints. `README.source` is
         // the one it draws unticked, which is the setting this tab is still waiting for.
         files = designFiles,
+        // The design's three, with its own words on the one that refused. BEP 12 has this client
+        // use the first tracker that answers, so the reference's "all three working" is not a state
+        // this engine can be in — the two below the failure are the ones it actually tried.
+        trackers = designTrackers,
     )
 
 internal fun designDetails(tab: DetailsTab = DetailsTab.Overview): DetailsState =

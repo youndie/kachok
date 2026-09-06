@@ -39,6 +39,10 @@ public class SessionState(
     public val extendedPeers: Int = 0,
     /** Nodes in the DHT routing table. Zero means the DHT is off or has not bootstrapped. */
     public val dhtNodes: Int = 0,
+    /** Seconds since this client last announced itself to the DHT, or null if it never has. */
+    public val dhtAnnouncedSecondsAgo: Long? = null,
+    /** Seconds until the next DHT pass, or null when there is not going to be one. */
+    public val dhtNextInSeconds: Long? = null,
     public val hashFailures: Int = 0,
     /** Pieces checked so far by the start-up pass, and of how many. Equal when it is finished. */
     public val verifiedPieces: Int = 0,
@@ -79,10 +83,38 @@ public class SessionState(
      * on the hot path. Empty until the first tick, and empty for a magnet with no metainfo yet.
      */
     public val files: List<FileView> = emptyList(),
+    /**
+     * One entry per announce URL, in the metainfo's order.
+     *
+     * A tracker that has never been reached is [TrackerView.Status.NotTried] rather than absent:
+     * BEP 12 says a client uses the first tracker that answers, so the second and third are
+     * normally untouched — and a list that hid them would look like a torrent with one tracker.
+     */
+    public val trackers: List<TrackerView> = emptyList(),
 ) {
     override fun toString(): String =
         "$name $completedPieces/$pieceCount pieces, $connectedPeers peers" +
             (trackerError?.let { ", tracker: $it" } ?: "")
+}
+
+/**
+ * One announce URL, and what it last said.
+ *
+ * The session announces to the *first* tracker that answers (BEP 12), so at most one of these is
+ * [Status.Working] at a time and the rest are usually [Status.NotTried]. That is the engine's
+ * behaviour reported honestly rather than a list of three trackers all pretending to be in use.
+ */
+public class TrackerView(
+    public val url: String,
+    public val status: Status,
+    /** The tracker's complaint, in its own words. Null unless [status] is [Status.Failed]. */
+    public val message: String? = null,
+    /** Peers the last successful announce returned. */
+    public val peers: Int = 0,
+    public val lastAnnounceSecondsAgo: Long? = null,
+    public val nextAnnounceInSeconds: Long? = null,
+) {
+    public enum class Status { Working, Failed, NotTried }
 }
 
 /**
@@ -178,6 +210,14 @@ public sealed interface Command {
      * pass finishes.
      */
     public data object Recheck : Command
+
+    /**
+     * Ask the trackers again, now.
+     *
+     * Out of turn: the announce loop's interval is what the tracker asked for, and this is a person
+     * overriding it once. It does not reset that interval.
+     */
+    public data object Announce : Command
 
     /** Announce `stopped`, close the peers, flush, and finish. */
     public data object Stop : Command

@@ -77,6 +77,21 @@ internal object Figures {
         }
     }
 
+    /**
+     * `3 m`, `27 m`, `41 s` — a duration at the coarsest unit that still says something.
+     *
+     * The design writes tracker times this way and not as `0h 03m`: a tracker announcing every half
+     * hour needs one number, and two would be two things to read at a glance instead of one.
+     */
+    fun ago(seconds: Long): String {
+        val safe = seconds.coerceAtLeast(0)
+        return when {
+            safe < SECONDS_PER_MINUTE -> "$safe s"
+            safe < SECONDS_PER_HOUR -> "${safe / SECONDS_PER_MINUTE} m"
+            else -> "${safe / SECONDS_PER_HOUR} h"
+        }
+    }
+
     /** `heap 41 / 128 MiB`, which is the one number that says the 128 MiB budget still holds. */
     fun heap(
         usedBytes: Long,

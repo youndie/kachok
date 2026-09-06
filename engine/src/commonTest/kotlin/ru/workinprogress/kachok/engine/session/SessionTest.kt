@@ -1816,6 +1816,89 @@ class SessionTest {
             job.cancelAndJoin()
         }
 
+    /**
+     * Each tracker's own answer, and the ones nobody reached said so.
+     *
+     * BEP 12 has the session stop at the first tracker that works, so a list of three normally has
+     * one report and two silences — and the silences are a status rather than an absence.
+     */
+    @Test
+    fun everyTrackerGetsItsOwnStatus() =
+        runTest {
+            val metainfo = torrent(pieces = 2)
+            val session =
+                session(
+                    metainfo,
+                    FakeDialer(metainfo.infoHash),
+                    FakeTracker(listOf(peerA)),
+                    FakeStorage(),
+                    AgreeableHasher(metainfo),
+                )
+            val job = session.start(kotlinx.coroutines.CoroutineScope(coroutineContext + handler))
+            testScheduler.runCurrent()
+
+            val trackers = session.state.value.trackers
+            assertEquals(metainfo.trackers, trackers.map { it.url }, "the list is the torrent's own")
+            assertEquals(TrackerView.Status.Working, trackers.first().status)
+            assertEquals(1, trackers.first().peers, "the tracker returned one peer")
+            assertEquals(null, trackers.first().message)
+
+            job.cancelAndJoin()
+        }
+
+    /** A tracker that refuses keeps its own words, and the session keeps going. */
+    @Test
+    fun aTrackerThatRefusesIsRecordedInItsOwnWords() =
+        runTest {
+            val metainfo = torrent(pieces = 2)
+            val session =
+                session(
+                    metainfo,
+                    FakeDialer(metainfo.infoHash),
+                    FakeTracker(emptyList(), failWith = "502 Bad Gateway"),
+                    FakeStorage(),
+                    AgreeableHasher(metainfo),
+                )
+            val job = session.start(kotlinx.coroutines.CoroutineScope(coroutineContext + handler))
+            testScheduler.runCurrent()
+
+            val tracker =
+                session.state.value.trackers
+                    .first()
+            assertEquals(TrackerView.Status.Failed, tracker.status)
+            assertEquals("502 Bad Gateway", tracker.message)
+            assertTrue(job.isActive, "one tracker refusing ended the session")
+
+            job.cancelAndJoin()
+        }
+
+    /** And a person can ask again, out of turn. */
+    @Test
+    fun announcingByHandAsksTheTrackerAgain() =
+        runTest {
+            val metainfo = torrent(pieces = 2)
+            val tracker = FakeTracker(listOf(peerA))
+            val session =
+                session(
+                    metainfo,
+                    FakeDialer(metainfo.infoHash),
+                    tracker,
+                    FakeStorage(),
+                    AgreeableHasher(metainfo),
+                )
+            val job = session.start(kotlinx.coroutines.CoroutineScope(coroutineContext + handler))
+            testScheduler.runCurrent()
+            val before = tracker.events.size
+
+            session.send(Command.Announce)
+            testScheduler.runCurrent()
+
+            assertEquals(before + 1, tracker.events.size, "the tracker was not asked again")
+            assertEquals(null, tracker.events.last(), "a re-announce carries no event, like a periodic one")
+
+            job.cancelAndJoin()
+        }
+
     @Test
     fun cancellingTheScopeClosesEveryPeer() =
         runTest {

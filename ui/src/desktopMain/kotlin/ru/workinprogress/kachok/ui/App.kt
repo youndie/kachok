@@ -334,6 +334,10 @@ internal fun Client(
                             runtime.recheck()
                         }
 
+                        TorrentCommand.Kind.Announce -> {
+                            runtime.announce()
+                        }
+
                         TorrentCommand.Kind.Remove -> {
                             set.remove(runtime)
                         }
@@ -559,6 +563,11 @@ internal fun Client(
         onSort = { column -> sort = sort.clicked(column) },
         onFilter = { typed -> filter = typed },
         onAddFile = { index, wanted -> pending = pending?.withFile(index, wanted) },
+        onAnnounce = {
+            rowKeys.getOrNull(index)?.let {
+                commanded.trySend(TorrentCommand(it, TorrentCommand.Kind.Announce))
+            }
+        },
         onTab = { chosenTab -> tab = chosenTab },
         onSelect = { row -> rowKeys.getOrNull(row)?.let { selected = it } },
         onAddTorrent = { pending = chooseTorrent(preferences.directory) },
@@ -692,7 +701,7 @@ private class TorrentCommand(
     val infoHash: String,
     val kind: Kind,
 ) {
-    enum class Kind { Pause, Resume, Recheck, Remove, RemoveWithData }
+    enum class Kind { Pause, Resume, Recheck, Announce, Remove, RemoveWithData }
 }
 
 /**

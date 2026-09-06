@@ -51,20 +51,20 @@ import ru.workinprogress.kachok.ui.theme.RowStateLabel
 import ru.workinprogress.kachok.ui.theme.warningColors
 import kotlin.time.Duration.Companion.milliseconds
 
-/** The four tabs, in the design's order. Three of them are waiting on the engine. */
+/**
+ * The four tabs, in the design's order.
+ *
+ * Three of them carried a `plannedBecause` — the engine change they were waiting for, printed where
+ * their rows would be. All four draw the session now, so the field and the placeholder it fed are
+ * gone; what replaced them is a per-tab test that the words are on the screen.
+ */
 internal enum class DetailsTab(
     val label: String,
-    /** What the engine would have to grow before this tab has anything true to show. */
-    val plannedBecause: String? = null,
 ) {
     Overview("Overview"),
     Files("Files"),
     Peers("Peers"),
-    Trackers(
-        "Trackers",
-        "There is one trackerError for the whole session, not a status for each tracker in the " +
-            "announce list.",
-    ),
+    Trackers("Trackers"),
 }
 
 /** How much a value is allowed to stand out. The design uses exactly three levels here. */
@@ -101,11 +101,28 @@ internal class Complaint(
 )
 
 /**
+ * One announce URL, as the design's *Trackers* tab draws it.
+ *
+ * [status] is a word and a colour, not a boolean: *not tried* is a third thing, and it is what most
+ * of a torrent's trackers are — BEP 12 says a client uses the first one that answers.
+ */
+internal class TrackerRow(
+    val url: String,
+    val status: String,
+    val tone: FieldTone,
+    /** `3 m ago · 142 peers · next in 27 m`, or what is known of it. */
+    val detail: String,
+    /** The tracker's own words, when it refused. */
+    val message: String? = null,
+)
+
+/**
  * One file, as the design's *Files* tab draws it.
  *
- * The tick is drawn from [wanted] and does not respond: choosing files is the second half of
- * [B-67](../../../../../../../../docs/backlog/B-67-per-file-selection.md) and needs the picker to
- * know about it. The badge on the tab's own summary line says so.
+ * The tick is live now; the panel does not draw it as a control because changing the selection on a
+ * running torrent needs the picker to give back pieces it has started — the not-covered half of
+ * [B-67](../../../../../../../../docs/backlog/B-67-per-file-selection.md). The tick a person can
+ * press is in the add dialog.
  */
 internal class FileRow(
     val name: String,
@@ -147,6 +164,12 @@ internal class DetailsState(
     val files: List<FileRow> = emptyList(),
     /** `9 files · 3.70 GiB · 8 wanted`. */
     val filesSummary: String = "",
+    /** In the metainfo's own order, so a row does not move when a tracker fails. */
+    val trackers: List<TrackerRow> = emptyList(),
+    /** `3 trackers + DHT`. */
+    val trackersSummary: String = "",
+    /** The DHT's own line, or null when it is off. */
+    val dht: String? = null,
 )
 
 internal object Details {
@@ -176,6 +199,7 @@ internal fun DetailsPanel(
     modifier: Modifier = Modifier,
     onTab: (DetailsTab) -> Unit = {},
     onCopy: (String) -> Unit = {},
+    onAnnounce: () -> Unit = {},
 ) {
     val scheme = MaterialTheme.colorScheme
     Row(modifier.width(Details.width + HAIRLINE)) {
@@ -187,7 +211,7 @@ internal fun DetailsPanel(
                 DetailsTab.Overview -> Overview(state, onCopy)
                 DetailsTab.Peers -> Peers(state.peers)
                 DetailsTab.Files -> Files(state)
-                else -> Planned(state.tab)
+                DetailsTab.Trackers -> Trackers(state, onAnnounce)
             }
         }
     }
@@ -433,6 +457,105 @@ private fun ComplaintCard(complaint: Complaint) {
 }
 
 /**
+ * A card per announce URL, and one for the DHT.
+ *
+ * **Cards and not table rows.** A tracker's complaint is a sentence in somebody else's words —
+ * `announce failed: 502 Bad Gateway` — and it does not fit a column. The design draws each tracker
+ * as a block with its URL, a status word and a line of figures, which is what a variable-length
+ * message needs.
+ *
+ * The engine's own rule shows through: BEP 12 says a client uses the first tracker that answers, so
+ * the others read *not tried* rather than pretending to be in use.
+ */
+@Composable
+private fun ColumnScope.Trackers(
+    state: DetailsState,
+    onAnnounce: () -> Unit,
+) {
+    val scheme = MaterialTheme.colorScheme
+    Column(Modifier.fillMaxSize()) {
+        Row(
+            Modifier.fillMaxWidth().height(PEER_HEAD).padding(horizontal = Details.edge),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                state.trackersSummary,
+                style = FIELD_LABEL,
+                color = scheme.onSurfaceVariant,
+                modifier = Modifier.weight(1f),
+            )
+            Row(
+                Modifier
+                    .clickable(onClick = onAnnounce)
+                    .semantics { contentDescription = "Re-announce" },
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                Glyph(Icons.CAMPAIGN, size = COPY_GLYPH, tint = scheme.primary)
+                Text("Re-announce", style = FIELD_LABEL, color = scheme.primary, maxLines = 1)
+            }
+        }
+        Box(Modifier.fillMaxWidth().height(HAIRLINE).background(KachokPalette.rowHairline))
+        Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
+            if (state.trackers.isEmpty()) {
+                Text(
+                    "This torrent names no trackers.",
+                    style = FIELD_LABEL,
+                    color = scheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = Details.edge, vertical = 10.dp),
+                )
+            }
+            state.trackers.forEach { tracker -> TrackerCard(tracker) }
+            state.dht?.let { DhtCard(it) }
+        }
+    }
+}
+
+@Composable
+private fun TrackerCard(tracker: TrackerRow) {
+    val scheme = MaterialTheme.colorScheme
+    Column(
+        Modifier.fillMaxWidth().padding(horizontal = Details.edge, vertical = 9.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Text(
+            tracker.url,
+            style = MonoSmall,
+            color = scheme.onSurface,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(tracker.status, style = MonoSmall, color = toneColor(tracker.tone), maxLines = 1)
+            Text(tracker.detail, style = MonoSmall, color = scheme.onSurfaceVariant, maxLines = 1)
+        }
+        tracker.message?.let {
+            Text(it, style = MonoSmall, color = KachokPalette.errorFigure, softWrap = true)
+        }
+        Box(Modifier.fillMaxWidth().height(HAIRLINE).background(KachokPalette.rowHairline))
+    }
+}
+
+@Composable
+private fun DhtCard(detail: String) {
+    Column(
+        Modifier.fillMaxWidth().padding(horizontal = Details.edge, vertical = 9.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Text("DHT (BEP 5)", style = MonoSmall, color = MaterialTheme.colorScheme.onSurface, maxLines = 1)
+        Text(detail, style = MonoSmall, color = MaterialTheme.colorScheme.primary, maxLines = 1)
+    }
+}
+
+@Composable
+private fun toneColor(tone: FieldTone) =
+    when (tone) {
+        FieldTone.Good -> MaterialTheme.colorScheme.primary
+        FieldTone.Warning -> MaterialTheme.colorScheme.error
+        FieldTone.Plain -> KachokPalette.onSurfaceMuted
+    }
+
+/**
  * A row per file, with the share of it that is verified.
  *
  * **The percentage is of the file, not of the pieces that touch it.** A 700-byte file inside a
@@ -450,8 +573,9 @@ private fun ColumnScope.Files(state: DetailsState) {
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(7.dp),
         ) {
+            // No badge any more: the ticks in the add dialog are live, and the ones here are
+            // indicators of what that dialog decided rather than controls waiting on anything.
             Text(state.filesSummary, style = FIELD_LABEL, color = scheme.onSurfaceVariant)
-            PlannedBadge()
         }
         Box(Modifier.fillMaxWidth().height(HAIRLINE).background(KachokPalette.rowHairline))
         if (state.files.isEmpty()) {
@@ -623,35 +747,6 @@ private fun Legend(
     Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) {
         Text(flag, style = PEER_FLAG, color = tint)
         Text(meaning, style = FIELD_LABEL, color = MaterialTheme.colorScheme.onSurfaceVariant)
-    }
-}
-
-/**
- * A tab whose list the engine cannot fill yet.
- *
- * It says which engine change it is waiting for, in the engine's own vocabulary, rather than
- * showing an empty table that looks like a torrent with no files. The design draws these three
- * full of rows; a mockup can, and a client that did would be inventing data.
- */
-@Composable
-private fun ColumnScope.Planned(tab: DetailsTab) {
-    Column(
-        Modifier.fillMaxSize().padding(horizontal = Details.edge, vertical = 14.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-            Text(
-                tab.label,
-                style = ChromeText.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.Medium),
-                color = MaterialTheme.colorScheme.onSurface,
-            )
-            PlannedBadge()
-        }
-        Text(
-            tab.plannedBecause.orEmpty(),
-            style = FIELD_LABEL,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
     }
 }
 
