@@ -753,16 +753,28 @@ public class Session(
             // line nobody can attribute. The peer is dropped and the reason is published.
             publish { it.copy(lastPeerError = "$address: ${failure.message ?: failure::class.simpleName}") }
         } finally {
-            connected.remove(address)
-            picker.removePeer(address)
             connection.close()
-            // The same wait as after a failed dial, and for a stronger reason: a peer that accepts
-            // and immediately hangs up would otherwise be redialled in a tight loop, which is a
-            // busy wait against somebody else's machine as well as our own. A peer this client hung
-            // up on for a pause or a re-check is not that, and must not be made to serve the delay.
-            if (!closedByUs.remove(address)) failed[address] = timeSource.markNow()
-            publish { it.copy(connectedPeers = connected.size) }
-            if (!stopping && !paused && scope.isActive) connectMore(scope)
+            // **Only if this link is still the registered one.**
+            //
+            // Everything below is keyed by address, and a reconnect to the same address installs a
+            // new link, a new picker entry and a new bitfield. If this teardown then runs — the old
+            // coroutine finishing after the new one started, which is exactly what a pause or a
+            // re-check causes — it removes state the new connection is relying on. The symptom is a
+            // peer that is connected and unchoked with the picker holding no bitfield for it, so
+            // `next` returns nothing and the torrent asks for nothing, for ever. Found on Windows,
+            // where the reconnect always wins the race; on Linux it wins sometimes.
+            if (connected[address] === link) {
+                connected.remove(address)
+                picker.removePeer(address)
+                // The same wait as after a failed dial, and for a stronger reason: a peer that
+                // accepts and immediately hangs up would otherwise be redialled in a tight loop,
+                // which is a busy wait against somebody else's machine as well as our own. A peer
+                // this client hung up on for a pause or a re-check is not that, and must not be
+                // made to serve the delay.
+                if (!closedByUs.remove(address)) failed[address] = timeSource.markNow()
+                publish { it.copy(connectedPeers = connected.size) }
+                if (!stopping && !paused && scope.isActive) connectMore(scope)
+            }
         }
     }
 

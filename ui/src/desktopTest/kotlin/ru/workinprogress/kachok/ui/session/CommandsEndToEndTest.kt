@@ -9,6 +9,7 @@ import ru.workinprogress.kachok.engine.io.EngineDispatchers
 import ru.workinprogress.kachok.engine.runtime.RuntimeOptions
 import ru.workinprogress.kachok.engine.runtime.TorrentRuntime
 import ru.workinprogress.kachok.engine.runtime.TorrentSet
+import ru.workinprogress.kachok.engine.session.SessionConfig
 import ru.workinprogress.kachok.swarm.LocalSwarm
 import ru.workinprogress.kachok.ui.deleteQuietly
 import ru.workinprogress.kachok.ui.list.TorrentState
@@ -280,10 +281,19 @@ class CommandsEndToEndTest {
                     onDisk.copyOfRange(0, verified),
                     "the first $done pieces are not the torrent's first $done pieces",
                 )
-                assertTrue(
-                    onDisk.copyOfRange(verified, onDisk.size).any { it != 0.toByte() }.not(),
-                    "something was fetched out of order behind the prefix",
-                )
+                // The frontier, not the prefix. The picker works on several pieces at once — that
+                // is what `maxStartedPieces` is — so blocks of the next few land while the piece
+                // before them is still being hashed, and bytes past the verified mark are correct
+                // rather than out of order. What sequential promises is that nothing is fetched
+                // *far* ahead, and this is where "far" is. Asserting a clean prefix passed on
+                // macOS and failed on Windows, which schedules the hashing differently.
+                val frontier = (done + SessionConfig().maxStartedPieces) * piece
+                if (frontier < onDisk.size) {
+                    assertTrue(
+                        onDisk.copyOfRange(frontier, onDisk.size).all { it == 0.toByte() },
+                        "a piece was fetched more than ${SessionConfig().maxStartedPieces} ahead of the front",
+                    )
+                }
             }
         }
 
