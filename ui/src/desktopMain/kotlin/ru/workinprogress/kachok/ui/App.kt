@@ -120,6 +120,54 @@ import kotlin.time.Duration.Companion.seconds
  * toolbar. Both go through the same door.
  */
 public fun main(args: Array<String>) {
+    // **Anything that goes wrong before the window has to leave a name behind.**
+    //
+    // A `jpackage` launcher answers an uncaught exception with a message box that says the Java
+    // machine failed to start and nothing else — no class, no line, no cause. That is what somebody
+    // opening a `.torrent` on Windows saw, and it is unanswerable: the launcher has already
+    // swallowed the only sentence that would have said which of the twenty things this function
+    // does was the one that threw. Everything up to `application {}` runs inside this, and the file
+    // it writes sits beside the settings, where the person who hit it can find it.
+    startupFailuresAreReadable {
+        run(args)
+    }
+}
+
+internal fun startupFailuresAreReadable(start: () -> Unit) {
+    try {
+        start()
+    } catch (failed: Throwable) {
+        val where = configDirectory().resolve("startup-error.txt")
+        val text =
+            buildString {
+                // No timestamp: the file has one, written by the filesystem, and this repository's
+                // own lint is right that a clock read here would be a clock nobody asked for.
+                appendLine("kachok could not start")
+                appendLine("os ${System.getProperty("os.name")} ${System.getProperty("os.version")}")
+                appendLine("java ${System.getProperty("java.version")}")
+                appendLine("launcher ${System.getProperty("jpackage.app-path") ?: "not a packaged build"}")
+                appendLine()
+                appendLine(failed.stackTraceToString())
+            }
+        // stderr as well as the file: a build run from a terminal should not need somebody to go
+        // looking, and the file is for the one launched from a file manager, which has no terminal.
+        System.err.print(text)
+        try {
+            java.nio.file.Files
+                .createDirectories(where.parent)
+            java.nio.file.Files
+                .writeString(where, text)
+            System.err.println("kachok: written to $where")
+        } catch (unwritable: java.io.IOException) {
+            System.err.println("kachok: and $where could not be written either: ${unwritable.message}")
+        }
+        // Rethrown, so the exit code still says it failed. What changes is that there is now
+        // somewhere to read *why*.
+        throw failed
+    }
+}
+
+private fun run(args: Array<String>) {
     // **The only way to ask the shipped artifact anything.** `jlink` strips the launchers, so the
     // packaged image has no `java` to run a check with — this launcher is the one executable in it.
     // See `Preflight.kt` and B-78; it exits before anything opens a window.
