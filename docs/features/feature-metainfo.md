@@ -119,11 +119,12 @@ magnet:?xt=urn:btih:… ──▶ InfoHash + trackers ──▶ (later) ut_metad
 * **Then:** parsing fails with an error naming `xt`.
 * **Automated:** `MagnetParserTest#aLinkWithoutXtIsRefused`
 
-### Scenario: Metadata from a peer must hash to the magnet's identity *(target, B-36)*
+### Scenario: Metadata from a peer must hash to the magnet's identity
 * **Given:** a magnet link and a local peer advertising `ut_metadata` with `metadata_size` set.
 * **When:** all 16 KiB blocks (16384 bytes each, the last one shorter) are fetched and assembled.
 * **Then:** the assembled bytes are accepted only if their SHA-1 equals the link's info hash; if
   not, the peer is dropped and the blocks are discarded.
+* **Automated:** `MetadataFetcherTest#metadataThatDoesNotHashToTheMagnetsInfoHashIsThrownAwayWhole`
 
 ## 6. Out of scope
 
