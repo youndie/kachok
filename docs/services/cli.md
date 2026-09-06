@@ -27,7 +27,35 @@ module without touching the engine.
 
 ## 2. API contracts
 
-No network API. The contract is the command line and the exit codes:
+Two: the command line, and — since `serve` — a WebSocket.
+
+### `kachok serve`: the engine with a socket instead of a window
+
+```
+kachok serve [--dir <path>] [--ws-port <n>] [--port <n>] [--origin <url>]… [--dht]
+```
+
+A browser cannot be a BitTorrent peer — no TCP, no UDP, research Risk 4 — so the browser build of
+the Compose UI is a *client* of this process while the desktop build runs the same engine
+in-process ([B-40](../backlog/B-40-wasmjs-ui-is-a-client-of-the-headless-engine.md)).
+
+* **Transport:** a WebSocket, RFC 6455, text frames, on `127.0.0.1` and no other interface.
+* **Payload:** JSON, `kotlinx.serialization`, of `:wire`'s `Reply` and `Request`. `encodeDefaults`
+  is on: without it an empty list is an *absent* key, which a JavaScript client reads as
+  `undefined`.
+* **Cadence:** the whole state once a second, plus one immediately on connect. Not a delta — a
+  delta protocol's failure mode is a client whose numbers drift instead of one briefly behind.
+* **Ordering:** `Snapshot.sequence` counts, and is not a timestamp; two machines' clocks need not
+  agree and a counter needs no agreement.
+
+**Security, and what it does not cover.** No authentication, by decision: the socket is on loopback
+and the client is the person. `--origin` is what makes that mean something — a WebSocket is *not*
+subject to the same-origin rule, so without it a page on any site somebody visits could open
+`ws://127.0.0.1:<port>` and remove their torrents with their data. Origins are opt-in and there is
+no default; a client that sends no `Origin` at all is not a page and is allowed. Anyone who can run
+a program as this user can drive this socket, and that is the decision, not an oversight.
+
+### `kachok download`: the command line and the exit codes
 
 ```
 kachok download <file.torrent | magnet:?xt=urn:btih:…> [--dir <path>] [--port <n>]

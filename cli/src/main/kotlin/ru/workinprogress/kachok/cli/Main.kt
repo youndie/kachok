@@ -4,6 +4,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.runBlocking
+import ru.workinprogress.kachok.cli.serve.Serve
 import kotlin.system.exitProcess
 
 /**
@@ -33,6 +34,17 @@ object Cli {
             "download" -> {
                 try {
                     download(Arguments.parseDownload(arguments.drop(1)), out, err)
+                } catch (usage: UsageException) {
+                    err.appendLine("kachok: ${usage.message}")
+                    err.appendLine(Arguments.USAGE)
+                    Download.EXIT_USAGE
+                }
+            }
+
+            "serve" -> {
+                try {
+                    ru.workinprogress.kachok.cli.serve.Serve
+                        .run(Arguments.parseServe(arguments.drop(1)), out, err)
                 } catch (usage: UsageException) {
                     err.appendLine("kachok: ${usage.message}")
                     err.appendLine(Arguments.USAGE)

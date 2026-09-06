@@ -57,6 +57,11 @@ include(":cli")
 // channel — the seam research D7 asked phase 1 to leave, now with something on the other side.
 include(":ui")
 
+// The contract between a client and the engine, as plain serialisable data: what a session looks
+// like on the wire and what a surface can ask of it. Its own module because the browser build needs
+// it and must not drag the engine — which has sockets in it — into a target that has none.
+include(":wire")
+
 // A tracker and a seeding peer on localhost, so that both surfaces are tested end to end against
 // the same fake instead of against one each. Test-only: nothing publishes it.
 include(":swarm")

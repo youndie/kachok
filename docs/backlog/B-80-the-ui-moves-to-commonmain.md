@@ -9,6 +9,12 @@ epic: feature-ui
 blocked_by: [B-79]
 ---
 
+> **This is what [B-40](B-40-wasmjs-ui-is-a-client-of-the-headless-engine.md) waits on**, which was
+> not known when either item was filed. B-40's transport half is built and verified against a real
+> browser; what is missing is a UI that can be compiled for one, and every screen is in `desktopMain`
+> today. A phase-3 item is therefore blocking a phase-2 one — recorded here rather than resolved,
+> because moving it is the owner's call and not a consequence of the work.
+
 # B-80 — The UI moves to commonMain
 
 The engine has been multiplatform since it was written: 42 files in `commonMain` against 16 in

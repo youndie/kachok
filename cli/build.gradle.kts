@@ -1,5 +1,6 @@
 plugins {
     alias(libs.plugins.kotlinJvm)
+    alias(libs.plugins.kotlinSerialization)
     application
     id("ru.workinprogress.sborka.base")
     id("ru.workinprogress.sborka.test")
@@ -8,6 +9,10 @@ plugins {
 
 dependencies {
     implementation(projects.engine)
+    // The contract a browser client reads. Its own module because that client cannot depend on the
+    // engine — a browser has no sockets, which is research Risk 4.
+    implementation(projects.wire)
+    implementation(wip.kotlinx.serialization.json)
     implementation(wip.kotlinx.coroutines.core)
     testImplementation(kotlin("test"))
     // The end-to-end test runs a tracker and a seeding peer; `:swarm` is where they live now,
