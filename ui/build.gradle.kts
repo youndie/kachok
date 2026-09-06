@@ -113,8 +113,23 @@ compose.desktop {
             // `make check` runs that script with `--check`, so an icon edited by hand is a red
             // build rather than a silent divergence from the geometry it claims to be.
             val icons = project.layout.projectDirectory.dir("src/desktopMain/resources/icon")
+
+            // **What a `.torrent` is for, said once per platform.** `fileAssociation` is on the
+            // *platform* settings and not on `nativeDistributions`, so there is no place to say it
+            // once — declaring it in one block associates the extension on one operating system and
+            // silently on none of the others (B-84).
+            //
+            // The three of them take it to three different places: macOS writes
+            // `CFBundleDocumentTypes` into the bundle's `Info.plist`, Windows writes registry keys
+            // from the `.msi`, and Linux ships a `.desktop` file and a mime XML in the `.deb`. Only
+            // the first of those works from an app image; the other two are the installer's doing,
+            // which is why this item waited on B-82.
+            val torrentFile = { it: org.jetbrains.compose.desktop.application.dsl.AbstractPlatformSettings ->
+                it.fileAssociation("application/x-bittorrent", "torrent", "BitTorrent metainfo")
+            }
             macOS {
                 iconFile.set(icons.file("icon.icns"))
+                torrentFile(this)
 
                 // **macOS will not package a version starting with zero, and says so late.**
                 //
@@ -133,6 +148,7 @@ compose.desktop {
             }
             windows {
                 iconFile.set(icons.file("icon.ico"))
+                torrentFile(this)
 
                 // Without this every `.msi` is a *separate product*: installing 0.2.0 leaves 0.1.0
                 // in place and two entries in the control panel. The value is arbitrary and must
@@ -146,6 +162,7 @@ compose.desktop {
             }
             linux {
                 iconFile.set(icons.file("icon.png"))
+                torrentFile(this)
                 // `.deb` refuses to build without a maintainer, and the default jpackage invents
                 // is the build user's login at the build host's name.
                 debMaintainer = "youndie@users.noreply.github.com"
@@ -155,6 +172,53 @@ compose.desktop {
         }
     }
 }
+
+// **The `.desktop` entry jpackage writes cannot open a file, and that is jpackage's bug.**
+//
+// Its `template.desktop` — read out of `jdk.jpackage`'s own resources on the build machine — is
+// `Exec=APPLICATION_LAUNCHER` with no field code, while the same template substitutes
+// `DESKTOP_MIMES` right underneath it. By the freedesktop specification an `Exec` with no `%f`,
+// `%F`, `%u` or `%U` is never given the file: the association would be there, the icon would be
+// right, and double-clicking a `.torrent` would open an empty client. Nothing about that looks
+// broken from the packaging side, which is why it is worth a task (B-84).
+//
+// Compose passes `--resource-dir` at a directory it clears inside its own task action, so there is
+// no supported hook for a replacement template; the package is unpacked and rebuilt instead. The
+// substitution is checked afterwards rather than trusted — a `sed` that matches nothing exits
+// successfully, which is the failure this task exists to prevent.
+val patchDesktopEntry by tasks.registering(Exec::class) {
+    onlyIf { System.getProperty("os.name").orEmpty().let { !it.startsWith("Mac") && !it.startsWith("Windows") } }
+    description = "Adds the %f jpackage leaves out, so a .torrent opens with the client on Linux."
+    val deb =
+        layout.buildDirectory.file(
+            "compose/binaries/main/deb/kachok_${project.version.toString().substringBefore("-")}_amd64.deb",
+        )
+    commandLine(
+        "sh",
+        "-c",
+        """
+        set -eu
+        deb="${'$'}1"
+        [ -f "${'$'}deb" ] || { echo "no package at ${'$'}deb"; exit 1; }
+        work=${'$'}(mktemp -d)
+        trap 'rm -rf "${'$'}work"' EXIT
+        dpkg-deb -R "${'$'}deb" "${'$'}work"
+        # `-type f`, and the first line has to say so: the trimmed runtime ships a *directory*
+        # called `legal/java.desktop`, which a name-only match picks first and sed refuses.
+        entry=${'$'}(find "${'$'}work" -type f -name '*.desktop' -exec grep -l '^\[Desktop Entry\]' {} + | head -1)
+        [ -n "${'$'}entry" ] || { echo "the package carries no .desktop entry"; exit 1; }
+        if grep -q '^Exec=.* %f${'$'}' "${'$'}entry"; then exit 0; fi
+        sed -i 's|^\(Exec=.*\)${'$'}|\1 %f|' "${'$'}entry"
+        grep -q '^Exec=.* %f${'$'}' "${'$'}entry" || { echo "the Exec line was not patched:"; cat "${'$'}entry"; exit 1; }
+        fakeroot dpkg-deb -b "${'$'}work" "${'$'}deb" >/dev/null
+        echo "the .desktop entry now passes the file it was opened with"
+        """.trimIndent(),
+        "sh",
+        deb.get().asFile.absolutePath,
+    )
+}
+
+tasks.matching { it.name == "packageDeb" }.configureEach { finalizedBy(patchDesktopEntry) }
 
 // **The one thing that runs what `createDistributable` produced.**
 //

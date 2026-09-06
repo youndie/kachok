@@ -106,6 +106,12 @@ format each — the host picks from `targetFormats`:
 | Linux | `~/.claude/bin/wsl-run './gradlew :ui:packageDeb'` | `.../deb/kachok_0.1.0_amd64.deb` | `fakeroot` |
 | Windows | `gradlew.bat :ui:packageMsi` | `.../msi/kachok-0.1.0.msi` | none — the Compose plugin downloads WiX 3.11.2 into `~/.gradle/compose-jb/` and passes it as `WIX_PATH`; `compose.desktop.application.downloadWix=false` turns that off |
 
+A `.torrent` is registered to this client by all three installers, and the client is a **single
+instance**: a second launch hands its path to the running one over a loopback socket named in
+`<config>/instance` and exits. On Linux the `.desktop` entry `jpackage` writes has no `%f` and would
+therefore never be given the file, so `:ui:patchDesktopEntry` adds one and fails the build if it
+could not — see [B-84](../backlog/B-84-torrent-files-open-with-the-client.md).
+
 The macOS bundle says **1.0.0** while the project is at 0.1.0, and that is deliberate: Apple refuses
 a `CFBundleShortVersionString` whose first component is zero, so `0.1.0` cannot be packaged on macOS
 at all. The override is on `macOS { }` alone; the `.deb` carries the project's own number.

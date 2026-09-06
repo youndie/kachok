@@ -15,6 +15,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draganddrop.DragAndDropEvent
 import androidx.compose.ui.draganddrop.DragAndDropTarget
@@ -33,7 +34,9 @@ import androidx.compose.ui.window.rememberWindowState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.channels.ReceiveChannel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import ru.workinprogress.appframe.AppFrame
@@ -63,11 +66,13 @@ import ru.workinprogress.kachok.ui.session.Lifecycle
 import ru.workinprogress.kachok.ui.session.Preferences
 import ru.workinprogress.kachok.ui.session.Rates
 import ru.workinprogress.kachok.ui.session.Sample
+import ru.workinprogress.kachok.ui.session.SingleInstance
 import ru.workinprogress.kachok.ui.session.StoredTorrent
 import ru.workinprogress.kachok.ui.session.addFrom
 import ru.workinprogress.kachok.ui.session.brokenRow
 import ru.workinprogress.kachok.ui.session.chooseDirectory
 import ru.workinprogress.kachok.ui.session.clicked
+import ru.workinprogress.kachok.ui.session.configDirectory
 import ru.workinprogress.kachok.ui.session.detailsOf
 import ru.workinprogress.kachok.ui.session.forgetTorrent
 import ru.workinprogress.kachok.ui.session.inOrder
@@ -87,6 +92,7 @@ import ru.workinprogress.kachok.ui.session.windowOf
 import ru.workinprogress.kachok.ui.settings.SettingChange
 import ru.workinprogress.kachok.ui.settings.SettingKey
 import ru.workinprogress.kachok.ui.theme.KachokTheme
+import java.awt.Desktop
 import java.awt.FileDialog
 import java.awt.Frame
 import java.awt.Toolkit
@@ -118,6 +124,26 @@ public fun main(args: Array<String>) {
         exitProcess(preflight(args.getOrNull(1)?.let { Path.of(it) }))
     }
     val torrent = args.firstOrNull()?.let { Path.of(it) }
+    // **One client per machine, and this launch may not be it.** A `.torrent` double-clicked in a
+    // file manager starts a new process on all three platforms; if one is already running, its
+    // path goes there and this one exits. Two clients would be two listeners on one port and two
+    // writers in one download directory, and no `TorrentSet` can see across a process boundary
+    // to refuse that (B-84).
+    val instance = SingleInstance.claim(configDirectory(), listOfNotNull(torrent))
+    if (instance == null) return
+    // A shutdown hook and not `onStopped`, because the lock has to go however this process ends —
+    // a stale file is not fatal (the next launch takes it over) but it costs that launch a
+    // connection attempt, and a hook covers the paths a `finally` does not.
+    Runtime.getRuntime().addShutdownHook(Thread(instance::close))
+    // **macOS does not put a double-clicked document in `argv`.** It sends an Apple Event, which
+    // reaches Java here — so the code that works on Windows and Linux receives nothing on the one
+    // platform whose association was easiest to get right. Same channel, so the window has one
+    // door for a torrent that arrives from outside it.
+    if (Desktop.isDesktopSupported() && Desktop.getDesktop().isSupported(Desktop.Action.APP_OPEN_FILE)) {
+        Desktop.getDesktop().setOpenFileHandler { event ->
+            event.files.forEach { instance.opened.trySend(it.toPath()) }
+        }
+    }
     // `~/Downloads` and not the working directory, which for an app launched from Finder or a
     // Start menu is wherever the launcher happened to be. It is also what the settings screen
     // prints as the default, and a default nothing uses is a lie printed on every row.
@@ -176,6 +202,7 @@ public fun main(args: Array<String>) {
                     Client(
                         torrent,
                         directory,
+                        opened = instance.opened,
                         stopping = closing,
                         onStopped = ::exitApplication,
                         shortcut = shortcut,
@@ -264,6 +291,15 @@ internal fun Client(
      */
     torrents: Path = torrentsDirectory(),
     /**
+     * Torrents handed over by a *later* launch of this application.
+     *
+     * Double-clicking a `.torrent` starts a new process on every platform; that process finds this
+     * one, gives it the path and exits ([SingleInstance]), and the path arrives here. On macOS the
+     * same channel carries the Apple Event, because a document opened there never reaches `argv`
+     * at all ([B-84](../../../../../../../docs/backlog/B-84-torrent-files-open-with-the-client.md)).
+     */
+    opened: ReceiveChannel<Path>? = null,
+    /**
      * A directory named on the command line beats the stored one, for this run only.
      *
      * Without it the file wins and `kachok x.torrent /srv/here` quietly ignores its second
@@ -317,6 +353,19 @@ internal fun Client(
     LaunchedEffect(preferences) {
         delay(SETTINGS_SETTLE)
         savePreferences(settingsFile, preferences)
+    }
+
+    // A torrent from somewhere other than this window: a second launch, or a double-click on
+    // macOS. It goes through `pendingDrop`, which is the same door a dropped file uses — one place
+    // where a path becomes the add dialog, and not three that have to agree with each other.
+    LaunchedEffect(opened) {
+        val channel = opened ?: return@LaunchedEffect
+        for (path in channel) {
+            // Waits for the previous one to be answered rather than overwriting it: three
+            // double-clicks in a second are three dialogs in turn, not the last one.
+            snapshotFlow { pendingDrop == null && pending == null }.first { it }
+            pendingDrop = path
+        }
     }
 
     // A dropped file, read here rather than in the drop callback: that runs while a composition is
