@@ -3,6 +3,7 @@ package ru.workinprogress.kachok.ui.session
 import ru.workinprogress.kachok.engine.session.SessionConfig
 import ru.workinprogress.kachok.engine.tracker.TrackerProtocol
 import ru.workinprogress.kachok.ui.settings.Setting
+import ru.workinprogress.kachok.ui.settings.SettingKey
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -134,9 +135,37 @@ class SettingsFromTest {
         )
     }
 
+    /**
+     * The footnote is a promise, and it is now kept for the settings it names.
+     *
+     * It used to say every change applied immediately, with the design's badge to admit that none
+     * did. Three do — both rate limits and the peer count — so the badge is gone and the sentence
+     * names them instead of claiming all of them.
+     */
     @Test
-    fun theFootnoteIsMarkedPlannedBecauseNothingAppliesYet() {
-        assertTrue(screen.footnotePlanned)
+    fun theFootnoteNamesTheSettingsItIsTrueOf() {
+        assertTrue(!screen.footnotePlanned, "the badge outlived the gap it stood for")
         assertTrue(screen.footnote.contains("no Apply button"))
+        assertTrue(screen.footnote.contains("Rate limits"), screen.footnote)
+        assertTrue(screen.footnote.contains("peer count"), screen.footnote)
+    }
+
+    /**
+     * And the one setting that can be changed and does not reach a running torrent says so.
+     *
+     * A third state, between editable and not: `disabledBecause` would make the row read-only, and
+     * the number *can* be set — it is the next torrent that gets it.
+     */
+    @Test
+    fun aSettingThatOnlyReachesTheNextTorrentSaysSoWithoutBeingLockedOut() {
+        assertEquals(
+            listOf(SettingKey.PipelineDepth),
+            SettingKey.entries.filter { it.nextTorrentBecause != null },
+        )
+        assertTrue(SettingKey.PipelineDepth.editable, "the row was locked instead of annotated")
+        assertTrue(
+            SettingKey.entries.none { it.disabledBecause != null && it.nextTorrentBecause != null },
+            "a row cannot be both unchangeable and changeable-later",
+        )
     }
 }

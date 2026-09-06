@@ -47,12 +47,25 @@ import ru.workinprogress.kachok.ui.theme.warningColors
  */
 internal enum class SettingKey(
     val disabledBecause: String? = null,
+    /**
+     * Why a change here does not reach a torrent that is already running.
+     *
+     * A third state, and it needed to exist: [disabledBecause] would have made the row read-only,
+     * and this one *can* be changed — it is the next torrent that gets the new number, not this
+     * one. Saying nothing at all is what left the screen's footnote claiming every setting applies
+     * immediately while two of them did not.
+     */
+    val nextTorrentBecause: String? = null,
 ) {
     SaveTo,
     StartWhenAdded,
     ListeningPort("bound when the process starts"),
     MaxPeers,
-    PipelineDepth,
+    PipelineDepth(
+        nextTorrentBecause =
+            "the buffer pool is sized from it when a torrent opens, and a session cannot grow the " +
+                "pool it was handed",
+    ),
     UploadLimit,
     DownloadLimit,
     Dht,
@@ -157,10 +170,10 @@ private fun SettingRow(
         ) {
             Column(Modifier.weight(1f)) {
                 Text(setting.label, style = LABEL, color = scheme.onSurface)
-                val note =
-                    setting.key.disabledBecause
-                        ?.let { why -> listOfNotNull(setting.note, "Not changeable here — $why.").joinToString(" ") }
-                        ?: setting.note
+                val qualifier =
+                    setting.key.disabledBecause?.let { "Not changeable here — $it." }
+                        ?: setting.key.nextTorrentBecause?.let { "Applies to the next torrent — $it." }
+                val note = listOfNotNull(setting.note, qualifier).joinToString(" ").ifBlank { null }
                 note?.let {
                     Text(
                         it,

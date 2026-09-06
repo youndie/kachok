@@ -196,7 +196,13 @@ internal fun settingsOf(
                     ),
                 ),
             ),
-        footnote = "Changes apply to the running session immediately — no restart, no Apply button.",
+        // The badge is gone from the footnote and moved onto the two rows it is still not true of.
+        // A sentence that is right about three settings and wrong about two is worse than two rows
+        // each saying which they are.
+        footnote =
+            "Rate limits and the peer count apply to running torrents immediately — " +
+                "no restart, no Apply button.",
+        footnotePlanned = false,
     )
 }
 

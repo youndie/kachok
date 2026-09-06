@@ -78,6 +78,7 @@ class SessionTest {
 
     private val peerA = PeerAddress("10.0.0.1", 6881)
     private val peerB = PeerAddress("10.0.0.2", 6881)
+    private val peerC = PeerAddress("10.0.0.3", 6881)
     private val ourPeerId = PeerId("-KA0001-0123456789AB".encodeToByteArray())
 
     /** The messages this client sent under one peer's `ut_pex` id, decoded. */
@@ -1895,6 +1896,80 @@ class SessionTest {
 
             assertEquals(before + 1, tracker.events.size, "the tracker was not asked again")
             assertEquals(null, tracker.events.last(), "a re-announce carries no event, like a periodic one")
+
+            job.cancelAndJoin()
+        }
+
+    /**
+     * A raised peer count reaches a session that is already running, and dials.
+     *
+     * Raising it and waiting is not enough: the loop that would use the room is the one that runs
+     * when a peer drops, which may be an hour away, so the command dials on the spot.
+     */
+    @Test
+    fun raisingThePeerCountDialsMorePeersWithoutARestart() =
+        runTest {
+            val metainfo = torrent(pieces = 4)
+            val dialer = FakeDialer(metainfo.infoHash)
+            val session =
+                session(
+                    metainfo,
+                    dialer,
+                    FakeTracker(listOf(peerA, peerB, peerC)),
+                    FakeStorage(),
+                    AgreeableHasher(metainfo),
+                    config = SessionConfig(maxStartedPieces = 4, pipelineDepth = 2, maxPeers = 1),
+                )
+            val job = session.start(kotlinx.coroutines.CoroutineScope(coroutineContext + handler))
+            testScheduler.runCurrent()
+            assertEquals(1, session.state.value.connectedPeers, "the limit was one")
+
+            session.send(Command.Reconfigure(maxPeers = 3))
+            testScheduler.runCurrent()
+
+            assertEquals(3, session.state.value.connectedPeers, "the new limit did not reach the session")
+
+            job.cancelAndJoin()
+        }
+
+    /** And a limit set to nothing is no limit, on a session that was throttled a moment ago. */
+    @Test
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    fun aRateLimitCanBeChangedAndLifted() =
+        runTest {
+            val metainfo = torrent(pieces = 4)
+            val dialer = FakeDialer(metainfo.infoHash)
+            val session =
+                session(
+                    metainfo,
+                    dialer,
+                    FakeTracker(listOf(peerA)),
+                    FakeStorage(),
+                    AgreeableHasher(metainfo),
+                    config =
+                        SessionConfig(
+                            maxStartedPieces = 4,
+                            pipelineDepth = 2,
+                            maxPeers = 10,
+                            downloadLimitBytesPerSecond = 1024,
+                        ),
+                )
+            val job = session.start(kotlinx.coroutines.CoroutineScope(coroutineContext + handler))
+            testScheduler.runCurrent()
+            val connection = dialer.connections.getValue(peerA)
+            connection.incoming.send(PeerEvent.Received(Message.Bitfield(allOf(metainfo.pieceCount))))
+            connection.incoming.send(PeerEvent.Received(Message.Unchoke))
+            testScheduler.runCurrent()
+            val throttled = connection.sent.filterIsInstance<Message.Request>().size
+
+            session.send(Command.Reconfigure(downloadLimitBytesPerSecond = 0))
+            testScheduler.advanceTimeBy(SessionConfig().tick.inWholeMilliseconds + 1)
+            testScheduler.runCurrent()
+
+            assertTrue(
+                connection.sent.filterIsInstance<Message.Request>().size > throttled,
+                "lifting the limit asked for nothing more",
+            )
 
             job.cancelAndJoin()
         }

@@ -316,6 +316,9 @@ internal fun Client(
     // seam, so a click never blocks a frame on a torrent being opened and hashed.
     val accepted = remember { Channel<Pending>(Channel.UNLIMITED) }
     val dhtWanted = remember { Channel<Boolean>(Channel.CONFLATED) }
+    // Conflated: a person dragging a number through 1, 12, 120, 1200 is one final answer, and the
+    // three on the way are worth nothing to a running session.
+    val retuned = remember { Channel<RuntimeOptions>(Channel.CONFLATED) }
     val commanded = remember { Channel<TorrentCommand>(Channel.UNLIMITED) }
 
     LaunchedEffect(initial, directory) {
@@ -338,6 +341,11 @@ internal fun Client(
             // Its own coroutine rather than a `tryReceive` in the loop below: that loop sleeps a
             // second between ticks, and a Pause that waited for it would be a button with a
             // second's lag on it — which is what B-64 was, in the one place it still applied.
+            scope.launch {
+                for (options in retuned) {
+                    set.torrents.forEach { it.reconfigure(options) }
+                }
+            }
             scope.launch {
                 for (command in commanded) {
                     val runtime =
@@ -676,6 +684,9 @@ internal fun Client(
 
                 is SettingChange.Typed -> {
                     preferences = preferences.typed(change.key, change.text)
+                    // The screen's own footnote says changes apply immediately, and three of them
+                    // now do. The rest say on their row why they cannot.
+                    retuned.trySend(preferences.typed(change.key, change.text).runtimeOptions())
                 }
             }
         },

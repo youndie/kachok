@@ -151,6 +151,22 @@ public class TorrentRuntime internal constructor(
      */
     public suspend fun recheck(): Unit = session.send(Command.Recheck)
 
+    /**
+     * New values for the settings that can change under a running torrent.
+     *
+     * Everything else in [RuntimeOptions] is decided when the torrent is opened: the directory is
+     * where the files are, the port is the set's, the pipeline depth is the buffer pool's working
+     * set, and which files to skip is what the picker was told once.
+     */
+    public suspend fun reconfigure(options: RuntimeOptions): Unit =
+        session.send(
+            Command.Reconfigure(
+                maxPeers = options.maxPeers,
+                uploadLimitBytesPerSecond = options.uploadLimitBytesPerSecond,
+                downloadLimitBytesPerSecond = options.downloadLimitBytesPerSecond,
+            ),
+        )
+
     /** Ask the trackers again, out of turn. Does not reset the interval they asked for. */
     public suspend fun announce(): Unit = session.send(Command.Announce)
 

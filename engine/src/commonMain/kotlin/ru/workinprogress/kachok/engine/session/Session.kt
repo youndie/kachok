@@ -139,6 +139,15 @@ public class Session(
     private val connected = LinkedHashMap<PeerAddress, PeerLink>()
     private val known = LinkedHashSet<PeerAddress>()
     private val failed = HashMap<PeerAddress, kotlin.time.TimeMark>()
+
+    /**
+     * How many peers to keep up, which [Command.Reconfigure] may change.
+     *
+     * A field rather than `config.maxPeers` because a running session can be told a new number and
+     * `SessionConfig` is the number it started with.
+     */
+    private var maxPeers = config.maxPeers
+
     private var announceInterval = DEFAULT_ANNOUNCE_SECONDS
 
     /**
@@ -314,6 +323,22 @@ public class Session(
 
                 Command.Recheck -> {
                     recheck(scope)
+                }
+
+                is Command.Reconfigure -> {
+                    command.maxPeers?.let { maxPeers = it }
+                    command.uploadLimitBytesPerSecond?.let { uploadBudget.retune(it) }
+                    command.downloadLimitBytesPerSecond?.let { downloadBudget.retune(it) }
+                    // Both of these are wake-ups, and both are necessary. Raising the peer count
+                    // matters only if somebody dials, and the loop that would is the one that runs
+                    // when a peer drops — an hour away. Raising a download limit is worse: requests
+                    // are normally issued when a block arrives, no block arrives while nothing is
+                    // asked for, and `refillRateLimits` — which exists to break exactly that
+                    // circle — returns immediately once there is no limit left to refill. A
+                    // session throttled to a standstill and then unthrottled stayed at a
+                    // standstill, which is what the test for this found.
+                    connectMore(scope)
+                    connected.snapshot().forEach { requestMore(it) }
                 }
 
                 Command.Announce -> {
@@ -602,7 +627,7 @@ public class Session(
 
     private fun connectMore(scope: CoroutineScope) {
         if (paused) return
-        val room = config.maxPeers - connected.size
+        val room = maxPeers - connected.size
         if (room <= 0) return
         known
             .asSequence()

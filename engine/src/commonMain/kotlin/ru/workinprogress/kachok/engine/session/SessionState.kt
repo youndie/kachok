@@ -219,6 +219,24 @@ public sealed interface Command {
      */
     public data object Announce : Command
 
+    /**
+     * New values for the settings a running session can be told to change.
+     *
+     * The three that can: both rate limits, which are token buckets and take a rate between ticks,
+     * and how many peers to keep up, which is read where the next dial is decided. Null leaves a
+     * field alone.
+     *
+     * The listening port is deliberately absent: changing it means re-announcing every torrent
+     * under a new address, and the settings screen says so on the row rather than pretending.
+     * `pipelineDepth` is absent too — it is the buffer pool's working set, sized when the pool was
+     * built, and a session cannot grow the pool it was handed.
+     */
+    public class Reconfigure(
+        public val maxPeers: Int? = null,
+        public val uploadLimitBytesPerSecond: Long? = null,
+        public val downloadLimitBytesPerSecond: Long? = null,
+    ) : Command
+
     /** Announce `stopped`, close the peers, flush, and finish. */
     public data object Stop : Command
 }

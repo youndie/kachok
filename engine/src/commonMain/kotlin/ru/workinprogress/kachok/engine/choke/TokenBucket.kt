@@ -18,7 +18,7 @@ import kotlin.time.Duration
  */
 public class TokenBucket(
     /** Bytes a second. Zero or less means no limit at all, and every [take] then succeeds. */
-    public val bytesPerSecond: Long,
+    bytesPerSecond: Long,
     /**
      * How much may be spent at once after an idle period, as a multiple of one second's worth.
      *
@@ -29,11 +29,33 @@ public class TokenBucket(
      */
     burstSeconds: Double = 1.0,
 ) {
+    public var bytesPerSecond: Long = bytesPerSecond
+        private set
+
+    private val burst = burstSeconds
+
     public val isUnlimited: Boolean get() = bytesPerSecond <= 0
 
-    private val capacity: Long = if (isUnlimited) 0 else (bytesPerSecond * burstSeconds).toLong().coerceAtLeast(1)
+    private var capacity: Long = capacityFor(bytesPerSecond)
 
     private var balance: Long = capacity
+
+    /**
+     * A new rate, on a bucket that is already running.
+     *
+     * The balance is clamped rather than reset: raising a limit must not hand out a second's worth
+     * of the *old* rate on top of what is already there, and lowering one must not leave a bucket
+     * holding more than its new depth. Setting the rate a bucket already has does nothing at all,
+     * so a settings screen republishing every field on every keystroke costs a comparison.
+     */
+    public fun retune(newBytesPerSecond: Long) {
+        if (newBytesPerSecond == bytesPerSecond) return
+        bytesPerSecond = newBytesPerSecond
+        capacity = capacityFor(newBytesPerSecond)
+        balance = balance.coerceAtMost(capacity)
+    }
+
+    private fun capacityFor(rate: Long): Long = if (rate <= 0) 0 else (rate * burst).toLong().coerceAtLeast(1)
 
     /** What may be spent right now. [Long.MAX_VALUE] when there is no limit. */
     public val available: Long get() = if (isUnlimited) Long.MAX_VALUE else balance
