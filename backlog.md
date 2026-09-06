@@ -46,11 +46,13 @@ which is also the order of work.
 
 <!-- BEGIN INDEX -->
 
-## Open (5)
+## Open (7)
 
 | Task | | Priority | Size | Blocked by |
 |---|---|---|---|---|
 | [B-78](docs/backlog/B-78-nothing-runs-the-packaged-application.md) `[ ]` | Nothing runs the packaged application | P1 | M | - |
+| [B-79](docs/backlog/B-79-the-windows-state-outlives-its-composition.md) `[ ]` | The window's state outlives its composition | P2 | L | - |
+| [B-80](docs/backlog/B-80-the-ui-moves-to-commonmain.md) `[ ]` | The UI moves to commonMain | P2 | L | B-79 |
 | [B-37](docs/backlog/B-37-v2-and-hybrid-torrents.md) `[?]` | v2 and hybrid torrents (BEP 52): SHA-256 piece layers | P3 | L | B-04 |
 | [B-40](docs/backlog/B-40-wasmjs-ui-is-a-client-of-the-headless-engine.md) `[ ]` | Phase 2: the wasmJs UI is a client of the JVM headless engine | P3 | L | B-39 |
 | [B-41](docs/backlog/B-41-android-and-ios-targets.md) `[ ]` | Phase 3: Android and iOS targets on the engine | P3 | XL | B-39 |
