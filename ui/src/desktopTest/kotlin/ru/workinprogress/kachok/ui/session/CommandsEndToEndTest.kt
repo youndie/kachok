@@ -160,8 +160,16 @@ class CommandsEndToEndTest {
                 val before = runtime.state.value.completedPieces
 
                 // Twenty-one bytes into the second piece, so the damage is not at an edge.
+                //
+                // Paused around the write, and the pause is load-bearing: it forces a reconnect
+                // between the corruption and the re-check, which is what found the defect. A peer
+                // that connects while this client is complete computes no interest, and a re-check
+                // that did not re-derive it left the torrent one piece short with a connected,
+                // unchoking peer and nothing outstanding. Without the pause the test passes on a
+                // session that would still wedge for a person who pressed the buttons in this
+                // order.
                 runtime.pause()
-                runtime.waitUntil("the writer stops") { runtime.state.value.paused }
+                runtime.waitUntil("the pause lands") { runtime.state.value.paused }
                 Files.newByteChannel(file, StandardOpenOption.WRITE).use { channel ->
                     channel.position(local.metainfo.pieceLength + 21L)
                     channel.write(java.nio.ByteBuffer.wrap("CORRUPT".encodeToByteArray()))

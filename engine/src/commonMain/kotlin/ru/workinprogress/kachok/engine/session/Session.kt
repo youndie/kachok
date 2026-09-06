@@ -423,6 +423,19 @@ public class Session(
             publish { it.copy(paused = false) }
             failed.clear()
             connectMore(scope)
+            // **Every peer that survived the pass is told again what this client wants.**
+            //
+            // A re-check changes `have` underneath connections that are already open — a dial in
+            // flight when the pass began completes during it, and the peers closed above are not
+            // the peers connected now. Interest is otherwise only recomputed when *their* bitfield
+            // changes, never when ours shrinks, so a peer that connected while this client was
+            // complete stays uninterested and is never asked for the piece the pass just threw
+            // away. The symptom is a torrent stuck one piece short with a connected, unchoking peer
+            // and no outstanding requests — reproducible on Windows, intermittent everywhere else.
+            connected.snapshot().forEach { link ->
+                updateInterest(link)
+                requestMore(link)
+            }
         }
     }
 
