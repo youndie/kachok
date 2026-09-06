@@ -46,16 +46,21 @@ which is also the order of work.
 
 <!-- BEGIN INDEX -->
 
-## Open (7)
+## Open (12)
 
 | Task | | Priority | Size | Blocked by |
 |---|---|---|---|---|
 | [B-78](docs/backlog/B-78-nothing-runs-the-packaged-application.md) `[ ]` | Nothing runs the packaged application | P1 | M | - |
+| [B-81](docs/backlog/B-81-the-torrent-list-survives-a-restart.md) `[ ]` | The list of torrents survives a restart | P1 | L | - |
 | [B-79](docs/backlog/B-79-the-windows-state-outlives-its-composition.md) `[ ]` | The window's state outlives its composition | P2 | L | - |
 | [B-80](docs/backlog/B-80-the-ui-moves-to-commonmain.md) `[ ]` | The UI moves to commonMain | P2 | L | B-79 |
+| [B-82](docs/backlog/B-82-an-installer-per-platform.md) `[ ]` | An installer per platform, and the version that stops one | P2 | M | - |
+| [B-84](docs/backlog/B-84-torrent-files-open-with-the-client.md) `[ ]` | A .torrent opens with the client, on all three platforms | P2 | M | B-82 |
 | [B-37](docs/backlog/B-37-v2-and-hybrid-torrents.md) `[?]` | v2 and hybrid torrents (BEP 52): SHA-256 piece layers | P3 | L | B-04 |
 | [B-40](docs/backlog/B-40-wasmjs-ui-is-a-client-of-the-headless-engine.md) `[ ]` | Phase 2: the wasmJs UI is a client of the JVM headless engine | P3 | L | B-39 |
 | [B-41](docs/backlog/B-41-android-and-ios-targets.md) `[ ]` | Phase 3: Android and iOS targets on the engine | P3 | XL | B-39 |
+| [B-83](docs/backlog/B-83-autostart-and-its-setting.md) `[ ]` | Starting with the operating system, and the setting that says so | P3 | M | B-81, B-82 |
+| [B-85](docs/backlog/B-85-open-a-file-from-the-files-tab.md) `[ ]` | Double-clicking a file in the Files tab opens it | P3 | S | - |
 | [B-02](docs/backlog/B-02-ci-runs-build-and-docs-gates.md) `[ ]` | CI runs the build and the documentation gates on every push | infra | S | B-01 |
 
 ## Closed (73)
