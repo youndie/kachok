@@ -34,6 +34,7 @@ import ru.workinprogress.kachok.engine.storage.BlockWriter
 import ru.workinprogress.kachok.engine.storage.PieceHasher
 import ru.workinprogress.kachok.engine.storage.PieceOutcome
 import ru.workinprogress.kachok.engine.storage.Storage
+import ru.workinprogress.kachok.engine.storage.verifiedBytesPerFile
 import ru.workinprogress.kachok.engine.tracker.AnnounceEvent
 import ru.workinprogress.kachok.engine.tracker.AnnounceRequest
 import ru.workinprogress.kachok.engine.tracker.TrackerClient
@@ -1239,6 +1240,23 @@ public class Session(
             false
         }
 
+    /**
+     * The files, derived from the pieces.
+     *
+     * On the timer with the peer list, because it is a pass over the piece bitfield: doing it when
+     * a piece lands would be work proportional to the torrent on the hot path.
+     */
+    private fun fileViews(): List<FileView> {
+        val verified = verifiedBytesPerFile(metainfo, picker.completed)
+        return metainfo.files.mapIndexed { at, file ->
+            FileView(
+                path = file.path.joinToString("/"),
+                length = file.length,
+                verifiedBytes = verified[at],
+            )
+        }
+    }
+
     /** Recomputed rather than tracked: two counters that must agree with the peer table. */
     private fun publishPeerCounts() {
         val links = connected.values
@@ -1252,6 +1270,7 @@ public class Session(
                 // swarm, and the timer is the one place in the session that already runs at the
                 // rate a table is redrawn at.
                 peers = links.map { link -> link.view(now, picker.piecesHeldBy(link.connection.address)) },
+                files = fileViews(),
             )
         }
     }
@@ -1421,6 +1440,7 @@ private fun SessionState.copy(
     isComplete: Boolean = this.isComplete,
     paused: Boolean = this.paused,
     peers: List<PeerView> = this.peers,
+    files: List<FileView> = this.files,
 ): SessionState =
     SessionState(
         infoHash = infoHash,
@@ -1446,4 +1466,5 @@ private fun SessionState.copy(
         isComplete = isComplete,
         paused = paused,
         peers = peers,
+        files = files,
     )

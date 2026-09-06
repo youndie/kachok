@@ -71,11 +71,41 @@ public class SessionState(
      * redrawn once a second wants anyway.
      */
     public val peers: List<PeerView> = emptyList(),
+    /**
+     * One entry per file in the torrent, with how much of it is verified.
+     *
+     * Rebuilt on the timer beside [peers], and for the same reason: it is derived from the piece
+     * bitfield, so recomputing it whenever a piece landed would be work proportional to the torrent
+     * on the hot path. Empty until the first tick, and empty for a magnet with no metainfo yet.
+     */
+    public val files: List<FileView> = emptyList(),
 ) {
     override fun toString(): String =
         "$name $completedPieces/$pieceCount pieces, $connectedPeers peers" +
             (trackerError?.let { ", tracker: $it" } ?: "")
 }
+
+/**
+ * One file in the torrent, and how much of it is on the disk.
+ *
+ * [verifiedBytes] is derived from the pieces, never counted separately: a second counter per file
+ * would be a second thing to get wrong every time a piece lands. A piece that straddles two files
+ * credits each with the bytes it actually holds, so a 700-byte file inside a 256 KiB piece is not
+ * complete because its neighbour's piece arrived.
+ */
+public class FileView(
+    /** `dists/stable/Release` — the torrent's own path, joined, and never a filesystem path. */
+    public val path: String,
+    public val length: Long,
+    public val verifiedBytes: Long,
+    /**
+     * Whether this client is fetching it.
+     *
+     * Always true today; the setting that would make it false is
+     * [B-67](../../../../../../../../docs/backlog/B-67-per-file-selection.md).
+     */
+    public val wanted: Boolean = true,
+)
 
 /**
  * One connected peer, as far as anything outside the engine is allowed to see it.

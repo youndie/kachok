@@ -58,11 +58,7 @@ internal enum class DetailsTab(
     val plannedBecause: String? = null,
 ) {
     Overview("Overview"),
-    Files(
-        "Files",
-        "The engine opens a FileSet and never reports it: there is no per-file progress, and no " +
-            "way to mark a file unwanted.",
-    ),
+    Files("Files"),
     Peers("Peers"),
     Trackers(
         "Trackers",
@@ -105,6 +101,21 @@ internal class Complaint(
 )
 
 /**
+ * One file, as the design's *Files* tab draws it.
+ *
+ * The tick is drawn from [wanted] and does not respond: choosing files is the second half of
+ * [B-67](../../../../../../../../docs/backlog/B-67-per-file-selection.md) and needs the picker to
+ * know about it. The badge on the tab's own summary line says so.
+ */
+internal class FileRow(
+    val name: String,
+    val size: String,
+    /** `79%`, or `skip` for a file this client is not fetching. */
+    val progress: String,
+    val wanted: Boolean,
+)
+
+/**
  * One peer, as the design's *Peers* tab draws it.
  *
  * The flags are two booleans and not a string: the design gives each its own colour, and a
@@ -132,6 +143,10 @@ internal class DetailsState(
     val tab: DetailsTab = DetailsTab.Overview,
     /** Sorted by rate, which is what puts the peers doing something at the top. */
     val peers: List<PeerRow> = emptyList(),
+    /** In the torrent's own order, which is the order the design lists them in. */
+    val files: List<FileRow> = emptyList(),
+    /** `9 files · 3.70 GiB · 8 wanted`. */
+    val filesSummary: String = "",
 )
 
 internal object Details {
@@ -171,6 +186,7 @@ internal fun DetailsPanel(
             when (state.tab) {
                 DetailsTab.Overview -> Overview(state, onCopy)
                 DetailsTab.Peers -> Peers(state.peers)
+                DetailsTab.Files -> Files(state)
                 else -> Planned(state.tab)
             }
         }
@@ -417,6 +433,84 @@ private fun ComplaintCard(complaint: Complaint) {
 }
 
 /**
+ * A row per file, with the share of it that is verified.
+ *
+ * **The percentage is of the file, not of the pieces that touch it.** A 700-byte file inside a
+ * 256 KiB piece is not complete because its neighbour's piece arrived, and counting whole pieces is
+ * the implementation that says it is.
+ *
+ * The tick is drawn and does not respond; the summary line carries the design's badge to say so.
+ */
+@Composable
+private fun ColumnScope.Files(state: DetailsState) {
+    val scheme = MaterialTheme.colorScheme
+    Column(Modifier.fillMaxSize()) {
+        Row(
+            Modifier.fillMaxWidth().height(PEER_HEAD).padding(horizontal = Details.edge),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(7.dp),
+        ) {
+            Text(state.filesSummary, style = FIELD_LABEL, color = scheme.onSurfaceVariant)
+            PlannedBadge()
+        }
+        Box(Modifier.fillMaxWidth().height(HAIRLINE).background(KachokPalette.rowHairline))
+        if (state.files.isEmpty()) {
+            Text(
+                "No files yet — the metainfo has not arrived.",
+                style = FIELD_LABEL,
+                color = scheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = Details.edge, vertical = 10.dp),
+            )
+        }
+        Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
+            state.files.forEach { file -> FileLine(file) }
+        }
+    }
+}
+
+@Composable
+private fun FileLine(file: FileRow) {
+    val scheme = MaterialTheme.colorScheme
+    Row(
+        Modifier.fillMaxWidth().height(Details.rowHeight).padding(horizontal = Details.edge),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Glyph(
+            if (file.wanted) Icons.CHECK_BOX else Icons.CHECK_BOX_OUTLINE_BLANK,
+            size = FILE_TICK,
+            tint = if (file.wanted) scheme.primary else scheme.onSurfaceVariant,
+        )
+        // `PathText` and not `TextOverflow.StartEllipsis`, which type-checks against Compose
+        // Multiplatform 1.12 and truncates at the *end* anyway — checked twice against a golden
+        // before `PathText` was written. Files in a torrent share a directory prefix, so the half
+        // that tells them apart is the end.
+        PathText(
+            file.name,
+            FIELD_LABEL,
+            if (file.wanted) scheme.onSurface else scheme.onSurfaceVariant,
+            Modifier.weight(1f),
+        )
+        Text(
+            file.size,
+            style = MonoSmall,
+            color = KachokPalette.onSurfaceMuted,
+            textAlign = TextAlign.End,
+            maxLines = 1,
+            modifier = Modifier.width(FILE_SIZE),
+        )
+        Text(
+            file.progress,
+            style = MonoSmall,
+            color = if (file.wanted) KachokPalette.onSurfaceMuted else scheme.onSurfaceVariant,
+            textAlign = TextAlign.End,
+            maxLines = 1,
+            modifier = Modifier.width(FILE_PERCENT),
+        )
+    }
+}
+
+/**
  * The design's four columns, sorted by rate.
  *
  * **The legend is drawn and not a tooltip.** `U`, `C` and `I` are one character each; a person who
@@ -576,6 +670,12 @@ private val CLIENT = 100.dp
 private val FLAGS = 30.dp
 
 private val PEER_RATE = 42.dp
+
+private val FILE_TICK = 13.sp
+
+private val FILE_SIZE = 58.dp
+
+private val FILE_PERCENT = 34.dp
 
 private val HAIRLINE = 1.dp
 

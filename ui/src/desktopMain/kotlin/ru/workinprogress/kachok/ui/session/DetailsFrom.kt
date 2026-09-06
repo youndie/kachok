@@ -8,6 +8,7 @@ import ru.workinprogress.kachok.ui.details.DetailsSection
 import ru.workinprogress.kachok.ui.details.DetailsState
 import ru.workinprogress.kachok.ui.details.DetailsTab
 import ru.workinprogress.kachok.ui.details.FieldTone
+import ru.workinprogress.kachok.ui.details.FileRow
 import ru.workinprogress.kachok.ui.details.PeerRow
 
 /**
@@ -113,8 +114,51 @@ internal fun detailsOf(
         sessionError = state.sessionError,
         tab = tab,
         peers = peersOf(state),
+        files = filesOf(state),
+        filesSummary = filesSummaryOf(state),
     )
 }
+
+/**
+ * The design's file rows, in the torrent's own order.
+ *
+ * **The percentage is of the file.** `verifiedBytes` already accounts for the piece that straddles
+ * two files, so this is division and nothing more — the mistake it avoids is counting the pieces
+ * that touch a file, which makes a 700-byte file complete the moment its neighbour's piece lands.
+ *
+ * A zero-length file is 100%: there is nothing to fetch, and `0/0` is the one division this has to
+ * answer rather than compute.
+ */
+private fun filesOf(state: SessionState): List<FileRow> =
+    state.files.map { file ->
+        FileRow(
+            name = file.path,
+            size = Figures.bytes(file.length),
+            progress =
+                when {
+                    !file.wanted -> "skip"
+                    file.length == 0L -> "100%"
+                    else -> "${(file.verifiedBytes * PERCENT / file.length)}%"
+                },
+            wanted = file.wanted,
+        )
+    }
+
+/**
+ * `9 files · 3.70 GiB · 8 wanted`, which is the design's own summary line.
+ *
+ * The size is the torrent's, not the sum of the rows. They are the same number in any real torrent
+ * — the files *are* the torrent — and taking it from `totalLength` means the line agrees with the
+ * header two rows above it whatever the file list happens to hold.
+ */
+private fun filesSummaryOf(state: SessionState): String {
+    if (state.files.isEmpty()) return "No files"
+    val count = state.files.size
+    val wanted = state.files.count { it.wanted }
+    return "$count ${if (count == 1) "file" else "files"} · ${Figures.bytes(state.totalLength)} · $wanted wanted"
+}
+
+private const val PERCENT = 100
 
 /**
  * The design's peer rows, sorted by rate.

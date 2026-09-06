@@ -1,6 +1,7 @@
 package ru.workinprogress.kachok.ui.main
 
 import ru.workinprogress.kachok.engine.InfoHash
+import ru.workinprogress.kachok.engine.session.FileView
 import ru.workinprogress.kachok.engine.session.PeerView
 import ru.workinprogress.kachok.engine.session.SessionState
 import ru.workinprogress.kachok.ui.details.DetailsState
@@ -22,6 +23,34 @@ private const val GIB = MIB * KIB
  * `left` is set rather than subtracted because BEP 3 says it is not `total - downloaded` after a
  * resume — and because the design's own two numbers do not subtract to its third.
  */
+private val designFiles: List<FileView> =
+    listOf(
+        designFile("debian-13.1.0-amd64-DVD-1.iso", GIB * 361 / 100, percent = 79),
+        designFile("SHA512SUMS", 1_229, percent = 100),
+        designFile("SHA512SUMS.sign", 833, percent = 100),
+        designFile("MD5SUMS", 784, percent = 100),
+        designFile("README.source", 2_150, percent = 0, wanted = false),
+        designFile("dists/stable/Release", 62_464, percent = 100),
+        designFile("dists/stable/Release.gpg", 2_458, percent = 100),
+        designFile(".disk/info", 62, percent = 100),
+        designFile(".disk/mkisofs", 216, percent = 100),
+    )
+
+private fun designFile(
+    path: String,
+    length: Long,
+    percent: Int,
+    wanted: Boolean = true,
+) = FileView(
+    path = path,
+    length = length,
+    // Rounded up, so that a fixture written as 79% reads back as 79% rather than 78: the panel
+    // truncates on purpose — a file at 99.6% saying 100% is a lie — and the fixture would
+    // otherwise be testing that truncation twice.
+    verifiedBytes = (length * percent + 99) / 100,
+    wanted = wanted,
+)
+
 private val designPeers: List<PeerView> =
     listOf(
         designPeer("88.99.242.17:6881", "libtorrent 2.0", down = 1_842, unchoked = true, interested = true),
@@ -106,6 +135,9 @@ internal val designSession: SessionState =
         // the five choking it below. `109.201.152.20` is the one whose id said nothing usable, so
         // the reference draws a dash where its client would be.
         peers = designPeers,
+        // The design's nine, at the sizes and percentages its reference prints. `README.source` is
+        // the one it draws unticked, which is the setting this tab is still waiting for.
+        files = designFiles,
     )
 
 internal fun designDetails(tab: DetailsTab = DetailsTab.Overview): DetailsState =

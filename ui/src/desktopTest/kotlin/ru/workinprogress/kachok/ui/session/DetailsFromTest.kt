@@ -126,7 +126,12 @@ class DetailsFromTest {
             DetailsTab.Peers.plannedBecause,
             "the engine names its peers now (B-68); this tab draws them",
         )
-        listOf(DetailsTab.Files, DetailsTab.Trackers).forEach { tab ->
+        assertEquals(
+            null,
+            DetailsTab.Files.plannedBecause,
+            "the engine reports per-file progress now (B-67); this tab draws it",
+        )
+        listOf(DetailsTab.Trackers).forEach { tab ->
             val reason = tab.plannedBecause
             assertTrue(!reason.isNullOrBlank(), "$tab must say why it is empty")
             assertTrue(reason.length > SHORT, "$tab's reason is a shrug: $reason")
