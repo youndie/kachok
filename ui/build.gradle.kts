@@ -71,12 +71,16 @@ compose.desktop {
             // `:ui:run` and every test use the *full* JDK — a trimmed runtime only exists inside
             // `createDistributable`, and nothing runs what that produces (B-78).
             //
-            // The first three are what `:ui:suggestRuntimeModules` reports, which is `jdeps` over
-            // the jars. The fourth is not, and cannot be: JCA providers are loaded by name, so no
-            // static analysis sees them. `jdk.crypto.ec` is the elliptic-curve provider, and
-            // without it a TLS handshake with any modern server fails at ECDHE — which for this
-            // client means every `https://` tracker in an announce list.
-            modules("java.instrument", "java.net.http", "jdk.unsupported", "jdk.crypto.ec")
+            // These three and no more: what `:ui:suggestRuntimeModules` reports, which is `jdeps`
+            // over the jars, matched against the CLI's own list in research §1.3b.
+            //
+            // `jdk.crypto.ec` was added here on the reasoning that a JCA provider is loaded by name
+            // and so cannot be found by static analysis, and that `https://` trackers need ECDHE.
+            // The first half is true and the second is not, on this JDK: measured in §1.3e, an
+            // image without that module completes a TLS 1.3 handshake against an EC certificate,
+            // because the provider now lives in `java.base`. Adding a module against a guess is how
+            // a trimmed runtime stops being trimmed.
+            modules("java.instrument", "java.net.http", "jdk.unsupported")
         }
     }
 }

@@ -408,6 +408,38 @@ it first checks has no `java` at all. On 2026-09-05 it downloaded 8 MB, 32 piece
 `sha256sum -c` agreed. The `linux/amd64` image is 47 MB against the 35 MB of this machine's
 `macos/aarch64` one, jars included.
 
+### 1.3e The desktop image, and the module nobody needs
+
+The Compose distribution is a second trimmed runtime, linked by `jpackage` from what
+`nativeDistributions { modules(...) }` names, and it shipped without `java.net.http`. The packaged
+Windows build died on its first announce with `NoClassDefFoundError: java/net/http/HttpClient`;
+adding the module fixed it, confirmed by a real download on Windows 11 (build 26200) on 2026-09-06.
+
+**This is §1.3b's Consequence 1 happening again, to the module set nobody wrote a check for.** The
+CLI's image has `scripts/verify_runtime_image.sh`, which runs the client in a container with no JDK
+at all. The desktop image has nothing: `:ui:run` and all 559 tests use the full JDK, and the trimmed
+runtime exists only inside `createDistributable`, whose next step is to zip it. Filed as
+[B-78](../backlog/B-78-nothing-runs-the-packaged-application.md).
+
+**`jdk.crypto.ec` is not needed, and the reasoning that said it was is worth writing down.** The
+argument was: JCA providers are loaded by name, so `jdeps` cannot see them; this client speaks
+`https://` trackers; therefore the elliptic-curve provider must be named explicitly or every TLS
+handshake fails at ECDHE. The first clause is true and the conclusion is false on this JDK.
+
+Measured on 2026-09-06, JDK 25.0.2 (macOS/aarch64). Two images linked from the CLI's module set,
+one with `jdk.crypto.ec` and one without; a `com.sun.net.httpserver.HttpsServer` on loopback with a
+**secp256r1** self-signed certificate; the client run from each image:
+
+| Image | `Security.getProvider("SunEC")` | ECDHE suites enabled | TLS 1.3 handshake against an EC certificate |
+|---|---|---|---|
+| without `jdk.crypto.ec` | `SunEC version 25` | 14 of 31 | **completes**, HTTP 200 |
+| with `jdk.crypto.ec` | `SunEC version 25` | 14 of 31 | completes, HTTP 200 |
+
+The two images are the same size to the megabyte. The provider moved into `java.base`, so the module
+adds a name and nothing else. **Consequence:** neither module list needs it, and a future reader who
+reaches the same argument should stop here. A trimmed runtime stops being trimmed one plausible
+guess at a time.
+
 ### 1.3a Sparse files: the mechanism is not interchangeable
 
 Measured on this machine (macOS 27, APFS, JDK 25.0.2, 2026-09-05) by creating a 4 MB file four
