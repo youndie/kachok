@@ -92,6 +92,15 @@ public class TorrentRuntime internal constructor(
     public val reserved: ByteArray,
     /** The port the tracker was told about, which is the one the set actually bound. */
     public val listenPort: Int,
+    /**
+     * Where this torrent saves, which since B-81 is not always where the settings say.
+     *
+     * A restored torrent keeps the folder it was added with, and the add dialog could always send
+     * one elsewhere — so a caller that wants to show or resolve a path has to ask the torrent
+     * rather than the preferences. The window showed the settings' default under *Save to* for
+     * every torrent, including the ones that are not there.
+     */
+    public val directory: Path,
 ) : AutoCloseable {
     public val state: StateFlow<SessionState> get() = session.state
 
@@ -260,6 +269,7 @@ public class TorrentRuntime internal constructor(
                     sequential = options.sequential,
                 )
             return TorrentRuntime(
+                directory = options.directory,
                 metainfo = metainfo,
                 session = session,
                 pool = pool,

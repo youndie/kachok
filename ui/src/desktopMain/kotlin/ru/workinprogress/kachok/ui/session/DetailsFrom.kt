@@ -29,6 +29,8 @@ internal fun detailsOf(
     rates: Rates,
     pieceLength: Long,
     directory: String,
+    /** Every file's absolute path, in the torrent's own order, from the `FileSet` that opened it. */
+    paths: List<String> = emptyList(),
     lifecycle: Lifecycle = Lifecycle.Running,
     tab: DetailsTab = DetailsTab.Overview,
 ): DetailsState {
@@ -117,7 +119,7 @@ internal fun detailsOf(
         sessionError = state.sessionError,
         tab = tab,
         peers = peersOf(state),
-        files = filesOf(state),
+        files = filesOf(state, paths),
         filesSummary = filesSummaryOf(state),
         trackers = trackersOf(state),
         trackersSummary = trackersSummaryOf(state),
@@ -196,8 +198,11 @@ private fun trackersSummaryOf(state: SessionState): String {
  * A zero-length file is 100%: there is nothing to fetch, and `0/0` is the one division this has to
  * answer rather than compute.
  */
-private fun filesOf(state: SessionState): List<FileRow> =
-    state.files.map { file ->
+private fun filesOf(
+    state: SessionState,
+    paths: List<String>,
+): List<FileRow> =
+    state.files.mapIndexed { at, file ->
         FileRow(
             name = file.path,
             size = Figures.bytes(file.length),
@@ -208,6 +213,12 @@ private fun filesOf(state: SessionState): List<FileRow> =
                     else -> "${(file.verifiedBytes * PERCENT / file.length)}%"
                 },
             wanted = file.wanted,
+            // Bytes and not the rounded percentage: 99.6% prints as `100%`, and a file opened on
+            // the strength of that number would be the truncated one this refuses to hand over.
+            complete = file.wanted && file.verifiedBytes >= file.length,
+            // By position, because that is the order the `FileSet` opened them in and the order
+            // the metainfo lists them in. A shorter list means the metainfo has not arrived.
+            path = paths.getOrNull(at),
         )
     }
 

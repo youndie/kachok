@@ -2,8 +2,12 @@ package ru.workinprogress.kachok.ui.details
 
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.doubleClick
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.v2.runComposeUiTest
 import ru.workinprogress.kachok.ui.main.designDetails
 import ru.workinprogress.kachok.ui.theme.KachokTheme
@@ -37,6 +41,67 @@ class FilesTabTest {
         runComposeUiTest {
             setContent { KachokTheme { DetailsPanel(details) } }
             onNodeWithText("9 files · 3.70 GiB · 8 wanted").assertIsDisplayed()
+        }
+
+    /**
+     * The gesture reaches the handler, which is the half no unit test of `openFile` can see.
+     *
+     * `openFile` decides what a double-click means and is asserted branch by branch in
+     * `OpenFileTest`; what this asserts is that a row is a control at all. A `combinedClickable`
+     * that was attached to the wrong element, or a callback the panel forgot to pass down, is a
+     * tab where nothing happens and every test still passes
+     * ([B-85](../../../../../../../../docs/backlog/B-85-open-a-file-from-the-files-tab.md)).
+     */
+    @Test
+    fun doubleClickingAFileAsksTheCallerToOpenIt() =
+        runComposeUiTest {
+            val asked = mutableListOf<String>()
+            setContent {
+                KachokTheme {
+                    DetailsPanel(details, onOpenFile = {
+                        asked += it.name
+                        null
+                    })
+                }
+            }
+            onNodeWithContentDescription("file SHA512SUMS.sign").performTouchInput { doubleClick() }
+            assertEquals(listOf("SHA512SUMS.sign"), asked)
+        }
+
+    /**
+     * A single click is not the gesture. Reading the list must not launch a video player.
+     */
+    @Test
+    fun aSingleClickOpensNothing() =
+        runComposeUiTest {
+            var asked = 0
+            setContent {
+                KachokTheme {
+                    DetailsPanel(details, onOpenFile = {
+                        asked++
+                        null
+                    })
+                }
+            }
+            onNodeWithContentDescription("file SHA512SUMS.sign").performClick()
+            assertEquals(0, asked)
+        }
+
+    /** What the handler answers is drawn where the person is looking, not swallowed. */
+    @Test
+    fun theRefusalIsShownUnderTheList() =
+        runComposeUiTest {
+            setContent {
+                KachokTheme {
+                    DetailsPanel(
+                        details,
+                        onOpenFile = { "${it.name} is 79% — opening it would hand a truncated file over." },
+                    )
+                }
+            }
+            assertEquals(0, onAllNodesWithText("truncated", substring = true).fetchSemanticsNodes().size)
+            onNodeWithContentDescription("file SHA512SUMS.sign").performTouchInput { doubleClick() }
+            onNodeWithText("truncated", substring = true).assertIsDisplayed()
         }
 
     /** A file this client is not fetching says `skip` rather than `0%`, which is what a stall says. */

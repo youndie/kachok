@@ -1,8 +1,10 @@
 package ru.workinprogress.kachok.ui.details
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
@@ -138,6 +140,16 @@ internal class FileRow(
     /** `79%`, or `skip` for a file this client is not fetching. */
     val progress: String,
     val wanted: Boolean,
+    /** Every byte of it is verified, which is the only state in which opening it is honest. */
+    val complete: Boolean = false,
+    /**
+     * Where it is on this machine, from the `FileSet` that opened it.
+     *
+     * Null before the metainfo arrives, and asked of the torrent rather than computed from the
+     * settings: a torrent keeps the folder it was added with
+     * ([B-81](../../../../../../../../docs/backlog/B-81-the-torrent-list-survives-a-restart.md)).
+     */
+    val path: String? = null,
 )
 
 /**
@@ -208,6 +220,15 @@ internal fun DetailsPanel(
     onTab: (DetailsTab) -> Unit = {},
     onCopy: (String) -> Unit = {},
     onAnnounce: () -> Unit = {},
+    /**
+     * A file was double-clicked. Returns what to say about it, or null when it opened.
+     *
+     * A *return* and not a second callback, because the answer belongs to this gesture on this
+     * panel and nothing else in the window reacts to it: the note under the list is the whole
+     * response, and threading it back through the window state would make every recomposition of
+     * the list carry a sentence about a click somebody made a minute ago.
+     */
+    onOpenFile: (FileRow) -> String? = { null },
     /** Where the drag has put the edge, clamped by the caller to [Details.minimumWidth]..[Details.maximumWidth]. */
     width: Dp = Details.width,
     onResize: (Dp) -> Unit = {},
@@ -241,7 +262,7 @@ internal fun DetailsPanel(
             when (state.tab) {
                 DetailsTab.Overview -> Overview(state, onCopy)
                 DetailsTab.Peers -> Peers(state.peers)
-                DetailsTab.Files -> Files(state)
+                DetailsTab.Files -> Files(state, onOpenFile)
                 DetailsTab.Trackers -> Trackers(state, onAnnounce)
             }
         }
@@ -596,8 +617,13 @@ private fun toneColor(tone: FieldTone) =
  * The tick is drawn and does not respond; the summary line carries the design's badge to say so.
  */
 @Composable
-private fun ColumnScope.Files(state: DetailsState) {
+private fun ColumnScope.Files(
+    state: DetailsState,
+    onOpenFile: (FileRow) -> String?,
+) {
     val scheme = MaterialTheme.colorScheme
+    // Keyed on the torrent, so selecting another one does not leave a sentence about the last.
+    var note by remember(state.name) { mutableStateOf<String?>(null) }
     Column(Modifier.fillMaxSize()) {
         Row(
             Modifier.fillMaxWidth().height(PEER_HEAD).padding(horizontal = Details.edge),
@@ -618,16 +644,40 @@ private fun ColumnScope.Files(state: DetailsState) {
             )
         }
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
-            state.files.forEach { file -> FileLine(file) }
+            state.files.forEach { file -> FileLine(file) { note = onOpenFile(file) } }
+        }
+        // Only when there is something to say. A permanent line would be a row of the list that is
+        // never a file, and the design does not draw one.
+        note?.let {
+            Box(Modifier.fillMaxWidth().height(HAIRLINE).background(KachokPalette.rowHairline))
+            Text(
+                it,
+                style = FIELD_LABEL,
+                color = scheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = Details.edge, vertical = 8.dp),
+            )
         }
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun FileLine(file: FileRow) {
+private fun FileLine(
+    file: FileRow,
+    onOpen: () -> Unit,
+) {
     val scheme = MaterialTheme.colorScheme
     Row(
-        Modifier.fillMaxWidth().height(Details.rowHeight).padding(horizontal = Details.edge),
+        Modifier
+            .fillMaxWidth()
+            .height(Details.rowHeight)
+            // **Double-click and not click.** A single click on a row is how a person reads the
+            // list; opening a file on it would launch a video player because somebody wanted to
+            // see the whole name. `onClick` is empty on purpose — `combinedClickable` needs one,
+            // and the row has nothing to select.
+            .combinedClickable(onDoubleClick = onOpen, onClick = {})
+            .semantics { contentDescription = "file ${file.name}" }
+            .padding(horizontal = Details.edge),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {

@@ -80,6 +80,7 @@ import ru.workinprogress.kachok.ui.session.loadPreferences
 import ru.workinprogress.kachok.ui.session.loadStoredTorrents
 import ru.workinprogress.kachok.ui.session.magnetRow
 import ru.workinprogress.kachok.ui.session.matches
+import ru.workinprogress.kachok.ui.session.openFile
 import ru.workinprogress.kachok.ui.session.preferencesFile
 import ru.workinprogress.kachok.ui.session.ratesOf
 import ru.workinprogress.kachok.ui.session.rememberPaused
@@ -567,6 +568,16 @@ internal fun Client(
                             running
                                 .flatMap { runtime -> runtime.paths.map { it.toString() to runtime.metainfo.name } }
                                 .toMap(),
+                        // Asked of the torrent rather than computed from the settings: the layout
+                        // of a multi-file torrent is the `FileSet`'s decision, and a second
+                        // implementation of it here would be a second chance to open the wrong
+                        // file.
+                        filePaths =
+                            running.associate { runtime ->
+                                runtime.metainfo.infoHash.hex() to runtime.paths.map { it.toString() }
+                            },
+                        directories =
+                            running.associate { it.metainfo.infoHash.hex() to it.directory.toString() },
                         listenPort = set.listenPort,
                         dhtNodes =
                             if (set.dhtEnabled) {
@@ -650,7 +661,11 @@ internal fun Client(
                         state = sample.state,
                         rates = sample.rates,
                         pieceLength = snapshot.pieceLengths[sample.state.infoHash.hex()] ?: 0,
-                        directory = preferences.directory,
+                        // The torrent's own folder, not the settings' default: a restored torrent
+                        // keeps the one it was added with, so *Save to* was showing the wrong
+                        // folder for every torrent that is not in the default one (B-81).
+                        directory = snapshot.directories[sample.state.infoHash.hex()] ?: preferences.directory,
+                        paths = snapshot.filePaths[sample.state.infoHash.hex()].orEmpty(),
                         lifecycle = snapshot.lifecycle,
                         tab = tab,
                     )
@@ -819,6 +834,9 @@ internal fun Client(
             }
         },
         onCopy = { text -> copyToClipboard(text) },
+        // Straight through: `openFile` is where every refusal is decided, and the sentence it
+        // returns is drawn under the list by the panel that asked.
+        onOpenFile = { file -> openFile(file) },
         onShowDegraded = {
             degraded?.let { sample ->
                 selected = sample.state.infoHash.hex()
@@ -962,6 +980,8 @@ private class EngineSnapshot(
     val pieceLengths: Map<String, Long>,
     /** Path to the name of the torrent that owns it. Two torrents may not write to one file. */
     val occupied: Map<String, String>,
+    val filePaths: Map<String, List<String>>,
+    val directories: Map<String, String>,
     val listenPort: Int,
     val dhtNodes: Int?,
     val heapUsedBytes: Long,

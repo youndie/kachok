@@ -26,6 +26,7 @@ import ru.workinprogress.kachok.ui.details.Details
 import ru.workinprogress.kachok.ui.details.DetailsPanel
 import ru.workinprogress.kachok.ui.details.DetailsState
 import ru.workinprogress.kachok.ui.details.DetailsTab
+import ru.workinprogress.kachok.ui.details.FileRow
 import ru.workinprogress.kachok.ui.list.NarrowTable
 import ru.workinprogress.kachok.ui.list.TorrentRow
 import ru.workinprogress.kachok.ui.list.TorrentRowModel
@@ -103,6 +104,8 @@ internal fun MainWindow(
     onFilter: (String) -> Unit = {},
     onAddFile: (Int, Boolean) -> Unit = { _, _ -> },
     onAnnounce: () -> Unit = {},
+    /** A file in the *Files* tab was double-clicked; returns what to say, or null when it opened. */
+    onOpenFile: (FileRow) -> String? = { null },
     onSequential: (Boolean) -> Unit = {},
     onResizeDetails: (Dp) -> Unit = {},
 ) {
@@ -173,6 +176,7 @@ internal fun MainWindow(
                             onTab = onTab,
                             onCopy = onCopy,
                             onAnnounce = onAnnounce,
+                            onOpenFile = onOpenFile,
                             width = state.detailsWidth,
                             onResize = onResizeDetails,
                         )
@@ -194,6 +198,7 @@ internal fun MainWindow(
                     onTab = onTab,
                     onCopy = onCopy,
                     onAnnounce = onAnnounce,
+                    onOpenFile = onOpenFile,
                     width = state.detailsWidth,
                     onResize = onResizeDetails,
                 )
