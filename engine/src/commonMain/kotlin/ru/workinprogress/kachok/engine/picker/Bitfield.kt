@@ -45,9 +45,8 @@ public class Bitfield(
     /**
      * Empties the whole field.
      *
-     * There is no `clear(index)`: nothing in this engine un-has a single piece. A re-check throws
-     * away everything it believed and re-reads the disk, which is this, and a peer's field is
-     * rebuilt rather than edited.
+     * What a re-check does: throw away everything believed and read the disk again. A peer's field
+     * is rebuilt from a new `bitfield` message rather than emptied, so this has one caller.
      */
     public fun clear() {
         words.fill(0L)

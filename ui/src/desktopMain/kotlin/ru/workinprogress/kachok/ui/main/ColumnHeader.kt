@@ -12,6 +12,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -96,10 +97,17 @@ private fun RowScope.Head(
     val cell = if (width == null) Modifier.weight(1f) else Modifier.width(width)
     Row(
         // Named, because "PROGRESS" is also a section head in the details panel and a test that
-        // clicks "the one that says PROGRESS" is a test that clicks whichever came first.
+        // clicks "the one that says PROGRESS" is a test that clicks whichever came first. The
+        // direction is in the name too: the arrow beside the label is the only thing that says
+        // which way the list runs, and a glyph is not something a reader — or a test — can read.
         cell
-            .semantics { contentDescription = "column $text" }
-            .clickable { onSort(column) },
+            .semantics {
+                contentDescription = "column $text"
+                // The direction goes in the *state*, not the name: a reader — or a test — looking
+                // for "column NAME" must find it whichever way the list happens to run, and the
+                // arrow beside the label is the only other thing that says which way that is.
+                if (sorted) stateDescription = if (sort.ascending) "ascending" else "descending"
+            }.clickable { onSort(column) },
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = if (align == TextAlign.End) Arrangement.End else Arrangement.spacedBy(3.dp),
     ) {

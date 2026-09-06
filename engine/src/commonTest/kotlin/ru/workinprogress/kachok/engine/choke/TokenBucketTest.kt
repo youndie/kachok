@@ -64,4 +64,51 @@ class TokenBucketTest {
         assertTrue(bucket.take(Long.MAX_VALUE / 2))
         assertEquals(Long.MAX_VALUE, bucket.available)
     }
+
+    /**
+     * A new rate on a bucket that is already running, which is what a settings screen does.
+     *
+     * The balance is clamped rather than reset: raising a limit must not hand out a second's worth
+     * of the *old* rate on top of what is already there, and lowering one must not leave a bucket
+     * holding more than its new depth.
+     */
+    @Test
+    fun retuningLowersTheDepthAndWhatIsInIt() {
+        val bucket = TokenBucket(bytesPerSecond = 1_000)
+        assertEquals(1_000, bucket.available, "it starts full")
+        bucket.retune(100)
+        assertEquals(100, bucket.bytesPerSecond)
+        assertEquals(100, bucket.available, "a smaller bucket cannot hold what the bigger one did")
+    }
+
+    @Test
+    fun retuningUpwardsDoesNotHandOutTheOldRateAsWell() {
+        val bucket = TokenBucket(bytesPerSecond = 100)
+        assertTrue(bucket.take(100), "spend what it holds")
+        assertEquals(0, bucket.available)
+        bucket.retune(1_000)
+        assertEquals(0, bucket.available, "raising the limit refilled the bucket for free")
+        bucket.refill(1.seconds)
+        assertEquals(1_000, bucket.available, "and a second at the new rate fills it")
+    }
+
+    /** Retuning to zero is lifting the limit, not setting it to nothing. */
+    @Test
+    fun retuningToZeroLiftsTheLimit() {
+        val bucket = TokenBucket(bytesPerSecond = 100)
+        assertTrue(!bucket.isUnlimited)
+        bucket.retune(0)
+        assertTrue(bucket.isUnlimited)
+        assertTrue(bucket.take(Long.MAX_VALUE / 2), "an unlimited bucket refuses nothing")
+    }
+
+    /** And the rate a bucket already has costs a comparison and changes nothing. */
+    @Test
+    fun retuningToTheSameRateLeavesTheBalanceAlone() {
+        val bucket = TokenBucket(bytesPerSecond = 1_000)
+        assertTrue(bucket.take(400))
+        val before = bucket.available
+        bucket.retune(1_000)
+        assertEquals(before, bucket.available)
+    }
 }
