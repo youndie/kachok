@@ -171,7 +171,7 @@ public fun main(args: Array<String>) {
 /**
  * Something that was recognised and is waiting for a yes: a torrent, or a magnet, never both.
  */
-private class Pending(
+internal class Pending(
     val metainfo: Metainfo?,
     val magnet: MagnetLink?,
     val shown: AddTorrentState,
@@ -734,7 +734,7 @@ internal fun Client(
  * The message names both the path and the other torrent, because "already in use" without either is
  * a refusal a person cannot act on — and the action is right there: *Browse…* is two rows above it.
  */
-private fun refusedIfOccupied(
+internal fun refusedIfOccupied(
     pending: Pending,
     occupied: Map<String, String>,
 ): AddTorrentState {
