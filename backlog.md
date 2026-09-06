@@ -58,7 +58,7 @@ which is also the order of work.
 | [B-75](docs/backlog/B-75-the-window-below-800dp.md) `[ ]` | The window below 800 dp | P3 | S | B-49 |
 | [B-02](docs/backlog/B-02-ci-runs-build-and-docs-gates.md) `[ ]` | CI runs the build and the documentation gates on every push | infra | S | B-01 |
 
-## Closed (69)
+## Closed (70)
 
 **M0 — The build and its gates**
 
@@ -158,6 +158,7 @@ which is also the order of work.
 - [B-72](docs/backlog/B-72-the-keyboard-map.md) `[x]` - The keyboard map the empty state advertises
 - [B-73](docs/backlog/B-73-drop-and-paste.md) `[x]` - Dropping a file on the window, and a magnet on the clipboard
 - [B-76](docs/backlog/B-76-the-last-dead-controls.md) `[x]` - The copy button, Show it, and the add dialog's ticks
+- [B-77](docs/backlog/B-77-the-rate-column-reads-zero.md) `[x]` - The rate column reads zero while the torrent is downloading
 
 <!-- END INDEX -->
 

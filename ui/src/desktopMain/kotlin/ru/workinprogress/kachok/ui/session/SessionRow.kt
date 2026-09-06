@@ -34,54 +34,27 @@ internal class Rates(
 )
 
 /**
- * A rate from a total.
+ * What this torrent is transferring, summed from the peers doing it.
  *
- * `SessionState` carries `downloaded` and `uploaded`, which are cumulative, and nothing that is
- * per-second — the design marks *speed down / up* `planned` in the details panel for exactly that
- * reason. A rate is therefore the surface's own arithmetic: the difference between two samples
- * over the time between them.
+ * **Off the wire and not off the piece counter.** `SessionState.downloaded` is *verified* bytes and
+ * advances one whole piece at a time: at 60 KiB/s with 256 KiB pieces a piece lands every four
+ * seconds, and a delta of it reads `0 0 0 250`. On a live download the row's rate column sat at
+ * zero while the progress bar moved, which is one number on screen contradicting another beside
+ * it — found by watching, not by a test.
  *
- * The time source is a parameter because a rate measured against the wall clock is a rate that
- * jumps when the clock is adjusted, and because a test that cannot control it can only assert that
- * some number came out.
+ * The engine already measures this correctly and for its own reasons: every peer carries a
+ * `RateMeter` of five one-second buckets, which the choker uses to decide whom to unchoke. Summing
+ * them is the whole of it, and there is nothing left for the surface to compute.
+ *
+ * The cost is that a piece which then fails its hash was counted in the rate for five seconds. That
+ * is what every client does, and it is the lesser of the two lies: a rate is a rate, and how many
+ * pieces failed is its own figure in the details panel.
  */
-internal class RateMeter(
-    private val timeSource: TimeSource = TimeSource.Monotonic,
-    /** Below this the sample is noise: a 1 Hz UI asking twice in 30 ms divides by almost nothing. */
-    private val minimumInterval: Duration = MINIMUM_INTERVAL,
-) {
-    private var mark = timeSource.markNow()
-    private var lastDown = 0L
-    private var lastUp = 0L
-    private var rates = Rates()
-
-    /**
-     * The rate since the previous sample, or the previous answer when too little time has passed.
-     *
-     * Repeating the last answer rather than returning zero: a UI that redraws twice in one tick
-     * would otherwise show the download stopping and starting again, which is a lie about the
-     * download rather than about the sampling.
-     */
-    fun sample(state: SessionState): Rates {
-        val elapsed = mark.elapsedNow()
-        if (elapsed < minimumInterval) return rates
-        val seconds = elapsed.inWholeMilliseconds.toDouble() / MILLIS
-        rates =
-            Rates(
-                down = ((state.downloaded - lastDown) / seconds).toLong().coerceAtLeast(0),
-                up = ((state.uploaded - lastUp) / seconds).toLong().coerceAtLeast(0),
-            )
-        lastDown = state.downloaded
-        lastUp = state.uploaded
-        mark = timeSource.markNow()
-        return rates
-    }
-
-    private companion object {
-        val MINIMUM_INTERVAL = 250.milliseconds
-        const val MILLIS = 1000.0
-    }
-}
+internal fun ratesOf(state: SessionState): Rates =
+    Rates(
+        down = state.peers.sumOf { it.downBytesPerSecond },
+        up = state.peers.sumOf { it.upBytesPerSecond },
+    )
 
 /**
  * Which of the design's seven states this session is in.

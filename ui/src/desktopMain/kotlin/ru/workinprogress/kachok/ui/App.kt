@@ -59,7 +59,6 @@ import ru.workinprogress.kachok.ui.remove.RemoveState
 import ru.workinprogress.kachok.ui.session.Figures
 import ru.workinprogress.kachok.ui.session.Lifecycle
 import ru.workinprogress.kachok.ui.session.Preferences
-import ru.workinprogress.kachok.ui.session.RateMeter
 import ru.workinprogress.kachok.ui.session.Rates
 import ru.workinprogress.kachok.ui.session.Sample
 import ru.workinprogress.kachok.ui.session.addFrom
@@ -71,6 +70,7 @@ import ru.workinprogress.kachok.ui.session.loadPreferences
 import ru.workinprogress.kachok.ui.session.magnetRow
 import ru.workinprogress.kachok.ui.session.matches
 import ru.workinprogress.kachok.ui.session.preferencesFile
+import ru.workinprogress.kachok.ui.session.ratesOf
 import ru.workinprogress.kachok.ui.session.rowOf
 import ru.workinprogress.kachok.ui.session.savePreferences
 import ru.workinprogress.kachok.ui.session.settingsOf
@@ -333,7 +333,6 @@ internal fun Client(
                 scope = scope,
                 options = SetOptions(dht = chosenPreferences.dht),
             )
-        val meters = mutableMapOf<String, RateMeter>()
         try {
             initial?.let {
                 open(set, MetainfoParser.parse(Files.readAllBytes(it)), chosenPreferences, scope)
@@ -439,7 +438,7 @@ internal fun Client(
                         samples =
                             running.map { runtime ->
                                 val state = runtime.state.value
-                                Sample(state, meters.getOrPut(runtime.metainfo.name) { RateMeter() }.sample(state))
+                                Sample(state, ratesOf(state))
                             },
                         fetching = fetching.map { it.link },
                         pieceLengths =

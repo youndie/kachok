@@ -85,11 +85,10 @@ class ManyTorrentsTest {
                     while (set.torrents.any { !it.state.value.isComplete }) delay(SAMPLE)
                 }
 
-                val meters = set.torrents.associate { it.metainfo.name to RateMeter(minimumInterval = 1.milliseconds) }
                 val samples =
                     set.torrents.map { runtime ->
                         val state = runtime.state.value
-                        state to meters.getValue(runtime.metainfo.name).sample(state)
+                        state to ratesOf(state)
                     }
                 val rows = samples.map { (state, rates) -> rowOf(state, rates) }
                 assertTrue(rows.all { it.state == TorrentState.Seeding }, "both finished: ${rows.map { it.state }}")

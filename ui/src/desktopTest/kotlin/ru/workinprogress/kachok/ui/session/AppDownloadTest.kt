@@ -60,7 +60,6 @@ class AppDownloadTest {
             val scope = CoroutineScope(coroutineContext + dispatchers.io + job)
             val set = TorrentSet(dispatchers, scope)
             val runtime = set.add(local.metainfo, RuntimeOptions(directory = root))
-            val meter = RateMeter(minimumInterval = 1.milliseconds)
             val seen = mutableListOf<TorrentState>()
             var midway: String? = null
             try {
@@ -69,7 +68,7 @@ class AppDownloadTest {
                 withTimeout(30.seconds) {
                     while (true) {
                         val state = runtime.state.value
-                        val row = rowOf(state, meter.sample(state))
+                        val row = rowOf(state, ratesOf(state))
                         seen += row.state
                         if (state.downloaded > 0 && !state.isComplete) midway = row.percent
                         if (state.isComplete) break
@@ -77,7 +76,7 @@ class AppDownloadTest {
                     }
                 }
                 val state = runtime.state.value
-                val row = rowOf(state, meter.sample(state))
+                val row = rowOf(state, ratesOf(state))
 
                 assertEquals(TorrentState.Seeding, row.state, "a finished torrent seeds")
                 assertEquals("100%", row.percent)

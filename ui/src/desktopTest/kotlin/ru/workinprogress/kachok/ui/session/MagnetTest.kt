@@ -105,9 +105,8 @@ class MagnetTest {
                 withTimeout(30.seconds) {
                     while (!runtime.state.value.isComplete) delay(SAMPLE)
                 }
-                val meter = RateMeter(minimumInterval = 1.milliseconds)
                 val state = runtime.state.value
-                val row = rowOf(state, meter.sample(state))
+                val row = rowOf(state, ratesOf(state))
                 assertEquals(TorrentState.Seeding, row.state)
                 assertEquals("payload.bin", row.name, "the name came out of the metainfo, not the magnet")
                 assertTrue(local.served > 0, "and the content came off the wire after it")
