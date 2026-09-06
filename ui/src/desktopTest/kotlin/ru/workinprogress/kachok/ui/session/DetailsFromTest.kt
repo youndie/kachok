@@ -74,12 +74,31 @@ class DetailsFromTest {
         )
     }
 
-    /** The one field the engine has no counter behind, and the badge that says so. */
+    /**
+     * Nothing in the panel wears the badge any more, and the speeds are why.
+     *
+     * They were the one field the engine had no counter behind — it counted totals and nothing per
+     * second. It counts per second per peer now, for the choker, and the panel adds those up
+     * ([B-77](../../../../../../../../docs/backlog/B-77-the-rate-column-reads-zero.md)). The
+     * assertion is inverted rather than deleted: the day a field is drawn ahead of its number
+     * again, this is where the badge belongs.
+     */
     @Test
-    fun theSpeedsAreTheOnlyPlannedField() {
-        val planned = details.sections.flatMap { it.fields }.filter { it.planned }
-        assertEquals(listOf("Speed down / up"), planned.map { it.label })
-        assertEquals("4 312 / 812", planned.single().value)
+    fun noFieldIsDrawnAheadOfItsNumber() {
+        assertEquals(
+            emptyList(),
+            details.sections
+                .flatMap { it.fields }
+                .filter { it.planned }
+                .map { it.label },
+        )
+        assertEquals(
+            "4 312 / 812",
+            details.sections
+                .flatMap { it.fields }
+                .single { it.label == "Speed down / up" }
+                .value,
+        )
     }
 
     /**

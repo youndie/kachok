@@ -64,12 +64,13 @@ internal fun detailsOf(
                         DetailsField("Left", Figures.bytes(state.left)),
                         DetailsField("Uploaded", Figures.bytes(state.uploaded)),
                         DetailsField("Ratio", Figures.ratio(state.uploaded, state.downloaded)),
-                        // The engine counts totals and nothing per second; these two are the
-                        // surface's own arithmetic, and the badge is the design saying so.
+                        // No badge any more. It said the engine counts totals and nothing per
+                        // second, which stopped being true when the peer list arrived: these are
+                        // the peers' own five-second meters added up
+                        // ([B-77](../../../../../../../../docs/backlog/B-77-the-rate-column-reads-zero.md)).
                         DetailsField(
                             "Speed down / up",
                             "${Figures.rate(rates.down)} / ${Figures.rate(rates.up)}",
-                            planned = true,
                         ),
                     ),
                 ),
