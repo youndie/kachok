@@ -51,6 +51,7 @@ import ru.workinprogress.kachok.engine.runtime.fetchMetainfo
 import ru.workinprogress.kachok.engine.storage.FileSet
 import ru.workinprogress.kachok.ui.add.AddTorrentState
 import ru.workinprogress.kachok.ui.details.DetailsTab
+import ru.workinprogress.kachok.ui.icons.appIcon
 import ru.workinprogress.kachok.ui.main.MainWindow
 import ru.workinprogress.kachok.ui.main.MainWindowState
 import ru.workinprogress.kachok.ui.main.SortOrder
@@ -133,6 +134,9 @@ public fun main(args: Array<String>) {
             AppFrame(
                 onCloseRequest = { closing = true },
                 title = "kachok",
+                // The same drawing the installer puts on the desktop, so a window in the dock or
+                // the taskbar is the application somebody launched, not a Java coffee cup.
+                icon = appIcon,
                 state = rememberWindowState(size = DpSize(WINDOW_WIDTH, WINDOW_HEIGHT)),
                 style = KACHOK_TITLE_BAR,
                 onKeyEvent = { event ->

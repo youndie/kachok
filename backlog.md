@@ -46,7 +46,7 @@ which is also the order of work.
 
 <!-- BEGIN INDEX -->
 
-## Open (13)
+## Open (12)
 
 | Task | | Priority | Size | Blocked by |
 |---|---|---|---|---|
@@ -56,7 +56,6 @@ which is also the order of work.
 | [B-80](docs/backlog/B-80-the-ui-moves-to-commonmain.md) `[ ]` | The UI moves to commonMain | P2 | L | B-79 |
 | [B-82](docs/backlog/B-82-an-installer-per-platform.md) `[ ]` | An installer per platform, and the version that stops one | P2 | M | - |
 | [B-84](docs/backlog/B-84-torrent-files-open-with-the-client.md) `[ ]` | A .torrent opens with the client, on all three platforms | P2 | M | B-82 |
-| [B-86](docs/backlog/B-86-the-application-icon.md) `[ ]` | The application icon, drawn from its own geometry | P2 | M | - |
 | [B-37](docs/backlog/B-37-v2-and-hybrid-torrents.md) `[?]` | v2 and hybrid torrents (BEP 52): SHA-256 piece layers | P3 | L | B-04 |
 | [B-40](docs/backlog/B-40-wasmjs-ui-is-a-client-of-the-headless-engine.md) `[ ]` | Phase 2: the wasmJs UI is a client of the JVM headless engine | P3 | L | B-39 |
 | [B-41](docs/backlog/B-41-android-and-ios-targets.md) `[ ]` | Phase 3: Android and iOS targets on the engine | P3 | XL | B-39 |
@@ -64,7 +63,7 @@ which is also the order of work.
 | [B-85](docs/backlog/B-85-open-a-file-from-the-files-tab.md) `[ ]` | Double-clicking a file in the Files tab opens it | P3 | S | - |
 | [B-02](docs/backlog/B-02-ci-runs-build-and-docs-gates.md) `[ ]` | CI runs the build and the documentation gates on every push | infra | S | B-01 |
 
-## Closed (73)
+## Closed (74)
 
 **M0 — The build and its gates**
 
@@ -168,6 +167,7 @@ which is also the order of work.
 - [B-75](docs/backlog/B-75-the-window-below-800dp.md) `[x]` - The window below 800 dp
 - [B-76](docs/backlog/B-76-the-last-dead-controls.md) `[x]` - The copy button, Show it, and the add dialog's ticks
 - [B-77](docs/backlog/B-77-the-rate-column-reads-zero.md) `[x]` - The rate column reads zero while the torrent is downloading
+- [B-86](docs/backlog/B-86-the-application-icon.md) `[x]` - The application icon, drawn from its own geometry
 
 <!-- END INDEX -->
 

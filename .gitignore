@@ -5,3 +5,6 @@ local.properties
 *.log
 .idea/
 .DS_Store
+
+# Left behind by importing a script from `scripts/` rather than running it.
+__pycache__/

@@ -24,6 +24,11 @@ gate:
 	$(PY) scripts/backlog_index.py --check --docs $(DOCS) --backlog $(BACKLOG)
 	$(PY) scripts/docs_check.py --docs $(DOCS) --backlog $(BACKLOG)
 	$(PY) scripts/coverage_map.py --check --docs $(DOCS)
+	@# The application icon is generated from B-86's geometry, so a committed file that no longer
+	@# matches it is a defect. `.icns` is built by `iconutil`, which is macOS only — on the Linux
+	@# runner the script writes the other two and compares those, and the container nobody can
+	@# rebuild there is checked on the mac. Both machines run the same command.
+	$(PY) scripts/make_icon.py --check
 	@# The UI's goldens, on the machine that recorded them. They are a gate — a screen that stopped
 	@# looking like the design is a defect — and they cannot run on the Linux build machine, whose
 	@# rasteriser is not the one the pictures came from. `LOCAL=1` is the prefer-wsl hook's own
