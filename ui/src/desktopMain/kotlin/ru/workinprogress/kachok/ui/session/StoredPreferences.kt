@@ -22,7 +22,13 @@ import java.util.Properties
  */
 internal fun preferencesFile(): Path = configDirectory().resolve("settings.properties")
 
-private fun configDirectory(): Path {
+/**
+ * The platform's own place for what this client owns: the settings file and the torrent list.
+ *
+ * Not beside the downloads. The download directory is one of the settings, and a file that moves
+ * when you change a setting is a file you lose.
+ */
+internal fun configDirectory(): Path {
     val home = System.getProperty("user.home").orEmpty()
     val os = System.getProperty("os.name").orEmpty()
     return when {

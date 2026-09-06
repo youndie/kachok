@@ -119,8 +119,14 @@ public class TorrentRuntime internal constructor(
      * The scope is the caller's rather than one held here, so a cancelled scope takes the torrent
      * with it and there is no second lifetime to get wrong. Incoming peers arrive through the
      * set's listener, which is already accepting.
+     *
+     * [paused] starts it stopped rather than starting it and pausing it: a torrent that was paused
+     * when the window closed must not announce and dial on the way to being paused again.
      */
-    public fun start(scope: CoroutineScope): Job = session.start(scope).also { running = it }
+    public fun start(
+        scope: CoroutineScope,
+        paused: Boolean = false,
+    ): Job = session.start(scope, paused).also { running = it }
 
     private var running: Job? = null
 

@@ -272,8 +272,22 @@ public class Session(
      *
      * Joining the returned job waits for a clean stop: the tracker has heard `stopped`, the peers
      * are closed and the storage is flushed.
+     *
+     * **[startPaused] is not the same as starting and then pausing.** A torrent restored in a
+     * paused state has to come up without touching the swarm at all; starting it normally would
+     * announce `started`, dial peers, and then the pause would announce `stopped` and hang all of
+     * them up — a round of churn on every restart, per paused torrent, over a decision that was
+     * taken before the process began. The flag is set before the loops launch, and
+     * [announceLoop] already says nothing while it is true.
      */
-    public fun start(scope: CoroutineScope): Job {
+    public fun start(
+        scope: CoroutineScope,
+        startPaused: Boolean = false,
+    ): Job {
+        if (startPaused) {
+            paused = true
+            publish { it.copy(paused = true) }
+        }
         val sessionJob = SupervisorJob(scope.coroutineContext[Job])
         // **One thread for the session's own state, and this is not an optimisation.**
         //

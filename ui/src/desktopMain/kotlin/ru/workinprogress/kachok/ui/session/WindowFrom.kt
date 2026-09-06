@@ -80,6 +80,16 @@ internal fun windowOf(
     clipboardMagnet: String? = null,
     detailsWidth: Dp = Details.width,
     sort: SortOrder = SortOrder(),
+    /**
+     * A remembered torrent the client could not open, as its name and what is wrong with it.
+     *
+     * Its row is already in [rows], drawn in `Error`, which is what "says so rather than
+     * disappearing" means. This is the other half: *why*. A row that says `Error` and nothing else
+     * asks a person to guess between a deleted file, a damaged one and a bug, and the answer is
+     * sitting in the exception the read threw
+     * ([B-81](../../../../../../../../docs/backlog/B-81-the-torrent-list-survives-a-restart.md)).
+     */
+    unopenable: Pair<String, String>? = null,
 ): MainWindowState =
     MainWindowState(
         torrents = rows,
@@ -96,9 +106,10 @@ internal fun windowOf(
         // What Pause and Resume may do is decided by the row that is selected, so the bar is built
         // from the list rather than defaulted and left.
         toolbar = ToolbarState(filter = filter).forSelection(rows.firstOrNull { it.selected }?.state),
+        // A live session that has gone wrong comes first: it is the one still costing bandwidth.
         degradedSummary =
             sessionError?.let {
                 if (rows.size == 1) "${rows.first().name} is degraded." else "One session is degraded."
-            },
-        degradedDetail = sessionError.orEmpty(),
+            } ?: unopenable?.let { (name, _) -> "$name could not be opened." },
+        degradedDetail = sessionError ?: unopenable?.second.orEmpty(),
     )

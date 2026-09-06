@@ -116,6 +116,36 @@ internal fun magnetRow(
         selected = selected,
     )
 
+/**
+ * A torrent this client remembers and cannot open, as one row.
+ *
+ * The alternative is to leave it out of the list, and that is the version somebody loses a month of
+ * seeding to: a torrent that disappears without a word is indistinguishable from one that was never
+ * there, and the person has no reason to go looking
+ * ([B-81](../../../../../../../../docs/backlog/B-81-the-torrent-list-survives-a-restart.md)). The
+ * name comes out of the remembered entry rather than the metainfo, which is exactly what is
+ * missing.
+ */
+internal fun brokenRow(
+    name: String,
+    selected: Boolean = false,
+): TorrentRowModel =
+    TorrentRowModel(
+        name = name,
+        size = Figures.DASH,
+        progress = null,
+        percent = Figures.DASH,
+        down = Figures.rate(0),
+        up = Figures.rate(0),
+        connected = 0,
+        unchoked = 0,
+        outstanding = 0,
+        ratio = Figures.DASH,
+        eta = Figures.DASH,
+        state = TorrentState.Error,
+        selected = selected,
+    )
+
 private fun shortHash(infoHash: InfoHash): String =
     infoHash.bytes
         .joinToString("") { (it.toInt() and BYTE).toString(HEX).padStart(2, '0') }

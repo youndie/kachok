@@ -140,6 +140,25 @@ class SessionRowTest {
         )
     }
 
+    /**
+     * A remembered torrent that will not open is a row in `Error` and nothing else.
+     *
+     * Every figure on it is a dash rather than a zero: there is no session, so `0 KiB/s` and `0%`
+     * would be measurements of a torrent this client cannot even read
+     * ([B-81](../../../../../../../../docs/backlog/B-81-the-torrent-list-survives-a-restart.md)).
+     */
+    @Test
+    fun aTorrentThatCannotBeOpenedIsAnErrorRowOfDashes() {
+        val row = brokenRow("alpha.bin")
+        assertEquals("alpha.bin", row.name)
+        assertEquals(TorrentState.Error, row.state)
+        assertEquals(
+            listOf(Figures.DASH, Figures.DASH, Figures.DASH, Figures.DASH),
+            listOf(row.size, row.percent, row.ratio, row.eta),
+        )
+        assertEquals(null, row.progress, "a bar would claim a fraction of something nobody read")
+    }
+
     /** An ETA divided by a rate of zero is infinity; the design draws a dash instead of claiming it. */
     @Test
     fun anEtaWithNoRateIsADashRatherThanForever() {

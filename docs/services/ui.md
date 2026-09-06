@@ -123,10 +123,35 @@ were recorded with:
 LOCAL=1 ./gradlew :ui:viddikRecord
 ```
 
-## 7. Configuration
+## 7. Configuration, and where the state lives
 
-None. Two command-line arguments and nothing read from the environment; the settings screen is
-[B-51](../backlog/B-51-empty-and-settings.md).
+Two command-line arguments — a `.torrent` and a directory — and nothing read from the environment.
+Everything else the client remembers is in the platform's own configuration directory, written by
+`ui/src/desktopMain/.../session/StoredPreferences.kt` and `StoredTorrents.kt`:
+
+| Platform | Directory |
+|---|---|
+| macOS | `~/Library/Application Support/kachok/` |
+| Windows | `%APPDATA%\kachok\` |
+| Linux | `$XDG_CONFIG_HOME/kachok/`, or `~/.config/kachok/` |
+
+| What | File | Written when |
+|---|---|---|
+| the settings | `settings.properties` | half a second after the last keystroke in the settings screen |
+| the list of torrents | `torrents/<info hash>.torrent` — a **copy**, not a pointer | a torrent is added |
+| each torrent's own choices | `torrents/<info hash>.properties` — name, directory, paused, unwanted files, sequential | added, paused, resumed |
+| which pieces are verified | `<name>.<8 hex>.resume`, **beside the data** and not here | the engine's own rule ([B-23](../backlog/B-23-atomic-resume-file.md)) |
+
+Every one of these is written to a neighbour and moved into place: a file half-written by a process
+that was killed reads as nonsense on the next start, and the move is the one operation the
+filesystem will not do halfway.
+
+**The copy is the point.** A pointer to the file somebody added turns "I tidied my Downloads
+folder" into "my client forgot what it was doing", and a magnet has no file to point at in the
+first place — after BEP 9 the metainfo exists only in memory. `MetainfoWriter` splices the info
+dictionary in as bytes rather than re-encoding it, so the copy has the same info hash as the
+original and therefore claims the same resume record; a canonical re-encoding would silently make
+it a different torrent for every `.torrent` whose keys are not sorted, and those circulate.
 
 ## 8. Quirks
 

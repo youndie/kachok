@@ -38,6 +38,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import ru.workinprogress.appframe.AppFrame
 import ru.workinprogress.appframe.TitleBarStyle
+import ru.workinprogress.kachok.engine.hex
 import ru.workinprogress.kachok.engine.io.EngineDispatchers
 import ru.workinprogress.kachok.engine.metainfo.MagnetLink
 import ru.workinprogress.kachok.engine.metainfo.MagnetParser
@@ -62,19 +63,26 @@ import ru.workinprogress.kachok.ui.session.Lifecycle
 import ru.workinprogress.kachok.ui.session.Preferences
 import ru.workinprogress.kachok.ui.session.Rates
 import ru.workinprogress.kachok.ui.session.Sample
+import ru.workinprogress.kachok.ui.session.StoredTorrent
 import ru.workinprogress.kachok.ui.session.addFrom
+import ru.workinprogress.kachok.ui.session.brokenRow
 import ru.workinprogress.kachok.ui.session.chooseDirectory
 import ru.workinprogress.kachok.ui.session.clicked
 import ru.workinprogress.kachok.ui.session.detailsOf
+import ru.workinprogress.kachok.ui.session.forgetTorrent
 import ru.workinprogress.kachok.ui.session.inOrder
 import ru.workinprogress.kachok.ui.session.loadPreferences
+import ru.workinprogress.kachok.ui.session.loadStoredTorrents
 import ru.workinprogress.kachok.ui.session.magnetRow
 import ru.workinprogress.kachok.ui.session.matches
 import ru.workinprogress.kachok.ui.session.preferencesFile
 import ru.workinprogress.kachok.ui.session.ratesOf
+import ru.workinprogress.kachok.ui.session.rememberPaused
+import ru.workinprogress.kachok.ui.session.rememberTorrent
 import ru.workinprogress.kachok.ui.session.rowOf
 import ru.workinprogress.kachok.ui.session.savePreferences
 import ru.workinprogress.kachok.ui.session.settingsOf
+import ru.workinprogress.kachok.ui.session.torrentsDirectory
 import ru.workinprogress.kachok.ui.session.windowOf
 import ru.workinprogress.kachok.ui.settings.SettingChange
 import ru.workinprogress.kachok.ui.settings.SettingKey
@@ -251,6 +259,11 @@ internal fun Client(
      */
     settingsFile: Path = preferencesFile(),
     /**
+     * Where the remembered torrents live, for the same reason [settingsFile] is a parameter: a test
+     * that used the real one would open whatever this developer happens to be downloading.
+     */
+    torrents: Path = torrentsDirectory(),
+    /**
      * A directory named on the command line beats the stored one, for this run only.
      *
      * Without it the file wins and `kachok x.torrent /srv/here` quietly ignores its second
@@ -282,6 +295,9 @@ internal fun Client(
     // ten times. Cleared by dismissing, which is a person saying no to *this* link.
     var offeredMagnet by remember { mutableStateOf<String?>(null) }
 
+    // Remembered torrents the client could not open. Not a session and not a magnet, so it is not
+    // in `EngineSnapshot`; it is decided once, when the list is read, and never changes after.
+    var broken by remember { mutableStateOf<List<StoredTorrent>>(emptyList()) }
     var pendingDrop by remember { mutableStateOf<Path?>(null) }
     var settingsOpen by remember { mutableStateOf(false) }
     // What the settings screen has been told. Held for the session and not written anywhere: there
@@ -348,8 +364,30 @@ internal fun Client(
                 options = SetOptions(dht = chosenPreferences.dht),
             )
         try {
-            initial?.let {
-                open(set, MetainfoParser.parse(Files.readAllBytes(it)), chosenPreferences, scope)
+            // **The remembered list first, the command line second.** A torrent named in `argv[0]`
+            // that the client already has is not a second torrent; opening it again would be
+            // refused by `add`, which throws — so a `.torrent` double-clicked while it is already
+            // in the list re-selects nothing and breaks nothing.
+            val remembered = loadStoredTorrents(torrents)
+            broken = remembered.filter { it.metainfo == null }
+            remembered.forEach { stored ->
+                val metainfo = stored.metainfo ?: return@forEach
+                open(
+                    set,
+                    metainfo,
+                    chosenPreferences.withDirectory(stored.directory),
+                    scope,
+                    unwanted = stored.unwanted,
+                    sequential = stored.sequential,
+                    paused = stored.paused,
+                )
+            }
+            initial?.let { path ->
+                val metainfo = MetainfoParser.parse(Files.readAllBytes(path))
+                if (set.torrents.none { it.metainfo.infoHash.hex() == metainfo.infoHash.hex() }) {
+                    open(set, metainfo, chosenPreferences, scope)
+                    rememberTorrent(torrents, metainfo, chosenPreferences.directory)
+                }
             }
             // Its own coroutine rather than a `tryReceive` in the loop below: that loop sleeps a
             // second between ticks, and a Pause that waited for it would be a button with a
@@ -367,10 +405,12 @@ internal fun Client(
                     when (command.kind) {
                         TorrentCommand.Kind.Pause -> {
                             runtime.pause()
+                            rememberPaused(torrents, command.infoHash, paused = true)
                         }
 
                         TorrentCommand.Kind.Resume -> {
                             runtime.resume()
+                            rememberPaused(torrents, command.infoHash, paused = false)
                         }
 
                         TorrentCommand.Kind.Recheck -> {
@@ -383,6 +423,7 @@ internal fun Client(
 
                         TorrentCommand.Kind.Remove -> {
                             set.remove(runtime)
+                            forgetTorrent(torrents, command.infoHash)
                         }
 
                         TorrentCommand.Kind.RemoveWithData -> {
@@ -391,6 +432,7 @@ internal fun Client(
                             // was writing.
                             val paths = runtime.paths
                             set.remove(runtime)
+                            forgetTorrent(torrents, command.infoHash)
                             deleteQuietly(paths)
                         }
                     }
@@ -411,6 +453,16 @@ internal fun Client(
                             it,
                             chosenPreferences.withDirectory(next.shown.saveTo),
                             scope,
+                            unwanted = next.unwanted(),
+                            sequential = next.shown.sequential,
+                        )
+                        // Written after the session opened, not before: `add` refuses a torrent
+                        // whose files another one owns, and a list that remembered the refusal
+                        // would reopen the collision on every start.
+                        rememberTorrent(
+                            torrents,
+                            it,
+                            saveTo = next.shown.saveTo,
                             unwanted = next.unwanted(),
                             sequential = next.shown.sequential,
                         )
@@ -499,15 +551,24 @@ internal fun Client(
     val ordered = snapshot.samples.inOrder(sort)
     // Built once, unselected, because which row is selected is decided *after* the filter has
     // decided which rows there are.
+    // Broken first, then magnets, then sessions. The two that cannot be sorted go above the ones
+    // that can: `inOrder` reorders sessions, and a row interleaved into that would move when
+    // somebody clicked a column head for reasons having nothing to do with it.
     val everyRow =
-        snapshot.fetching.map { magnetRow(it) } +
+        broken.map { brokenRow(it.name) } +
+            snapshot.fetching.map { magnetRow(it) } +
             ordered.map { rowOf(it.state, it.rates, snapshot.lifecycle) }
-    val everyKey = snapshot.fetching.map { it.infoHash.hex() } + ordered.map { it.state.infoHash.hex() }
+    val everyKey =
+        broken.map { it.infoHash } +
+            snapshot.fetching.map { it.infoHash.hex() } +
+            ordered.map { it.state.infoHash.hex() }
     val kept = everyRow.indices.filter { everyRow[it].matches(filter) }
     val rowKeys = kept.map { everyKey[it] }
     val index = rowKeys.indexOf(selected).coerceAtLeast(0)
     val chosenSample =
-        kept.getOrNull(index)?.let { source -> ordered.getOrNull(source - snapshot.fetching.size) }
+        kept.getOrNull(index)?.let { source ->
+            ordered.getOrNull(source - snapshot.fetching.size - broken.size)
+        }
     // The banner names a session, so *Show it* has to know which — the first one complaining, which
     // is also the row the list tints.
     val degraded = ordered.firstOrNull { it.state.sessionError != null }
@@ -533,6 +594,7 @@ internal fun Client(
             // The banner names one session because one session failed; which one it is is the row
             // that is tinted.
             sessionError = degraded?.state?.sessionError,
+            unopenable = broken.firstOrNull()?.let { it.name to it.problem.orEmpty() },
             details =
                 chosenSample?.takeIf { panelOpen }?.let { sample ->
                     detailsOf(
@@ -866,10 +928,16 @@ private suspend fun open(
     /** Files unticked in this torrent's own dialog. Not a setting: it is about this torrent. */
     unwanted: Set<Int> = emptySet(),
     sequential: Boolean = false,
+    /**
+     * Restored paused, which is not the same as started and then paused: see
+     * [TorrentRuntime.start]. The disk check still runs — a paused torrent is one that knows what
+     * it has and is not asking for the rest.
+     */
+    paused: Boolean = false,
 ): TorrentRuntime =
     set.add(metainfo, preferences.runtimeOptions(unwanted, sequential)).also {
         it.restore()
-        it.start(scope)
+        it.start(scope, paused)
     }
 
 /** Every session has answered its tracker, closed its peers, flushed and written its record. */
@@ -1003,9 +1071,6 @@ private fun magnetFromClipboard(directory: String): Pending? {
         null
     }
 }
-
-private fun ru.workinprogress.kachok.engine.InfoHash.hex(): String =
-    bytes.joinToString("") { (it.toInt() and 0xFF).toString(16).padStart(2, '0') }
 
 private fun heapUsed(): Long = Runtime.getRuntime().let { it.totalMemory() - it.freeMemory() }
 

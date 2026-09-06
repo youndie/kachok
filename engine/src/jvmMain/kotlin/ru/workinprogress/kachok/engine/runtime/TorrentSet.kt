@@ -3,6 +3,7 @@ package ru.workinprogress.kachok.engine.runtime
 import kotlinx.coroutines.CoroutineScope
 import ru.workinprogress.kachok.engine.dht.Dht
 import ru.workinprogress.kachok.engine.dht.NodeId
+import ru.workinprogress.kachok.engine.hex
 import ru.workinprogress.kachok.engine.io.DatagramKrpcTransport
 import ru.workinprogress.kachok.engine.io.EngineDispatchers
 import ru.workinprogress.kachok.engine.io.PeerListener
@@ -130,7 +131,7 @@ public class TorrentSet(
         options: RuntimeOptions,
         onResumeFailure: (String) -> Unit = {},
     ): TorrentRuntime {
-        val key = metainfo.infoHash.bytes.toHex()
+        val key = metainfo.infoHash.hex()
         require(!byInfoHash.containsKey(key)) { "this set already has ${metainfo.name}" }
         // By path and not by name: two torrents can name a hundred files each and collide on one.
         // Both would open a `FileChannel` on it and interleave two downloads into one file, and
@@ -173,10 +174,7 @@ public class TorrentSet(
 
     /** Stops one torrent and forgets it. The set stays open; the others keep running. */
     public suspend fun remove(runtime: TorrentRuntime) {
-        byInfoHash.remove(
-            runtime.metainfo.infoHash.bytes
-                .toHex(),
-        ) ?: return
+        byInfoHash.remove(runtime.metainfo.infoHash.hex()) ?: return
         runtime.stop()
         runtime.close()
     }
@@ -194,7 +192,7 @@ public class TorrentSet(
                 } catch (refused: IOException) {
                     return@start
                 }
-            val runtime = byInfoHash[handshake.infoHash.bytes.toHex()]
+            val runtime = byInfoHash[handshake.infoHash.hex()]
             if (runtime == null) {
                 // A peer asking for a torrent this process does not have gets a closed socket
                 // rather than our handshake — answering would claim a torrent we cannot serve.
@@ -223,8 +221,6 @@ public class TorrentSet(
     }
 
     private companion object {
-        private fun ByteArray.toHex(): String = joinToString("") { (it.toInt() and 0xFF).toString(16).padStart(2, '0') }
-
         private fun AutoCloseable.closeQuietly() {
             try {
                 close()
