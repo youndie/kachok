@@ -46,7 +46,7 @@ which is also the order of work.
 
 <!-- BEGIN INDEX -->
 
-## Open (14)
+## Open (13)
 
 | Task | | Priority | Size | Blocked by |
 |---|---|---|---|---|
@@ -55,7 +55,6 @@ which is also the order of work.
 | [B-68](docs/backlog/B-68-the-peers-list.md) `[ ]` | The peers list, which the session counts and does not name | P2 | M | B-54 |
 | [B-69](docs/backlog/B-69-the-trackers-list.md) `[ ]` | A status per tracker, and re-announcing by hand | P2 | M | B-54 |
 | [B-70](docs/backlog/B-70-settings-reach-a-running-session.md) `[ ]` | Settings that reach a running session | P2 | M | B-62 |
-| [B-71](docs/backlog/B-71-settings-that-survive-a-restart.md) `[ ]` | Settings that survive a restart | P2 | S | B-62 |
 | [B-73](docs/backlog/B-73-drop-and-paste.md) `[ ]` | Dropping a file on the window, and a magnet on the clipboard | P2 | M | B-72 |
 | [B-37](docs/backlog/B-37-v2-and-hybrid-torrents.md) `[?]` | v2 and hybrid torrents (BEP 52): SHA-256 piece layers | P3 | L | B-04 |
 | [B-40](docs/backlog/B-40-wasmjs-ui-is-a-client-of-the-headless-engine.md) `[ ]` | Phase 2: the wasmJs UI is a client of the JVM headless engine | P3 | L | B-39 |
@@ -65,7 +64,7 @@ which is also the order of work.
 | [B-75](docs/backlog/B-75-the-window-below-800dp.md) `[ ]` | The window below 800 dp | P3 | S | B-49 |
 | [B-02](docs/backlog/B-02-ci-runs-build-and-docs-gates.md) `[ ]` | CI runs the build and the documentation gates on every push | infra | S | B-01 |
 
-## Closed (62)
+## Closed (63)
 
 **M0 — The build and its gates**
 
@@ -156,6 +155,7 @@ which is also the order of work.
 - [B-63](docs/backlog/B-63-joining-the-dht-at-runtime.md) `[x]` - Joining the DHT from the settings screen, not from a restart
 - [B-64](docs/backlog/B-64-a-click-waited-for-the-tick.md) `[x]` - A click waited for the tick
 - [B-66](docs/backlog/B-66-the-filter-field.md) `[x]` - The filter field, which is a box with the word Filter in it
+- [B-71](docs/backlog/B-71-settings-that-survive-a-restart.md) `[x]` - Settings that survive a restart
 - [B-72](docs/backlog/B-72-the-keyboard-map.md) `[x]` - The keyboard map the empty state advertises
 - [B-76](docs/backlog/B-76-the-last-dead-controls.md) `[x]` - The copy button, Show it, and the add dialog's ticks
 

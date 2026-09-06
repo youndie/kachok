@@ -39,6 +39,7 @@ import ru.workinprogress.kachok.engine.metainfo.MagnetParser
 import ru.workinprogress.kachok.engine.metainfo.Metainfo
 import ru.workinprogress.kachok.engine.metainfo.MetainfoParser
 import ru.workinprogress.kachok.engine.runtime.RuntimeOptions
+import ru.workinprogress.kachok.engine.runtime.SetOptions
 import ru.workinprogress.kachok.engine.runtime.TorrentRuntime
 import ru.workinprogress.kachok.engine.runtime.TorrentSet
 import ru.workinprogress.kachok.engine.runtime.fetchMetainfo
@@ -60,9 +61,12 @@ import ru.workinprogress.kachok.ui.session.chooseDirectory
 import ru.workinprogress.kachok.ui.session.clicked
 import ru.workinprogress.kachok.ui.session.detailsOf
 import ru.workinprogress.kachok.ui.session.inOrder
+import ru.workinprogress.kachok.ui.session.loadPreferences
 import ru.workinprogress.kachok.ui.session.magnetRow
 import ru.workinprogress.kachok.ui.session.matches
+import ru.workinprogress.kachok.ui.session.preferencesFile
 import ru.workinprogress.kachok.ui.session.rowOf
+import ru.workinprogress.kachok.ui.session.savePreferences
 import ru.workinprogress.kachok.ui.session.settingsOf
 import ru.workinprogress.kachok.ui.session.windowOf
 import ru.workinprogress.kachok.ui.settings.SettingChange
@@ -77,6 +81,7 @@ import java.awt.datatransfer.UnsupportedFlavorException
 import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.Path
+import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 
 /**
@@ -221,7 +226,23 @@ internal fun Client(
     var settingsOpen by remember { mutableStateOf(false) }
     // What the settings screen has been told. Held for the session and not written anywhere: there
     // is no settings file yet, and inventing one is a decision about where it lives.
-    var preferences by remember { mutableStateOf(Preferences(directory = directory.toAbsolutePath().toString())) }
+    val settingsFile = remember { preferencesFile() }
+    // Read once, at the start, and not on every recomposition: the file is the previous run's
+    // answer, and this run's answer is the state below it.
+    var preferences by
+        remember {
+            mutableStateOf(
+                loadPreferences(settingsFile, Preferences(directory = directory.toAbsolutePath().toString())),
+            )
+        }
+
+    // Written back after half a second of quiet. `LaunchedEffect` cancels the previous one when the
+    // key changes, so typing `1200` into a rate limit is one write and not four — and the delay is
+    // short enough that closing the window straight after a change still lands it.
+    LaunchedEffect(preferences) {
+        delay(SETTINGS_SETTLE)
+        savePreferences(settingsFile, preferences)
+    }
 
     // Keyed on the object and not on the enum: pressing Cmd+O twice is two requests, and an effect
     // keyed on `OpenFile` would run once.
@@ -246,7 +267,15 @@ internal fun Client(
     LaunchedEffect(initial, directory) {
         val dispatchers = EngineDispatchers()
         val scope = CoroutineScope(coroutineContext + dispatchers.io + SupervisorJob())
-        val set = TorrentSet(dispatchers = dispatchers, scope = scope)
+        // The DHT is asked for *here* rather than through `dhtWanted`, because a setting restored
+        // from the file was never toggled: the first version of this shipped a window whose status
+        // bar said "DHT off" beside a settings screen whose toggle was on.
+        val set =
+            TorrentSet(
+                dispatchers = dispatchers,
+                scope = scope,
+                options = SetOptions(dht = chosenPreferences.dht),
+            )
         val meters = mutableMapOf<String, RateMeter>()
         try {
             initial?.let {
@@ -732,6 +761,14 @@ private val TICK = 1.seconds
 
 /** Ten of them: the same ten seconds the headless client gives a clean stop before it goes. */
 private const val STOP_TICKS = 10
+
+/**
+ * How long a settings change waits before it is written down.
+ *
+ * Long enough that typing a four-digit rate limit is one write; short enough that closing the
+ * window straight after a change still lands it.
+ */
+private val SETTINGS_SETTLE = 500.milliseconds
 
 /**
  * The host's title bar with the design's two numbers on it.
