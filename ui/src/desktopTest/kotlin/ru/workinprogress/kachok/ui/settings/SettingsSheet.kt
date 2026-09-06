@@ -15,8 +15,13 @@ import ru.workinprogress.kachok.ui.theme.KachokTheme
  * The point of the screen is the column of `default …` labels beside the fields, and the point of
  * this golden is that they are drawn — `SettingsFromTest` is what proves each one came out of
  * `SessionConfig` rather than out of a designer's memory.
+ *
+ * **760 tall rather than the design's 640.** A fifth section arrived with
+ * [B-83](../../../../../../../../docs/backlog/B-83-autostart-and-its-setting.md), and at 640 the
+ * picture stopped one section short — a golden that cannot see the last row is a golden that cannot
+ * notice it changing.
  */
-@ViddikScreenshot(name = "screen", group = "settings", width = 620, height = 640)
+@ViddikScreenshot(name = "screen", group = "settings", width = 620, height = 760)
 @Composable
 internal fun SettingsSheet() {
     KachokTheme {

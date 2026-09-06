@@ -69,6 +69,7 @@ internal enum class SettingKey(
     UploadLimit,
     DownloadLimit,
     Dht,
+    Autostart,
     ;
 
     val editable: Boolean get() = disabledBecause == null

@@ -61,6 +61,7 @@ import ru.workinprogress.kachok.ui.main.MainWindowState
 import ru.workinprogress.kachok.ui.main.SortOrder
 import ru.workinprogress.kachok.ui.main.ToolbarCommand
 import ru.workinprogress.kachok.ui.remove.RemoveState
+import ru.workinprogress.kachok.ui.session.AUTOSTART_FLAG
 import ru.workinprogress.kachok.ui.session.Figures
 import ru.workinprogress.kachok.ui.session.Lifecycle
 import ru.workinprogress.kachok.ui.session.Preferences
@@ -69,6 +70,7 @@ import ru.workinprogress.kachok.ui.session.Sample
 import ru.workinprogress.kachok.ui.session.SingleInstance
 import ru.workinprogress.kachok.ui.session.StoredTorrent
 import ru.workinprogress.kachok.ui.session.addFrom
+import ru.workinprogress.kachok.ui.session.autostartFor
 import ru.workinprogress.kachok.ui.session.brokenRow
 import ru.workinprogress.kachok.ui.session.chooseDirectory
 import ru.workinprogress.kachok.ui.session.clicked
@@ -124,7 +126,11 @@ public fun main(args: Array<String>) {
     if (args.firstOrNull() == "--preflight") {
         exitProcess(preflight(args.getOrNull(1)?.let { Path.of(it) }))
     }
-    val torrent = args.firstOrNull()?.let { Path.of(it) }
+    // Flags out of the way first. Before this, `kachok --autostart` would have taken its own flag
+    // for a torrent path and put an unreadable file on the screen at every login.
+    val flags = args.filter { it.startsWith("--") }.toSet()
+    val given = args.filterNot { it.startsWith("--") }
+    val torrent = given.firstOrNull()?.let { Path.of(it) }
     // **One client per machine, and this launch may not be it.** A `.torrent` double-clicked in a
     // file manager starts a new process on all three platforms; if one is already running, its
     // path goes there and this one exits. Two clients would be two listeners on one port and two
@@ -149,7 +155,7 @@ public fun main(args: Array<String>) {
     // Start menu is wherever the launcher happened to be. It is also what the settings screen
     // prints as the default, and a default nothing uses is a lie printed on every row.
     val directory =
-        args.getOrNull(1)?.let { Path.of(it) }
+        given.getOrNull(1)?.let { Path.of(it) }
             ?: Path.of(System.getProperty("user.home"), "Downloads")
     application {
         // **The theme wraps the frame, not the frame's content.** `AppFrame` draws the title bar
@@ -179,7 +185,15 @@ public fun main(args: Array<String>) {
                 // The same drawing the installer puts on the desktop, so a window in the dock or
                 // the taskbar is the application somebody launched, not a Java coffee cup.
                 icon = appIcon,
-                state = rememberWindowState(size = DpSize(WINDOW_WIDTH, WINDOW_HEIGHT)),
+                // **Minimised when the system started it, and only then.** That is what the
+                // autostart setting means: a login should not be interrupted by a window somebody
+                // did not ask for at that moment, and starting the engine with no window at all
+                // needs a tray for it to come back from, which this client does not have (B-83).
+                state =
+                    rememberWindowState(
+                        size = DpSize(WINDOW_WIDTH, WINDOW_HEIGHT),
+                        isMinimized = AUTOSTART_FLAG in flags,
+                    ),
                 style = KACHOK_TITLE_BAR,
                 onKeyEvent = { event ->
                     // A new object each time, so pressing the same keys twice is two requests
@@ -207,7 +221,7 @@ public fun main(args: Array<String>) {
                         stopping = closing,
                         onStopped = ::exitApplication,
                         shortcut = shortcut,
-                        directoryOverrides = args.size > 1,
+                        directoryOverrides = given.size > 1,
                     )
                 }
             }
@@ -335,6 +349,11 @@ internal fun Client(
     // Remembered torrents the client could not open. Not a session and not a magnet, so it is not
     // in `EngineSnapshot`; it is decided once, when the list is read, and never changes after.
     var broken by remember { mutableStateOf<List<StoredTorrent>>(emptyList()) }
+    // Asked of the system rather than of the file: somebody can remove a launch agent or a Run key
+    // without this client, and a checkbox that reports the settings file would then be wrong in the
+    // one direction that matters — claiming the client starts with the computer when it does not.
+    val autostart = remember { autostartFor() }
+    var autostartProblem by remember { mutableStateOf(autostart.refusal) }
     var pendingDrop by remember { mutableStateOf<Path?>(null) }
     var settingsOpen by remember { mutableStateOf(false) }
     // What the settings screen has been told. Held for the session and not written anywhere: there
@@ -345,7 +364,13 @@ internal fun Client(
         remember {
             val here = directory.toAbsolutePath().toString()
             val stored = loadPreferences(settingsFile, Preferences(directory = here))
-            mutableStateOf(if (directoryOverrides) stored.withDirectory(here) else stored)
+            mutableStateOf(
+                (if (directoryOverrides) stored.withDirectory(here) else stored)
+                    // The system is the authority on this one. The file is where the *rest* of the
+                    // settings live, and it is also where this one is written, but an entry
+                    // somebody removed by hand means the checkbox is off however the file reads.
+                    .copy(autostart = autostart.isEnabled()),
+            )
         }
 
     // Written back after half a second of quiet. `LaunchedEffect` cancels the previous one when the
@@ -677,7 +702,15 @@ internal fun Client(
             clipboardMagnet = clipboardMagnet,
             detailsWidth = preferences.detailsWidth.dp,
             removing = removing,
-            settings = if (settingsOpen) settingsOf(preferences.boundTo(snapshot.listenPort)) else null,
+            settings =
+                if (settingsOpen) {
+                    settingsOf(
+                        preferences.boundTo(snapshot.listenPort),
+                        autostartProblem = autostartProblem,
+                    )
+                } else {
+                    null
+                },
             sort = sort,
         )
     // The clipboard is read when the window comes back into focus, and only then: a poll is what
@@ -823,6 +856,21 @@ internal fun Client(
                     // The one toggle that reaches further than the next torrent's options: joining
                     // the DHT opens a socket, so the set is told rather than a field.
                     if (change.key == SettingKey.Dht) dhtWanted.trySend(change.on)
+                    if (change.key == SettingKey.Autostart) {
+                        // Written now, not on the way out. A setting whose file is written when the
+                        // window closes is one that disagrees with the system for as long as the
+                        // window is open, and this is the setting whose whole subject is what the
+                        // system does without the window (B-83).
+                        val failure = if (change.on) autostart.enable() else autostart.disable()
+                        // A refusal puts the toggle back, because the alternative is a checkbox
+                        // that says the client will start with the computer while it will not.
+                        if (failure != null) {
+                            preferences = preferences.toggled(change.key, !change.on)
+                            autostartProblem = failure
+                        } else {
+                            autostartProblem = null
+                        }
+                    }
                 }
 
                 is SettingChange.Typed -> {

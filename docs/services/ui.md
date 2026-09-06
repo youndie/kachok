@@ -106,6 +106,12 @@ format each — the host picks from `targetFormats`:
 | Linux | `~/.claude/bin/wsl-run './gradlew :ui:packageDeb'` | `.../deb/kachok_0.1.0_amd64.deb` | `fakeroot` |
 | Windows | `gradlew.bat :ui:packageMsi` | `.../msi/kachok-0.1.0.msi` | none — the Compose plugin downloads WiX 3.11.2 into `~/.gradle/compose-jb/` and passes it as `WIX_PATH`; `compose.desktop.application.downloadWix=false` turns that off |
 
+The client can be asked to **start with the computer**, from a checkbox in Settings: a launch agent
+on macOS, an `HKCU\…\Run` value on Windows, a freedesktop autostart entry on Linux — each written
+by the client when the box is pressed, never by the installer, so the setting cannot disagree with
+what is on the disk. The entry passes `--autostart` and the window comes up minimised. Only an
+installed build can do it, because the path it points at is `jpackage.app-path`.
+
 A `.torrent` is registered to this client by all three installers, and the client is a **single
 instance**: a second launch hands its path to the running one over a loopback socket named in
 `<config>/instance` and exits. On Linux the `.desktop` entry `jpackage` writes has no `%f` and would

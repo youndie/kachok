@@ -83,7 +83,31 @@ private val checks: List<Pair<String, () -> String>> =
         "udp, the other half of a tracker" to ::datagramRoundTrip,
         "sun.misc.Unsafe, which jdk.unsupported carries" to ::unsafeIsLoadable,
         "sha-1, every piece the client verifies" to ::sha1OfAKnownVector,
+        "the launcher knows where it is" to ::theLauncherKnowsItsOwnPath,
     )
+
+/**
+ * `jpackage.app-path`, which is how an installed build can point an autostart entry at itself.
+ *
+ * The property is set by the `jpackage` launcher and by nothing else, so it is also the answer to
+ * "am I an installed build or somebody's `:ui:run`" — and an autostart entry written by the second
+ * would point at a `java` on a path that means nothing after the next Gradle build
+ * ([B-83](../../../../../../../docs/backlog/B-83-autostart-and-its-setting.md)). Here rather than
+ * in a unit test because it is a property of the *packaged* artifact: nothing that runs from Gradle
+ * can tell whether the launcher still sets it.
+ */
+private fun theLauncherKnowsItsOwnPath(): String {
+    val path = System.getProperty("jpackage.app-path")
+    check(!path.isNullOrBlank()) { "jpackage.app-path is not set, so an installed build cannot find itself" }
+    check(
+        java.nio.file.Files
+            .exists(
+                java.nio.file.Path
+                    .of(path),
+            ),
+    ) { "jpackage.app-path names nothing: $path" }
+    return path
+}
 
 /**
  * A real announce, at the real class, against a socket pretending to be a tracker.

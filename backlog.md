@@ -46,7 +46,7 @@ which is also the order of work.
 
 <!-- BEGIN INDEX -->
 
-## Open (7)
+## Open (6)
 
 | Task | | Priority | Size | Blocked by |
 |---|---|---|---|---|
@@ -55,10 +55,9 @@ which is also the order of work.
 | [B-37](docs/backlog/B-37-v2-and-hybrid-torrents.md) `[?]` | v2 and hybrid torrents (BEP 52): SHA-256 piece layers | P3 | L | B-04 |
 | [B-40](docs/backlog/B-40-wasmjs-ui-is-a-client-of-the-headless-engine.md) `[ ]` | Phase 2: the wasmJs UI is a client of the JVM headless engine | P3 | L | B-39 |
 | [B-41](docs/backlog/B-41-android-and-ios-targets.md) `[ ]` | Phase 3: Android and iOS targets on the engine | P3 | XL | B-39 |
-| [B-83](docs/backlog/B-83-autostart-and-its-setting.md) `[ ]` | Starting with the operating system, and the setting that says so | P3 | M | B-81, B-82 |
 | [B-02](docs/backlog/B-02-ci-runs-build-and-docs-gates.md) `[ ]` | CI runs the build and the documentation gates on every push | infra | S | B-01 |
 
-## Closed (79)
+## Closed (80)
 
 **M0 — The build and its gates**
 
@@ -165,6 +164,7 @@ which is also the order of work.
 - [B-78](docs/backlog/B-78-nothing-runs-the-packaged-application.md) `[x]` - Nothing runs the packaged application
 - [B-81](docs/backlog/B-81-the-torrent-list-survives-a-restart.md) `[x]` - The list of torrents survives a restart
 - [B-82](docs/backlog/B-82-an-installer-per-platform.md) `[x]` - An installer per platform, and the version that stops one
+- [B-83](docs/backlog/B-83-autostart-and-its-setting.md) `[x]` - Starting with the operating system, and the setting that says so
 - [B-84](docs/backlog/B-84-torrent-files-open-with-the-client.md) `[x]` - A .torrent opens with the client, on all three platforms
 - [B-85](docs/backlog/B-85-open-a-file-from-the-files-tab.md) `[x]` - Double-clicking a file in the Files tab opens it
 - [B-86](docs/backlog/B-86-the-application-icon.md) `[x]` - The application icon, drawn from its own geometry

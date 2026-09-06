@@ -24,6 +24,7 @@ internal data class Preferences(
     val uploadLimitKibPerSecond: Long? = null,
     val downloadLimitKibPerSecond: Long? = null,
     val dht: Boolean = false,
+    val autostart: Boolean = false,
     /**
      * How wide the details panel is, in dp.
      *
@@ -49,6 +50,7 @@ internal data class Preferences(
         when (key) {
             SettingKey.StartWhenAdded -> copy(startWhenAdded = on)
             SettingKey.Dht -> copy(dht = on)
+            SettingKey.Autostart -> copy(autostart = on)
             else -> this
         }
 
@@ -124,6 +126,13 @@ private const val KIB = 1024L
 internal fun settingsOf(
     preferences: Preferences,
     defaults: SessionConfig = SessionConfig(),
+    /**
+     * Why the client cannot start with the computer, or what went wrong when it tried.
+     *
+     * On the row and not in the footnote: the footnote is about the screen, and this is about one
+     * checkbox that has just refused to stay pressed.
+     */
+    autostartProblem: String? = null,
 ): SettingsState {
     val defaultPort = TrackerProtocol.PORT_RANGE.first
     return SettingsState(
@@ -198,6 +207,24 @@ internal fun settingsOf(
                             null,
                             preferences.downloadLimitKibPerSecond,
                             defaults.downloadLimitBytesPerSecond,
+                        ),
+                    ),
+                ),
+                SettingsSection(
+                    "STARTUP",
+                    listOf(
+                        Setting(
+                            key = SettingKey.Autostart,
+                            label = "Start with the computer",
+                            note =
+                                autostartProblem
+                                    ?: (
+                                        "Starts minimised, so a login is not interrupted by a " +
+                                            "window."
+                                    ),
+                            default = "off",
+                            value = "",
+                            toggle = preferences.autostart,
                         ),
                     ),
                 ),

@@ -86,6 +86,9 @@ internal fun loadPreferences(
         uploadLimitKibPerSecond = number(UPLOAD_LIMIT) ?: fallback.uploadLimitKibPerSecond,
         downloadLimitKibPerSecond = number(DOWNLOAD_LIMIT) ?: fallback.downloadLimitKibPerSecond,
         dht = text(DHT)?.toBooleanStrictOrNull() ?: fallback.dht,
+        // The file is what the settings screen shows; whether the entry is *really* there is asked
+        // of the system when the screen opens, because somebody can remove it without this client.
+        autostart = text(AUTOSTART)?.toBooleanStrictOrNull() ?: fallback.autostart,
         // Through `withDetailsWidth` so a hand-edited file cannot ask for a panel the window
         // cannot draw.
         detailsWidth =
@@ -111,6 +114,7 @@ internal fun savePreferences(
             setProperty(DIRECTORY, preferences.directory)
             setProperty(START_WHEN_ADDED, preferences.startWhenAdded.toString())
             setProperty(DHT, preferences.dht.toString())
+            setProperty(AUTOSTART, preferences.autostart.toString())
             setProperty(DETAILS_WIDTH, preferences.detailsWidth.toString())
             preferences.maxPeers?.let { setProperty(MAX_PEERS, it.toString()) }
             preferences.pipelineDepth?.let { setProperty(PIPELINE_DEPTH, it.toString()) }
@@ -136,4 +140,5 @@ private const val PIPELINE_DEPTH = "pipelineDepth"
 private const val UPLOAD_LIMIT = "uploadLimitKibPerSecond"
 private const val DOWNLOAD_LIMIT = "downloadLimitKibPerSecond"
 private const val DHT = "dht"
+private const val AUTOSTART = "autostart"
 private const val DETAILS_WIDTH = "detailsWidth"

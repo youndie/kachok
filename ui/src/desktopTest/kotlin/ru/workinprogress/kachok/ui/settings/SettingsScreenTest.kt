@@ -68,6 +68,45 @@ class SettingsScreenTest {
             assertEquals(false, toggled.on, "it is on, so a click asks for off")
         }
 
+    /** Starting with the computer is a decision a person takes, and taking it writes a file. */
+    @Test
+    fun startingWithTheComputerCanBeAskedForFromHere() =
+        runComposeUiTest {
+            val changes = mutableListOf<SettingChange>()
+            setContent { KachokTheme { SettingsScreen(settingsOf(preferences)) { changes += it } } }
+            onNodeWithContentDescription("Start with the computer").performClick()
+            val toggled = changes.filterIsInstance<SettingChange.Toggled>().single()
+            assertEquals(SettingKey.Autostart, toggled.key)
+            assertEquals(true, toggled.on, "it is off, so a click asks for on")
+        }
+
+    /**
+     * A build that cannot start with the computer says so on the row, not in the footnote.
+     *
+     * The footnote is about the screen; this is about one checkbox that has just refused to stay
+     * pressed, and a person reading the row is the person who pressed it
+     * ([B-83](../../../../../../../../docs/backlog/B-83-autostart-and-its-setting.md)).
+     */
+    @Test
+    fun aRefusalToStartWithTheComputerIsOnTheRowItBelongsTo() =
+        runComposeUiTest {
+            setContent {
+                KachokTheme {
+                    SettingsScreen(settingsOf(preferences, autostartProblem = "kachok is not installed here."))
+                }
+            }
+            assertEquals(
+                1,
+                onAllNodesWithText("kachok is not installed here.").fetchSemanticsNodes().size,
+                "the refusal is not on the row",
+            )
+            assertEquals(
+                0,
+                onAllNodesWithText("Starts minimised", substring = true).fetchSemanticsNodes().size,
+                "the usual note was drawn beside a refusal",
+            )
+        }
+
     /** Joining the DHT is a decision a person takes, and taking it opens the socket. */
     @Test
     fun theDhtCanBeJoinedFromHere() =
