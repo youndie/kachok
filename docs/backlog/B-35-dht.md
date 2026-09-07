@@ -21,9 +21,9 @@ after the wire itself.
 
 - AC: against a local DHT fake network, `get_peers` for a known hash returns the announced peer;
   the routing table evicts unresponsive nodes.
-- Anchors: `engine/src/commonMain/kotlin/ru/workinprogress/kachok/engine/dht/Dht.kt`,
-  `engine/src/commonMain/kotlin/ru/workinprogress/kachok/engine/dht/RoutingTable.kt`,
-  `engine/src/jvmMain/kotlin/ru/workinprogress/kachok/engine/io/DatagramKrpcTransport.kt`.
+- Anchors: `engine/src/commonMain/kotlin/io/github/youndie/kachok/engine/dht/Dht.kt`,
+  `engine/src/commonMain/kotlin/io/github/youndie/kachok/engine/dht/RoutingTable.kt`,
+  `engine/src/jvmMain/kotlin/io/github/youndie/kachok/engine/io/DatagramKrpcTransport.kt`.
 
 **Done.** KRPC on the bencode this project already had, a routing table bucketed by common prefix
 with this node's own id, Kademlia's iterative `get_peers`, and `announce_peer` with the token the

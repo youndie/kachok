@@ -23,7 +23,7 @@ disk. Start-up hashes them and repairs the bitfield.
 
 - AC **met 2026-09-05** (`StartupVerifierTest`, 6 tests): a directory with a complete file and no resume record is recognised as complete without a
   download; a record missing three pieces re-hashes exactly three.
-- Anchors: `engine/src/commonMain/kotlin/ru/workinprogress/kachok/engine/resume/`, `engine/src/jvmMain/kotlin/ru/workinprogress/kachok/engine/hash/`.
+- Anchors: `engine/src/commonMain/kotlin/io/github/youndie/kachok/engine/resume/`, `engine/src/jvmMain/kotlin/io/github/youndie/kachok/engine/hash/`.
 
 **Closed 2026-09-05.** The check runs before a single peer is dialled, and it has to: a client that
 announced itself and then discovered it already held half the torrent would have asked the swarm

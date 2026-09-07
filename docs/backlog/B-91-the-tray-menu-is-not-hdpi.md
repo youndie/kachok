@@ -43,8 +43,8 @@ drawn at twenty-four. Blurry would have meant the manifest and a different item 
 
 - AC: the tray menu is legible at 150 % and 200 % on Windows, and the fix does not depend on a
   private field of a library this project does not own.
-- Anchors: [`ui/src/desktopMain/kotlin/ru/workinprogress/kachok/ui/session/TrayMenuScale.kt`](../../ui/src/desktopMain/kotlin/ru/workinprogress/kachok/ui/session/TrayMenuScale.kt),
-  [`ui/src/desktopMain/kotlin/ru/workinprogress/kachok/ui/App.kt`](../../ui/src/desktopMain/kotlin/ru/workinprogress/kachok/ui/App.kt).
+- Anchors: [`ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/session/TrayMenuScale.kt`](../../ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/session/TrayMenuScale.kt),
+  [`ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/App.kt`](../../ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/App.kt).
 
 ## Done — the font, not a new window
 

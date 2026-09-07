@@ -71,11 +71,11 @@ toolbar ── Add torrent ──▶ file chooser ──▶ MetainfoParser ─�
 
 | Service | Code |
 |---|---|
-| ui | `ui/src/desktopMain/kotlin/ru/workinprogress/kachok/ui/App.kt` — the window, the sampling loop, the clean stop on close |
+| ui | `ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/App.kt` — the window, the sampling loop, the clean stop on close |
 | ui | `.../ui/list/RowColors.kt` — which colour every cell of every state is, as a function of the scheme |
 | ui | `.../ui/session/` — `SessionState` as rows, details, settings and an add dialog |
 | ui | `.../ui/main/`, `.../ui/details/`, `.../ui/add/`, `.../ui/settings/` — the screens |
-| engine | `engine/src/jvmMain/kotlin/ru/workinprogress/kachok/engine/runtime/TorrentSet.kt` — several torrents in one process |
+| engine | `engine/src/jvmMain/kotlin/io/github/youndie/kachok/engine/runtime/TorrentSet.kt` — several torrents in one process |
 | ui | `ui/src/desktopTest/snapshots/` — the goldens, verified by `make check` on the machine that recorded them |
 
 ## 5. Scenarios (BDD / test cases)

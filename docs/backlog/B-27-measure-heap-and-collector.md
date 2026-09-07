@@ -22,7 +22,7 @@ Research Open question 2 and decision D6: the `-Xmx256m` and the choice of G1 ar
 
 - AC: a table in the research with live set, max pause and RSS per configuration; the flags in
   `cli/build.gradle.kts` reference it.
-- Anchors: `cli/build.gradle.kts`, `cli/src/test/kotlin/ru/workinprogress/kachok/cli/CollectorBench.kt`,
+- Anchors: `cli/build.gradle.kts`, `cli/src/test/kotlin/io/github/youndie/kachok/cli/CollectorBench.kt`,
   `docs/research/research-architecture.md` §1.2d.
 
 **Done.** Research §1.2d has the table — six configurations, 1 GB three times each, round robin.

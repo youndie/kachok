@@ -51,16 +51,16 @@ What exists on `main` today:
 | File | What is there |
 |---|---|
 | `engine/build.gradle.kts` | the one target (`jvm()`), `jvmDefault = NO_COMPATIBILITY`, the release-only assertion flags |
-| `engine/src/commonMain/kotlin/ru/workinprogress/kachok/engine/Ids.kt` | `InfoHash`, `PeerId`, `PieceIndex` — the value classes every other type is phrased in |
-| `engine/src/commonTest/kotlin/ru/workinprogress/kachok/engine/IdsTest.kt` | the size checks |
+| `engine/src/commonMain/kotlin/io/github/youndie/kachok/engine/Ids.kt` | `InfoHash`, `PeerId`, `PieceIndex` — the value classes every other type is phrased in |
+| `engine/src/commonTest/kotlin/io/github/youndie/kachok/engine/IdsTest.kt` | the size checks |
 | `.../engine/bencode/` | the codec: `BValue`, the strict decoder that records source byte ranges, the canonical encoder |
 | `.../engine/metainfo/` | `Metainfo`, `TorrentFile`, and the parser that hashes `info` from its source bytes |
-| `.../engine/platform/Sha1.kt` + `engine/src/jvmMain/kotlin/ru/workinprogress/kachok/engine/platform/Sha1.jvm.kt` | the one-shot SHA-1 primitive, `expect`/`actual` |
+| `.../engine/platform/Sha1.kt` + `engine/src/jvmMain/kotlin/io/github/youndie/kachok/engine/platform/Sha1.jvm.kt` | the one-shot SHA-1 primitive, `expect`/`actual` |
 | `.../engine/wire/` | `Handshake`, the sealed `Message`, `PeerWire` — framing, the identifier table, in-place `piece` decoding |
 | `.../engine/peer/Peer.kt` | `PeerAddress`, `Block`, `PeerEvent`, `PeerConnection` — what the session is allowed to know about a connection |
 | `.../engine/runtime/TorrentSet.kt` (jvmMain) | several torrents in one process: one listener that reads a handshake before it routes it, one DHT, one dispatcher |
 | `.../engine/runtime/TorrentRuntime.kt` (jvmMain) | one torrent, wired: every interface above meets its JVM implementation here, and both surfaces call it |
-| `engine/src/jvmMain/kotlin/ru/workinprogress/kachok/engine/io/BufferPool.kt` | the capped pool of direct 16 KiB buffers and its `PooledBuffer` handle |
+| `engine/src/jvmMain/kotlin/io/github/youndie/kachok/engine/io/BufferPool.kt` | the capped pool of direct 16 KiB buffers and its `PooledBuffer` handle |
 | `.../engine/io/EngineDispatchers.kt` | the virtual-thread dispatcher every coroutine in the engine runs on |
 | `.../engine/io/SocketPeerConnection.kt` | one peer, one blocking `SocketChannel`, one virtual thread; `connect` and `accept`, blocks read straight into pool buffers |
 | `.../engine/io/PeerListener.kt` | the 6881–6889 probe and the accept loop |
@@ -76,7 +76,7 @@ What exists on `main` today:
 | `.../engine/resume/ResumeRecord.kt` | what survives a restart, bencoded, and the store interface |
 | `.../engine/resume/FileResumeStore.kt` (jvmMain) | a temporary sibling and an `ATOMIC_MOVE` |
 | `.../engine/resume/StartupVerifier.kt` | what is already on the disk, before a peer is dialled |
-| `engine/src/jvmTest/kotlin/ru/workinprogress/kachok/engine/storage/UploadPathBench.kt` | `transferTo` against a mapped segment on real sockets — research §1.3c |
+| `engine/src/jvmTest/kotlin/io/github/youndie/kachok/engine/storage/UploadPathBench.kt` | `transferTo` against a mapped segment on real sockets — research §1.3c |
 | `.../engine/choke/TokenBucket.kt` | the upload and download rate limits, spent by bytes and refilled by the timer |
 | `.../engine/wire/Message.kt` | the wire's messages, BEP 3's and BEP 6's `suggest` / `have all` / `have none` / `reject` / `allowed fast` |
 | `.../engine/wire/MetadataMessage.kt` | BEP 9's dictionary and the block that follows it with nothing in between |
@@ -99,16 +99,16 @@ What exists on `main` today:
 | `.../engine/session/Session.kt` | the orchestrator: peers, tracker loop, writer, one timer, all under one `SupervisorJob` |
 | `.../engine/hash/MessageDigestPieceHasher.kt` (jvmMain) | SHA-1 on a bounded dispatcher, with a pool of digests and the `JvmBlock` seam |
 | `.../engine/storage/FileSet.kt` (jvmMain) | the torrent's files, created sparse with `setLength` and kept open for positional writes |
-| `engine/src/commonTest/kotlin/ru/workinprogress/kachok/engine/` | 169 tests across every package; the session's nine run entirely on fakes; the fixtures are embedded strings, because a KMP test source set has no resources |
+| `engine/src/commonTest/kotlin/io/github/youndie/kachok/engine/` | 169 tests across every package; the session's nine run entirely on fakes; the fixtures are embedded strings, because a KMP test source set has no resources |
 
-The layout the backlog builds toward, under `engine/src/commonMain/kotlin/ru/workinprogress/kachok/engine/`
+The layout the backlog builds toward, under `engine/src/commonMain/kotlin/io/github/youndie/kachok/engine/`
 (a directory appears when its first backlog item lands; none of these exist yet):
 
 | Directory | What goes there | Backlog |
 |---|---|---|
 | `peer/` | one peer's state machine on top of the connection: choke/interest flags, pipeline, rates | [B-17](../backlog/B-17-session-orchestrator.md) |
 
-and under `engine/src/jvmMain/kotlin/ru/workinprogress/kachok/engine/`:
+and under `engine/src/jvmMain/kotlin/io/github/youndie/kachok/engine/`:
 
 | Directory | What goes there | Backlog |
 |---|---|---|

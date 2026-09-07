@@ -46,5 +46,5 @@ to the 731 px underneath it and [B-49](B-49-details-panel.md) recorded that as a
   **Automated:** the golden `main_window.png`, verified by `:ui:viddikVerify` in `make check`. Its
   traffic lights land at 10–22, 30–42 and 50–62 and its title's ink at 580–620, which is the
   reference's own geometry to the pixel.
-- Anchors: `ui/src/desktopMain/kotlin/ru/workinprogress/kachok/ui/App.kt`, `settings.gradle.kts`,
+- Anchors: `ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/App.kt`, `settings.gradle.kts`,
   `gradle/libs.versions.toml`.

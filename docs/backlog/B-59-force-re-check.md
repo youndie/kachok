@@ -55,5 +55,5 @@ with it — the same escape a dial already uses.
   seeded 96 MiB file, *Force re-check* pressed, and the bytes on disk were the torrent's own again
   eight seconds later — the whole round trip is faster than the window's one-second sample, which is
   why the row never visibly leaves 100%.
-- Anchors: `engine/src/commonMain/kotlin/ru/workinprogress/kachok/engine/session/Session.kt`,
-  `engine/src/jvmMain/kotlin/ru/workinprogress/kachok/engine/hash/`.
+- Anchors: `engine/src/commonMain/kotlin/io/github/youndie/kachok/engine/session/Session.kt`,
+  `engine/src/jvmMain/kotlin/io/github/youndie/kachok/engine/hash/`.

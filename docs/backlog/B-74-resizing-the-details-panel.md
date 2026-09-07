@@ -40,5 +40,5 @@ design's one pixel.
   `theDetailsPanelWidthComesBack`, `aWidthOutsideTheDesignsRangeIsClamped`. Checked by hand:
   dragging the divider left widened the panel to its 520 dp bound, the table reflowed rather than
   clipping, and `detailsWidth=479.875` was in the settings file two seconds later.
-- Anchors: `ui/src/desktopMain/kotlin/ru/workinprogress/kachok/ui/details/DetailsPanel.kt`,
-  `ui/src/desktopMain/kotlin/ru/workinprogress/kachok/ui/main/MainWindow.kt`.
+- Anchors: `ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/details/DetailsPanel.kt`,
+  `ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/main/MainWindow.kt`.

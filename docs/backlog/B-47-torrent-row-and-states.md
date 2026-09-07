@@ -52,4 +52,4 @@ The densest thing in the product and the one the design spends the most words on
   **Automated:** `ui/src/desktopTest/.../list/RowColorsTest.kt`, and the golden
   `ui/src/desktopTest/snapshots/list_seven-states.png` verified by `:ui:viddikVerify` in
   `make check`.
-- Anchors: `ui/src/desktopMain/kotlin/ru/workinprogress/kachok/ui/list/`.
+- Anchors: `ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/list/`.

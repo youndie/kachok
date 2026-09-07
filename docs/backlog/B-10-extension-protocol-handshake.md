@@ -22,8 +22,8 @@ handshake and message id `20` carrying a bencoded dictionary.
 
 - AC: a peer without the bit never receives id `20`; the handshake dictionary round-trips through
   the bencode codec; an unknown extension name is ignored, not an error.
-- Anchors: `engine/src/commonMain/kotlin/ru/workinprogress/kachok/engine/wire/ExtensionHandshake.kt`,
-  `engine/src/commonMain/kotlin/ru/workinprogress/kachok/engine/session/Session.kt`.
+- Anchors: `engine/src/commonMain/kotlin/io/github/youndie/kachok/engine/wire/ExtensionHandshake.kt`,
+  `engine/src/commonMain/kotlin/io/github/youndie/kachok/engine/session/Session.kt`.
 
 **Done.** The bit is advertised in every handshake the CLI sends and accepts, the dictionary is
 exchanged, and the peer's ids are on its `PeerLink` — which is what `ut_pex` and `ut_metadata` will

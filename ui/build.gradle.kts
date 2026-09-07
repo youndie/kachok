@@ -83,7 +83,7 @@ kotlin {
 // measurement was taken on, and `-Xmx128m` is the budget the whole engine is designed against.
 compose.desktop {
     application {
-        mainClass = "ru.workinprogress.kachok.ui.AppKt"
+        mainClass = "io.github.youndie.kachok.ui.AppKt"
         jvmArgs += listOf("-XX:+UseG1GC", "-XX:+UseCompactObjectHeaders", "-Xmx$maxHeap")
 
         // The app image `createDistributable` writes, and what it is called inside it.

@@ -27,8 +27,8 @@ torrent from the swarm and gives none back is the free rider BEP 9 exists to avo
 
 - AC: a fake peer sends `request` for each block of a torrent this client has, reassembles them,
   and the SHA-1 equals this client's info hash; a request for a block past the end is `reject`ed.
-- Anchors: `engine/src/commonMain/kotlin/ru/workinprogress/kachok/engine/session/Session.kt`,
-  `engine/src/commonMain/kotlin/ru/workinprogress/kachok/engine/metainfo/Metainfo.kt`.
+- Anchors: `engine/src/commonMain/kotlin/io/github/youndie/kachok/engine/session/Session.kt`,
+  `engine/src/commonMain/kotlin/io/github/youndie/kachok/engine/metainfo/Metainfo.kt`.
 
 **Done.** `ut_metadata` is offered with `metadata_size` — without the size a peer knows the
 extension exists and not how much to ask for, which is the same as it not being offered — and a

@@ -67,5 +67,5 @@ both.
   `aDragOverTheWindowDrawsTheOverlayNamingWhatIsBeingDropped`. Checked by hand: a magnet put on the
   clipboard, the window focused, the prompt offered it and *Add it* opened the dialog on that
   link.
-- Anchors: `ui/src/desktopMain/kotlin/ru/workinprogress/kachok/ui/main/DropOverlay.kt`,
-  `ui/src/desktopMain/kotlin/ru/workinprogress/kachok/ui/App.kt`.
+- Anchors: `ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/main/DropOverlay.kt`,
+  `ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/App.kt`.

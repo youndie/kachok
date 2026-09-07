@@ -63,10 +63,10 @@ magnet:?xt=urn:btih:… ──▶ InfoHash + trackers ──▶ (later) ut_metad
 
 | Service | Code |
 |---|---|
-| engine | `engine/src/commonMain/kotlin/ru/workinprogress/kachok/engine/Ids.kt` — `InfoHash`, the 20-byte check (exists) |
-| engine | `engine/src/commonMain/kotlin/ru/workinprogress/kachok/engine/bencode/` — decoder with byte ranges, encoder (target, B-03) |
-| engine | `engine/src/commonMain/kotlin/ru/workinprogress/kachok/engine/metainfo/` — `Metainfo`, the parser, magnet parsing (target, B-04, B-05) |
-| engine | `engine/src/commonTest/kotlin/ru/workinprogress/kachok/engine/` — fixtures: the BEP 3 examples and one real `.torrent` with its hash recorded from an independent tool |
+| engine | `engine/src/commonMain/kotlin/io/github/youndie/kachok/engine/Ids.kt` — `InfoHash`, the 20-byte check (exists) |
+| engine | `engine/src/commonMain/kotlin/io/github/youndie/kachok/engine/bencode/` — decoder with byte ranges, encoder (target, B-03) |
+| engine | `engine/src/commonMain/kotlin/io/github/youndie/kachok/engine/metainfo/` — `Metainfo`, the parser, magnet parsing (target, B-04, B-05) |
+| engine | `engine/src/commonTest/kotlin/io/github/youndie/kachok/engine/` — fixtures: the BEP 3 examples and one real `.torrent` with its hash recorded from an independent tool |
 
 ## 5. Scenarios (BDD / test cases)
 

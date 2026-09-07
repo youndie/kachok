@@ -36,4 +36,4 @@ would live in did not exist.
   **Automated:** the eight scenarios each name a test; `make check` runs `coverage_map.py --check`,
   and `bdd_report.py` counts 8 of 8 automated.
 - Anchors: `docs/features/feature-ui.md`, `docs/design/design-tokens.md`,
-  `ui/src/desktopMain/kotlin/ru/workinprogress/kachok/ui/`.
+  `ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/`.

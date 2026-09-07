@@ -27,7 +27,7 @@ once: a picker that starts too many pieces holds too many pool buffers.
   7; a started piece is finished before a new one is begun; in endgame a block arriving from one
   peer sends `cancel` to the others; the number of distinct started pieces never exceeds the
   configured bound.
-- Anchors: `engine/src/commonMain/kotlin/ru/workinprogress/kachok/engine/picker/`.
+- Anchors: `engine/src/commonMain/kotlin/io/github/youndie/kachok/engine/picker/`.
 
 **Closed 2026-09-05.** One distinction the item did not name, and it took two failing tests to find:
 

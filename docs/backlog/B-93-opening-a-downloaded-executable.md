@@ -51,5 +51,5 @@ unmarked executable is the larger version of the same question.
 
 - AC: what a double-click on an executable does is one written-down decision rather than whatever
   `Desktop.open` happens to do; if it runs, the file carries the mark that makes Windows ask first.
-- Anchors: [`ui/src/desktopMain/kotlin/ru/workinprogress/kachok/ui/session/OpenFile.kt`](../../ui/src/desktopMain/kotlin/ru/workinprogress/kachok/ui/session/OpenFile.kt),
-  [`engine/src/jvmMain/kotlin/ru/workinprogress/kachok/engine/storage/FileSet.kt`](../../engine/src/jvmMain/kotlin/ru/workinprogress/kachok/engine/storage/FileSet.kt).
+- Anchors: [`ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/session/OpenFile.kt`](../../ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/session/OpenFile.kt),
+  [`engine/src/jvmMain/kotlin/io/github/youndie/kachok/engine/storage/FileSet.kt`](../../engine/src/jvmMain/kotlin/io/github/youndie/kachok/engine/storage/FileSet.kt).

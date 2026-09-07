@@ -103,8 +103,8 @@ item and a page in a browser.
 - AC, the page — **not met, and blocked**: a Compose build of this UI, in a browser, showing the
   same list the desktop window shows. It needs the screens to be in `commonMain`, which is
   [B-80](B-80-the-ui-moves-to-commonmain.md).
-- Anchors: [`wire/src/commonMain/kotlin/ru/workinprogress/kachok/wire/Protocol.kt`](../../wire/src/commonMain/kotlin/ru/workinprogress/kachok/wire/Protocol.kt),
-  [`cli/src/main/kotlin/ru/workinprogress/kachok/cli/serve/`](../../cli/src/main/kotlin/ru/workinprogress/kachok/cli/serve),
+- Anchors: [`wire/src/commonMain/kotlin/io/github/youndie/kachok/wire/Protocol.kt`](../../wire/src/commonMain/kotlin/io/github/youndie/kachok/wire/Protocol.kt),
+  [`cli/src/main/kotlin/io/github/youndie/kachok/cli/serve/`](../../cli/src/main/kotlin/io/github/youndie/kachok/cli/serve),
   [`docs/services/cli.md`](../services/cli.md).
 
 ## The wire is built. The page is not, and it is blocked.

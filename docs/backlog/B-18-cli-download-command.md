@@ -24,7 +24,7 @@ The first thing a user can run. Replaces the skeleton `main` that exits with cod
 - AC **met 2026-09-05** (`DownloadTest`, 5 tests): `kachok download fixture.torrent --dir out` against a local tracker + seed completes with
   exit `0` and the file's hash matches; a missing file argument prints usage and exits `2`; an
   unreachable tracker exits `1` with the tracker's error on stderr.
-- Anchors: `cli/src/main/kotlin/ru/workinprogress/kachok/cli/Main.kt`, `cli/src/main/kotlin/ru/workinprogress/kachok/cli/`.
+- Anchors: `cli/src/main/kotlin/io/github/youndie/kachok/cli/Main.kt`, `cli/src/main/kotlin/io/github/youndie/kachok/cli/`.
 
 **Closed 2026-09-05.** The end-to-end test downloads 40 000 bytes from a local swarm — an HTTP
 tracker and a peer that speaks BEP 3 over a socket — in 367 ms, and compares every byte. It found

@@ -24,7 +24,7 @@ unchoke that rotates every thirty seconds, choke the rest.
 
 - AC **met 2026-09-05** (`ChokerTest` 8 tests, `RateMeterTest` 5, `SessionTest` ×2): with eight interested fake peers and known rates, the pass unchokes the top four plus one
   optimistic; the optimistic changes at 30 s and not before; a seed ranks by upload rate.
-- Anchors: `engine/src/commonMain/kotlin/ru/workinprogress/kachok/engine/choke/`, `engine/src/commonMain/kotlin/ru/workinprogress/kachok/engine/session/`.
+- Anchors: `engine/src/commonMain/kotlin/io/github/youndie/kachok/engine/choke/`, `engine/src/commonMain/kotlin/io/github/youndie/kachok/engine/session/`.
 
 **Closed 2026-09-05.** The algorithm is BEP 3's, as a pure function of the peer table — it knows no
 clock, because when a pass happens is the one timer's business and that is also what makes every

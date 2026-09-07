@@ -22,9 +22,9 @@ A client on a home connection has to be told how much of the uplink it may use.
 
 - AC: with an upload limit of 1 MiB/s and four unchoked fake peers pulling as fast as they can,
   the total served in 10 s is within 10 % of 10 MiB.
-- Anchors: `engine/src/commonMain/kotlin/ru/workinprogress/kachok/engine/choke/TokenBucket.kt`,
-  `engine/src/commonMain/kotlin/ru/workinprogress/kachok/engine/session/Session.kt`,
-  `cli/src/main/kotlin/ru/workinprogress/kachok/cli/Arguments.kt`.
+- Anchors: `engine/src/commonMain/kotlin/io/github/youndie/kachok/engine/choke/TokenBucket.kt`,
+  `engine/src/commonMain/kotlin/io/github/youndie/kachok/engine/session/Session.kt`,
+  `cli/src/main/kotlin/io/github/youndie/kachok/cli/Arguments.kt`.
 
 **Done.** Two buckets in the session, refilled from the one timer, spent by bytes. Download: the
 budget is asked *before* the picker, because `next` marks what it hands back as in flight and

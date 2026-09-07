@@ -50,8 +50,8 @@ latent bug becomes a visible one.
 
 - AC: a click moves the selection without waiting for a sample, measured with the clock stopped; the
   window's own thread does not walk the file list of every torrent on every tick.
-- Anchors: [`ui/src/desktopMain/kotlin/ru/workinprogress/kachok/ui/App.kt`](../../ui/src/desktopMain/kotlin/ru/workinprogress/kachok/ui/App.kt),
-  [`ui/src/desktopMain/kotlin/ru/workinprogress/kachok/ui/main/MainWindow.kt`](../../ui/src/desktopMain/kotlin/ru/workinprogress/kachok/ui/main/MainWindow.kt).
+- Anchors: [`ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/App.kt`](../../ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/App.kt),
+  [`ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/main/MainWindow.kt`](../../ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/main/MainWindow.kt).
 
 **Automated:** `ui/src/desktopTest/.../session/SelectionTest.kt` — the panel follows a click within
 two frames of a stopped clock, which is the claim a running window cannot be asked about. Not

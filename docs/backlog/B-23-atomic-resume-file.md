@@ -26,7 +26,7 @@ pieces plus the metainfo hash, written to a temporary file and `ATOMIC_MOVE`d �
   truncated one (a test that interrupts the writer between the temp write and the move); the
   record round-trips through the bencode codec; a record whose info hash differs from the torrent
   is refused.
-- Anchors: `engine/src/commonMain/kotlin/ru/workinprogress/kachok/engine/resume/`, `engine/src/jvmMain/kotlin/ru/workinprogress/kachok/engine/storage/`.
+- Anchors: `engine/src/commonMain/kotlin/io/github/youndie/kachok/engine/resume/`, `engine/src/jvmMain/kotlin/io/github/youndie/kachok/engine/storage/`.
 
 **Closed 2026-09-05.** Writing the record is done; *reading* it back into a session — seeding the
 picker and re-hashing what it does not vouch for — is [B-24](B-24-startup-verification-of-existing-data.md).

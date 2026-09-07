@@ -102,6 +102,6 @@ Not `jpackage`: it makes desktop installers, and a headless service on a NAS is 
 - AC: one documented command installs and starts the server on the chosen box; a browser on another
   machine on the same network opens its page, sees the torrents and adds one; an unauthenticated
   request is refused; the client survives a reboot of the box.
-- Anchors: `cli/src/main/kotlin/ru/workinprogress/kachok/cli/serve/`,
-  `wire/src/commonMain/kotlin/ru/workinprogress/kachok/wire/Protocol.kt`,
+- Anchors: `cli/src/main/kotlin/io/github/youndie/kachok/cli/serve/`,
+  `wire/src/commonMain/kotlin/io/github/youndie/kachok/wire/Protocol.kt`,
   `docs/services/cli.md` §2.

@@ -24,7 +24,7 @@ Without a listener the client can only download from peers it dials, and half th
 
 - AC **met 2026-09-05** (`PeerListenerTest`, 5 tests): with the first port occupied by the test, the listener binds 6882 and the announce carries 6882; an
   incoming handshake for an unknown info hash is closed.
-- Anchors: `engine/src/jvmMain/kotlin/ru/workinprogress/kachok/engine/io/`.
+- Anchors: `engine/src/jvmMain/kotlin/io/github/youndie/kachok/engine/io/`.
 
 **Closed 2026-09-05.** Three decisions the item did not spell out:
 

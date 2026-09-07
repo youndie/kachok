@@ -29,7 +29,7 @@ picker and the writer, under one `SupervisorJob`; publishes state; accepts comma
   blocks, and the `StateFlow` reports the downloaded byte count monotonic; cancelling the session
   cancels every peer coroutine (asserted through the fake transport's close count) and sends
   `stopped` to the tracker.
-- Anchors: `engine/src/commonMain/kotlin/ru/workinprogress/kachok/engine/session/`.
+- Anchors: `engine/src/commonMain/kotlin/io/github/youndie/kachok/engine/session/`.
 
 **Closed 2026-09-05.** Three defects the fakes found, none of which is about the session's logic:
 

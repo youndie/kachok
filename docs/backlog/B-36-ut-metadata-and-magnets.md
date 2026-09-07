@@ -23,9 +23,9 @@ in 16 KiB blocks, and the hash of the result must equal the link's.
 
 - AC: a magnet for the fixture torrent, with a local peer that has the metadata, produces the
   same `InfoHash` and `Metainfo` as the `.torrent` file.
-- Anchors: `engine/src/commonMain/kotlin/ru/workinprogress/kachok/engine/wire/MetadataMessage.kt`,
-  `engine/src/commonMain/kotlin/ru/workinprogress/kachok/engine/metainfo/MetadataAssembly.kt`,
-  `engine/src/commonMain/kotlin/ru/workinprogress/kachok/engine/metainfo/MetadataFetcher.kt`.
+- Anchors: `engine/src/commonMain/kotlin/io/github/youndie/kachok/engine/wire/MetadataMessage.kt`,
+  `engine/src/commonMain/kotlin/io/github/youndie/kachok/engine/metainfo/MetadataAssembly.kt`,
+  `engine/src/commonMain/kotlin/io/github/youndie/kachok/engine/metainfo/MetadataFetcher.kt`.
 
 **Done.** `kachok download magnet:?xt=urn:btih:…` works: the link's trackers give peers, BEP 10
 gives the ids, BEP 9 gives the dictionary in 16 KiB blocks, and the assembled bytes go through the

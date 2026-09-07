@@ -85,7 +85,7 @@ The `.ico` and `.icns` both carry several sizes, and 16 is the one the geometry 
   `KachokDarkColors.primary` and not a copy of it that can drift.
 - Anchors: [`scripts/make_icon.py`](../../scripts/make_icon.py),
   [`ui/build.gradle.kts`](../../ui/build.gradle.kts),
-  [`ui/src/desktopMain/kotlin/ru/workinprogress/kachok/ui/icons/AppIcon.kt`](../../ui/src/desktopMain/kotlin/ru/workinprogress/kachok/ui/icons/AppIcon.kt),
+  [`ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/icons/AppIcon.kt`](../../ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/icons/AppIcon.kt),
   [`ui/src/desktopMain/resources/icon/`](../../ui/src/desktopMain/resources/icon).
 
 ## Done

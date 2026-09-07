@@ -46,9 +46,9 @@ reason.
   with the same three, in the same states, without re-verifying anything the records vouch for; a
   list entry whose metainfo has gone says so on the row rather than disappearing.
 - Anchors:
-  [`ui/src/desktopMain/kotlin/ru/workinprogress/kachok/ui/session/StoredTorrents.kt`](../../ui/src/desktopMain/kotlin/ru/workinprogress/kachok/ui/session/StoredTorrents.kt),
-  [`engine/src/commonMain/kotlin/ru/workinprogress/kachok/engine/metainfo/MetainfoWriter.kt`](../../engine/src/commonMain/kotlin/ru/workinprogress/kachok/engine/metainfo/MetainfoWriter.kt),
-  [`ui/src/desktopMain/kotlin/ru/workinprogress/kachok/ui/App.kt`](../../ui/src/desktopMain/kotlin/ru/workinprogress/kachok/ui/App.kt),
+  [`ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/session/StoredTorrents.kt`](../../ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/session/StoredTorrents.kt),
+  [`engine/src/commonMain/kotlin/io/github/youndie/kachok/engine/metainfo/MetainfoWriter.kt`](../../engine/src/commonMain/kotlin/io/github/youndie/kachok/engine/metainfo/MetainfoWriter.kt),
+  [`ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/App.kt`](../../ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/App.kt),
   [`docs/services/ui.md`](../services/ui.md) §7.
 
 ## Done — a copy of the torrent, not a pointer to it

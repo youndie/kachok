@@ -53,10 +53,10 @@ start ── read <name>.resume ──▶ hash check of unverified pieces on the
 
 | Service | Code |
 |---|---|
-| engine | `engine/src/commonMain/kotlin/ru/workinprogress/kachok/engine/resume/` — the record, its bencoding, the verification plan (target, B-23, B-24) |
-| engine | `engine/src/jvmMain/kotlin/ru/workinprogress/kachok/engine/storage/` — temp file + `ATOMIC_MOVE`, `force()` (target, B-23, B-14) |
-| engine | `engine/src/jvmMain/kotlin/ru/workinprogress/kachok/engine/hash/` — the start-up hash pass (target, B-24) |
-| cli | `cli/src/main/kotlin/ru/workinprogress/kachok/cli/Main.kt` — the shutdown hook (target, B-25) |
+| engine | `engine/src/commonMain/kotlin/io/github/youndie/kachok/engine/resume/` — the record, its bencoding, the verification plan (target, B-23, B-24) |
+| engine | `engine/src/jvmMain/kotlin/io/github/youndie/kachok/engine/storage/` — temp file + `ATOMIC_MOVE`, `force()` (target, B-23, B-14) |
+| engine | `engine/src/jvmMain/kotlin/io/github/youndie/kachok/engine/hash/` — the start-up hash pass (target, B-24) |
+| cli | `cli/src/main/kotlin/io/github/youndie/kachok/cli/Main.kt` — the shutdown hook (target, B-25) |
 
 ## 5. Scenarios (BDD / test cases)
 

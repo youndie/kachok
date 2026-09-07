@@ -55,5 +55,5 @@ only fires when its subtree has focus.
   keys with Ctrl.
   **Automated:** `ui/src/desktopTest/.../ShortcutTest.kt` — both keys, both modifiers, a bare
   letter, a key release, and two presses being two requests.
-- Anchors: `ui/src/desktopMain/kotlin/ru/workinprogress/kachok/ui/main/EmptyState.kt`,
-  `ui/src/desktopMain/kotlin/ru/workinprogress/kachok/ui/App.kt`.
+- Anchors: `ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/main/EmptyState.kt`,
+  `ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/App.kt`.

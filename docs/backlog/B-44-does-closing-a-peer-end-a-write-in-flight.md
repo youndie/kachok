@@ -35,9 +35,9 @@ A stuck writer would show up as a shutdown that takes the CLI's full ten-second 
 - AC: a small harness that blocks N writers on a socket with a full send buffer, closes it, and
   reports how many end; a table in the research for macOS and Linux; the mechanism named, or
   recorded as unestablished with what was ruled out.
-- Anchors: `engine/src/jvmMain/kotlin/ru/workinprogress/kachok/engine/io/SocketPeerConnection.kt`,
-  `engine/src/jvmTest/kotlin/ru/workinprogress/kachok/engine/io/BlockedWriteProbe.kt`,
-  `engine/src/jvmTest/kotlin/ru/workinprogress/kachok/engine/io/BlockedTransferTest.kt`.
+- Anchors: `engine/src/jvmMain/kotlin/io/github/youndie/kachok/engine/io/SocketPeerConnection.kt`,
+  `engine/src/jvmTest/kotlin/io/github/youndie/kachok/engine/io/BlockedWriteProbe.kt`,
+  `engine/src/jvmTest/kotlin/io/github/youndie/kachok/engine/io/BlockedTransferTest.kt`.
 
 **Answered, and the answer is a one-line fix.** Research §1.3d has the table, measured on macOS and
 in a Linux container.

@@ -22,7 +22,7 @@ Parsing it is small and pure; **using** it needs the metadata exchange
 
 - AC **met 2026-09-05** (`MagnetParserTest`, 7 tests): both hash encodings decode to the same 20 bytes; a link with no `xt` is rejected; `tr`
   values are URL-decoded in order.
-- Anchors: `engine/src/commonMain/kotlin/ru/workinprogress/kachok/engine/metainfo/`.
+- Anchors: `engine/src/commonMain/kotlin/io/github/youndie/kachok/engine/metainfo/`.
 
 **Closed 2026-09-05.** Two rules the item did not state, decided in the code and asserted in tests:
 

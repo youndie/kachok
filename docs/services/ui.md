@@ -40,7 +40,7 @@ compared.
 
 | File | What is there |
 |---|---|
-| `ui/src/desktopMain/kotlin/ru/workinprogress/kachok/ui/App.kt` | `main`, the window, and the loop that samples every session and stops them cleanly on close |
+| `ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/App.kt` | `main`, the window, and the loop that samples every session and stops them cleanly on close |
 | `.../ui/theme/` | the eight roles, the `warning` M3 does not ship, the three bundled families, the 4 dp calibration |
 | `.../ui/icons/Icons.kt` | the twenty-one Material Symbols codepoints and the subset font they index into |
 | `.../ui/list/TorrentRow.kt` | the nine columns at the design's widths, and the row's own hairline |

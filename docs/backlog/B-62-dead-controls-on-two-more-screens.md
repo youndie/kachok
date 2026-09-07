@@ -52,6 +52,6 @@ is reachable over ssh, which has no desktop, and a `HeadlessException` is all it
   window exposes is proved to arrive.
   **Automated:** `ui/src/desktopTest/.../main/WiringTest.kt` and
   `ui/src/desktopTest/.../settings/SettingsScreenTest.kt`.
-- Anchors: `ui/src/desktopMain/kotlin/ru/workinprogress/kachok/ui/settings/Settings.kt`,
-  `ui/src/desktopMain/kotlin/ru/workinprogress/kachok/ui/session/ChooseDirectory.kt`,
-  `ui/src/desktopMain/kotlin/ru/workinprogress/kachok/ui/App.kt`.
+- Anchors: `ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/settings/Settings.kt`,
+  `ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/session/ChooseDirectory.kt`,
+  `ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/App.kt`.

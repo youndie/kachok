@@ -25,7 +25,7 @@ take every carrier.
 - AC **met 2026-09-05** (`MessageDigestPieceHasherTest`, 4 tests): the hash of a fixture piece equals the metainfo's; hashing 64 pieces concurrently never
   runs more than `cores` at once (asserted with a counter); the digest is thread-confined
   (a test with a `ThreadLocal` sentinel).
-- Anchors: `engine/src/jvmMain/kotlin/ru/workinprogress/kachok/engine/hash/`.
+- Anchors: `engine/src/jvmMain/kotlin/io/github/youndie/kachok/engine/hash/`.
 
 **Closed 2026-09-05.** The item's own words were wrong about the mechanism, and that is the finding:
 

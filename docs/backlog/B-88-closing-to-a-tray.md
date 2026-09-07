@@ -89,5 +89,5 @@ change, and with no tray it says so and reads `off` rather than claiming to be o
 `ui/src/desktopTest/.../session/StoredPreferencesTest.kt` for the two settings that persist ·
 the `settings_screen` golden. Not automated: the tray icon itself, its menu, and the notification —
 `java.awt.SystemTray` needs a desktop session, and a headless runner has none.
-- Anchors: [`ui/src/desktopMain/kotlin/ru/workinprogress/kachok/ui/App.kt`](../../ui/src/desktopMain/kotlin/ru/workinprogress/kachok/ui/App.kt),
+- Anchors: [`ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/App.kt`](../../ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/App.kt),
   [`ui/src/desktopMain/resources/icon/`](../../ui/src/desktopMain/resources/icon).

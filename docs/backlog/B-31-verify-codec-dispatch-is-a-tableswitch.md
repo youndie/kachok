@@ -21,7 +21,7 @@ branches and not of guards. Neither is a fact about this codec until `javap` say
 - Not covered: micro-benchmarking the difference; the point is the fact.
 
 - AC: research §1.4 cites the `javap` output.
-- Anchors: `engine/src/commonMain/kotlin/ru/workinprogress/kachok/engine/wire/PeerWire.kt`,
+- Anchors: `engine/src/commonMain/kotlin/io/github/youndie/kachok/engine/wire/PeerWire.kt`,
   `docs/research/research-architecture.md` §1.4a.
 
 **Confirmed.** `decode` compiles to `tableswitch { // 0 to 20 }` — one jump table, 21 entries, the

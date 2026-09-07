@@ -61,5 +61,5 @@ disagreeing; the first was the filter's empty state.
   not be saved, and the path that must not be beside the downloads. Checked by hand: 77 typed into
   *Connections to keep up* and the DHT switched on, the window closed and reopened, both back — and
   the status bar joining the DHT rather than merely claiming to.
-- Anchors: `ui/src/desktopMain/kotlin/ru/workinprogress/kachok/ui/session/SettingsFrom.kt`,
-  `engine/src/commonMain/kotlin/ru/workinprogress/kachok/engine/resume/`.
+- Anchors: `ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/session/SettingsFrom.kt`,
+  `engine/src/commonMain/kotlin/io/github/youndie/kachok/engine/resume/`.

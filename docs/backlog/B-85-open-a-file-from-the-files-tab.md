@@ -37,9 +37,9 @@ folder" — exists only on some platforms and has to be asked for before it is o
 - AC: double-clicking a completed file opens it in whatever the system uses for that type; a file
   that is not finished does not silently hand a truncated one to a player; a session with no desktop
   environment says why rather than doing nothing.
-- Anchors: [`ui/src/desktopMain/kotlin/ru/workinprogress/kachok/ui/session/OpenFile.kt`](../../ui/src/desktopMain/kotlin/ru/workinprogress/kachok/ui/session/OpenFile.kt),
-  [`ui/src/desktopMain/kotlin/ru/workinprogress/kachok/ui/details/DetailsPanel.kt`](../../ui/src/desktopMain/kotlin/ru/workinprogress/kachok/ui/details/DetailsPanel.kt),
-  [`engine/src/jvmMain/kotlin/ru/workinprogress/kachok/engine/runtime/TorrentRuntime.kt`](../../engine/src/jvmMain/kotlin/ru/workinprogress/kachok/engine/runtime/TorrentRuntime.kt).
+- Anchors: [`ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/session/OpenFile.kt`](../../ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/session/OpenFile.kt),
+  [`ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/details/DetailsPanel.kt`](../../ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/details/DetailsPanel.kt),
+  [`engine/src/jvmMain/kotlin/io/github/youndie/kachok/engine/runtime/TorrentRuntime.kt`](../../engine/src/jvmMain/kotlin/io/github/youndie/kachok/engine/runtime/TorrentRuntime.kt).
 
 ## Done
 
