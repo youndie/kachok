@@ -83,8 +83,15 @@ class UdpTrackerClientTest {
     fun aLostAnnounceIsResentAndTheWindowDoubles(): Unit =
         runBlocking {
             // Two announces swallowed: the client waits 100 ms, resends, waits 200 ms, resends, and
-            // is answered. A lower bound on the elapsed time is the evidence that the second window
-            // was the doubled one and not the first again.
+            // is answered. The elapsed time is the evidence that the second window was the doubled
+            // one and not the first again.
+            //
+            // **The bound is what tells the two schedules apart, not the schedule's own total.**
+            // It was `>= 300 ms`, which is exactly what 100 + 200 adds up to — and a wall clock
+            // read here is not the clock the coroutine timer counted on, so CI failed at
+            // 299.793504 ms. Nothing was wrong with the client; the assertion had no margin. What
+            // separates "doubled" from "the same window twice" is 300 against 200, so anything
+            // comfortably between them says which happened and survives a timer that rounds.
             FakeUdpTracker(dropAnnounces = 2).use { tracker ->
                 val client = client(firstTimeoutMillis = 100)
                 val started = TimeSource.Monotonic.markNow()
@@ -95,8 +102,8 @@ class UdpTrackerClientTest {
                 assertEquals(2, response.peers.size)
                 assertEquals(4, client.datagramsSent, "one connect and three announces")
                 assertTrue(
-                    elapsed >= 300.milliseconds,
-                    "the two windows before the answer were $elapsed, not the 100 + 200 ms the schedule asks for",
+                    elapsed >= 250.milliseconds,
+                    "the two windows before the answer were $elapsed, which is nearer 100 + 100 than 100 + 200",
                 )
             }
         }

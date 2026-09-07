@@ -24,12 +24,31 @@ public class RoutingTable(
 ) {
     private class Entry(
         val node: DhtNode,
-        var failures: Int = 0,
+        val failures: Int = 0,
     ) {
         val isBad: Boolean get() = failures >= FAILURES_TO_EVICT
     }
 
-    private val buckets = Array(NodeId.SIZE * 8) { mutableListOf<Entry>() }
+    /**
+     * **A bucket is replaced, never edited**, and that is what makes this table safe to share.
+     *
+     * There is one `Dht` for a whole `TorrentSet` — one routing table, one socket — while every
+     * torrent runs its own lookup loop on its own confined dispatcher. Confinement is per session,
+     * so two torrents with the DHT on run two lookups at once over *this*, and a
+     * `mutableListOf` read by one while the other adds to it is a
+     * `ConcurrentModificationException` — which is what happened, in `dht lookup`, on somebody's
+     * machine.
+     *
+     * A lock would fix it and would be the third concurrency mechanism in an engine that has two.
+     * Replacing the whole list instead means a reader always walks a list nobody can touch: the
+     * worst a race can do is lose one update, because two writers to one bucket both build from
+     * what they read and the second wins. A lost `seen` is a node this table forgets it met and
+     * meets again within the minute — the cheapest possible thing to lose.
+     *
+     * `Entry.failures` is a `val` for the same reason: it used to be mutated in place through a
+     * reference a reader might be holding.
+     */
+    private val buckets = Array<List<Entry>>(NodeId.SIZE * 8) { emptyList() }
 
     public val size: Int get() = buckets.sumOf { it.size }
 
@@ -41,30 +60,30 @@ public class RoutingTable(
      */
     public fun seen(node: DhtNode): Boolean {
         if (node.id == self) return false
-        val bucket = buckets[bucketOf(node.id)]
+        val at = bucketOf(node.id)
+        val bucket = buckets[at]
         val existing = bucket.firstOrNull { it.node.id == node.id }
         if (existing != null) {
-            existing.failures = 0
             // Most recently seen last: a bucket is also a queue, and the front of it is what gets
-            // asked first when it needs pruning.
-            bucket.remove(existing)
-            bucket += existing
+            // asked first when it needs pruning. Its failure count goes back to zero — it answered.
+            buckets[at] = bucket.filter { it !== existing } + Entry(node)
             return true
         }
         if (bucket.size < bucketSize) {
-            bucket += Entry(node)
+            buckets[at] = bucket + Entry(node)
             return true
         }
         val bad = bucket.firstOrNull { it.isBad } ?: return false
-        bucket.remove(bad)
-        bucket += Entry(node)
+        buckets[at] = bucket.filter { it !== bad } + Entry(node)
         return true
     }
 
     /** A node did not answer. Enough of these and it is replaceable. */
     public fun failed(id: NodeId) {
-        val bucket = buckets[bucketOf(id)]
-        bucket.firstOrNull { it.node.id == id }?.let { it.failures++ }
+        val at = bucketOf(id)
+        val bucket = buckets[at]
+        val existing = bucket.firstOrNull { it.node.id == id } ?: return
+        buckets[at] = bucket.map { if (it === existing) Entry(it.node, it.failures + 1) else it }
     }
 
     /** Whether this node is still worth asking. */
