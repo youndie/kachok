@@ -234,17 +234,20 @@ compose.desktop {
 val patchDesktopEntry by tasks.registering(Exec::class) {
     onlyIf { System.getProperty("os.name").orEmpty().let { !it.startsWith("Mac") && !it.startsWith("Windows") } }
     description = "Adds the %f jpackage leaves out, so a .torrent opens with the client on Linux."
-    val deb =
-        layout.buildDirectory.file(
-            "compose/binaries/main/deb/kachok_${project.version.toString().substringBefore("-")}_amd64.deb",
-        )
+    // **The directory, not the file name.** This used to compose the name out of the project's
+    // version — a second place the package's version lived, and the moment `packageVersion` gained
+    // a build number the two disagreed and CI failed with `no package at …kachok_0.1.0_amd64.deb`.
+    // The directory holds exactly one `.deb`; the script insists on that rather than guessing which.
+    val debDir = layout.buildDirectory.dir("compose/binaries/main/deb")
     commandLine(
         "sh",
         "-c",
         """
         set -eu
-        deb="${'$'}1"
-        [ -f "${'$'}deb" ] || { echo "no package at ${'$'}deb"; exit 1; }
+        dir="${'$'}1"
+        count=${'$'}(find "${'$'}dir" -maxdepth 1 -name '*.deb' | wc -l)
+        [ "${'$'}count" = "1" ] || { echo "expected one .deb in ${'$'}dir, found ${'$'}count"; exit 1; }
+        deb=${'$'}(find "${'$'}dir" -maxdepth 1 -name '*.deb')
         work=${'$'}(mktemp -d)
         trap 'rm -rf "${'$'}work"' EXIT
         dpkg-deb -R "${'$'}deb" "${'$'}work"
@@ -259,7 +262,7 @@ val patchDesktopEntry by tasks.registering(Exec::class) {
         echo "the .desktop entry now passes the file it was opened with"
         """.trimIndent(),
         "sh",
-        deb.get().asFile.absolutePath,
+        debDir.get().asFile.absolutePath,
     )
 }
 

@@ -42,6 +42,7 @@ import kotlinx.coroutines.channels.ReceiveChannel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import ru.workinprogress.appframe.AppFrame
 import ru.workinprogress.appframe.TitleBarStyle
@@ -757,49 +758,62 @@ internal fun Client(
                     set.torrents.forEach { it.stop() }
                 }
                 val running = set.torrents
+                // **Built off the composition's thread.** This runs in a `LaunchedEffect`, which is
+                // the UI thread, and everything below reads a state flow per torrent and walks
+                // every file of every one of them. At a second a tick that was invisible; at 300 ms
+                // it is the difference between a click that lands and a click that waits for the
+                // sampler to finish. Only the assignment happens back here, and snapshot state is
+                // safe to write from anywhere anyway.
                 engine =
-                    EngineSnapshot(
-                        samples =
-                            running.map { runtime ->
-                                val state = runtime.state.value
-                                Sample(state, ratesOf(state))
-                            },
-                        fetching = fetching.map { it.link },
-                        pieceLengths =
-                            running.associate {
-                                it.metainfo.infoHash.hex() to it.metainfo.pieceLength.toLong()
-                            },
-                        // Every file a running torrent owns, so the add dialog can refuse *before*
-                        // the button rather than throwing out of `add` after it.
-                        occupied =
-                            running
-                                .flatMap { runtime -> runtime.paths.map { it.toString() to runtime.metainfo.name } }
-                                .toMap(),
-                        // Asked of the torrent rather than computed from the settings: the layout
-                        // of a multi-file torrent is the `FileSet`'s decision, and a second
-                        // implementation of it here would be a second chance to open the wrong
-                        // file.
-                        filePaths =
-                            running.associate { runtime ->
-                                runtime.metainfo.infoHash.hex() to runtime.paths.map { it.toString() }
-                            },
-                        directories =
-                            running.associate { it.metainfo.infoHash.hex() to it.directory.toString() },
-                        listenPort = set.listenPort,
-                        dhtNodes =
-                            if (set.dhtEnabled) {
-                                running
-                                    .firstOrNull()
-                                    ?.state
-                                    ?.value
-                                    ?.dhtNodes ?: 0
-                            } else {
-                                null
-                            },
-                        heapUsedBytes = heapUsed(),
-                        heapMaxBytes = Runtime.getRuntime().maxMemory(),
-                        lifecycle = if (asked) Lifecycle.Stopping else Lifecycle.Running,
-                    )
+                    withContext(dispatchers.io) {
+                        // Once per torrent, not twice. `paths` walks the `FileSet` and builds a list on
+                        // every call, and two maps below wanted it — which is a hundred strings per
+                        // torrent per tick, thrown away.
+                        val paths = running.associateWith { runtime -> runtime.paths.map { it.toString() } }
+                        EngineSnapshot(
+                            samples =
+                                running.map { runtime ->
+                                    val state = runtime.state.value
+                                    Sample(state, ratesOf(state))
+                                },
+                            fetching = fetching.map { it.link },
+                            pieceLengths =
+                                running.associate {
+                                    it.metainfo.infoHash.hex() to it.metainfo.pieceLength.toLong()
+                                },
+                            // Every file a running torrent owns, so the add dialog can refuse *before*
+                            // the button rather than throwing out of `add` after it.
+                            occupied =
+                                paths
+                                    .flatMap { (runtime, files) -> files.map { it to runtime.metainfo.name } }
+                                    .toMap(),
+                            // Asked of the torrent rather than computed from the settings: the layout
+                            // of a multi-file torrent is the `FileSet`'s decision, and a second
+                            // implementation of it here would be a second chance to open the wrong
+                            // file.
+                            filePaths =
+                                paths.entries.associate { (runtime, files) ->
+                                    runtime.metainfo.infoHash.hex() to
+                                        files
+                                },
+                            directories =
+                                running.associate { it.metainfo.infoHash.hex() to it.directory.toString() },
+                            listenPort = set.listenPort,
+                            dhtNodes =
+                                if (set.dhtEnabled) {
+                                    running
+                                        .firstOrNull()
+                                        ?.state
+                                        ?.value
+                                        ?.dhtNodes ?: 0
+                                } else {
+                                    null
+                                },
+                            heapUsedBytes = heapUsed(),
+                            heapMaxBytes = Runtime.getRuntime().maxMemory(),
+                            lifecycle = if (asked) Lifecycle.Stopping else Lifecycle.Running,
+                        )
+                    }
                 if (!asked) {
                     delay(TICK)
                 } else if (allStopped(set) || ++stopTicks >= STOP_TICKS) {
@@ -1395,8 +1409,19 @@ private fun magnetFromClipboard(directory: String): Pending? {
 
 private fun heapUsed(): Long = Runtime.getRuntime().let { it.totalMemory() - it.freeMemory() }
 
-/** The engine's own tick. Redrawing faster shows noise; slower makes the rate a lie. */
-private val TICK = 1.seconds
+/**
+ * How often the window asks the engine what it is doing.
+ *
+ * **300 ms, not a second.** A second was chosen against the *rates*, and that reasoning does not
+ * apply: `downBytesPerSecond` is the engine's own figure over the engine's own window, so sampling
+ * it more often reads the same smoothed number more often rather than a noisier one. What a second
+ * did cost was everything that is not a rate — a piece count, a peer count, a percentage — sitting
+ * up to a second out of date on a screen somebody is watching.
+ *
+ * Affordable only because the sample is built off the composition's thread; before that, tripling
+ * the rate would have tripled the work the UI thread does between clicks.
+ */
+private val TICK = 300.milliseconds
 
 /** Ten of them: the same ten seconds the headless client gives a clean stop before it goes. */
 private const val STOP_TICKS = 10

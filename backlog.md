@@ -59,7 +59,7 @@ which is also the order of work.
 | [B-87](docs/backlog/B-87-a-server-with-a-web-face.md) `[ ]` | Phase 3: a headless server with a web face, installable on a box that is always on | P3 | XL | B-80 |
 | [B-02](docs/backlog/B-02-ci-runs-build-and-docs-gates.md) `[ ]` | CI runs the build and the documentation gates on every push | infra | S | B-01 |
 
-## Closed (84)
+## Closed (85)
 
 **M0 — The build and its gates**
 
@@ -174,6 +174,7 @@ which is also the order of work.
 - [B-89](docs/backlog/B-89-sequential-on-a-running-torrent.md) `[x]` - Sequential download can be turned on for a torrent that is already running
 - [B-90](docs/backlog/B-90-the-msi-did-not-upgrade.md) `[x]` - An .msi did not upgrade the installed client
 - [B-91](docs/backlog/B-91-the-tray-menu-is-not-hdpi.md) `[x]` - The tray's right-click menu is not scaled on a HiDPI display
+- [B-92](docs/backlog/B-92-the-window-samples-three-times-a-second.md) `[x]` - The window samples three times a second, off the thread that draws it
 
 <!-- END INDEX -->
 

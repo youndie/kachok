@@ -162,7 +162,11 @@ internal fun MainWindow(
                         else -> {
                             ColumnHeader(state.sort, onSort = onSort, visible = visible)
                             LazyColumn(Modifier.fillMaxWidth().weight(1f)) {
-                                itemsIndexed(state.torrents) { at, torrent ->
+                                // **Keyed by name, not by position.** Without a key a lazy list
+                                // identifies a row by where it is, so sorting by a column hands
+                                // every row's state to a different torrent — and at 300 ms a sample
+                                // that reorders is three times as many chances to do it.
+                                itemsIndexed(state.torrents, key = { _, torrent -> torrent.name }) { at, torrent ->
                                     TorrentRow(torrent, onSelect = { onSelect(at) }, visible = visible)
                                 }
                             }
