@@ -1,6 +1,5 @@
 package io.github.youndie.kachok.engine.runtime
 
-import kotlinx.coroutines.CoroutineScope
 import io.github.youndie.kachok.engine.dht.Dht
 import io.github.youndie.kachok.engine.dht.NodeId
 import io.github.youndie.kachok.engine.hex
@@ -12,6 +11,7 @@ import io.github.youndie.kachok.engine.metainfo.Metainfo
 import io.github.youndie.kachok.engine.session.Command
 import io.github.youndie.kachok.engine.storage.FileSet
 import io.github.youndie.kachok.engine.tracker.TrackerProtocol
+import kotlinx.coroutines.CoroutineScope
 import java.io.IOException
 import java.net.BindException
 import java.nio.file.Path

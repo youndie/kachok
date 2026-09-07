@@ -1,10 +1,5 @@
 package io.github.youndie.kachok.engine.io
 
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
-import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.withTimeout
 import io.github.youndie.kachok.engine.InfoHash
 import io.github.youndie.kachok.engine.PeerId
 import io.github.youndie.kachok.engine.PieceIndex
@@ -13,6 +8,11 @@ import io.github.youndie.kachok.engine.wire.Handshake
 import io.github.youndie.kachok.engine.wire.Message
 import io.github.youndie.kachok.engine.wire.PeerWire
 import io.github.youndie.kachok.engine.wire.WireException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import java.nio.ByteBuffer
 import kotlin.test.AfterTest
 import kotlin.test.Test

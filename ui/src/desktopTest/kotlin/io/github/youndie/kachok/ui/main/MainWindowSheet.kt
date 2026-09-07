@@ -14,14 +14,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.rememberWindowState
-import io.github.youndie.viddik.annotations.ViddikScreenshot
-import ru.workinprogress.appframe.TitleBar
 import io.github.youndie.kachok.ui.KACHOK_TITLE_BAR
 import io.github.youndie.kachok.ui.details.DetailsPanel
 import io.github.youndie.kachok.ui.details.DetailsTab
 import io.github.youndie.kachok.ui.session.Rates
 import io.github.youndie.kachok.ui.session.detailsOf
 import io.github.youndie.kachok.ui.theme.KachokTheme
+import io.github.youndie.viddik.annotations.ViddikScreenshot
+import ru.workinprogress.appframe.TitleBar
 
 /**
  * The whole window, title bar included, at the size the design draws it.

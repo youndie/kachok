@@ -1,9 +1,9 @@
 package io.github.youndie.kachok.engine.tracker
 
-import kotlinx.coroutines.test.runTest
 import io.github.youndie.kachok.engine.InfoHash
 import io.github.youndie.kachok.engine.PeerId
 import io.github.youndie.kachok.engine.peer.PeerAddress
+import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertContains
 import kotlin.test.assertEquals

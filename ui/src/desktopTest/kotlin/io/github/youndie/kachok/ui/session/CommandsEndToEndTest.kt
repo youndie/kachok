@@ -1,12 +1,5 @@
 package io.github.youndie.kachok.ui.session
 
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancelAndJoin
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.runBlocking
-import org.junit.jupiter.api.condition.EnabledOnOs
-import org.junit.jupiter.api.condition.OS
 import io.github.youndie.kachok.engine.io.EngineDispatchers
 import io.github.youndie.kachok.engine.runtime.RuntimeOptions
 import io.github.youndie.kachok.engine.runtime.TorrentRuntime
@@ -15,6 +8,13 @@ import io.github.youndie.kachok.engine.session.SessionConfig
 import io.github.youndie.kachok.swarm.LocalSwarm
 import io.github.youndie.kachok.ui.deleteQuietly
 import io.github.youndie.kachok.ui.list.TorrentState
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.runBlocking
+import org.junit.jupiter.api.condition.EnabledOnOs
+import org.junit.jupiter.api.condition.OS
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardOpenOption

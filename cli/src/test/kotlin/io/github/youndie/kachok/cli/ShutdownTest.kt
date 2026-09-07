@@ -2,8 +2,6 @@ package io.github.youndie.kachok.cli
 
 import com.sun.net.httpserver.HttpExchange
 import com.sun.net.httpserver.HttpServer
-import org.junit.jupiter.api.condition.EnabledOnOs
-import org.junit.jupiter.api.condition.OS
 import io.github.youndie.kachok.engine.InfoHash
 import io.github.youndie.kachok.engine.bencode.BDictionary
 import io.github.youndie.kachok.engine.bencode.BInteger
@@ -14,6 +12,8 @@ import io.github.youndie.kachok.engine.metainfo.MetainfoParser
 import io.github.youndie.kachok.engine.resume.ResumeRecord
 import io.github.youndie.kachok.engine.wire.PeerWire
 import io.github.youndie.kachok.swarm.SeedingPeer
+import org.junit.jupiter.api.condition.EnabledOnOs
+import org.junit.jupiter.api.condition.OS
 import java.net.InetSocketAddress
 import java.nio.file.Files
 import java.nio.file.Path

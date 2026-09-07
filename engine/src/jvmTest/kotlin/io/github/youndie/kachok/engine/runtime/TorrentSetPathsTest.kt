@@ -1,12 +1,12 @@
 package io.github.youndie.kachok.engine.runtime
 
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
 import io.github.youndie.kachok.engine.io.EngineDispatchers
 import io.github.youndie.kachok.engine.metainfo.Metainfo
 import io.github.youndie.kachok.engine.metainfo.MetainfoParser
 import io.github.youndie.kachok.engine.storage.FileSet
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.io.path.deleteRecursively

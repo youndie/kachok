@@ -1,10 +1,5 @@
 package io.github.youndie.kachok.cli.serve
 
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.isActive
-import kotlinx.coroutines.launch
-import kotlinx.serialization.json.Json
 import io.github.youndie.kachok.engine.hex
 import io.github.youndie.kachok.engine.metainfo.MetainfoParser
 import io.github.youndie.kachok.engine.runtime.RuntimeOptions
@@ -18,6 +13,11 @@ import io.github.youndie.kachok.wire.Request
 import io.github.youndie.kachok.wire.Snapshot
 import io.github.youndie.kachok.wire.TorrentState
 import io.github.youndie.kachok.wire.TrackerState
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
+import kotlinx.serialization.json.Json
 import java.nio.file.Path
 import java.util.Base64
 import kotlin.time.Duration

@@ -1,17 +1,5 @@
 package io.github.youndie.kachok.cli
 
-import kotlinx.coroutines.CompletableDeferred
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.async
-import kotlinx.coroutines.cancelAndJoin
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.selects.select
-import kotlinx.coroutines.withTimeoutOrNull
 import io.github.youndie.kachok.engine.PeerId
 import io.github.youndie.kachok.engine.dht.Dht
 import io.github.youndie.kachok.engine.dht.NodeId
@@ -43,6 +31,18 @@ import io.github.youndie.kachok.engine.tracker.TrackerProtocol
 import io.github.youndie.kachok.engine.tracker.UdpTrackerClient
 import io.github.youndie.kachok.engine.wire.Handshake
 import io.github.youndie.kachok.engine.wire.PeerWire
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.selects.select
+import kotlinx.coroutines.withTimeoutOrNull
 import java.nio.file.Files
 import kotlin.random.Random
 import kotlin.time.Duration.Companion.seconds

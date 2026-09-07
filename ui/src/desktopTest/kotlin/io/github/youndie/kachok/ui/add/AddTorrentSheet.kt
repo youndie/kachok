@@ -14,8 +14,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import io.github.youndie.viddik.annotations.ViddikScreenshot
 import io.github.youndie.kachok.ui.theme.KachokTheme
+import io.github.youndie.viddik.annotations.ViddikScreenshot
 
 /** The dialog for a `.torrent`, which is the case that can say everything. */
 @ViddikScreenshot(name = "dialog", group = "add", width = 560, height = 580)

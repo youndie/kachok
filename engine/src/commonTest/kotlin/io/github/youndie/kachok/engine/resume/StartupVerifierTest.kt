@@ -1,6 +1,5 @@
 package io.github.youndie.kachok.engine.resume
 
-import kotlinx.coroutines.test.runTest
 import io.github.youndie.kachok.engine.PieceIndex
 import io.github.youndie.kachok.engine.bencode.BDictionary
 import io.github.youndie.kachok.engine.bencode.BInteger
@@ -13,6 +12,7 @@ import io.github.youndie.kachok.engine.picker.Bitfield
 import io.github.youndie.kachok.engine.storage.PieceHasher
 import io.github.youndie.kachok.engine.storage.Storage
 import io.github.youndie.kachok.engine.wire.PeerWire
+import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue

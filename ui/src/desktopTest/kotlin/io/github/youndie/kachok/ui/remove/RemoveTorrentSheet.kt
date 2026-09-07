@@ -10,8 +10,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import io.github.youndie.viddik.annotations.ViddikScreenshot
 import io.github.youndie.kachok.ui.theme.KachokTheme
+import io.github.youndie.viddik.annotations.ViddikScreenshot
 
 /**
  * Both answers to the checkbox, one above the other.

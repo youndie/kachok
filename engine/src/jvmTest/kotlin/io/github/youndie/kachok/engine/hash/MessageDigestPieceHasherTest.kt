@@ -1,10 +1,10 @@
 package io.github.youndie.kachok.engine.hash
 
+import io.github.youndie.kachok.engine.PieceIndex
+import io.github.youndie.kachok.engine.io.EngineDispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.runBlocking
-import io.github.youndie.kachok.engine.PieceIndex
-import io.github.youndie.kachok.engine.io.EngineDispatchers
 import java.nio.ByteBuffer
 import java.security.MessageDigest
 import java.util.concurrent.ConcurrentHashMap

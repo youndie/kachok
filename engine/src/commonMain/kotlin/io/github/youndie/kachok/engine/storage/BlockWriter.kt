@@ -1,11 +1,11 @@
 package io.github.youndie.kachok.engine.storage
 
-import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.channels.ReceiveChannel
-import kotlinx.coroutines.channels.SendChannel
 import io.github.youndie.kachok.engine.PieceIndex
 import io.github.youndie.kachok.engine.metainfo.Metainfo
 import io.github.youndie.kachok.engine.peer.Block
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.channels.ReceiveChannel
+import kotlinx.coroutines.channels.SendChannel
 
 /** What became of a piece once all of its blocks had arrived. */
 public sealed interface PieceOutcome {

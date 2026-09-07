@@ -1,12 +1,5 @@
 package io.github.youndie.kachok.engine.metainfo
 
-import kotlinx.coroutines.CoroutineDispatcher
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeoutOrNull
 import io.github.youndie.kachok.engine.InfoHash
 import io.github.youndie.kachok.engine.PeerId
 import io.github.youndie.kachok.engine.peer.PeerAddress
@@ -21,6 +14,13 @@ import io.github.youndie.kachok.engine.wire.ExtensionHandshake
 import io.github.youndie.kachok.engine.wire.Message
 import io.github.youndie.kachok.engine.wire.MetadataMessage
 import io.github.youndie.kachok.engine.wire.WireException
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 

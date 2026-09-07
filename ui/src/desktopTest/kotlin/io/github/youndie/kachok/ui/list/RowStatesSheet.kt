@@ -6,8 +6,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import io.github.youndie.viddik.annotations.ViddikScreenshot
 import io.github.youndie.kachok.ui.theme.KachokTheme
+import io.github.youndie.viddik.annotations.ViddikScreenshot
 
 /**
  * The seven states as the product draws them, one under another.

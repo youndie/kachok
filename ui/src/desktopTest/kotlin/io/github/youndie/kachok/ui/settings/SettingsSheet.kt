@@ -1,13 +1,13 @@
 package io.github.youndie.kachok.ui.settings
 
 import androidx.compose.runtime.Composable
-import io.github.youndie.viddik.annotations.ViddikScreenshot
 import io.github.youndie.kachok.ui.main.MainWindow
 import io.github.youndie.kachok.ui.main.MainWindowState
 import io.github.youndie.kachok.ui.main.designStatus
 import io.github.youndie.kachok.ui.session.Preferences
 import io.github.youndie.kachok.ui.session.settingsOf
 import io.github.youndie.kachok.ui.theme.KachokTheme
+import io.github.youndie.viddik.annotations.ViddikScreenshot
 
 /**
  * The settings screen with the design's own state: everything default except a download limit.

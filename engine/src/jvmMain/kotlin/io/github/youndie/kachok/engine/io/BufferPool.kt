@@ -1,7 +1,7 @@
 package io.github.youndie.kachok.engine.io
 
-import kotlinx.coroutines.sync.Semaphore
 import io.github.youndie.kachok.engine.wire.PeerWire
+import kotlinx.coroutines.sync.Semaphore
 import java.nio.ByteBuffer
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.atomic.AtomicInteger

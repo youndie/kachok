@@ -47,7 +47,6 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
-import kotlinx.coroutines.delay
 import io.github.youndie.kachok.ui.icons.Glyph
 import io.github.youndie.kachok.ui.icons.Icons
 import io.github.youndie.kachok.ui.list.RowCell
@@ -60,6 +59,7 @@ import io.github.youndie.kachok.ui.theme.PathText
 import io.github.youndie.kachok.ui.theme.RowName
 import io.github.youndie.kachok.ui.theme.RowStateLabel
 import io.github.youndie.kachok.ui.theme.warningColors
+import kotlinx.coroutines.delay
 import java.awt.Cursor
 import kotlin.time.Duration.Companion.milliseconds
 

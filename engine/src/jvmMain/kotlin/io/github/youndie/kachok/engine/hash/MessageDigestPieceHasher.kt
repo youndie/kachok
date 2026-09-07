@@ -1,10 +1,10 @@
 package io.github.youndie.kachok.engine.hash
 
+import io.github.youndie.kachok.engine.peer.Block
+import io.github.youndie.kachok.engine.storage.PieceHasher
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.withContext
-import io.github.youndie.kachok.engine.peer.Block
-import io.github.youndie.kachok.engine.storage.PieceHasher
 import java.nio.ByteBuffer
 import java.security.MessageDigest
 

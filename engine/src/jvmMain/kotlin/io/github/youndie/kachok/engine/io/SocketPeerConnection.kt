@@ -1,10 +1,5 @@
 package io.github.youndie.kachok.engine.io
 
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.channels.ReceiveChannel
-import kotlinx.coroutines.launch
 import io.github.youndie.kachok.engine.InfoHash
 import io.github.youndie.kachok.engine.PeerId
 import io.github.youndie.kachok.engine.PieceIndex
@@ -17,6 +12,11 @@ import io.github.youndie.kachok.engine.wire.Handshake
 import io.github.youndie.kachok.engine.wire.Message
 import io.github.youndie.kachok.engine.wire.PeerWire
 import io.github.youndie.kachok.engine.wire.WireException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.channels.ReceiveChannel
+import kotlinx.coroutines.launch
 import java.io.EOFException
 import java.io.IOException
 import java.net.InetSocketAddress

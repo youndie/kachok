@@ -1,9 +1,9 @@
 package io.github.youndie.kachok.engine.peer
 
-import kotlinx.coroutines.channels.ReceiveChannel
 import io.github.youndie.kachok.engine.PieceIndex
 import io.github.youndie.kachok.engine.wire.Handshake
 import io.github.youndie.kachok.engine.wire.Message
+import kotlinx.coroutines.channels.ReceiveChannel
 
 /** Where a peer is. A host as the tracker gave it: an address most of the time, a name sometimes. */
 public class PeerAddress(

@@ -1,9 +1,5 @@
 package io.github.youndie.kachok.engine.metainfo
 
-import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.channels.ReceiveChannel
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.test.runTest
 import io.github.youndie.kachok.engine.InfoHash
 import io.github.youndie.kachok.engine.PeerId
 import io.github.youndie.kachok.engine.PieceIndex
@@ -23,6 +19,10 @@ import io.github.youndie.kachok.engine.wire.Handshake
 import io.github.youndie.kachok.engine.wire.Message
 import io.github.youndie.kachok.engine.wire.MetadataMessage
 import io.github.youndie.kachok.engine.wire.PeerWire
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.channels.ReceiveChannel
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertContains
 import kotlin.test.assertEquals

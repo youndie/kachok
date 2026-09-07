@@ -1,8 +1,8 @@
 package io.github.youndie.kachok.engine.io
 
+import io.github.youndie.kachok.engine.wire.PeerWire
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
-import io.github.youndie.kachok.engine.wire.PeerWire
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith

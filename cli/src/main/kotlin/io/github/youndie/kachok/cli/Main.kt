@@ -1,10 +1,10 @@
 package io.github.youndie.kachok.cli
 
+import io.github.youndie.kachok.cli.serve.Serve
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.runBlocking
-import io.github.youndie.kachok.cli.serve.Serve
 import kotlin.system.exitProcess
 
 /**

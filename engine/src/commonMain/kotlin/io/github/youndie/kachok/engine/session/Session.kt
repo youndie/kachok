@@ -1,16 +1,5 @@
 package io.github.youndie.kachok.engine.session
 
-import kotlinx.coroutines.CoroutineDispatcher
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.isActive
-import kotlinx.coroutines.launch
 import io.github.youndie.kachok.engine.PeerId
 import io.github.youndie.kachok.engine.PieceIndex
 import io.github.youndie.kachok.engine.choke.Choker
@@ -48,6 +37,17 @@ import io.github.youndie.kachok.engine.wire.MetadataMessage
 import io.github.youndie.kachok.engine.wire.PeerWire
 import io.github.youndie.kachok.engine.wire.PexMessage
 import io.github.youndie.kachok.engine.wire.WireException
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import kotlin.coroutines.ContinuationInterceptor
 import kotlin.random.Random
 import kotlin.time.TimeSource

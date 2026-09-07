@@ -1,7 +1,5 @@
 package io.github.youndie.kachok.ui
 
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.runBlocking
 import io.github.youndie.kachok.engine.InfoHash
 import io.github.youndie.kachok.engine.PeerId
 import io.github.youndie.kachok.engine.bencode.BDictionary
@@ -10,6 +8,8 @@ import io.github.youndie.kachok.engine.bencode.BString
 import io.github.youndie.kachok.engine.bencode.Bencode
 import io.github.youndie.kachok.engine.tracker.AnnounceRequest
 import io.github.youndie.kachok.engine.tracker.HttpTrackerClient
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.runBlocking
 import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.net.ServerSocket

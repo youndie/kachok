@@ -1,8 +1,5 @@
 package io.github.youndie.kachok.engine.runtime
 
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.flow.StateFlow
 import io.github.youndie.kachok.engine.PeerId
 import io.github.youndie.kachok.engine.dht.Dht
 import io.github.youndie.kachok.engine.dht.NodeId
@@ -29,6 +26,9 @@ import io.github.youndie.kachok.engine.tracker.TrackerProtocol
 import io.github.youndie.kachok.engine.tracker.UdpTrackerClient
 import io.github.youndie.kachok.engine.wire.Handshake
 import io.github.youndie.kachok.engine.wire.PeerWire
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.StateFlow
 import java.net.BindException
 import java.nio.file.Files
 import java.nio.file.Path

@@ -1,8 +1,8 @@
 package io.github.youndie.kachok.engine.resume
 
+import io.github.youndie.kachok.engine.InfoHash
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
-import io.github.youndie.kachok.engine.InfoHash
 import java.io.IOException
 import java.nio.file.AtomicMoveNotSupportedException
 import java.nio.file.Files

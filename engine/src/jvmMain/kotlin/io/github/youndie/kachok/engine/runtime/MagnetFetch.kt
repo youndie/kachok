@@ -1,6 +1,5 @@
 package io.github.youndie.kachok.engine.runtime
 
-import kotlinx.coroutines.CoroutineScope
 import io.github.youndie.kachok.engine.PeerId
 import io.github.youndie.kachok.engine.io.BufferPool
 import io.github.youndie.kachok.engine.io.EngineDispatchers
@@ -12,6 +11,7 @@ import io.github.youndie.kachok.engine.tracker.HttpTrackerClient
 import io.github.youndie.kachok.engine.tracker.TrackerClientByScheme
 import io.github.youndie.kachok.engine.tracker.UdpTrackerClient
 import io.github.youndie.kachok.engine.wire.Handshake
+import kotlinx.coroutines.CoroutineScope
 import kotlin.random.Random
 
 /**

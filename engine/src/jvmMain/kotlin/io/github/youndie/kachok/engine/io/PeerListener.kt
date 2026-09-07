@@ -1,9 +1,9 @@
 package io.github.youndie.kachok.engine.io
 
+import io.github.youndie.kachok.engine.tracker.TrackerProtocol
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
-import io.github.youndie.kachok.engine.tracker.TrackerProtocol
 import java.io.IOException
 import java.net.BindException
 import java.net.InetSocketAddress

@@ -1,11 +1,11 @@
 package io.github.youndie.kachok.engine.dht
 
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
 import io.github.youndie.kachok.engine.InfoHash
 import io.github.youndie.kachok.engine.bencode.BString
 import io.github.youndie.kachok.engine.peer.PeerAddress
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 
 /**
  * One KRPC exchange with one node.
