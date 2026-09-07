@@ -28,7 +28,7 @@ the one every later test fixture is built with.
   rejects a leading zero, a negative zero and a truncated string with an error naming the offset;
   returns the exact byte range of `info` for a fixture whose dictionary keys are deliberately not
   sorted.
-- Anchors: `engine/src/commonMain/kotlin/ru/workinprogress/kachok/engine/bencode/`.
+- Anchors: `engine/src/commonMain/kotlin/io/github/youndie/kachok/engine/bencode/`.
 
 **Closed 2026-09-05.** Two findings worth keeping:
 

@@ -42,5 +42,5 @@ rows down in the details panel.
   **Automated:** `ui/src/desktopTest/.../session/RatesOfTest.kt`. Checked by hand: the same 60 KiB/s
   download that read `0` now reads a steady 45 KiB/s on every tick, and the status bar agrees with
   the row.
-- Anchors: `ui/src/desktopMain/kotlin/ru/workinprogress/kachok/ui/session/SessionRow.kt`,
-  `engine/src/commonMain/kotlin/ru/workinprogress/kachok/engine/choke/RateMeter.kt`.
+- Anchors: `ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/session/SessionRow.kt`,
+  `engine/src/commonMain/kotlin/io/github/youndie/kachok/engine/choke/RateMeter.kt`.

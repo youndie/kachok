@@ -39,5 +39,5 @@ fills whether or not a torrent is using it — is the next item's, not this one'
   **Automated:** `ui/src/desktopTest/.../settings/SettingsScreenTest.kt#theDhtCanBeJoinedFromHere`
   and `.../main/WiringTest.kt#everyEditableSettingLeavesTheWindow`. Driven by hand as well: the
   status bar changed on the click.
-- Anchors: `engine/src/jvmMain/kotlin/ru/workinprogress/kachok/engine/runtime/TorrentSet.kt`,
-  `ui/src/desktopMain/kotlin/ru/workinprogress/kachok/ui/App.kt`.
+- Anchors: `engine/src/jvmMain/kotlin/io/github/youndie/kachok/engine/runtime/TorrentSet.kt`,
+  `ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/App.kt`.

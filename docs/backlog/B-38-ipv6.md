@@ -20,9 +20,9 @@ Compact peer lists have an 18-byte IPv6 form (`peers6`); the listener should bin
 
 - AC: a `peers6` string of 18 bytes yields one peer with an IPv6 address; the listener accepts
   a connection over `::1`.
-- Anchors: `engine/src/commonMain/kotlin/ru/workinprogress/kachok/engine/peer/CompactPeers.kt`,
-  `engine/src/commonMain/kotlin/ru/workinprogress/kachok/engine/tracker/TrackerProtocol.kt`,
-  `engine/src/jvmMain/kotlin/ru/workinprogress/kachok/engine/io/PeerListener.kt`.
+- Anchors: `engine/src/commonMain/kotlin/io/github/youndie/kachok/engine/peer/CompactPeers.kt`,
+  `engine/src/commonMain/kotlin/io/github/youndie/kachok/engine/tracker/TrackerProtocol.kt`,
+  `engine/src/jvmMain/kotlin/io/github/youndie/kachok/engine/io/PeerListener.kt`.
 
 **Done.** `peers6` is read beside `peers` — a separate function on a separate field, because
 eighteen bytes read as six are three peers made of one peer's halves, and that is a bug that looks

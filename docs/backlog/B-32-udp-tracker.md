@@ -22,9 +22,9 @@ finds few peers.
 
 - AC: against a local UDP tracker fake, a wrong `connection_id` is ignored; the announce response
   yields peers; a lost packet is retransmitted on schedule.
-- Anchors: `engine/src/jvmMain/kotlin/ru/workinprogress/kachok/engine/tracker/UdpTrackerClient.kt`,
-  `engine/src/commonMain/kotlin/ru/workinprogress/kachok/engine/tracker/UdpTrackerProtocol.kt`,
-  `engine/src/jvmTest/kotlin/ru/workinprogress/kachok/engine/tracker/FakeUdpTracker.kt`.
+- Anchors: `engine/src/jvmMain/kotlin/io/github/youndie/kachok/engine/tracker/UdpTrackerClient.kt`,
+  `engine/src/commonMain/kotlin/io/github/youndie/kachok/engine/tracker/UdpTrackerProtocol.kt`,
+  `engine/src/jvmTest/kotlin/io/github/youndie/kachok/engine/tracker/FakeUdpTracker.kt`.
 
 **Done.** The protocol is common code and the socket is a JVM one, split so that every rule about
 hostile or stale input can be tested without arranging it on a wire. `DatagramSocket` rather than

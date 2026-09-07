@@ -22,7 +22,7 @@ must be written last so that it never describes a state the disk does not have.
 
 - AC **met 2026-09-05** (`ShutdownTest`, a real subprocess and a real signal): `SIGINT` during a download leaves a resume file whose pieces are all hashed and on disk,
   and the fake tracker receives `stopped`.
-- Anchors: `cli/src/main/kotlin/ru/workinprogress/kachok/cli/Main.kt`, `engine/src/commonMain/kotlin/ru/workinprogress/kachok/engine/session/`.
+- Anchors: `cli/src/main/kotlin/io/github/youndie/kachok/cli/Main.kt`, `engine/src/commonMain/kotlin/io/github/youndie/kachok/engine/session/`.
 
 **Closed 2026-09-05.** The sequence itself came with the session; this item is the signal handler
 and the proof that it survives being triggered the way a user triggers it.

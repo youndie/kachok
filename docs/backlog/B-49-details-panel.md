@@ -51,5 +51,5 @@ blocked_by: [B-48]
   `SessionState` and the planned ones are visibly marked.
   **Automated:** `ui/src/desktopTest/.../session/DetailsFromTest.kt`, and the goldens
   `main_window.png` and `details_planned-tabs.png` verified by `:ui:viddikVerify` in `make check`.
-- Anchors: `ui/src/desktopMain/kotlin/ru/workinprogress/kachok/ui/details/`,
-  `ui/src/desktopMain/kotlin/ru/workinprogress/kachok/ui/session/DetailsFrom.kt`.
+- Anchors: `ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/details/`,
+  `ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/session/DetailsFrom.kt`.

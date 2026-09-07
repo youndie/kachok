@@ -27,7 +27,7 @@ This item makes the Gradle build produce it — [../research/research-architectu
   `bin/kachok` downloads the fixture torrent on a machine with **no** JDK installed (a Docker
   `debian:slim` run in CI); the image size is recorded in the research.
 - Anchors: `cli/build.gradle.kts`, `scripts/verify_runtime_image.sh`,
-  `cli/src/test/kotlin/ru/workinprogress/kachok/cli/SwarmHost.kt`.
+  `cli/src/test/kotlin/io/github/youndie/kachok/cli/SwarmHost.kt`.
 
 **Done.** `./gradlew :cli:runtimeImage` writes `cli/build/kachok`: the `jlink`ed runtime, the jars,
 a launcher, and an `image.properties` naming the module set and the flags — read by the verification

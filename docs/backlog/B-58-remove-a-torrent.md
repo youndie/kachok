@@ -58,5 +58,5 @@ knowing which data and where.
   delete, against real files — `WiringTest.theRemoveDialogsAnswersLeaveTheWindow`, and the golden
   `remove_dialog.png`. Checked by hand as well: removing with the box unticked left
   `~/Downloads/payload.bin` where it was.
-- Anchors: `engine/src/jvmMain/kotlin/ru/workinprogress/kachok/engine/runtime/TorrentSet.kt`,
-  `ui/src/desktopMain/kotlin/ru/workinprogress/kachok/ui/main/Toolbar.kt`.
+- Anchors: `engine/src/jvmMain/kotlin/io/github/youndie/kachok/engine/runtime/TorrentSet.kt`,
+  `ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/main/Toolbar.kt`.

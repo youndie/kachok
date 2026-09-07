@@ -26,7 +26,7 @@ The first peer source. BEP 3's GET with `info_hash`, `peer_id`, `port`, `uploade
 - AC **met 2026-09-05** (`TrackerProtocolTest` 11 tests, `HttpTrackerClientTest` 5 tests): against a local HTTP server, the request line contains the percent-encoded hash and the
   bound port; a compact `peers` string of 12 bytes yields two peers; `failure reason` produces
   the typed error and no peers; the `stopped` event is sent on session close.
-- Anchors: `engine/src/commonMain/kotlin/ru/workinprogress/kachok/engine/tracker/`, `engine/src/jvmMain/kotlin/ru/workinprogress/kachok/engine/tracker/`.
+- Anchors: `engine/src/commonMain/kotlin/io/github/youndie/kachok/engine/tracker/`, `engine/src/jvmMain/kotlin/io/github/youndie/kachok/engine/tracker/`.
 
 **Closed 2026-09-05.** Three things worth keeping:
 

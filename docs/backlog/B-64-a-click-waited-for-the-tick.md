@@ -31,4 +31,4 @@ the click reads as a screen that failed to open.
   **Automated:** indirectly — `WiringTest` composes `MainWindow` and asserts every callback
   arrives, which only passes if the state a click sets is read where the window is built. Driven by
   hand as well: settings now open within a frame of the press.
-- Anchors: `ui/src/desktopMain/kotlin/ru/workinprogress/kachok/ui/App.kt`.
+- Anchors: `ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/App.kt`.

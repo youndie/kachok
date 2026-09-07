@@ -28,7 +28,7 @@ bytes. Every other milestone consumes this type and nothing else from the file.
 - AC **met 2026-09-05** (`MetainfoParserTest`, 10 tests): the info hash of a fixture `.torrent` equals the one printed by an independent tool
   (recorded in the test, with the tool named); `pieces` length not a multiple of 20 is an error;
   a multi-file torrent's total length equals the sum of its files.
-- Anchors: `engine/src/commonMain/kotlin/ru/workinprogress/kachok/engine/metainfo/`, `engine/src/commonMain/kotlin/ru/workinprogress/kachok/engine/Ids.kt`.
+- Anchors: `engine/src/commonMain/kotlin/io/github/youndie/kachok/engine/metainfo/`, `engine/src/commonMain/kotlin/io/github/youndie/kachok/engine/Ids.kt`.
 
 **Closed 2026-09-05.** Three things the implementation added to the plan:
 

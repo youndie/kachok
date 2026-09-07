@@ -49,6 +49,6 @@ blocked_by: [B-48]
   against `SessionConfig()` itself, so a measured value that moves moves both sides — plus the
   goldens `settings_screen.png` and `main_empty.png`, and `MainWindowTest` asserting both screens
   are reachable from the window rather than only from a golden.
-- Anchors: `ui/src/desktopMain/kotlin/ru/workinprogress/kachok/ui/settings/`,
-  `ui/src/desktopMain/kotlin/ru/workinprogress/kachok/ui/session/SettingsFrom.kt`,
-  `ui/src/desktopMain/kotlin/ru/workinprogress/kachok/ui/main/EmptyState.kt`.
+- Anchors: `ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/settings/`,
+  `ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/session/SettingsFrom.kt`,
+  `ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/main/EmptyState.kt`.

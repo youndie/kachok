@@ -24,9 +24,9 @@ timeout-based.
 
 - AC: with the bit set on both sides, a choke produces one `reject` per outstanding request; a
   seed's first message is `have all` instead of a full bitfield.
-- Anchors: `engine/src/commonMain/kotlin/ru/workinprogress/kachok/engine/wire/Message.kt`,
-  `engine/src/commonMain/kotlin/ru/workinprogress/kachok/engine/wire/PeerWire.kt`,
-  `engine/src/commonMain/kotlin/ru/workinprogress/kachok/engine/session/Session.kt`.
+- Anchors: `engine/src/commonMain/kotlin/io/github/youndie/kachok/engine/wire/Message.kt`,
+  `engine/src/commonMain/kotlin/io/github/youndie/kachok/engine/wire/PeerWire.kt`,
+  `engine/src/commonMain/kotlin/io/github/youndie/kachok/engine/session/Session.kt`.
 
 **Done.** All five ids, and the three that do something now do it: `reject` both ways, `have all` /
 `have none` as the opening message, `allowed fast` honoured. `suggest` is honoured as a `have` —

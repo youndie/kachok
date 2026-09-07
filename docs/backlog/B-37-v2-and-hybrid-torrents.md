@@ -24,4 +24,4 @@ wire messages.
 
 - AC (when the question is answered): recorded in the research; this item becomes `open` with a
   size, or `dropped` with the reason.
-- Anchors: `engine/src/commonMain/kotlin/ru/workinprogress/kachok/engine/metainfo/`, `engine/src/jvmMain/kotlin/ru/workinprogress/kachok/engine/hash/`.
+- Anchors: `engine/src/commonMain/kotlin/io/github/youndie/kachok/engine/metainfo/`, `engine/src/jvmMain/kotlin/io/github/youndie/kachok/engine/hash/`.

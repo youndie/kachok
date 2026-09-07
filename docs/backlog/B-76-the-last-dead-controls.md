@@ -51,6 +51,6 @@ neither a badge nor a behaviour — the worse of the two failures, because a per
   **Automated:** `ui/src/desktopTest/.../main/WiringTest.kt` —
   `theCopyButtonLeavesTheWindowWithTheWholeHash`, `showItLeavesTheWindow`; and
   `ui/src/desktopTest/.../add/AddTorrentTest.kt` — `everyControlWaitingOnTheEngineWearsTheBadge`.
-- Anchors: `ui/src/desktopMain/kotlin/ru/workinprogress/kachok/ui/details/DetailsPanel.kt`,
-  `ui/src/desktopMain/kotlin/ru/workinprogress/kachok/ui/add/AddTorrent.kt`,
-  `ui/src/desktopMain/kotlin/ru/workinprogress/kachok/ui/main/MainWindow.kt`.
+- Anchors: `ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/details/DetailsPanel.kt`,
+  `ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/add/AddTorrent.kt`,
+  `ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/main/MainWindow.kt`.

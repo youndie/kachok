@@ -42,9 +42,9 @@ with the operating system and coming up with an empty list is starting for no re
 
 - AC: a checkbox in Settings turns it on and off; turning it on and rebooting starts the client;
   turning it off removes the entry, and the client leaves nothing behind when it is uninstalled.
-- Anchors: [`ui/src/desktopMain/kotlin/ru/workinprogress/kachok/ui/session/Autostart.kt`](../../ui/src/desktopMain/kotlin/ru/workinprogress/kachok/ui/session/Autostart.kt),
-  [`ui/src/desktopMain/kotlin/ru/workinprogress/kachok/ui/session/SettingsFrom.kt`](../../ui/src/desktopMain/kotlin/ru/workinprogress/kachok/ui/session/SettingsFrom.kt),
-  [`ui/src/desktopMain/kotlin/ru/workinprogress/kachok/ui/App.kt`](../../ui/src/desktopMain/kotlin/ru/workinprogress/kachok/ui/App.kt).
+- Anchors: [`ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/session/Autostart.kt`](../../ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/session/Autostart.kt),
+  [`ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/session/SettingsFrom.kt`](../../ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/session/SettingsFrom.kt),
+  [`ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/App.kt`](../../ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/App.kt).
 
 ## Done
 
@@ -65,7 +65,7 @@ because nothing that runs from Gradle can tell whether the launcher still sets i
 
 | | Written | Read back |
 |---|---|---|
-| macOS | `~/Library/LaunchAgents/ru.workinprogress.kachok.plist`, `RunAtLoad` | the file is there |
+| macOS | `~/Library/LaunchAgents/io.github.youndie.kachok.plist`, `RunAtLoad` | the file is there |
 | Windows | `reg add HKCU\…\Run /v kachok /d "<launcher>" --autostart /f` | `reg query` exits 0 |
 | Linux | `$XDG_CONFIG_HOME/autostart/kachok.desktop` | the file is there |
 

@@ -29,7 +29,7 @@ item is where that fact becomes throughput.
   `piece` arrives in a pool buffer and the pool's outstanding count rises by one; a thousand idle
   connections to a local acceptor hold zero platform threads beyond the carriers
   (`jcmd Thread.dump_to_file` counted in the test).
-- Anchors: `engine/src/jvmMain/kotlin/ru/workinprogress/kachok/engine/io/`, `engine/src/commonMain/kotlin/ru/workinprogress/kachok/engine/peer/`.
+- Anchors: `engine/src/jvmMain/kotlin/io/github/youndie/kachok/engine/io/`, `engine/src/commonMain/kotlin/io/github/youndie/kachok/engine/peer/`.
 
 **Closed 2026-09-05.** The measurement, and the design note this item disproved:
 

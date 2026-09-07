@@ -56,5 +56,5 @@ agree, and nine independent measurements of one width is nine chances to disagre
   **Automated:** `ui/src/desktopTest/.../list/NarrowTableTest.kt` — the order, that a column never
   comes back while narrowing, that the four survive every width from 200 to 1400 dp — and the
   golden `main_narrow.png`.
-- Anchors: `ui/src/desktopMain/kotlin/ru/workinprogress/kachok/ui/main/MainWindow.kt`,
-  `ui/src/desktopMain/kotlin/ru/workinprogress/kachok/ui/list/TorrentTable.kt`.
+- Anchors: `ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/main/MainWindow.kt`,
+  `ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/list/TorrentTable.kt`.

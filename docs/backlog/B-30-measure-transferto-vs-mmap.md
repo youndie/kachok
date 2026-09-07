@@ -24,7 +24,7 @@ argument. The argument is sound; the measurement is missing.
 
 - AC: a table in the research; D5 gains a "correction found while implementing" paragraph if
   the hypothesis is refuted.
-- Anchors: `engine/src/jvmTest/kotlin/ru/workinprogress/kachok/engine/storage/UploadPathBench.kt`,
+- Anchors: `engine/src/jvmTest/kotlin/io/github/youndie/kachok/engine/storage/UploadPathBench.kt`,
   `docs/research/research-architecture.md` §1.3c.
 
 **Done, and D5 stands — but not for the reason D5 gave.** `transferTo` moves 3157–3298 MB/s for

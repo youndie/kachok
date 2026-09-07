@@ -58,4 +58,4 @@ blocked_by: [B-47]
   **Automated:** `ui/src/desktopTest/.../main/MainWindowTest.kt` — the banner is still on screen a
   minute later, and the exception it carries still contains the class name — and the golden
   `ui/src/desktopTest/snapshots/main_shell.png` verified by `:ui:viddikVerify` in `make check`.
-- Anchors: `ui/src/desktopMain/kotlin/ru/workinprogress/kachok/ui/main/`.
+- Anchors: `ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/main/`.

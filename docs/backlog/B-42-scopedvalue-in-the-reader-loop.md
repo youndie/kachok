@@ -21,7 +21,7 @@ in the engine — the peer reader — and the hypothesis is that even there loca
 - Not covered: `ScopedValue` in coroutine code, which stays forbidden.
 
 - AC: the research's Open question 5 is closed either way.
-- Anchors: `engine/src/jvmMain/kotlin/ru/workinprogress/kachok/engine/io/`.
+- Anchors: `engine/src/jvmMain/kotlin/io/github/youndie/kachok/engine/io/`.
 
 **Dropped 2026-09-05, answered by [B-07](B-07-virtual-thread-peer-transport.md).** The question
 assumed a reader loop that never suspends. It does suspend — on taking a pool buffer, which is the

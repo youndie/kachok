@@ -58,6 +58,6 @@ measurement of the fixture. `LocalSwarm` takes a piece length now.
   **Automated:** `ui/src/desktopTest/.../session/ManyTorrentsTest.kt` — two swarms, one set, both
   finishing, `2 torrents, 2 seeding, 0 paused` on the status bar, and the peaks printed by the run
   that produced the table above.
-- Anchors: `engine/src/jvmMain/kotlin/ru/workinprogress/kachok/engine/runtime/TorrentSet.kt`,
-  `engine/src/jvmMain/kotlin/ru/workinprogress/kachok/engine/io/SocketPeerConnection.kt`,
-  `ui/src/desktopMain/kotlin/ru/workinprogress/kachok/ui/App.kt`.
+- Anchors: `engine/src/jvmMain/kotlin/io/github/youndie/kachok/engine/runtime/TorrentSet.kt`,
+  `engine/src/jvmMain/kotlin/io/github/youndie/kachok/engine/io/SocketPeerConnection.kt`,
+  `ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/App.kt`.

@@ -48,6 +48,6 @@ own fetcher test drives an in-process `PeerConnection`, which proves the fetcher
   socket, hashed against the hash the magnet named, then the whole file downloaded and compared
   byte for byte — plus `#aMagnetIsARowBeforeItIsATorrent` and
   `#aMagnetWithNoNameShowsItsHashWhereTheNameGoes`.
-- Anchors: `engine/src/jvmMain/kotlin/ru/workinprogress/kachok/engine/runtime/MagnetFetch.kt`,
-  `ui/src/desktopMain/kotlin/ru/workinprogress/kachok/ui/App.kt`,
-  `swarm/src/main/kotlin/ru/workinprogress/kachok/swarm/SeedingPeer.kt`.
+- Anchors: `engine/src/jvmMain/kotlin/io/github/youndie/kachok/engine/runtime/MagnetFetch.kt`,
+  `ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/App.kt`,
+  `swarm/src/main/kotlin/io/github/youndie/kachok/swarm/SeedingPeer.kt`.

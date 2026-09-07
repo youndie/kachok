@@ -66,6 +66,6 @@ nothing that notices — [B-60](B-60-two-torrents-one-path.md).
   for one input and fail for another, `.../theme/PathTextTest.kt`, and the golden
   `details_long-path.png`, which exists because `~/Downloads/iso` fits and a real directory does
   not.
-- Anchors: `ui/src/desktopMain/kotlin/ru/workinprogress/kachok/ui/session/Sorting.kt`,
-  `ui/src/desktopMain/kotlin/ru/workinprogress/kachok/ui/main/Toolbar.kt`,
-  `ui/src/desktopMain/kotlin/ru/workinprogress/kachok/ui/App.kt`.
+- Anchors: `ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/session/Sorting.kt`,
+  `ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/main/Toolbar.kt`,
+  `ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/App.kt`.

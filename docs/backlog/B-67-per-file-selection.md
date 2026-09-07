@@ -71,6 +71,6 @@ needs the picker to give back pieces it has started.
   `ui/src/desktopTest/.../details/FilesTabTest.kt`, `.../session/AddFromTest.kt` and
   `WiringTest.everyFileTickInTheAddDialogLeavesTheWindow`. Checked by hand: the live window's
   *Files* tab against a running torrent.
-- Anchors: `engine/src/commonMain/kotlin/ru/workinprogress/kachok/engine/picker/PiecePicker.kt`,
-  `engine/src/commonMain/kotlin/ru/workinprogress/kachok/engine/storage/PieceLayout.kt`,
-  `ui/src/desktopMain/kotlin/ru/workinprogress/kachok/ui/details/DetailsPanel.kt`.
+- Anchors: `engine/src/commonMain/kotlin/io/github/youndie/kachok/engine/picker/PiecePicker.kt`,
+  `engine/src/commonMain/kotlin/io/github/youndie/kachok/engine/storage/PieceLayout.kt`,
+  `ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/details/DetailsPanel.kt`.

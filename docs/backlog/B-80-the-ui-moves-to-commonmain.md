@@ -58,5 +58,5 @@ file moves last and drags four platform concerns with it.
 - AC: `ui/src/commonMain` holds the composables, the mapping functions and the state holder;
   `desktopMain` holds only `actual`s and the entry point; `./gradlew build` and the goldens are
   unchanged on desktop.
-- Anchors: `ui/build.gradle.kts`, `ui/src/desktopMain/kotlin/ru/workinprogress/kachok/ui/`,
+- Anchors: `ui/build.gradle.kts`, `ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/`,
   `engine/build.gradle.kts` (the comment that says why the engine was written this way).

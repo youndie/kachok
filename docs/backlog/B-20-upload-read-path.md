@@ -27,7 +27,7 @@ The research chose the kernel's zero-copy path over mmap for phase 1 — [../res
 - AC **met 2026-09-05** (`BlockWriterTest#aBlockIsServedByTransferringSpansRatherThanReadingBytes`, `SessionTest` ×3): a fake peer requesting the last block of the last piece receives exactly the remaining
   bytes; a request for more than 16 KiB closes the connection (the behaviour BEP 3 documents as
   universal); `transferTo` is called with the file position derived from the piece mapping.
-- Anchors: `engine/src/jvmMain/kotlin/ru/workinprogress/kachok/engine/storage/`, `engine/src/commonMain/kotlin/ru/workinprogress/kachok/engine/peer/`.
+- Anchors: `engine/src/jvmMain/kotlin/io/github/youndie/kachok/engine/storage/`, `engine/src/commonMain/kotlin/io/github/youndie/kachok/engine/peer/`.
 
 **Closed 2026-09-05.** The read path is the mirror of the write path — one `transferTo` per file
 span, the same spans the gathering write uses — and the bytes never enter this process on either

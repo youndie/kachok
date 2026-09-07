@@ -26,8 +26,8 @@ nobody listed still come out right.
 - AC: a viddik golden of a swatch-and-type sheet whose colours equal the hexes in
   `design-tokens.md` §1 read from the golden's own pixels, not from the source; `warning` is
   reachable without touching `MaterialTheme.colorScheme`.
-- Anchors: `ui/src/desktopMain/kotlin/ru/workinprogress/kachok/ui/theme/`,
-  `ui/src/desktopTest/kotlin/ru/workinprogress/kachok/ui/theme/ThemeColorsTest.kt`.
+- Anchors: `ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/theme/`,
+  `ui/src/desktopTest/kotlin/io/github/youndie/kachok/ui/theme/ThemeColorsTest.kt`.
 
 **Done.** The eight roles, the three families and the 4 dp shapes, with `warning` as an extension
 reached through `MaterialTheme.warningColors` — an extension rather than a borrowed `tertiary`,

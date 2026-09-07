@@ -63,6 +63,6 @@ Existing records are not migrated: they are simply not found, and the torrent re
   in the message, askable before adding, not a collision in another directory, two records for two
   torrents of one name, and the paths judged being the ones `FileSet` opens. The CLI's
   `ShutdownTest` matches the record by shape now, which is what caught the rename.
-- Anchors: `engine/src/jvmMain/kotlin/ru/workinprogress/kachok/engine/runtime/TorrentSet.kt`,
-  `engine/src/jvmMain/kotlin/ru/workinprogress/kachok/engine/storage/FileSet.kt`,
-  `engine/src/commonMain/kotlin/ru/workinprogress/kachok/engine/resume/`.
+- Anchors: `engine/src/jvmMain/kotlin/io/github/youndie/kachok/engine/runtime/TorrentSet.kt`,
+  `engine/src/jvmMain/kotlin/io/github/youndie/kachok/engine/storage/FileSet.kt`,
+  `engine/src/commonMain/kotlin/io/github/youndie/kachok/engine/resume/`.

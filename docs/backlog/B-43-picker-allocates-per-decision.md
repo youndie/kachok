@@ -27,8 +27,8 @@ itself contributes none, which is the design working.
 
 - AC: a torrent with 100 000 pieces chooses a block without allocating proportionally to the piece
   count, and the existing picker tests still pass unchanged — the rules are not what is changing.
-- Anchors: `engine/src/commonMain/kotlin/ru/workinprogress/kachok/engine/picker/PiecePicker.kt`,
-  `engine/src/jvmTest/kotlin/ru/workinprogress/kachok/engine/picker/PickerAllocationTest.kt`.
+- Anchors: `engine/src/commonMain/kotlin/io/github/youndie/kachok/engine/picker/PiecePicker.kt`,
+  `engine/src/jvmTest/kotlin/io/github/youndie/kachok/engine/picker/PickerAllocationTest.kt`.
 
 **Done, and measured both ways.** On a 100 000-piece torrent one choice allocated **4 477 304
 bytes** before and **448 bytes** after — `getThreadAllocatedBytes` over a hundred choices, with the

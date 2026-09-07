@@ -40,7 +40,7 @@ kotlin {
 tasks.register<JavaExec>("uploadPathBench") {
     group = "verification"
     description = "Serves a file to local peers with transferTo and with a mapped segment, and compares them"
-    mainClass.set("ru.workinprogress.kachok.engine.storage.UploadPathBench")
+    mainClass.set("io.github.youndie.kachok.engine.storage.UploadPathBench")
     val testCompilation =
         kotlin.targets
             .getByName("jvm")
@@ -60,7 +60,7 @@ tasks.register<JavaExec>("uploadPathBench") {
 tasks.register<JavaExec>("blockedWriteProbe") {
     group = "verification"
     description = "Blocks writers on an unread socket and reports what stops them"
-    mainClass.set("ru.workinprogress.kachok.engine.io.BlockedWriteProbe")
+    mainClass.set("io.github.youndie.kachok.engine.io.BlockedWriteProbe")
     val testCompilation =
         kotlin.targets
             .getByName("jvm")

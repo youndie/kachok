@@ -26,7 +26,7 @@ before the first write.
   to the piece length and whose positions are contiguous per file; the last piece is short; a
   freshly created file reports its full size and near-zero allocated blocks on APFS/ext4
   (`du` versus `ls -l`, asserted in the test on Unix only).
-- Anchors: `engine/src/commonMain/kotlin/ru/workinprogress/kachok/engine/storage/`, `engine/src/jvmMain/kotlin/ru/workinprogress/kachok/engine/storage/`.
+- Anchors: `engine/src/commonMain/kotlin/io/github/youndie/kachok/engine/storage/`, `engine/src/jvmMain/kotlin/io/github/youndie/kachok/engine/storage/`.
 
 **Closed 2026-09-05.** The item said "files are opened with `CREATE, READ, WRITE, SPARSE` and never
 preallocated", and that turned out to be two claims, one of which was false:

@@ -67,7 +67,7 @@ ICNS_SIZES = (16, 32, 64, 128, 256, 512, 1024)
 GROUND = (0x0B, 0x10, 0x0F)
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-COLORS_KT = ROOT / "ui/src/desktopMain/kotlin/ru/workinprogress/kachok/ui/theme/Colors.kt"
+COLORS_KT = ROOT / "ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/theme/Colors.kt"
 OUT = ROOT / "ui/src/desktopMain/resources/icon"
 
 

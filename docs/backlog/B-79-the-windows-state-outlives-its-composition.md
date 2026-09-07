@@ -57,5 +57,5 @@ selection, the settings effect, the shortcut effect — is reachable only by run
 - AC: the selected row, the open panel, the filter, the sort and the running `TorrentSet` survive
   the composition being thrown away and rebuilt; `Client` holds no engine state of its own; the
   mapping functions are untouched and their tests do not change.
-- Anchors: `ui/src/desktopMain/kotlin/ru/workinprogress/kachok/ui/App.kt`,
-  `ui/src/desktopMain/kotlin/ru/workinprogress/kachok/ui/session/`.
+- Anchors: `ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/App.kt`,
+  `ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/session/`.

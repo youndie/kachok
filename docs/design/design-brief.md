@@ -38,7 +38,7 @@ neither for looks. Not a media centre, not a search engine, not a "downloads man
 ## 4. What the engine exposes — the data the UI can show
 
 The UI reads one `SessionState` per torrent, refreshed once a second (the engine's tick), and
-sends commands. Source of truth: `engine/src/commonMain/kotlin/ru/workinprogress/kachok/engine/session/SessionState.kt`.
+sends commands. Source of truth: `engine/src/commonMain/kotlin/io/github/youndie/kachok/engine/session/SessionState.kt`.
 
 **Per torrent, today:**
 

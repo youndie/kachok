@@ -26,7 +26,7 @@ requests larger than 16 KiB; this item is where the engine meets them.
 - AC **met 2026-09-05**: the download completes with a matching hash; the numbers are in the research with the
   torrent named, the machine described, and the date; anything that misbehaved is a quirk in the
   feature document or a new backlog item.
-- Anchors: `cli/src/main/kotlin/ru/workinprogress/kachok/cli/`, `docs/research/research-architecture.md`.
+- Anchors: `cli/src/main/kotlin/io/github/youndie/kachok/cli/`, `docs/research/research-architecture.md`.
 
 **Closed 2026-09-05.** Debian 13.6.0 netinst, 791 674 880 bytes in 3 020 pieces, from the public
 swarm through its HTTP tracker: **368 seconds, and the SHA-256 equals the one Debian publishes**.

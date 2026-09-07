@@ -66,5 +66,5 @@ in its client column reads as a rendering fault rather than as a peer that said 
   `anAddressIsNeverUsedToOrderTheList`; `ui/src/desktopTest/.../details/PeersTabTest.kt` for the
   words and the legend; and the golden `details_planned-tabs.png`, compared row by row against
   `docs/design/screens/details-tabs.png`. Checked by hand against a live swarm host.
-- Anchors: `engine/src/commonMain/kotlin/ru/workinprogress/kachok/engine/session/SessionState.kt`,
-  `ui/src/desktopMain/kotlin/ru/workinprogress/kachok/ui/details/DetailsPanel.kt`.
+- Anchors: `engine/src/commonMain/kotlin/io/github/youndie/kachok/engine/session/SessionState.kt`,
+  `ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/details/DetailsPanel.kt`.

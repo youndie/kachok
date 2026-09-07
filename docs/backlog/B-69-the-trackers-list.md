@@ -55,5 +55,5 @@ for; a person pressing *Re-announce* is overriding it once, not renegotiating it
   `aTrackerThatRefusesIsRecordedInItsOwnWords`, `announcingByHandAsksTheTrackerAgain`;
   `ui/src/desktopTest/.../details/TrackersTabTest.kt` and `.../session/DetailsFromTest.kt`; and the
   golden `details_planned-tabs.png` compared against `docs/design/screens/details-tabs.png`.
-- Anchors: `engine/src/commonMain/kotlin/ru/workinprogress/kachok/engine/tracker/`,
-  `engine/src/commonMain/kotlin/ru/workinprogress/kachok/engine/session/SessionState.kt`.
+- Anchors: `engine/src/commonMain/kotlin/io/github/youndie/kachok/engine/tracker/`,
+  `engine/src/commonMain/kotlin/io/github/youndie/kachok/engine/session/SessionState.kt`.

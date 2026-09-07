@@ -37,8 +37,8 @@ runtime that is the only place the defect can exist, and the pipeline's last ste
   build rather than the user; the check runs against the image `createDistributable` produced, on
   the platform it was produced for.
 - Anchors: [`ui/build.gradle.kts`](../../ui/build.gradle.kts),
-  [`ui/src/desktopMain/kotlin/ru/workinprogress/kachok/ui/Preflight.kt`](../../ui/src/desktopMain/kotlin/ru/workinprogress/kachok/ui/Preflight.kt),
-  [`engine/src/jvmMain/kotlin/ru/workinprogress/kachok/engine/tracker/HttpTrackerClient.kt`](../../engine/src/jvmMain/kotlin/ru/workinprogress/kachok/engine/tracker/HttpTrackerClient.kt).
+  [`ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/Preflight.kt`](../../ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/Preflight.kt),
+  [`engine/src/jvmMain/kotlin/io/github/youndie/kachok/engine/tracker/HttpTrackerClient.kt`](../../engine/src/jvmMain/kotlin/io/github/youndie/kachok/engine/tracker/HttpTrackerClient.kt).
 
 ## Done
 

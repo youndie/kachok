@@ -56,6 +56,6 @@ the status bar takes a nullable count rather than an int.
   `:swarm`, sampled the way the window samples it, asserting the row is seen *downloading* at a
   percentage between nothing and all before it is seen *seeding* — plus
   `.../session/SessionRowTest.kt` and `.../session/FiguresTest.kt`.
-- Anchors: `ui/src/desktopMain/kotlin/ru/workinprogress/kachok/ui/App.kt`,
-  `engine/src/jvmMain/kotlin/ru/workinprogress/kachok/engine/runtime/TorrentRuntime.kt`,
-  `swarm/src/main/kotlin/ru/workinprogress/kachok/swarm/`.
+- Anchors: `ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/App.kt`,
+  `engine/src/jvmMain/kotlin/io/github/youndie/kachok/engine/runtime/TorrentRuntime.kt`,
+  `swarm/src/main/kotlin/io/github/youndie/kachok/swarm/`.

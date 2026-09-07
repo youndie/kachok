@@ -58,5 +58,5 @@ window's *Pause* and *Resume* are greyed and say so ([B-56](B-56-dead-toolbar-co
   `aPausedTorrentIsPausedWhateverElseItWasDoing`; `ui/src/desktopTest/.../main/ToolbarStateTest.kt`
   and `WiringTest.everyEnabledToolbarControlLeavesTheWindow`, which now presses every enabled
   control in every selection.
-- Anchors: `engine/src/commonMain/kotlin/ru/workinprogress/kachok/engine/session/Session.kt`,
-  `ui/src/desktopMain/kotlin/ru/workinprogress/kachok/ui/session/SessionRow.kt`.
+- Anchors: `engine/src/commonMain/kotlin/io/github/youndie/kachok/engine/session/Session.kt`,
+  `ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/session/SessionRow.kt`.

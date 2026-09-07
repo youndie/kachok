@@ -28,7 +28,7 @@ thread (research §1.1) and one blocked carrier is the budget.
 - AC **met 2026-09-05** (`BlockWriterTest`, 5 tests): a piece spanning two files produces exactly two `write` calls (counted through a fake
   channel); a piece with a wrong hash never reaches the channel; after the write the pool's
   outstanding count returns to what it was before the piece's first block.
-- Anchors: `engine/src/commonMain/kotlin/ru/workinprogress/kachok/engine/storage/`, `engine/src/jvmMain/kotlin/ru/workinprogress/kachok/engine/storage/`.
+- Anchors: `engine/src/commonMain/kotlin/io/github/youndie/kachok/engine/storage/`, `engine/src/jvmMain/kotlin/io/github/youndie/kachok/engine/storage/`.
 
 **Closed 2026-09-05.** The measurement the item asked for, and one thing the plan got wrong:
 

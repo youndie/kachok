@@ -23,7 +23,7 @@ profile has to exist. This item also settles the buffer-pool cap and the `force(
 
 - AC **met 2026-09-05** (research §1.2c): the research §1 gains a "measured" subsection with the allocation rate, the pinned event
   count and the carrier peak; the pool cap and `force()` interval constants cite it.
-- Anchors: `docs/research/research-architecture.md`, `engine/src/jvmMain/kotlin/ru/workinprogress/kachok/engine/io/`.
+- Anchors: `docs/research/research-architecture.md`, `engine/src/jvmMain/kotlin/io/github/youndie/kachok/engine/io/`.
 
 **Closed 2026-09-05.** Two profiled runs against the Debian swarm — one to completion, one of 449
 pieces stopped deliberately — and they agree, which is the only reason to believe either. The

@@ -48,5 +48,5 @@ blocked_by: [B-48]
   whose only name *is* its hash — and the goldens `add_dialog.png`, `add_magnet.png`,
   `add_refused.png` and `add_gestures.png`. `MainWindowTest` asserts the three screens are reachable
   from the window rather than only from a golden.
-- Anchors: `ui/src/desktopMain/kotlin/ru/workinprogress/kachok/ui/add/`,
-  `ui/src/desktopMain/kotlin/ru/workinprogress/kachok/ui/session/AddFrom.kt`.
+- Anchors: `ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/add/`,
+  `ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/session/AddFrom.kt`.

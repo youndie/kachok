@@ -24,7 +24,7 @@ system's page cache is better at deciding when to write than the client is.
 
 - AC **met 2026-09-05** (`SessionTest#theTimerFlushesOnItsIntervalAndNotPerPiece`): four pieces written within the interval produce one `force`; close
   produces one more.
-- Anchors: `engine/src/jvmMain/kotlin/ru/workinprogress/kachok/engine/storage/`, `engine/src/commonMain/kotlin/ru/workinprogress/kachok/engine/session/`.
+- Anchors: `engine/src/jvmMain/kotlin/io/github/youndie/kachok/engine/storage/`, `engine/src/commonMain/kotlin/io/github/youndie/kachok/engine/session/`.
 
 **Closed 2026-09-05.** The mechanism arrived with the session ([B-17](B-17-session-orchestrator.md))
 and this item is the guard around it: four pieces written inside the interval cost **no** flush, the

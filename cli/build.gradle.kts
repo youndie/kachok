@@ -66,7 +66,7 @@ val kachokModules =
     )
 
 application {
-    mainClass.set("ru.workinprogress.kachok.cli.MainKt")
+    mainClass.set("io.github.youndie.kachok.cli.MainKt")
     applicationDefaultJvmArgs = kachokJvmFlags
 }
 
@@ -76,7 +76,7 @@ application {
 tasks.register<JavaExec>("collectorBench") {
     group = "verification"
     description = "Runs the same local-swarm download under G1 and ZGC, with and without compact object headers"
-    mainClass.set("ru.workinprogress.kachok.cli.CollectorBench")
+    mainClass.set("io.github.youndie.kachok.cli.CollectorBench")
     classpath = sourceSets["test"].runtimeClasspath
     // The harness holds the whole payload in memory to serve it; the client under test is the one
     // whose heap is being measured, and it gets its own.
@@ -210,7 +210,7 @@ tasks.register<BuildRuntimeImage>("runtimeImage") {
 tasks.register<JavaExec>("swarmHost") {
     group = "verification"
     description = "Serves one torrent to anything that can reach this machine, until killed"
-    mainClass.set("ru.workinprogress.kachok.cli.SwarmHost")
+    mainClass.set("io.github.youndie.kachok.cli.SwarmHost")
     classpath = sourceSets["test"].runtimeClasspath
     javaLauncher.set(
         javaToolchains.launcherFor {
@@ -301,7 +301,7 @@ abstract class BuildAotCache : DefaultTask() {
                 File(javaHome.get(), "bin/java").path,
                 "-cp",
                 swarmClasspath.asPath,
-                "ru.workinprogress.kachok.cli.SwarmHost",
+                "io.github.youndie.kachok.cli.SwarmHost",
                 "--dir",
                 work.path,
                 "--megabytes",

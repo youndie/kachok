@@ -23,7 +23,7 @@ direct buffer from this pool, from the socket read to the gathering write.
 
 - AC **met 2026-09-05** (`BufferPoolTest`, 7 tests): `acquire`/`release` round-trip returns the same buffer cleared; acquiring past the cap
   suspends until a release; the pool reports outstanding buffers for the session state.
-- Anchors: `engine/src/jvmMain/kotlin/ru/workinprogress/kachok/engine/io/`.
+- Anchors: `engine/src/jvmMain/kotlin/io/github/youndie/kachok/engine/io/`.
 
 **Closed 2026-09-05.** Two additions to the plan, both about mistakes rather than performance:
 

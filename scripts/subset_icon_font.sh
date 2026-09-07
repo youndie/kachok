@@ -14,7 +14,7 @@ set -euo pipefail
 here=$(cd "$(dirname "$0")/.." && pwd)
 source_font=${1:?usage: subset_icon_font.sh <full MaterialSymbolsRounded.ttf>}
 out="$here/ui/src/desktopMain/resources/fonts/MaterialSymbolsRounded.ttf"
-names_file="$here/ui/src/desktopMain/kotlin/ru/workinprogress/kachok/ui/icons/Icons.kt"
+names_file="$here/ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/icons/Icons.kt"
 subsetter=${PYFTSUBSET:-pyftsubset}
 
 command -v "$subsetter" >/dev/null || { echo "no pyftsubset; set PYFTSUBSET" >&2; exit 1; }

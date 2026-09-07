@@ -21,9 +21,9 @@ Peers that tell each other about peers — the cheapest peer source and, for pri
 
 - AC: two fake peers connected to the client learn of each other within a minute; a private
   torrent never sends `ut_pex`.
-- Anchors: `engine/src/commonMain/kotlin/ru/workinprogress/kachok/engine/wire/PexMessage.kt`,
-  `engine/src/commonMain/kotlin/ru/workinprogress/kachok/engine/peer/CompactPeers.kt`,
-  `engine/src/commonMain/kotlin/ru/workinprogress/kachok/engine/session/Session.kt`.
+- Anchors: `engine/src/commonMain/kotlin/io/github/youndie/kachok/engine/wire/PexMessage.kt`,
+  `engine/src/commonMain/kotlin/io/github/youndie/kachok/engine/peer/CompactPeers.kt`,
+  `engine/src/commonMain/kotlin/io/github/youndie/kachok/engine/session/Session.kt`.
 
 **Done.** `ut_pex` every sixty seconds, as a delta each peer's link remembers — a message repeating
 the whole swarm every minute would still be well formed and still parse, which is what makes that

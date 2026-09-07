@@ -29,7 +29,7 @@ transport is tested against a codec rather than the other way round.
   8 reserved, 20 + 20); a zero-length frame is a keep-alive; every id `0`–`8` round-trips; a
   `request` for more than 16 KiB is rejected before it is sent; a truncated frame is an error and
   not a partial message.
-- Anchors: `engine/src/commonMain/kotlin/ru/workinprogress/kachok/engine/wire/`.
+- Anchors: `engine/src/commonMain/kotlin/io/github/youndie/kachok/engine/wire/`.
 
 **Closed 2026-09-05.** Three decisions the item left open, and one it got slightly wrong:
 
