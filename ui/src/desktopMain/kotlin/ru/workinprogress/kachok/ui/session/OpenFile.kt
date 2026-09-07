@@ -43,9 +43,16 @@ internal fun openFile(
         open(Path.of(path))
         null
     } catch (unopenable: IOException) {
-        // What this actually means is "nothing is registered for that type", which is the sentence
-        // worth showing; the exception's own message is usually the path back again.
-        "Nothing on this machine is registered to open $name."
+        // **The system's own words, and the folder.**
+        //
+        // This used to say only "nothing is registered for that type", on the reasoning that the
+        // exception's message is usually the path back again. That reasoning cost a diagnosis: a
+        // report of "it says it cannot find the program" could not be told apart from half a dozen
+        // other causes, because the one sentence that would have said which was thrown away. What
+        // a person can act on is the folder; what somebody reading a screenshot can act on is the
+        // rest.
+        "Could not open $name: ${unopenable.message ?: "the system refused and said nothing"}. " +
+            "It is in ${Path.of(path).parent}."
     } catch (unsupported: UnsupportedOperationException) {
         "This session cannot open files: ${unsupported.message}"
     }

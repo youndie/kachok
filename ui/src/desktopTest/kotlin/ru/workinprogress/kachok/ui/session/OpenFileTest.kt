@@ -99,16 +99,33 @@ class OpenFileTest {
         assertContains(refusal.orEmpty(), missing)
     }
 
-    /** "Nothing is registered for that type" arrives as an `IOException` and reads like a bug. */
+    /**
+     * A refusal from the system keeps the system's own words, and names the folder.
+     *
+     * The first version of this threw the exception's message away and said only "nothing is
+     * registered for that type" — which turned a report of "it cannot find the program" into six
+     * possible causes and no way to tell them apart. The folder is what the *person* can act on;
+     * the message is what somebody reading their screenshot can.
+     */
     @Test
-    fun nothingRegisteredForTheTypeBecomesASentenceAboutTheType() {
+    fun aRefusalFromTheSystemKeepsWhatTheSystemSaid() {
         val refusal =
             openFile(
                 file(path = onDisk()),
-                open = { throw IOException("Failed to open file:$it") },
+                open = { throw IOException("Failed to open file: no application is associated") },
                 desktopAvailable = { true },
             )
-        assertContains(refusal.orEmpty(), "registered to open payload.bin")
+        assertContains(refusal.orEmpty(), "payload.bin")
+        assertContains(refusal.orEmpty(), "no application is associated")
+        assertContains(refusal.orEmpty(), root.toString())
+    }
+
+    /** An exception with nothing in it still produces a sentence rather than the word `null`. */
+    @Test
+    fun aRefusalWithNoMessageStillReadsAsASentence() {
+        val refusal = openFile(file(path = onDisk()), open = { throw IOException() }, desktopAvailable = { true })
+        assertContains(refusal.orEmpty(), "said nothing")
+        assertEquals(false, refusal.orEmpty().contains("null"), "the message reads `null`: $refusal")
     }
 
     /** Before the metainfo arrives there is no path, and that is not the same as a missing file. */
