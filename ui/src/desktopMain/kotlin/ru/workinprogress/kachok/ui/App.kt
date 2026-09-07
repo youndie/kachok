@@ -62,6 +62,7 @@ import ru.workinprogress.kachok.ui.details.DetailsTab
 import ru.workinprogress.kachok.ui.icons.appIcon
 import ru.workinprogress.kachok.ui.main.MainWindow
 import ru.workinprogress.kachok.ui.main.MainWindowState
+import ru.workinprogress.kachok.ui.main.SessionStatus
 import ru.workinprogress.kachok.ui.main.SortOrder
 import ru.workinprogress.kachok.ui.main.ToolbarCommand
 import ru.workinprogress.kachok.ui.remove.RemoveState
@@ -96,6 +97,7 @@ import ru.workinprogress.kachok.ui.session.rowOf
 import ru.workinprogress.kachok.ui.session.savePreferences
 import ru.workinprogress.kachok.ui.session.settingsOf
 import ru.workinprogress.kachok.ui.session.torrentsDirectory
+import ru.workinprogress.kachok.ui.session.trayTooltip
 import ru.workinprogress.kachok.ui.session.windowOf
 import ru.workinprogress.kachok.ui.settings.SettingChange
 import ru.workinprogress.kachok.ui.settings.SettingKey
@@ -230,6 +232,9 @@ private fun run(args: Array<String>) {
         // that reads it. A callback rather than a second read of the file: two readers of one
         // setting is two answers whenever somebody changes it.
         var closeToTray by remember { mutableStateOf(true) }
+        // The tray's tooltip, mirrored up from the window's own status bar so the two cannot
+        // disagree about a rate.
+        var status by remember { mutableStateOf<SessionStatus?>(null) }
         var explainTray by remember { mutableStateOf(false) }
         // Hidden rather than minimised when the system started it *and* there is a tray to come
         // back from — which is the case B-83 could not have and had to settle for minimised.
@@ -240,7 +245,7 @@ private fun run(args: Array<String>) {
             Tray(
                 icon = appIcon,
                 state = trayState,
-                tooltip = "kachok",
+                tooltip = trayTooltip(status),
                 // Double-clicking the icon is what a person tries first, before finding a menu.
                 onAction = { windowVisible = true },
             ) {
@@ -338,6 +343,9 @@ private fun run(args: Array<String>) {
                         shortcut = shortcut,
                         directoryOverrides = given.size > 1,
                         onPreferences = { closeToTray = it.closeToTray && hasTray },
+                        // Only while there is a tray to put it on: computing a tooltip nothing
+                        // draws is work done once a second for nobody.
+                        onStatus = if (hasTray) ({ status = it }) else ({}),
                         trayProblem =
                             if (hasTray) {
                                 null
@@ -444,6 +452,14 @@ internal fun Client(
      * file up there would be a second answer whenever somebody changes it.
      */
     onPreferences: (Preferences) -> Unit = {},
+    /**
+     * The status bar's figures, for whatever is drawn outside this composition.
+     *
+     * The tray's tooltip is the only reader today, and it takes the *same* strings the bar draws
+     * rather than computing rates of its own — two implementations of one number is how they come
+     * to disagree.
+     */
+    onStatus: (SessionStatus) -> Unit = {},
     /** Why this desktop has no tray, or null when it has one. Drawn on the row it disables. */
     trayProblem: String? = null,
     /** The tray has explained itself once; the settings file remembers so the next run does not. */
@@ -887,6 +903,10 @@ internal fun Client(
             offeredMagnet = magnet
         }
     }
+
+    // The status bar's own figures, sent to whatever is drawn outside this composition — the tray's
+    // tooltip. Keyed on the figures rather than on the tick, so a second of no change is no work.
+    LaunchedEffect(window.status.down, window.status.up, window.status.torrents) { onStatus(window.status) }
 
     MainWindow(
         window,

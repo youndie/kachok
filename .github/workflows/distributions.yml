@@ -35,7 +35,12 @@ jobs:
             format: deb
     runs-on: ${{ matrix.os }}
     steps:
+      # **The whole history**, because the package version's third component is the commit count
+      # and `actions/checkout` fetches one commit by default — which would make every build on
+      # every branch version `…1`, and an `.msi` that cannot be installed over the last one.
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
 
       - uses: youndie/sborka/.github/actions/setup-kotlin@main
 
@@ -77,7 +82,12 @@ jobs:
     # with a colon-separated class path, so it does not run on Windows at all.
     runs-on: ubuntu-latest
     steps:
+      # **The whole history**, because the package version's third component is the commit count
+      # and `actions/checkout` fetches one commit by default — which would make every build on
+      # every branch version `…1`, and an `.msi` that cannot be installed over the last one.
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
 
       - uses: youndie/sborka/.github/actions/setup-kotlin@main
 

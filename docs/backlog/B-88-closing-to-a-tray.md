@@ -74,7 +74,15 @@ their sort order.
 The settings golden is re-recorded: `STARTUP` has two rows, and the autostart note now says *starts
 in the tray* where there is one.
 
-Not covered, as filed: a notification when a torrent finishes.
+**The tooltip carries the rates**, added the same day it was asked for: the point of closing to the
+tray is that the client keeps working with no window, and a tooltip saying only its name asks a
+person to open one to find out whether anything is happening — the single question the tray exists
+to answer without opening it. Three short lines, from the status bar's own strings so the two cannot
+disagree, capped at the 127 characters Windows truncates at silently.
+
+Not covered, as filed: a notification when a torrent finishes. Found afterwards and filed as
+[B-91](B-91-the-tray-menu-is-not-hdpi.md): the right-click menu is AWT's and is not scaled on a
+HiDPI display.
 
 **Automated:** `ui/src/desktopTest/.../settings/SettingsScreenTest.kt` — the row asks for the
 change, and with no tray it says so and reads `off` rather than claiming to be on ·

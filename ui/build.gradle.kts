@@ -11,6 +11,27 @@ import org.jetbrains.compose.desktop.application.dsl.TargetFormat
  */
 val maxHeap = "64m"
 
+/**
+ * Commits on this branch, which is the only number here that is guaranteed to go up.
+ *
+ * Through `providers.exec` rather than a plain call, so Gradle treats it as the build input it is
+ * and the configuration cache does not hand every later build the first one's answer. Zero when
+ * there is no git — a source tarball builds, and every one of its packages says `.0`, which is no
+ * worse than the single fixed number this replaced.
+ */
+val builds: String =
+    providers.gradleProperty("kachok.builds").orNull
+        ?: providers
+            .exec {
+                commandLine("git", "rev-list", "--count", "HEAD")
+                isIgnoreExitValue = true
+            }.standardOutput
+            .asText
+            .map { it.trim() }
+            .orElse("0")
+            .get()
+            .ifBlank { "0" }
+
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
     alias(libs.plugins.composeMultiplatform)
@@ -76,10 +97,23 @@ compose.desktop {
             description = "A BitTorrent client"
             vendor = "workinprogress"
 
-            // **One version, from `gradle.properties`.** It was written out here as a literal and
-            // was already a second place the number lives; `jpackage` will not take `-SNAPSHOT`,
-            // which is the whole reason somebody typed it twice.
-            packageVersion = project.version.toString().substringBefore("-")
+            // **One version, from `gradle.properties`, plus a number that always goes up.**
+            //
+            // It was a literal here once, which was a second place the number lived; `jpackage`
+            // will not take `-SNAPSHOT`, which is why somebody typed it twice.
+            //
+            // The third component is the commit count, and that is not decoration. **An `.msi`
+            // whose `ProductVersion` has not changed does not upgrade the installed one** — read
+            // out of the package itself: jpackage writes an `Upgrade` table that looks for an
+            // installed version *strictly below* this one, and derives `ProductCode` from the name
+            // and version, so two builds at `0.1.0` are the same product at the same version and
+            // Windows does a repair instead of replacing the files. That is what "it did not
+            // update" was. `.deb` and macOS bundles compare versions the same way.
+            //
+            // Monotonic on a linear history and on merges; a rebase that drops commits lowers it,
+            // and the next build after one has to be allowed to go backwards or it will not
+            // install. Worth knowing rather than worth defending against.
+            packageVersion = "${project.version.toString().substringBefore("-").substringBeforeLast(".")}.$builds"
 
             // **One format per platform, because `packageDistributionForCurrentOS` with none
             // configured is a task that succeeds and produces nothing.** That is what it did: the
@@ -155,7 +189,7 @@ compose.desktop {
                 // real: the number in a macOS *Get Info* panel is not this project's version. What
                 // the project is at is on the settings screen, which is somewhere a person can read
                 // it and Apple has no opinion about.
-                packageVersion = "1.0.0"
+                packageVersion = "1.0.$builds"
             }
             windows {
                 iconFile.set(icons.file("icon.ico"))
@@ -288,6 +322,29 @@ val checkDistributable by tasks.registering(Exec::class) {
 }
 
 tasks.named("check") { dependsOn(checkDistributable) }
+
+// **A package whose version cannot go up is a package that cannot be installed over the last one.**
+//
+// That is not a style rule: an `.msi` at an unchanged `ProductVersion` is the same product at the
+// same version, and Windows repairs it instead of replacing the files — which is what "it did not
+// update" was. So `builds` falling back to zero, which happens when there is no git, must not
+// quietly produce a package that behaves that way. It is a *packaging* failure and not a build one:
+// compiling in a source tarball with no history is fine, and `-Pkachok.builds=<n>` is how somebody
+// who means to package from one says which build it is.
+val versionCanGoUp by tasks.registering {
+    // Captured into a local, so the action closes over a string rather than over the script — a
+    // task that reaches back into the build file cannot be serialised into the configuration cache.
+    val number = builds
+    doFirst {
+        check(number != "0") {
+            "kachok cannot package version …$number: this tree has no git history to count commits " +
+                "in, and a package whose version never changes cannot be installed over the one " +
+                "before it. Pass -Pkachok.builds=<number> to say which build this is."
+        }
+    }
+}
+
+tasks.matching { it.name.startsWith("package") }.configureEach { dependsOn(versionCanGoUp) }
 
 // **The window's tests run in the heap the window ships with.**
 //
