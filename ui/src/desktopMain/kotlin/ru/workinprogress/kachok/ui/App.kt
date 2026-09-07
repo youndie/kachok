@@ -95,6 +95,7 @@ import ru.workinprogress.kachok.ui.session.rememberSequential
 import ru.workinprogress.kachok.ui.session.rememberTorrent
 import ru.workinprogress.kachok.ui.session.rowOf
 import ru.workinprogress.kachok.ui.session.savePreferences
+import ru.workinprogress.kachok.ui.session.scaleTrayMenu
 import ru.workinprogress.kachok.ui.session.settingsOf
 import ru.workinprogress.kachok.ui.session.torrentsDirectory
 import ru.workinprogress.kachok.ui.session.trayTooltip
@@ -256,6 +257,10 @@ private fun run(args: Array<String>) {
                 })
             }
         }
+
+        // AWT draws the tray's menu itself, at a font size nothing in this application chose. Once,
+        // after the tray exists — see `scaleTrayMenu` and B-91.
+        LaunchedEffect(hasTray) { if (hasTray) scaleTrayMenu() }
 
         // One notice, the first time a window goes into the tray. The alternative failure is
         // somebody pressing close, seeing nothing, and pressing it again.
