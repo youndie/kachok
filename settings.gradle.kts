@@ -15,7 +15,7 @@ plugins {
     // Lets Gradle fetch the JDK the toolchain asks for instead of demanding it be installed first.
     id("org.gradle.toolchains.foojay-resolver-convention") version "1.0.0"
     // Repositories with content filters, the shared `wip` catalog, the `.editorconfig` check.
-    id("ru.workinprogress.sborka.settings") version "0.2.0.29"
+    id("ru.workinprogress.sborka.settings") version "0.2.0.30"
 }
 
 enableFeaturePreview("TYPESAFE_PROJECT_ACCESSORS")

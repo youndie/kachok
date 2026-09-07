@@ -4,7 +4,7 @@
 kotlin = "2.4.10"
 # The shared build conventions. One number: every sborka plugin below takes its version from here,
 # and settings.gradle.kts repeats it by hand because a settings plugin cannot read a catalog.
-sborka = "0.2.0.29"
+sborka = "0.2.0.30"
 # Phase 2. Pinned here rather than taken from the shared `wip` catalog, which carries none of these.
 compose-multiplatform = "1.12.0"
 # KSP is versioned independently of the Kotlin compiler since KSP2; viddik's processor runs on it.
