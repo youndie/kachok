@@ -1,10 +1,10 @@
 [versions]
 # The compiler. Everything that has to agree with it (coroutines, serialization) comes from the
-# shared `wip` catalog that `ru.workinprogress.sborka.settings` puts beside this one.
+# shared `wip` catalog that `io.github.youndie.sborka.settings` puts beside this one.
 kotlin = "2.4.10"
 # The shared build conventions. One number: every sborka plugin below takes its version from here,
 # and settings.gradle.kts repeats it by hand because a settings plugin cannot read a catalog.
-sborka = "0.2.0.29"
+sborka = "0.3.0.41"
 # Phase 2. Pinned here rather than taken from the shared `wip` catalog, which carries none of these.
 compose-multiplatform = "1.12.0"
 # KSP is versioned independently of the Kotlin compiler since KSP2; viddik's processor runs on it.
@@ -25,10 +25,10 @@ appframe = { module = "io.github.youndie:appframe-desktop", version.ref = "appfr
 kotlinSerialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 kotlinMultiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
 kotlinJvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
-sborkaBase = { id = "ru.workinprogress.sborka.base", version.ref = "sborka" }
-sborkaTest = { id = "ru.workinprogress.sborka.test", version.ref = "sborka" }
-sborkaKmp = { id = "ru.workinprogress.sborka.kmp", version.ref = "sborka" }
-sborkaLint = { id = "ru.workinprogress.sborka.lint", version.ref = "sborka" }
+sborkaBase = { id = "io.github.youndie.sborka.base", version.ref = "sborka" }
+sborkaTest = { id = "io.github.youndie.sborka.test", version.ref = "sborka" }
+sborkaKmp = { id = "io.github.youndie.sborka.kmp", version.ref = "sborka" }
+sborkaLint = { id = "io.github.youndie.sborka.lint", version.ref = "sborka" }
 composeMultiplatform = { id = "org.jetbrains.compose", version.ref = "compose-multiplatform" }
 composeCompiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
