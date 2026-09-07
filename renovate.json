@@ -1,0 +1,10 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "description": [
+    "The portfolio's shared configuration, extended by name. This repository had no Renovate config at all — the bot has been sitting on an unmerged onboarding pull request (#1) since it was installed, which means nothing has been offered here and nothing was skipped either; it simply never started.",
+    "What starts now: one Monday batch in UTC, the kotlin / kotlinx / sborka / ci actions groups, the refusal of `kotlinx-datetime:*-0.6.x-compat` (0.8.0 built against the OLD 0.6.x API, which Renovate reads as an upgrade), vulnerability alerts off-schedule, and majors labelled and left to a human.",
+    "The sborka group is the one that matters most on day one: the conventions are pinned in settings.gradle.kts and again in the catalog, and without a rule saying they are one release they arrive as two pull requests for one number.",
+    "Automerge is a separate preset (`github>youndie/sborka:automerge-harness`) and is deliberately not extended: starting a schedule and starting automerge in one change would make it hard to tell which of them did what. Its precondition holds — check.yaml and ci.yml both run on `pull_request`."
+  ],
+  "extends": ["github>youndie/sborka"]
+}
