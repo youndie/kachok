@@ -35,6 +35,8 @@ import androidx.compose.ui.window.application
 import androidx.compose.ui.window.isTraySupported
 import androidx.compose.ui.window.rememberTrayState
 import androidx.compose.ui.window.rememberWindowState
+import io.github.youndie.appframe.AppFrame
+import io.github.youndie.appframe.TitleBarStyle
 import io.github.youndie.kachok.engine.hex
 import io.github.youndie.kachok.engine.io.EngineDispatchers
 import io.github.youndie.kachok.engine.metainfo.MagnetLink
@@ -102,8 +104,6 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
-import ru.workinprogress.appframe.AppFrame
-import ru.workinprogress.appframe.TitleBarStyle
 import java.awt.Desktop
 import java.awt.FileDialog
 import java.awt.Frame
