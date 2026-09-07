@@ -258,6 +258,28 @@ class SessionTest {
         }
     }
 
+    /**
+     * A disk whose flush can be made to fail and then to work again.
+     *
+     * The periodic jobs are the ones whose failure is transient by construction — the loop that
+     * runs them survives and runs them again — and `flush` is the one a test can turn on and off
+     * from outside without inventing a network.
+     */
+    private class FailingFlushStorage : Storage {
+        var failFlush = false
+
+        override suspend fun write(
+            piece: PieceIndex,
+            blocks: List<Block>,
+        ) = Unit
+
+        override suspend fun readPiece(piece: PieceIndex): List<Block>? = null
+
+        override suspend fun flush() {
+            if (failFlush) throw IllegalStateException("the disk went away")
+        }
+    }
+
     /** Returns the torrent's own hash for the piece, so every piece verifies. */
     private class AgreeableHasher(
         private val metainfo: Metainfo,
@@ -1997,6 +2019,98 @@ class SessionTest {
             session.send(Command.Reconfigure(maxPeers = 3))
             testScheduler.runCurrent()
             assertTrue(session.state.value.sequential, "editing a setting reset this torrent's order")
+
+            job.cancelAndJoin()
+        }
+
+    /**
+     * A periodic job that fails and then works again does not leave the torrent marked for ever.
+     *
+     * Reported from a running client: after `dht lookup: ConcurrentModificationException` there was
+     * nothing to be done with the torrent but remove it. The loop had recovered within the second —
+     * `tick` catches, records and carries on — and the *mark* was what never came off, so the row
+     * said `Error` and the banner stayed up on a session that was working
+     * ([B-94](../../../../../../../../docs/backlog/B-94-a-degraded-session-cannot-recover.md)).
+     */
+    @Test
+    fun aPassThatFailsAndThenWorksClearsItsOwnMark() =
+        runTest {
+            val metainfo = torrent(pieces = 4)
+            val storage = FailingFlushStorage()
+            val session =
+                session(
+                    metainfo,
+                    FakeDialer(metainfo.infoHash),
+                    FakeTracker(listOf(peerA)),
+                    storage,
+                    AgreeableHasher(metainfo),
+                )
+            val job = session.start(kotlinx.coroutines.CoroutineScope(coroutineContext + handler))
+
+            storage.failFlush = true
+            testScheduler.advanceTimeBy(SessionConfig().flushInterval * 2)
+            testScheduler.runCurrent()
+            assertContains(
+                session.state.value.sessionError
+                    .orEmpty(),
+                "flush",
+            )
+
+            storage.failFlush = false
+            testScheduler.advanceTimeBy(SessionConfig().flushInterval * 2)
+            testScheduler.runCurrent()
+            assertEquals(null, session.state.value.sessionError, "the mark outlived the failure")
+
+            job.cancelAndJoin()
+        }
+
+    /**
+     * And one job's recovery does not rub out another job's failure.
+     *
+     * Clearing whatever happens to be there would be worse than never clearing: a `dht lookup` that
+     * starts answering would hide a `flush` that is still losing data.
+     */
+    @Test
+    fun onePassClearsOnlyItsOwnMark() =
+        runTest {
+            val metainfo = torrent(pieces = 4)
+            val storage = FailingFlushStorage()
+            val session =
+                session(
+                    metainfo,
+                    FakeDialer(metainfo.infoHash),
+                    FakeTracker(listOf(peerA)),
+                    storage,
+                    AgreeableHasher(metainfo),
+                )
+            val job = session.start(kotlinx.coroutines.CoroutineScope(coroutineContext + handler))
+
+            storage.failFlush = true
+            testScheduler.advanceTimeBy(SessionConfig().flushInterval * 2)
+            testScheduler.runCurrent()
+            assertContains(
+                session.state.value.sessionError
+                    .orEmpty(),
+                "flush",
+            )
+
+            // Every other periodic job is succeeding all the while — keep-alives, rates, expiry —
+            // and not one of them may take this mark off.
+            testScheduler.advanceTimeBy(SessionConfig().flushInterval * 4)
+            testScheduler.runCurrent()
+            assertTrue(
+                "flush" in
+                    session.state.value.sessionError
+                        .orEmpty(),
+                "another job's success cleared a failure that is still happening",
+            )
+
+            // Left healthy on the way out, because `nothingEscaped` refuses a suite in which any
+            // session ended degraded — and it is right to: an error nobody cleared is the defect
+            // this test is about. The assertion above has already been made.
+            storage.failFlush = false
+            testScheduler.advanceTimeBy(SessionConfig().flushInterval * 2)
+            testScheduler.runCurrent()
 
             job.cancelAndJoin()
         }

@@ -1402,6 +1402,20 @@ public class Session(
     ) {
         try {
             job()
+            // **And the mark comes off when the thing that made it works again.**
+            //
+            // These are *periodic* jobs: the loop that runs them survives the failure and runs them
+            // again a second later. Before this, one bad pass left `sessionError` set for the life
+            // of the session — the row said `Error` and the banner stayed up on a torrent that had
+            // recovered inside a second, and the only way to be rid of either was to remove the
+            // torrent and add it again. Reported that way, after a `dht lookup`
+            // `ConcurrentModificationException` (B-94).
+            //
+            // Only its own: a `dht lookup` that starts working again must not rub out a `flush`
+            // that is still failing, so the prefix has to match.
+            if (mutableState.value.sessionError?.startsWith("$what: ") == true) {
+                publish { it.copy(sessionError = null) }
+            }
         } catch (cancelled: kotlinx.coroutines.CancellationException) {
             throw cancelled
         } catch (failure: Exception) {
@@ -1517,6 +1531,12 @@ public class Session(
      * context's exception handler, which by default means "reported in a platform-dependent
      * manner", which means a log line nobody attributes and, in a test suite, an intermittent
      * failure in whichever test runs next. A session that is degraded should say so.
+     *
+     * **And its failure is permanent by construction.** Unlike [tick] this wraps something that
+     * runs *once* — a loop, not a pass — so an exception out of it means that loop has stopped for
+     * good and the mark stays until somebody restarts the session. That asymmetry is the point: a
+     * periodic job that recovers clears its own error, and a dead writer or a dead command loop
+     * does not get to look healthy again.
      */
     private fun CoroutineScope.launchGuarded(
         what: String,
