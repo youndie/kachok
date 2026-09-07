@@ -1,7 +1,7 @@
 plugins {
     alias(libs.plugins.kotlinJvm)
-    id("ru.workinprogress.sborka.base")
-    id("ru.workinprogress.sborka.lint")
+    id("io.github.youndie.sborka.base")
+    id("io.github.youndie.sborka.lint")
 }
 
 // A local swarm, for tests.

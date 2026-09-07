@@ -2,9 +2,9 @@ plugins {
     alias(libs.plugins.kotlinJvm)
     alias(libs.plugins.kotlinSerialization)
     application
-    id("ru.workinprogress.sborka.base")
-    id("ru.workinprogress.sborka.test")
-    id("ru.workinprogress.sborka.lint")
+    id("io.github.youndie.sborka.base")
+    id("io.github.youndie.sborka.test")
+    id("io.github.youndie.sborka.lint")
 }
 
 dependencies {
