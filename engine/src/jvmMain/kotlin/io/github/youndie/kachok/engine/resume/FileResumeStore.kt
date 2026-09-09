@@ -67,6 +67,10 @@ public class FileResumeStore(
                 }
             } catch (failed: IOException) {
                 onFailure("cannot save $path: ${failed.message}")
+                @Suppress(
+                    "ktlint:kapkan:cancellation-swallowed",
+                    "deleting a temporary file is synchronous: no suspension point, no cancellation",
+                )
                 runCatching { Files.deleteIfExists(temporary) }.getOrNull()
             }
         }
