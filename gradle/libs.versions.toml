@@ -1,7 +1,7 @@
 [versions]
 # The compiler. Everything that has to agree with it (coroutines, serialization) comes from the
 # shared `wip` catalog that `io.github.youndie.sborka.settings` puts beside this one.
-kotlin = "2.4.10"
+kotlin = "2.4.20"
 # The shared build conventions. One number: every sborka plugin below takes its version from here,
 # and settings.gradle.kts repeats it by hand because a settings plugin cannot read a catalog.
 sborka = "0.4.0.43"
