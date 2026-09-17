@@ -225,3 +225,50 @@ The evidence still not obtained is libtorrent's own bytes **as a dialler**. Four
 reasons with nothing to do with MSE — a process started from an SSH session dies with it, `x.pe` is
 ignored for a torrent already held, and the scheduled-task route is unreliable. Until that capture
 exists, this item's own probe is the only honest verdict: it fails, and the item stays open on it.
+
+## Iteration 5 — 2026-09-17: a clean differential, and the hypotheses that died
+
+The peer's state was ruled out first, because every earlier conclusion had been contaminated by it.
+A plaintext connection to the same port is **fully** accepted — sixty-eight bytes of handshake and
+then 3 119 more, a bitfield — so the client is not at a connection limit and not merely reflexively
+answering. And an independent Python dialler now succeeds **seven times out of seven** from the mac,
+at every padding length including 0 and the maximum 512. So neither padding length nor peer state
+explains anything.
+
+In the same minutes, from the same machine, the Kotlin probe fails every time. That is the clean
+differential this item has needed: **the implementations differ, and the difference is in the
+Kotlin.**
+
+**Except that their messages are identical.** Both were run against the Python accepter, which
+reports the same fields for each:
+
+| | Python dialler | Kotlin dialler |
+|---|---|---|
+| req1 found | yes, at offset 120 | yes, at offset 344 |
+| req2^req3 | matches | matches |
+| VC decrypts to zeros | yes | yes |
+| crypto_provide | `0x00000003` | `0x00000003` |
+| len(PadC) | 40 | 206 |
+| len(IA) | 68, opens `13 BitTorrent protocol` | 68, opens `13 BitTorrent protocol` |
+
+Only the padding lengths differ, and those have been shown not to matter.
+
+Hypotheses tested and dead:
+
+- **The peer is full or the torrent is inactive** — no: plaintext gets a bitfield.
+- **The padding length** — no: the Python succeeds at 0 and at 512.
+- **The source machine** — no: the Kotlin fails from the mac and from the build box, and the Python
+  failed from the build box on an earlier attempt and succeeds from the mac now.
+- **Message 3 split across three writes** — no: made one write, no change. Kept anyway.
+- **Message 1 split across two writes** — no: made one write, no change. Kept anyway.
+- **The reading of the specification** — no: retracted in iteration 4 and now doubly so, since an
+  implementation built from the same reading is accepted.
+
+**The next step is the one that cannot fail to answer, and it has not been taken.** Both diallers
+write their exact bytes to a file and the two are diffed. Everything so far has compared them
+through a parser that agrees with both; comparing the wire itself does not. It is a small change to
+the probe and it should have come before the last three hypotheses.
+
+The interop probe still fails, so the item stays open. What can be said now that could not before is
+that the failure is narrow: two implementations of the same protocol, sending fields a third
+implementation reads identically, and only one of them accepted.

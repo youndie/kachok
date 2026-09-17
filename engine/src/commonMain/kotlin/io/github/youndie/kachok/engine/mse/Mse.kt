@@ -49,8 +49,10 @@ internal object Mse {
         allowPlaintext: Boolean = true,
     ): MseResult {
         val keys = generateDhKeyPair()
-        stream.write(keys.publicKey)
-        stream.write(padding(random))
+        // One write, for the same reason as message 3 below: the key and its padding are one
+        // message, and handing a peer's parser two arrivals where the protocol has one is a
+        // difference no pipe can show.
+        stream.write(keys.publicKey + padding(random))
 
         val theirs = stream.readFully(MseHandshake.KEY_SIZE)
         val secret = keys.agree(theirs)
@@ -116,8 +118,7 @@ internal object Mse {
     ): Pair<InfoHash, MseResult> {
         val keys = generateDhKeyPair()
         val theirs = stream.readFully(MseHandshake.KEY_SIZE)
-        stream.write(keys.publicKey)
-        stream.write(padding(random))
+        stream.write(keys.publicKey + padding(random))
 
         val secret = keys.agree(theirs)
         skipUntil(stream, MseHandshake.req1(secret))
