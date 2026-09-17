@@ -211,8 +211,11 @@ toolbar ── Add torrent ──▶ file chooser ──▶ MetainfoParser ─�
 ## 6. Out of scope
 
 * The wasm build, which is [B-40](../backlog/B-40-wasmjs-ui-is-a-client-of-the-headless-engine.md).
-* Drag-and-drop and clipboard *events*: the overlay and the prompt are drawn from state and the
-  window has no listener for either yet ([B-50](../backlog/B-50-add-torrent.md)).
+* The clipboard *event*: the prompt is drawn from state, and the window reads the clipboard on
+  focus rather than listening for it ([B-50](../backlog/B-50-add-torrent.md)). This used to say the
+  same of drag-and-drop; the window has had a drop target since B-50 landed, and what stayed
+  untested was the decision behind it, which is now `DroppedFiles` and its test
+  ([B-107](../backlog/B-107-dropping-a-torrent-does-nothing-on-macos.md)).
 * Applying a settings change to a running session, `planned` in the design.
 * This used to list per-file selection, sequential download, the peers list and the trackers list
   as four engine changes the screens were waiting for. All four have since arrived

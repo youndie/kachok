@@ -280,6 +280,12 @@ them. Nothing is read from the environment by this module; that is [cli](cli.md)
   different one first, and "keep the first" leaves both with nothing and a redial after the wait.
   The connection **dialled by the lower peer id** stays, whichever side is asking; two of the same
   kind keep the one already held.
+* **What came of a peer's interest is counted, not guessed.** `interestOutcomes` in the state
+  says, for every interested peer that left on its own, whether it was served, unchoked and never
+  asked, or left choked inside or after one choke pass. Two 200-second public runs filled it with
+  one departure, an unchoked one — which is how [B-112](../backlog/B-112-a-peer-interested-for-seconds-is-never-unchoked.md)
+  was dropped rather than argued; the counter stays on the `download` summary line for the next
+  time somebody suspects the choker.
 * **A known address has three states and not two.** `connected` and `failed` do not cover an
   address inside a ten-second `connect`, and most of a public swarm's addresses are in exactly that
   state for exactly that long — 22 of 50 in B-19's measurement. Without the third set, `dialling`,

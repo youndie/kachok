@@ -1,7 +1,7 @@
 ---
 id: B-107
 title: "Dropping a .torrent on the window does nothing on macOS"
-status: open
+status: wip
 priority: P2
 size: M
 stage: phase-2-ui
@@ -64,3 +64,42 @@ reason, and the reason nobody went looking.
 - Anchors: `ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/App.kt`,
   `ui/src/desktopTest/kotlin/io/github/youndie/kachok/ui/main/WiringTest.kt`,
   `docs/features/feature-ui.md`.
+
+## Iteration 1 — 2026-09-18: the mechanism read off the JDK, the decision given a test, the drag still owed
+
+**Not reproduced — read.** The item asked for a drag from Finder before touching a line, and the
+drag needs a person at the Mac: this iteration ran unattended, with no grant to drive Finder. What
+could be read instead was the JDK. `SunDropTargetContextPeer.getTransferData` — the peer every
+AWT platform's drop target goes through, macOS included — begins with
+
+```
+if (dropStatus != STATUS_ACCEPT || dropComplete) {
+    throw new InvalidDnDOperationException("No drop current");
+}
+```
+
+and `dropStatus` becomes `STATUS_ACCEPT` only when the *drop* is accepted. So for anything dragged
+in from another application the file list is not readable while it hovers, on any platform, and
+the second candidate mechanism is not a macOS quirk but the contract. `droppedPaths` read the list
+in `onEntered` and caught `UnsupportedFlavorException` and `IOException` —
+`InvalidDnDOperationException` is neither, so the hover threw out of the target. Compose's
+`AwtDragAndDropManager` calls `acceptDrag` only from `dragOver`, after `onMoved`, and each
+`dragOver` that re-enters the node calls `onEntered` first: a throw there and the drag is never
+accepted, the OS shows the refusal cursor, the drop is never delivered. That is "no overlay and no
+dialog", exactly as reported — and it is not specific to macOS, which is a prediction the Windows
+half of the acceptance can test.
+
+**What changed.** The decision is `DroppedFiles`, a `Transferable` in and a list out: `offered`
+(the flavour, readable before the drop), `paths` (the files, empty for the three ways a
+transferable refuses, `InvalidDnDOperationException` now among them), `hovering` (the names for the
+overlay, or one unnamed file when the platform will not say them yet — the overlay then reads
+"Drop to add a torrent" rather than staying invisible), `firstTorrent`. `App.kt` keeps the one
+line that unwraps the AWT event. `DroppedFilesTest` builds a transferable for each case the item
+listed, including "flavour advertised, data unavailable"; `feature-ui.md` §6 no longer says the
+window has no listener. The `gestures` golden is unchanged: two named files draw as before.
+
+**Owed, and why the item is `wip` and not `done`.** The first clause of the acceptance — the
+owner drags a `.torrent` from Finder over the window, sees the overlay, lets go, sees the dialog —
+has not been exercised, and a fix for a mechanism read off source is a hypothesis until it is. The
+same drag on Windows afterwards. Both take a person at the machine; the next iteration is that
+drag, and nothing else.
