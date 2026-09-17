@@ -1124,7 +1124,36 @@ cannot reach and that could have reached us
 ([B-103](../backlog/B-103-upnp-and-nat-pmp-port-mapping.md)). And of those 303 handshakes, 22 were
 still held at the end: connections are made and not kept, which nothing in the client counts.
 
-Twice each was the design, because one run of a variant is not a measurement. *Time to half peak* is the column
+Twice each was the design, because one run of a variant is not a measurement.
+
+**What the four runs were actually measuring, found afterwards.** The 61 % against 6 % above is not
+a regression and not swarm noise: it is
+[B-105](../backlog/B-105-connections-are-made-and-not-kept.md). `maxStartedPieces` was a constant
+8, a piece holds its picker slot from its first requested block until the writer has hashed it, and
+a diagnostic run reported `window 8 pieces @ 959ms` — 8 x 256 KiB / 0.959 s = 2.13 MB/s against a
+measured 2.03 MB/s. **The client's throughput was its window, and the window did not know how many
+peers there were.** So more peers meant a smaller share each, fewer requests outstanding, and less
+downloaded — and the peers noticed: 40 of that run's 44 disconnections were `peer closed, never
+asked`.
+
+That also retires the reading that run 2's peer count came at the cost of its speed. The window is
+now `maxPeers x pipelineDepth` blocks and the same eight minutes on the same torrent finished it:
+
+| | before | after |
+|---|---|---|
+| window | 8 pieces @ 959 ms | 50 pieces @ 657 ms |
+| requests outstanding | 32–57 | 258–279 |
+| peers held, median | 17 | 30 |
+| unchoked of connected | 9 of 13 | 27 of 28 |
+| downloaded in eight minutes | 15 % | 100 % |
+
+Roughly 2 MB/s to roughly 14, with the peer count rising rather than falling — which is the point:
+the two were never a trade, they were one defect. The buffer pool, sized from the same figure,
+peaked at 772 of 850.
+
+D3 said the pool and the started-piece count "are chosen together" and it is still true; what it did
+not say, and now does, is that **both of them are chosen against the peer count**, and that a
+constant there is a speed limit nobody can see. *Time to half peak* is the column
 that separates [B-95](../backlog/B-95-the-dial-loop-only-runs-when-something-else-happens.md) from
 everything else: a client that reaches its ceiling in a minute and one that takes twenty look
 identical in every other column.

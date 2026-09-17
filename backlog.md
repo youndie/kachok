@@ -48,11 +48,10 @@ which is also the order of work.
 
 <!-- BEGIN INDEX -->
 
-## Open (17)
+## Open (16)
 
 | Task | | Priority | Size | Blocked by |
 |---|---|---|---|---|
-| [B-105](docs/backlog/B-105-connections-are-made-and-not-kept.md) `[ ]` | Three hundred handshakes, twenty-two peers held — and the client asks nineteen of them for nothing | P0 | M | - |
 | [B-97](docs/backlog/B-97-the-announce-never-says-how-many-peers-it-wants.md) `[ ]` | The announce never says how many peers it wants, and only one tracker is ever asked | P1 | S/M | - |
 | [B-98](docs/backlog/B-98-how-many-peers-does-this-client-meet.md) `[~]` | How many peers does this client meet? Measure it against a reference client, then set the cap | P1 | M | - |
 | [B-100](docs/backlog/B-100-protocol-encryption.md) `[ ]` | Protocol encryption (MSE/PE): the peers that will not talk in the clear | P2 | L | B-98 |
@@ -70,7 +69,7 @@ which is also the order of work.
 | [B-87](docs/backlog/B-87-a-server-with-a-web-face.md) `[ ]` | Phase 3: a headless server with a web face, installable on a box that is always on | P3 | XL | B-80 |
 | [B-02](docs/backlog/B-02-ci-runs-build-and-docs-gates.md) `[ ]` | CI runs the build and the documentation gates on every push | infra | S | B-01 |
 
-## Closed (88)
+## Closed (89)
 
 **M0 — The build and its gates**
 
@@ -141,6 +140,7 @@ which is also the order of work.
 
 **M9 — Meeting the swarm**
 
+- [B-105](docs/backlog/B-105-connections-are-made-and-not-kept.md) `[x]` - Three hundred handshakes, twenty-two peers held — and the client asks nineteen of them for nothing
 - [B-95](docs/backlog/B-95-the-dial-loop-only-runs-when-something-else-happens.md) `[x]` - The client stops dialling: there is no periodic top-up, and a dial in flight is dialled again
 - [B-96](docs/backlog/B-96-the-handshake-read-has-no-deadline.md) `[x]` - A peer that accepts the connection and then says nothing is never given up on
 

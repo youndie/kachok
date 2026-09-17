@@ -226,7 +226,7 @@ public class TorrentRuntime internal constructor(
         ): TorrentRuntime {
             Files.createDirectories(options.directory)
             val files = FileSet.open(options.directory, metainfo)
-            val pool = BufferPool(capacity = poolCapacity(metainfo, options.maxPeers))
+            val pool = BufferPool(capacity = poolCapacity(metainfo, options.maxPeers, options.pipelineDepth))
             val hasher = MessageDigestPieceHasher(dispatchers.io)
             val port = listenPort
             // One identity, announced to the tracker and offered in every handshake. Generating it
@@ -269,7 +269,7 @@ public class TorrentRuntime internal constructor(
                     dht = dht,
                     config =
                         SessionConfig(
-                            maxStartedPieces = STARTED_PIECES,
+                            maxStartedPieces = startedPieces(metainfo, options.maxPeers, options.pipelineDepth),
                             pipelineDepth = options.pipelineDepth,
                             maxPeers = options.maxPeers,
                             reserved = reserved,
@@ -307,7 +307,30 @@ public class TorrentRuntime internal constructor(
                 PeerAddress("router.utorrent.com", 6881),
             )
 
-        private const val STARTED_PIECES = 8
+        /**
+         * The floor on the download window, in pieces, and the ceiling on it.
+         *
+         * **This used to be a constant 8 and that constant was the whole client's speed limit.**
+         * A piece holds a picker slot from its first requested block until the writer has hashed
+         * it, so no more than this many pieces are ever in flight however many peers are
+         * connected — measured on a real swarm in B-105: `window 8 pieces @ 959ms` against 13
+         * peers, which is 8 x 256 KiB / 0.959 s = 2.13 MB/s, and the run downloaded at 2.03 MB/s.
+         * The measured throughput *was* the window.
+         *
+         * Worse than slow, it starved the peers. With the window full the picker has nothing to
+         * hand out, most connected peers are asked for nothing, and a peer that is asked for
+         * nothing leaves: 40 of 44 disconnections in that run were `peer closed, never asked`.
+         * So meeting more peers made the client slower, because each one's share of an unchanged
+         * window was smaller — which is how [B-95](../../../../../../../../../docs/backlog/B-95-the-dial-loop-only-runs-when-something-else-happens.md)
+         * arrived looking like a regression.
+         *
+         * The window is now derived from what the peers can actually ask for, below. The floor is
+         * the old constant, for a torrent whose pieces are enormous; the ceiling is there because
+         * every started piece is a partially written one, and a client that opens a thousand of
+         * them turns a sequential write into a scattered one.
+         */
+        private const val MIN_STARTED_PIECES = 8
+        private const val MAX_STARTED_PIECES = 256
         private const val MIN_POOL = 64
 
         /**
@@ -323,9 +346,36 @@ public class TorrentRuntime internal constructor(
         private fun poolCapacity(
             metainfo: Metainfo,
             maxPeers: Int,
+            pipelineDepth: Int,
         ): Int {
-            val blocksPerPiece = (metainfo.pieceLength + PeerWire.BLOCK_SIZE - 1) / PeerWire.BLOCK_SIZE
-            return (STARTED_PIECES * blocksPerPiece + maxPeers).coerceAtLeast(MIN_POOL)
+            val blocksPerPiece = blocksPerPiece(metainfo)
+            return (startedPieces(metainfo, maxPeers, pipelineDepth) * blocksPerPiece + maxPeers)
+                .coerceAtLeast(MIN_POOL)
+        }
+
+        private fun blocksPerPiece(metainfo: Metainfo): Int =
+            ((metainfo.pieceLength + PeerWire.BLOCK_SIZE - 1) / PeerWire.BLOCK_SIZE)
+
+        /**
+         * How many pieces may be open at once: enough that every peer can fill its pipeline.
+         *
+         * **The window is a number of blocks and only incidentally a number of pieces.** What has
+         * to fit in it is `maxPeers` peers each holding `pipelineDepth` requests — that is what a
+         * peer is asked for, and a window smaller than that guarantees some peers are asked for
+         * nothing whatever the picker does. Pieces are the unit the picker bounds, so the block
+         * count is divided by the blocks a piece holds, which is a property of the torrent and not
+         * of the client: the same fifty peers need fifty slots on a 256 KiB piece and four on a
+         * 4 MiB one.
+         */
+        internal fun startedPieces(
+            metainfo: Metainfo,
+            maxPeers: Int,
+            pipelineDepth: Int,
+        ): Int {
+            val blocks = maxPeers.toLong() * pipelineDepth
+            val perPiece = blocksPerPiece(metainfo).coerceAtLeast(1)
+            val pieces = ((blocks + perPiece - 1) / perPiece).toInt()
+            return pieces.coerceIn(MIN_STARTED_PIECES, MAX_STARTED_PIECES)
         }
 
         /**

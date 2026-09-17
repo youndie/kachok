@@ -297,6 +297,24 @@ class Download(
                 )
                 append(')')
             }
+            // B-105: the download window, which bounds throughput however many peers are up.
+            append(", window ")
+                .append(state.startedPieces)
+                .append(" pieces @ ")
+                .append(state.meanPieceMillis)
+                .append("ms")
+            if (state.disconnects > 0) {
+                append(", lost ").append(state.disconnects)
+                if (state.disconnectReasons.isNotEmpty()) {
+                    append(" (")
+                    append(
+                        state.disconnectReasons.entries
+                            .sortedByDescending { it.value }
+                            .joinToString(", ") { "${it.key} ${it.value}" },
+                    )
+                    append(')')
+                }
+            }
             if (state.hashFailures > 0) append(", ").append(state.hashFailures).append(" hash failures")
             state.trackerError?.let { append(", tracker: ").append(it) }
             // A degraded session that says nothing is how a stalled download looked for three runs.

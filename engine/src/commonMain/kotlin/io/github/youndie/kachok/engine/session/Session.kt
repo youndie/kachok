@@ -165,6 +165,10 @@ public class Session(
     private var dialsHandshaked = 0L
     private val dialFailures = LinkedHashMap<String, Int>()
 
+    /** [SessionState.disconnects] and its tally. The mirror of the two above. */
+    private var disconnects = 0L
+    private val disconnectReasons = LinkedHashMap<String, Int>()
+
     /**
      * Peers this client hung up on deliberately — for a pause or a re-check.
      *
@@ -837,6 +841,30 @@ public class Session(
     }
 
     /**
+     * Why one connection ended, as one of a closed set of labels.
+     *
+     * The same rule as [dialFailureLabel] and for the same reason: the message of the exception
+     * that ended a connection names the peer, so counting messages would give one bucket per peer.
+     * What is worth telling apart here is who stopped and why — a peer that closed cleanly, one
+     * that vanished, one this client dropped for protocol reasons, and one that was never asked
+     * for anything and lost interest in us.
+     */
+    private fun disconnectReason(link: PeerLink): String {
+        val failure = link.endedBy
+        val name =
+            failure?.let { it::class.simpleName }
+                ?: return if (link.everRequested) "peer closed" else "peer closed, never asked"
+        val text = failure.message?.lowercase() ?: ""
+        return when {
+            name == "WireException" -> "protocol error"
+            name == "EOFException" -> "peer closed"
+            "reset" in text -> "reset"
+            "abort" in text -> "aborted"
+            else -> "other"
+        }
+    }
+
+    /**
      * A dial failure as one of a closed set of labels.
      *
      * **Matched on the message and not only on the type, and that is a compromise this says out
@@ -922,6 +950,7 @@ public class Session(
             // throw here would reach the exception handler as an uncaught failure — visible in a
             // test as "uncaught exceptions before the test started", and in production as a log
             // line nobody can attribute. The peer is dropped and the reason is published.
+            link.endedBy = failure
             publish { it.copy(lastPeerError = "$address: ${failure.message ?: failure::class.simpleName}") }
         } finally {
             connection.close()
@@ -942,8 +971,22 @@ public class Session(
                 // which is a busy wait against somebody else's machine as well as our own. A peer
                 // this client hung up on for a pause or a re-check is not that, and must not be
                 // made to serve the delay.
-                if (!closedByUs.remove(address)) failed[address] = timeSource.markNow()
-                publish { it.copy(connectedPeers = connected.size) }
+                val ours = closedByUs.remove(address)
+                if (!ours) failed[address] = timeSource.markNow()
+                // Counted here and not at every `close()`: this is the one place that knows the
+                // connection was the registered one and is really over. A peer this client hung up
+                // on for a pause or a re-check is its own bucket rather than a silence, because
+                // "we closed it" and "it went away" are the two answers B-105 has to tell apart.
+                disconnects++
+                val reason = if (ours) "closed by us" else disconnectReason(link)
+                disconnectReasons[reason] = (disconnectReasons[reason] ?: 0) + 1
+                publish {
+                    it.copy(
+                        connectedPeers = connected.size,
+                        disconnects = disconnects,
+                        disconnectReasons = disconnectReasons.toMap(),
+                    )
+                }
                 if (!stopping && !paused && scope.isActive) connectMore(scope)
             }
         }
@@ -1424,6 +1467,7 @@ public class Session(
             downloadBudget.take(request.length.toLong())
             if (!link.send(Message.Request(request.piece, request.begin, request.length))) return
             link.outstanding++
+            link.everRequested = true
         }
     }
 
@@ -1482,6 +1526,13 @@ public class Session(
             if (sincePex >= config.pexInterval) {
                 sincePex = kotlin.time.Duration.ZERO
                 tick("peer exchange") { sendPex() }
+            }
+            // B-105: the download window, once a tick. A figure nobody can see is a figure nobody
+            // notices going wrong, and this one bounds the whole client's throughput.
+            tick("window") {
+                val closed = picker.finishedPieces
+                val mean = if (closed > 0) picker.finishedPieceMillis / closed else 0L
+                publish { it.copy(startedPieces = picker.startedPieces, meanPieceMillis = mean) }
             }
             tick("rates") { refillRateLimits() }
             tick("expiry") { expireRequests() }
@@ -1698,6 +1749,12 @@ public class Session(
     private class PeerLink(
         val connection: PeerConnection,
     ) {
+        /** What ended this connection, or null when the peer simply closed it (B-105). */
+        var endedBy: Exception? = null
+
+        /** Whether this client ever asked this peer for anything. A peer never asked has no reason to stay. */
+        var everRequested: Boolean = false
+
         /** This peer as a row: everything a reader is allowed to know, and nothing they can hold. */
         fun view(
             nowMillis: Long,
@@ -1800,6 +1857,10 @@ private fun SessionState.copy(
     dialsAttempted: Long = this.dialsAttempted,
     dialsHandshaked: Long = this.dialsHandshaked,
     dialFailures: Map<String, Int> = this.dialFailures,
+    disconnects: Long = this.disconnects,
+    disconnectReasons: Map<String, Int> = this.disconnectReasons,
+    startedPieces: Int = this.startedPieces,
+    meanPieceMillis: Long = this.meanPieceMillis,
     trackerError: String? = this.trackerError,
     lastPeerError: String? = this.lastPeerError,
     sessionError: String? = this.sessionError,
@@ -1835,6 +1896,10 @@ private fun SessionState.copy(
         dialsAttempted = dialsAttempted,
         dialsHandshaked = dialsHandshaked,
         dialFailures = dialFailures,
+        disconnects = disconnects,
+        disconnectReasons = disconnectReasons,
+        startedPieces = startedPieces,
+        meanPieceMillis = meanPieceMillis,
         sessionError = sessionError,
         isComplete = isComplete,
         paused = paused,

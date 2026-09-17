@@ -340,6 +340,27 @@ public class PiecePicker(
     }
 
     /**
+     * Pieces open right now, and how long the ones that closed stayed open.
+     *
+     * **The session's download window is these two multiplied together**, and until B-105 nothing
+     * reported either. A piece holds its slot from its first requested block until the writer has
+     * hashed it, so the whole client can have no more than `maxStartedPieces` pieces in flight
+     * however many peers it is talking to — and when a piece's blocks are spread over more peers it
+     * waits for the slowest of more, which makes the slot dearer exactly as the peer count grows.
+     * A number nobody can see is a number nobody notices going wrong.
+     */
+    public val startedPieces: Int get() = started.size
+
+    /** Pieces closed since the last read, and the milliseconds they spent open, summed. */
+    public var finishedPieces: Int = 0
+        private set
+
+    public var finishedPieceMillis: Long = 0
+        private set
+
+    private val startedAt = HashMap<Int, Long>()
+
+    /**
      * The two places a piece enters or leaves [started], and the only two.
      *
      * `isStarted` is a second copy of the map's key set and would be worth nothing if it could
@@ -348,11 +369,20 @@ public class PiecePicker(
     private fun begin(index: Int) {
         started[index] = PieceProgress(blockCount(index))
         isStarted[index] = true
+        startedAt[index] = now
     }
 
     private fun finish(index: Int) {
         started.remove(index)
         isStarted[index] = false
+        startedAt.remove(index)?.let { at ->
+            // `now` is set by `next` and by `expire`, so it can lag a little behind the clock; the
+            // guard is for the piece that closes before either has run since it opened.
+            if (now >= at) {
+                finishedPieces++
+                finishedPieceMillis += now - at
+            }
+        }
     }
 
     private fun fillFromStarted(

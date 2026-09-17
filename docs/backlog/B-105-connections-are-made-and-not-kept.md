@@ -1,7 +1,7 @@
 ---
 id: B-105
 title: "Three hundred handshakes, twenty-two peers held — and the client asks nineteen of them for nothing"
-status: open
+status: done
 priority: P0
 size: M
 stage: m9-swarm
@@ -80,3 +80,56 @@ What the pipeline could be starving on, in the order they are worth eliminating:
 - Anchors: `engine/src/commonMain/kotlin/io/github/youndie/kachok/engine/session/Session.kt`,
   `engine/src/commonMain/kotlin/io/github/youndie/kachok/engine/picker/PiecePicker.kt`,
   `engine/src/commonMain/kotlin/io/github/youndie/kachok/engine/session/SessionState.kt`.
+
+**Done 2026-09-17.** The instruments were built first, as the item said, and they answered both
+questions in one eight-minute run before a line of the fix was written:
+
+```
+15%, 13 of 967 peers (9 unchoked, 32 out), window 8 pieces @ 959ms,
+lost 44 (peer closed, never asked 40, peer closed 4)
+```
+
+`window 8 pieces @ 959ms` is 8 x 256 KiB / 0.959 s = **2.13 MB/s**, and the run downloaded at
+**2.03 MB/s**. The measured throughput *was* the window: `maxStartedPieces` was a constant 8, a
+piece holds its picker slot from its first requested block until the writer has hashed it, and no
+number of peers can widen that. And `never asked 40` is the same fact seen from the peers' side —
+with the window full the picker hands out nothing, most connected peers are asked for nothing, and
+a peer that is asked for nothing leaves.
+
+**So it was one defect and not two, and it explains the thing that looked like a regression.**
+[B-95](B-95-the-dial-loop-only-runs-when-something-else-happens.md) brought more peers; each one's
+share of an unchanged window was smaller; the client held three times the peers and downloaded a
+tenth as much. Nothing was wrong with the dial loop.
+
+The window is now derived rather than constant: `maxPeers x pipelineDepth` blocks, divided by the
+blocks a piece holds, floored at the old 8 and capped at 256. It is a number of blocks and only
+incidentally a number of pieces — what has to fit is every peer's pipeline, and the same fifty
+peers need fifty slots on a 256 KiB piece and four on a 4 MiB one. The cap is there because every
+started piece is a partially written one and a client that opens thousands turns one sequential
+write into a scattered many. The buffer pool is sized from the same figure and peaked at 772 of
+850, so it is neither starving nor wasteful.
+
+The confirming run, same torrent, same eight minutes, same machine:
+
+| | before | after |
+|---|---|---|
+| window | 8 pieces @ 959 ms | 50 pieces @ 657 ms |
+| requests outstanding | 32–57 | 258–279 |
+| peers held, median | 17 | 30 |
+| unchoked / connected | 9 of 13 | 27 of 28 |
+| downloaded in eight minutes | 15 % | **100 %** — the torrent finished |
+| lost, never asked | 40 of 44 | 17 of 19 |
+
+2.03 MB/s to roughly 13.9 MB/s, and the peer count went up with it because peers now have a reason
+to stay. Both figures moved together, which is what the acceptance criterion asked for and the
+reason it asked for both.
+
+**What is not fixed and is not this item.** `peer closed, never asked` is still 17 of 19, on a run
+that finished and then had nothing to ask anyone for — a completed torrent sheds peers, so that
+tail is expected here and would need a run that does not complete to read properly. The dial
+success rate is unchanged at under 5 %, because 608 of 1 007 dials still time out against peers
+behind a NAT: that is [B-103](B-103-upnp-and-nat-pmp-port-mapping.md) and nothing here touches it.
+
+Three tests on the rule itself, in `DownloadWindowTest`: fifty peers of sixteen requests get fifty
+slots on a 256 KiB piece, the same peers get the floor on a 4 MiB one, and the window grows with
+the peer count and stops at the cap.

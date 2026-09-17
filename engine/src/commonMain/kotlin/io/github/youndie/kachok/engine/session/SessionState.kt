@@ -74,6 +74,27 @@ public class SessionState(
      */
     public val dialFailures: Map<String, Int> = emptyMap(),
     /**
+     * Connections that ended, and why — the mirror of [dialFailures], which counts dials that never
+     * became connections and is silent about the ones that did.
+     *
+     * B-105: three hundred handshakes succeeded in a twenty-minute run and twenty-two peers were
+     * held at the end of it, with the cap nowhere near. Roughly two hundred and eighty connections
+     * ended and the client could not say whether it or the peer had hung up, let alone why.
+     */
+    public val disconnects: Long = 0,
+    public val disconnectReasons: Map<String, Int> = emptyMap(),
+    /**
+     * Pieces the picker has open, and the mean milliseconds a piece stays open.
+     *
+     * **These two are the download window**: no more than [startedPieces] pieces are ever in
+     * flight, each holds its slot until the writer has hashed it, so the ceiling on throughput is
+     * one piece's bytes times the slots divided by that latency. Measured and not derived, because
+     * the arithmetic that first suggested it — 61 % of a file in one run and 6 % in the next, with
+     * three times the peers — is an inference from two runs and this is the reading that settles it.
+     */
+    public val startedPieces: Int = 0,
+    public val meanPieceMillis: Long = 0,
+    /**
      * A loop of the session itself failed. Non-null means the session is degraded and somebody
      * has to look; it exists so that such a failure is a visible state rather than a log line in
      * whatever the platform does with uncaught coroutine exceptions.
