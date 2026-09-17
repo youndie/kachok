@@ -239,6 +239,6 @@ kachok serve [options]
 
     private const val MAGNET_SCHEME = "magnet:"
     private const val BYTES_PER_KIB = 1024L
-    private const val DEFAULT_PEERS = 50
+    private const val DEFAULT_PEERS = 250
     private const val DEFAULT_PIPELINE = 16
 }

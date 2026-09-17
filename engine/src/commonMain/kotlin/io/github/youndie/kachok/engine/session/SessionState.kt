@@ -318,8 +318,16 @@ public class SessionConfig(
     public val maxStartedPieces: Int = 8,
     /** Requests kept outstanding per peer. Too few idles the link; too many hold pool buffers. */
     public val pipelineDepth: Int = 16,
-    /** Connections to keep up. */
-    public val maxPeers: Int = 50,
+    /**
+     * Connections to keep up.
+     *
+     * **250, measured rather than guessed (B-98).** It was 50, and 50 was a placeholder that
+     * never bound: against a 526-peer swarm this client held 30. What the runs showed is that
+     * the ceiling was never the cap — it was the download window, which is now derived from
+     * *this* number, so raising it widens the window with it. The reference client held 190 on
+     * the same swarm, which is what 250 leaves room for.
+     */
+    public val maxPeers: Int = 250,
     /** BEP 3's four regular slots; the optimistic peer takes one of them when it is interested. */
     public val maxUnchoked: Int = 4,
     /** BEP 3: "only changing who's choked once every ten seconds". */

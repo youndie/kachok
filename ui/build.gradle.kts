@@ -84,7 +84,16 @@ kotlin {
 compose.desktop {
     application {
         mainClass = "io.github.youndie.kachok.ui.AppKt"
-        jvmArgs += listOf("-XX:+UseG1GC", "-XX:+UseCompactObjectHeaders", "-Xmx$maxHeap")
+        // `MaxDirectMemorySize` for the same reason as the headless client: the block pool is
+        // direct memory, its ceiling would otherwise be `-Xmx` by accident, and a window sized
+        // for 250 peers needs 68 MB of it (B-98).
+        jvmArgs +=
+            listOf(
+                "-XX:+UseG1GC",
+                "-XX:+UseCompactObjectHeaders",
+                "-Xmx$maxHeap",
+                "-XX:MaxDirectMemorySize=192m",
+            )
 
         // The app image `createDistributable` writes, and what it is called inside it.
         //

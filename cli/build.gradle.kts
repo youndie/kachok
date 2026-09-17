@@ -40,6 +40,14 @@ val kachokJvmFlags =
         // 128, not the brief's 256: the same 8 MB live set, 80 MB less resident memory, and
         // fewer total pause milliseconds than 256m. At 64m the total pause doubles.
         "-Xmx128m",
+        // **Stated rather than inherited, and B-98 is why.** Without this flag HotSpot caps direct
+        // memory at whatever `-Xmx` says, so the block pool's real ceiling was a side effect of a
+        // heap number chosen for an unrelated reason. At 250 peers the pool caps at 4 250 buffers
+        // — 68 MB — which fits under 128 MB and leaves almost nothing for `java.net.http` and the
+        // NIO machinery beside it, and the failure mode is `OutOfMemoryError: Direct buffer
+        // memory` under exactly the load the client was raised to handle. The pool allocates
+        // lazily, so this is a limit and not a reservation.
+        "-XX:MaxDirectMemorySize=192m",
     )
 
 /**

@@ -56,7 +56,7 @@ public class RuntimeOptions(
     public val sequential: Boolean = false,
 ) {
     public companion object {
-        public const val DEFAULT_MAX_PEERS: Int = 50
+        public const val DEFAULT_MAX_PEERS: Int = 250
         public const val DEFAULT_PIPELINE: Int = 16
 
         /** What `SessionConfig` means by a rate limit of nothing. Not a limit of zero bytes. */
