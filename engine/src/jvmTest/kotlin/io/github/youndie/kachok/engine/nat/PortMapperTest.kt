@@ -48,7 +48,8 @@ class PortMapperTest {
                             answer(request)?.let {
                                 socket.send(DatagramPacket(it, it.size, packet.socketAddress))
                             }
-                        } catch (closed: Exception) {
+                        } catch (closed: java.io.IOException) {
+                            // The test closed the socket. That is how every one of these ends.
                             return@start
                         }
                     }

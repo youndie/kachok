@@ -161,7 +161,14 @@ internal class PortMapper(
                     val text = process.inputStream.bufferedReader().readText()
                     process.waitFor()
                     text
-                } catch (missing: Exception) {
+                } catch (missing: java.io.IOException) {
+                    // The command is not on this machine — a container without `iproute2`, say.
+                    // Not an error: the subnet guess below is what that case is for.
+                    return null
+                } catch (interrupted: InterruptedException) {
+                    // Somebody is shutting this client down while it looks for a gateway. Restore
+                    // the flag and let the caller see no gateway rather than swallowing the signal.
+                    Thread.currentThread().interrupt()
                     return null
                 }
             return IPV4
