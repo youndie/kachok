@@ -172,3 +172,56 @@ Incidentally, from the same machine's log while it was up:
 `UPnP/NAT-PMP port mapping failed. Message: "could not map port using UPnP: no router found"` — the
 reference client tries to map its port on every start, which is
 [B-103](B-103-upnp-and-nat-pmp-port-mapping.md)'s whole premise, observed rather than assumed.
+
+## Iteration 4 — 2026-09-17: the previous iteration's conclusion was wrong
+
+**Withdrawn: "the fault is in a reading of the specification shared by both implementations."** It
+was drawn from one comparison — the Kotlin failed, the independent Python failed — without noticing
+that the two also ran *from different machines*. Comparing at points that differ in more than the
+one thing under test is how a confident wrong answer gets written down, and this one was written
+down.
+
+What replaced it is evidence. The independent Python implementation was turned round to act as the
+**accepter**, and the Kotlin dialled it. It validates message 3 field by field:
+
+```
+SHA1('req1' + S) found at offset 344
+req2^req3 matches: True
+VC decrypts to zeros: True
+crypto_provide = 0x00000003, len(PadC) = 206
+len(IA) = 68, IA starts 13426974546f7272656e742070726f746f636f6c
+```
+
+`13` then `BitTorrent protocol`. **The dialling side's message 3 is byte-correct**, and with it the
+derivation of `S`, of all five prefixed hashes and of the RC4 keys — none of which any test in this
+repository could have said, because until now both ends were the same code.
+
+### What is still unexplained, stated as what was observed
+
+Against qBittorrent 5.2.1 the exchange still ends the same way: it replies with `Yb` and its
+padding, then closes without sending message 4. Measured rather than assumed:
+
+- It closes after 112, 117, 180, 229, 239 and 377 bytes of this side's scan across runs — not a
+  fixed offset, and not the padding length.
+- **From both source machines**, the mac and the Linux build box, and with both implementations.
+  Running the Python from the second machine was how that variable was tested, and it failed there
+  exactly as the Kotlin does.
+- Sending only `Ya` and padding and then waiting, the peer holds the connection open indefinitely.
+  It is message 3 it refuses — the same message an independent implementation reads correctly.
+- **The positive control passes in the same minute**: a plaintext BEP 3 handshake to the same port
+  for the same info hash gets sixty-eight bytes and a matching hash back. The peer is live, the
+  torrent is active, and this negative result is about MSE rather than about a dead subject.
+- Writing message 3 as one write rather than three changes nothing. The single write was kept
+  regardless: three parts of one message given to a parser as three arrivals is a difference a pipe
+  cannot show and a socket can.
+
+**One run succeeded.** An inline dialler, run seconds after qBittorrent was restarted, received 260
+bytes back and parsed `crypto_select` — so the protocol as implemented here *can* be accepted by
+this client. Nothing since has reproduced it. That single success is the most informative thing on
+this page and is the next thing to chase: what is true of a freshly started libtorrent that stops
+being true a minute later.
+
+The evidence still not obtained is libtorrent's own bytes **as a dialler**. Four attempts failed for
+reasons with nothing to do with MSE — a process started from an SSH session dies with it, `x.pe` is
+ignored for a torrent already held, and the scheduled-task route is unreliable. Until that capture
+exists, this item's own probe is the only honest verdict: it fails, and the item stays open on it.

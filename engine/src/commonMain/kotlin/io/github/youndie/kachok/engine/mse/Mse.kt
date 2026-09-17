@@ -75,9 +75,10 @@ internal object Mse {
                 append(initial)
             }
         encrypt.apply(body)
-        stream.write(MseHandshake.req1(secret))
-        stream.write(MseHandshake.req2Xor3(secret, infoHash))
-        stream.write(body)
+        // **One write and not three.** The three parts are one message, and splitting them hands
+        // the peer's parser three arrivals to reassemble for no reason — a difference that is
+        // invisible against a pipe and is a real difference on a socket.
+        stream.write(MseHandshake.req1(secret) + MseHandshake.req2Xor3(secret, infoHash) + body)
 
         // B's reply opens with its encrypted VC, which is the first eight bytes of *its* keystream
         // — so this side can predict them exactly and look for them inside padding it cannot
@@ -232,7 +233,7 @@ internal object Mse {
         val one = ByteArray(1)
         while (seen < SCAN_LIMIT + marker.size) {
             if (stream.read(one, 0, 1) < 0) {
-                throw MseException("the peer closed while this client looked for its marker")
+                throw MseException("the peer closed after $seen bytes while this client looked for its marker")
             }
             seen++
             if (filled < window.size) {
