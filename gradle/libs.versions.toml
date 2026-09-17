@@ -14,7 +14,7 @@ sborka = "0.4.0.87"
 # keeps the processor and the renderer in step. 0.4.0 is on Maven Central under
 # `io.github.youndie.viddik`; everything up to 0.3.3 is on reposilite under `ru.workinprogress` and
 # needs a repository this project does not have.
-viddik = "0.4.0"
+viddik = "0.5.0.31"
 # The window frame: a Compose-drawn title bar with the host's own window controls. The design draws
 # one in its own colours, which is a custom frame whether or not it says so.
 appframe = "0.1.24"
