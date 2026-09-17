@@ -269,10 +269,17 @@ them. Nothing is read from the environment by this module; that is [cli](cli.md)
   to the departed total, the live ones are summed on the tick, and the tracker is told the same
   number. Before B-110 the state summed the live links at the moment a block was *queued* and the
   tracker was told a field nothing incremented — both read zero, and both were right.
-* **Two clients on one segment hold two connections to each other.** The tracker sends one to dial
-  the other; local discovery sends the other to dial back; nothing compares peer ids across the
-  two, and the picker sees two peers — so endgame asks the second for everything and a seeder
-  serves the file twice ([B-111](../backlog/B-111-two-connections-to-the-same-peer.md)).
+* **One connection per peer id, and the tie is broken the same way on both machines.** Two clients
+  on one segment used to hold two connections to each other — the tracker sent one to dial, local
+  discovery sent the other to dial back — and, keyed by address, the picker saw two peers: endgame
+  asked the second for everything and a seeder served the file twice
+  ([B-111](../backlog/B-111-two-connections-to-the-same-peer.md)). A second handshake carrying a
+  peer id the session already holds is now closed at `serve` before it reaches the picker, counted
+  as `duplicate peer`; one carrying the session's *own* id is counted as `ourselves`. Which of the
+  two survives is not "the first seen": two clients that hear each other at once each see a
+  different one first, and "keep the first" leaves both with nothing and a redial after the wait.
+  The connection **dialled by the lower peer id** stays, whichever side is asking; two of the same
+  kind keep the one already held.
 * **A known address has three states and not two.** `connected` and `failed` do not cover an
   address inside a ten-second `connect`, and most of a public swarm's addresses are in exactly that
   state for exactly that long — 22 of 50 in B-19's measurement. Without the third set, `dialling`,

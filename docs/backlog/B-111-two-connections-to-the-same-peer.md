@@ -1,7 +1,7 @@
 ---
 id: B-111
 title: "Two connections to the same peer: nothing drops the second, and endgame asks it for everything again"
-status: open
+status: done
 priority: P2
 size: S
 stage: m9-swarm
@@ -52,3 +52,36 @@ other machine within seconds, whichever side dialled first.
   peer id closes that connection the same way.
 - Anchors: `engine/src/commonMain/kotlin/io/github/youndie/kachok/engine/session/Session.kt`,
   `engine/src/jvmTest/kotlin/io/github/youndie/kachok/engine/runtime/KachokSeedsKachokTest.kt`.
+
+## Iteration 1 — 2026-09-18: dropped at the handshake, with a tie both sides break alike
+
+`Session.serve` now compares the arriving handshake's peer id with every held link before the
+link exists: a match is closed and counted as `duplicate peer`, this session's own id is closed
+and counted as `ourselves`, and either is given the same `failed` wait a refused dial gets so the
+tracker or LSD handing the address out again does not turn into a redial every tick. The picker
+never sees the second address; its key stays what the wire names.
+
+**The rule is not "keep the one already held", and this is the finding of the iteration.** The
+item said keep the existing and close the newcomer. Two clients on one segment that hear each
+other's LSD announce at the same moment dial each other at the same moment, and each sees a
+*different* connection first — so each keeps its own and closes the other's, both are closed, and
+after `reconnectDelay` the same thing happens again. BEP 3 says drop the duplicate and leaves the
+choice open; what both sides can compute from the two handshakes alone is the pair of peer ids,
+so **the connection dialled by the lower peer id stays**, on both machines, whichever was first.
+Two connections of the same kind — a peer reconnecting from a fresh port before the old socket is
+noticed dead — keep the one already held, as the item said. The loser, when it is the held one,
+is closed and lands in its own coroutine's teardown, which counts it under the same reason.
+
+**Acceptance.** `KachokSeedsKachokTest` asserts the seeder's `uploaded` is the file's length
+*exactly* — 60 000, where before it was 120 000 — that both counters agree, and that each side
+holds at most one connection after both discovery paths fired; on the build machine, fresh result
+file, one test, no failures. `SessionTest` adds four: a second connection of the same kind is
+closed and counted; the tie between a dialled and an accepted connection goes to the lower id's
+dial when the peer's id sorts below ours (the held one is closed) and to our own dial when it
+sorts above (the newcomer is closed); a connection offering our own id is closed as `ourselves`.
+The whole `:engine` suite and `./gradlew build` are green on the build machine.
+
+- Not covered, still: two distinct clients behind one NAT — different ids, correctly two peers.
+- Not covered, new: a redial to the losing address every `reconnectDelay` while the peer is held
+  through the other. It is closed at the handshake and counted; it is not prevented, because the
+  dial loop keys on addresses and does not know which id an address will answer with until it has.

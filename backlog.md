@@ -48,13 +48,12 @@ which is also the order of work.
 
 <!-- BEGIN INDEX -->
 
-## Open (12)
+## Open (11)
 
 | Task | | Priority | Size | Blocked by |
 |---|---|---|---|---|
 | [B-100](docs/backlog/B-100-protocol-encryption.md) `[~]` | Protocol encryption (MSE/PE): the peers that will not talk in the clear | P2 | L | B-98 |
 | [B-107](docs/backlog/B-107-dropping-a-torrent-does-nothing-on-macos.md) `[ ]` | Dropping a .torrent on the window does nothing on macOS | P2 | M | - |
-| [B-111](docs/backlog/B-111-two-connections-to-the-same-peer.md) `[ ]` | Two connections to the same peer: nothing drops the second, and endgame asks it for everything again | P2 | S | - |
 | [B-79](docs/backlog/B-79-the-windows-state-outlives-its-composition.md) `[ ]` | The window's state outlives its composition | P2 | L | - |
 | [B-80](docs/backlog/B-80-the-ui-moves-to-commonmain.md) `[ ]` | The UI moves to commonMain | P2 | L | B-79 |
 | [B-93](docs/backlog/B-93-opening-a-downloaded-executable.md) `[ ]` | Double-clicking a downloaded executable, and the warning Windows never gets to show | P2 | M | - |
@@ -65,7 +64,7 @@ which is also the order of work.
 | [B-87](docs/backlog/B-87-a-server-with-a-web-face.md) `[ ]` | Phase 3: a headless server with a web face, installable on a box that is always on | P3 | XL | B-80 |
 | [B-02](docs/backlog/B-02-ci-runs-build-and-docs-gates.md) `[ ]` | CI runs the build and the documentation gates on every push | infra | S | B-01 |
 
-## Closed (100)
+## Closed (101)
 
 **M0 — The build and its gates**
 
@@ -142,6 +141,7 @@ which is also the order of work.
 - [B-102](docs/backlog/B-102-local-service-discovery.md) `[x]` - Local service discovery (BEP 14): the peers on the same network are never found
 - [B-103](docs/backlog/B-103-upnp-and-nat-pmp-port-mapping.md) `[x]` - Port mapping (UPnP IGD, NAT-PMP/PCP): reopening B-09's rejection, because the reason given was a dependency
 - [B-105](docs/backlog/B-105-connections-are-made-and-not-kept.md) `[x]` - Three hundred handshakes, twenty-two peers held — and the client asks nineteen of them for nothing
+- [B-111](docs/backlog/B-111-two-connections-to-the-same-peer.md) `[x]` - Two connections to the same peer: nothing drops the second, and endgame asks it for everything again
 - [B-95](docs/backlog/B-95-the-dial-loop-only-runs-when-something-else-happens.md) `[x]` - The client stops dialling: there is no periodic top-up, and a dial in flight is dialled again
 - [B-96](docs/backlog/B-96-the-handshake-read-has-no-deadline.md) `[x]` - A peer that accepts the connection and then says nothing is never given up on
 - [B-97](docs/backlog/B-97-the-announce-never-says-how-many-peers-it-wants.md) `[x]` - The announce never says how many peers it wants, and only one tracker is ever asked
