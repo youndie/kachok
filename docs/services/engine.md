@@ -262,6 +262,15 @@ them. Nothing is read from the environment by this module; that is [cli](cli.md)
   a second caller dials the same address again, the later link wins `connected[address]`, and the
   earlier one leaks with its coroutine and its picker entry. Dials in flight are also subtracted
   from the room, or a per-tick loop launches a fresh `maxPeers` on top of the outstanding ones.
+* **A file's priority is a pool the picker empties first, not an order it follows.** Inside the
+  raised pool the rule is still rarest-first (or lowest-first under sequential), and only when a
+  peer can give nothing from that pool does the picker look at the rest. A "priority" that became an
+  order — lowest raised piece first — would be strict sequential with a smaller scope, and every
+  peer asking for the same pieces is the swarm harm B-65 measured and refused. The picker's
+  mutation test pins both halves: dropping the pool fails one test, ordering inside it fails
+  another ([B-106](../backlog/B-106-per-file-priority.md)). The same call, `prioritise`, changes
+  the skip set on a running picker — what is started finishes, what begins next follows the new
+  sets — which is the half B-67 left out, done the only honest way.
 * **`index in started` on a `Map<Int, _>` boxes the index.** The picker asks it once per piece per
   request, which is where half of the profile's `Integer` allocations came from; a `BooleanArray`
   beside the map answers the same question for nothing. Both mutations of `started` go through one

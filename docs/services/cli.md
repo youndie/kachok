@@ -59,7 +59,8 @@ a program as this user can drive this socket, and that is the decision, not an o
 
 ```
 kachok download <file.torrent | magnet:?xt=urn:btih:…> [--dir <path>] [--port <n>]
-                [--peers <n>] [--pipeline <n>] [--seed] [--up <KiB/s>] [--down <KiB/s>] [--dht]
+                [--peers <n>] [--pipeline <n>] [--seed] [--up <KiB/s>] [--down <KiB/s>]
+                [--high <n>]… [--dht]
 ```
 
 | Exit | Meaning |

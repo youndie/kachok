@@ -147,6 +147,24 @@ toolbar ── Add torrent ──▶ file chooser ──▶ MetainfoParser ─�
 * **Automated:** `ui SettingsFromTest#everyDefaultComesOutOfTheEnginesOwnConfig`,
   `#aLimitOfNothingSaysTheWordsRatherThanZero`, `#typingTheDefaultBackIsNotAChange`
 
+### Scenario: A file is moved to the front of the queue from the Files tab
+* **Given:** a running multi-file torrent, every file in the ordinary tier, and the panel on the
+  *Files* tab.
+* **When:** the glyph at the head of one file's row is pressed — once for *high*, again for *skip*,
+  again for *ordinary*.
+* **Then:** each press sends that file and its new tier, and nothing else; the glyph reads the tier
+  the session reports rather than the last press; the picker asks for that file's pieces before
+  any other's, rarest first within them, and what was already in flight finishes; a file dropped
+  to *skip* stops counting towards `left`; and the choice is remembered beside the torrent, so it
+  survives a restart ([B-106](../backlog/B-106-per-file-priority.md)).
+* **Automated:** `ui FilesTabTest#theGlyphOfAnOrdinaryFileAsksToRaiseIt`,
+  `#aRaisedFileAsksToBeSkippedAndASkippedOneToBeOrdinary`, `#pressingTheGlyphOpensNothing`;
+  `ui StoredTorrentsTest#theTiersAreRecordedTogetherWithoutDisturbingAnythingElse`;
+  `engine SessionTest#aFileRaisedOnARunningSessionIsAskedForFirst`,
+  `#aFileSkippedOnARunningSessionStopsBeingOwed`;
+  `engine PiecePickerTest#aRaisedPieceIsTakenBeforeARarerOrdinaryOne`,
+  `#withinTheRaisedPoolTheRarestStillWins`, `#raisingAFileOnARunningPickerChangesOnlyWhatBeginsNext`
+
 ### Scenario: The column header sorts the list it heads
 * **Given:** torrents whose sizes, percentages and ratios sort one way as text and another as
   numbers.
@@ -196,8 +214,13 @@ toolbar ── Add torrent ──▶ file chooser ──▶ MetainfoParser ─�
 * Drag-and-drop and clipboard *events*: the overlay and the prompt are drawn from state and the
   window has no listener for either yet ([B-50](../backlog/B-50-add-torrent.md)).
 * Applying a settings change to a running session, `planned` in the design.
-* Per-file selection, sequential download, the peers list and the trackers list — four engine
-  changes, each named by the screen that is waiting for it.
+* This used to list per-file selection, sequential download, the peers list and the trackers list
+  as four engine changes the screens were waiting for. All four have since arrived
+  ([B-67](../backlog/B-67-per-file-selection.md), [B-65](../backlog/B-65-sequential-download.md),
+  [B-89](../backlog/B-89-sequential-on-a-running-torrent.md), and the Peers and Trackers tabs), and
+  per-file *priority* with them ([B-106](../backlog/B-106-per-file-priority.md)). What is still out
+  is changing a file's tier from the *add dialog*, which offers wanted/unwanted only; the tier is a
+  decision about a running torrent, and the tab is where it is made.
 
 ## 7. Quirks
 

@@ -48,7 +48,7 @@ which is also the order of work.
 
 <!-- BEGIN INDEX -->
 
-## Open (12)
+## Open (11)
 
 | Task | | Priority | Size | Blocked by |
 |---|---|---|---|---|
@@ -57,7 +57,6 @@ which is also the order of work.
 | [B-79](docs/backlog/B-79-the-windows-state-outlives-its-composition.md) `[ ]` | The window's state outlives its composition | P2 | L | - |
 | [B-80](docs/backlog/B-80-the-ui-moves-to-commonmain.md) `[ ]` | The UI moves to commonMain | P2 | L | B-79 |
 | [B-93](docs/backlog/B-93-opening-a-downloaded-executable.md) `[ ]` | Double-clicking a downloaded executable, and the warning Windows never gets to show | P2 | M | - |
-| [B-106](docs/backlog/B-106-per-file-priority.md) `[ ]` | Per-file priority: which file of a torrent the picker fetches first | P3 | L | - |
 | [B-108](docs/backlog/B-108-an-mcp-server-for-agents.md) `[?]` | An MCP server, so an agent can drive the client — wanted at all? | P3 | M | - |
 | [B-37](docs/backlog/B-37-v2-and-hybrid-torrents.md) `[?]` | v2 and hybrid torrents (BEP 52): SHA-256 piece layers | P3 | L | B-04 |
 | [B-40](docs/backlog/B-40-wasmjs-ui-is-a-client-of-the-headless-engine.md) `[ ]` | The browser build of the UI is a client of the headless engine | P3 | L | B-80 |
@@ -65,7 +64,7 @@ which is also the order of work.
 | [B-87](docs/backlog/B-87-a-server-with-a-web-face.md) `[ ]` | Phase 3: a headless server with a web face, installable on a box that is always on | P3 | XL | B-80 |
 | [B-02](docs/backlog/B-02-ci-runs-build-and-docs-gates.md) `[ ]` | CI runs the build and the documentation gates on every push | infra | S | B-01 |
 
-## Closed (96)
+## Closed (97)
 
 **M0 — The build and its gates**
 
@@ -149,6 +148,7 @@ which is also the order of work.
 **Phase 2 — UI**
 
 - [B-104](docs/backlog/B-104-the-settings-screen-cannot-hold-another-row.md) `[x]` - The settings screen is exactly full: an eleventh row pushes the tenth somewhere nobody can reach it
+- [B-106](docs/backlog/B-106-per-file-priority.md) `[x]` - Per-file priority: which file of a torrent the picker fetches first
 - [B-39](docs/backlog/B-39-compose-ui-desktop.md) `[x]` - Phase 2: a Compose Multiplatform desktop UI on the engine's StateFlow
 - [B-46](docs/backlog/B-46-ui-theme-and-calibration.md) `[x]` - The theme: colour roles, type, and the desktop calibration
 - [B-47](docs/backlog/B-47-torrent-row-and-states.md) `[x]` - The torrent row and its seven states
