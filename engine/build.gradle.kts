@@ -96,6 +96,26 @@ tasks.register<JavaExec>("mseInteropProbe") {
     )
 }
 
+// B-103's probe: ask the router on this network for a port. Not part of `build` — its subject is
+// somebody else's router, and there may not be one that answers.
+tasks.register<JavaExec>("portMapProbe") {
+    group = "verification"
+    description = "Asks the default gateway to forward a port over NAT-PMP and reports what it said"
+    mainClass.set("io.github.youndie.kachok.engine.nat.PortMapProbe")
+    val testCompilation =
+        kotlin.targets
+            .getByName("jvm")
+            .compilations
+            .getByName("test")
+    classpath = files(testCompilation.runtimeDependencyFiles, testCompilation.output.allOutputs)
+    systemProperty("port", providers.gradleProperty("port").getOrElse(""))
+    javaLauncher.set(
+        javaToolchains.launcherFor {
+            languageVersion.set(java.toolchain.languageVersion.get())
+        },
+    )
+}
+
 // Prints the probe's class path, so the same classes can be run under another kernel:
 // `docker run … java -cp "$(./gradlew -q :engine:probeClasspath)" …`.
 tasks.register("probeClasspath") {
