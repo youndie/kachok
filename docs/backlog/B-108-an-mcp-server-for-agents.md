@@ -1,13 +1,13 @@
 ---
 id: B-108
-title: "An MCP server, so an agent can drive the client — wanted at all?"
-status: question
+title: "An MCP server, so an agent can drive the client"
+status: done
 priority: P3
 size: M
 stage: phase-3-server
 ---
 
-# B-108 — An MCP server, so an agent can drive the client — wanted at all?
+# B-108 — An MCP server, so an agent can drive the client
 
 The client has two ways in: the command line, and — since `serve` — a WebSocket on loopback that
 speaks `:wire`'s `Request`/`Reply` in JSON and pushes the whole state once a second
@@ -66,4 +66,55 @@ Whether this is wanted, and for what. Three answers, and they are the owner's:
   where "tell me when it is done" means a thing that survives the conversation ending. Doing it
   over stdio first would be doing it twice.
 
-Until one of these is chosen the item stays `question` and the loop does not pick it.
+**Decided 2026-09-17 by the owner: the first — yes, now, over stdio.** The question is closed and
+the item is work.
+
+## Iteration 1 — 2026-09-17: built, driven by an agent, and what that found
+
+**The server.** `kachok mcp`: JSON-RPC 2.0 on stdio, one frame per line, stdout for frames and
+nothing else. Eight task-shaped tools over the same `TorrentSet` the WebSocket drives —
+`add_torrent` (path or magnet), `list_torrents`, `torrent_status`, `wait_for_completion`,
+`pause_torrent`, `resume_torrent`, `remove_torrent`, `set_file_priority` — and one resource,
+`kachok://snapshot`, which is byte-for-byte the socket's payload because the snapshot builder was
+lifted out of `Backend` and shared. The refusals are sentences with `isError`; an unknown method is
+an error frame, and so is a line that is not JSON — never silence. Three tools that change state
+wait up to two seconds for the session to confirm, because a tool that answered "paused" the moment
+the command was *sent* was answering about the future, and the agent's very next call reads the
+state. That one was a flaky test before it was a rule.
+
+**Tested three ways, each catching what the others cannot.**
+
+- *In-process, against a real swarm* (`McpServerTest`, the same `LocalSwarm` the socket is tested
+  on): `add_torrent` then `wait_for_completion` answers "has finished" with the bytes on disk
+  matching the seed — the acceptance's two calls, exercised. Plus refusals in words, a tier moved
+  through the tool and read back in the status, the resource decoding as the wire's own `Snapshot`,
+  removal with data, and the error frames.
+- *Through the real process, by an independent client* — a Python JSON-RPC client written from
+  the transport's rules and sharing nothing with kachok, spawning `cli mcp` and reading its stdout
+  line by line. It would have died on the first non-JSON line. `initialize`, `tools/list`,
+  `resources/read`, seven calls including three refusals, EOF, exit 0.
+- *By Claude Code itself*, on the mac, with a one-shot `--mcp-config` (no standing configuration
+  touched) and the prompt the acceptance names: *add this magnet and tell me when it has finished*.
+  The session called `add_torrent` with the magnet, relayed its refusal in words when the swarm
+  did not answer, fell back to the file as told, called `wait_for_completion`, then
+  `torrent_status`, and reported every figure the tools gave it — save location included. **The
+  agent flow the item is about works end to end.** On the second run, with a proper seeder, the
+  magnet resolved: metadata came across BEP 9 from another kachok.
+
+**What the third run found, and it is not this item's.** The download never finished. The seeder —
+another `kachok mcp` holding the complete file — showed `128/128, uploaded 0`; the leecher showed
+`1 connected, 16 requests out, 0 bytes`. Traced to the code: no live connection is ever given the
+storage to serve from, and a request it cannot serve is dropped without a word. **This client has
+never uploaded a block to a real peer**, on any surface, and no test asserted it had. Filed as
+[B-110](B-110-this-client-never-uploads-a-block.md) at P1, with the trace and the table; it
+re-frames M9's peer counts, all taken by a client the swarm had every reason to choke. A second
+defect on the way — `download --seed` closes its set before it seeds — is
+[B-109](B-109-download-seed-closes-the-set-before-it-seeds.md).
+
+**Why this is `done` and not `wip`.** The item is the surface, and the surface is proven: a real
+download completes through the tools when the other end serves (the in-process test), the
+transport is correct under an implementation that shares nothing with it, and an agent drives it as
+the acceptance describes. What did not complete in the agent's run was the *other kachok's*
+upload, which is a defect this acceptance discovered rather than a gap in this server — the tools
+reported it truthfully, which is what they are for. The claim "and does" holds against any peer
+that serves; against kachok itself it waits on B-110.
