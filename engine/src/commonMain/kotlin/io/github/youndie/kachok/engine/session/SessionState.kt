@@ -84,6 +84,13 @@ public class SessionState(
     public val disconnects: Long = 0,
     public val disconnectReasons: Map<String, Int> = emptyMap(),
     /**
+     * What came of each peer that said `interested`, counted when it left: `served`, `unchoked,
+     * never asked`, `left choked inside one pass`, `left choked after a pass`. The last two are the
+     * ones B-112 asks about — a peer the choke pass never reached, and one it reached and passed
+     * over. A peer never interested is not counted; it is most of a swarm.
+     */
+    public val interestOutcomes: Map<String, Int> = emptyMap(),
+    /**
      * Pieces the picker has open, and the mean milliseconds a piece stays open.
      *
      * **These two are the download window**: no more than [startedPieces] pieces are ever in

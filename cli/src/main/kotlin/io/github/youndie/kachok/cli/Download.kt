@@ -344,6 +344,16 @@ class Download(
                     append(')')
                 }
             }
+            // B-112: of the peers that wanted our pieces, how many were ever given the chance.
+            if (state.interestOutcomes.isNotEmpty()) {
+                append(", interest (")
+                append(
+                    state.interestOutcomes.entries
+                        .sortedByDescending { it.value }
+                        .joinToString(", ") { "${it.key} ${it.value}" },
+                )
+                append(')')
+            }
             if (state.hashFailures > 0) append(", ").append(state.hashFailures).append(" hash failures")
             state.trackerError?.let { append(", tracker: ").append(it) }
             // A degraded session that says nothing is how a stalled download looked for three runs.

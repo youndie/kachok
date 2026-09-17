@@ -1232,9 +1232,11 @@ class SessionTest {
         unwantedFiles: Set<Int> = emptySet(),
         highFiles: Set<Int> = emptySet(),
         sequential: Boolean = false,
+        timeSource: kotlin.time.TimeSource = kotlin.time.TimeSource.Monotonic,
     ) = Session(
         metainfo = metainfo,
         peerId = ourPeerId,
+        timeSource = timeSource,
         listenPort = 6881,
         dialer = dialer,
         trackerClient = tracker,
@@ -2919,6 +2921,68 @@ class SessionTest {
             assertEquals(0, dialled.closes)
             assertEquals(1, session.state.value.connectedPeers)
             assertEquals(1, session.state.value.disconnectReasons["duplicate peer"])
+            job.cancelAndJoin()
+        }
+
+    /**
+     * B-112's measurement: what came of each peer that wanted our pieces, counted as it leaves.
+     *
+     * One slot and two interested peers, so the pass at ten seconds unchokes exactly one — which
+     * one is the seeded random's choice, and the test reads it off the wire rather than guessing.
+     * The unchoked one asks and is `served`; the other is seen by the pass and passed over, and
+     * leaves twelve seconds after its interest: `left choked after a pass`. A third peer that
+     * leaves three seconds in was never reached by any pass: `left choked inside one pass`. A peer
+     * this client hangs up on itself is not counted at all — that is stop, not the choker.
+     */
+    @Test
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    fun whatCameOfEachInterestedPeerIsCountedWhenItLeaves() =
+        runTest {
+            val metainfo = torrent(pieces = 4)
+            val peerC = PeerAddress("10.0.0.3", 6881)
+            val dialer = FakeDialer(metainfo.infoHash)
+            val session =
+                session(
+                    metainfo,
+                    dialer,
+                    FakeTracker(listOf(peerA, peerB, peerC)),
+                    FakeStorage(),
+                    AgreeableHasher(metainfo),
+                    config = SessionConfig(maxStartedPieces = 4, pipelineDepth = 2, maxPeers = 10, maxUnchoked = 1),
+                    // The stay is measured on the session's clock, which here has to be the test's.
+                    timeSource = testScheduler.timeSource,
+                )
+            val job = session.start(kotlinx.coroutines.CoroutineScope(coroutineContext + handler))
+            testScheduler.runCurrent()
+            val a = dialer.connections.getValue(peerA)
+            val b = dialer.connections.getValue(peerB)
+            val c = dialer.connections.getValue(peerC)
+            // Something to serve, and a peer worth something, before anyone asks.
+            a.incoming.send(PeerEvent.BlockReceived(FakeBlock(PieceIndex(1), 0, PeerWire.BLOCK_SIZE)))
+            listOf(a, b, c).forEach { it.incoming.send(PeerEvent.Received(Message.Interested)) }
+            testScheduler.runCurrent()
+
+            testScheduler.advanceTimeBy(3_000)
+            c.incoming.close()
+            testScheduler.advanceTimeBy(8_000)
+            testScheduler.runCurrent()
+
+            val (given, passedOver) =
+                if (a.sent.any { it is Message.Unchoke }) a to b else b to a
+            assertTrue(passedOver.sent.none { it is Message.Unchoke }, "one slot, two unchokes")
+            given.incoming.send(PeerEvent.Received(Message.Request(PieceIndex(1), 0, PeerWire.BLOCK_SIZE)))
+            testScheduler.runCurrent()
+            assertEquals(1, given.servedBlocks.size)
+
+            testScheduler.advanceTimeBy(1_000)
+            given.incoming.close()
+            passedOver.incoming.close()
+            testScheduler.runCurrent()
+
+            assertEquals(
+                mapOf("served" to 1, "left choked after a pass" to 1, "left choked inside one pass" to 1),
+                session.state.value.interestOutcomes,
+            )
             job.cancelAndJoin()
         }
 

@@ -196,6 +196,9 @@ public class Session(
     private var disconnects = 0L
     private val disconnectReasons = LinkedHashMap<String, Int>()
 
+    /** B-112: what came of each interested peer, counted at its teardown. */
+    private val interestOutcomes = HashMap<String, Int>()
+
     /**
      * Peers this client hung up on deliberately — for a pause or a re-check.
      *
@@ -932,6 +935,28 @@ public class Session(
     }
 
     /**
+     * What came of a peer's interest in us, as one of four labels — or null for a peer that was
+     * never interested, which is most of a public swarm and says nothing about the choker.
+     *
+     * The question this answers is [B-112](../../../../../../../../docs/backlog/B-112-a-peer-interested-for-seconds-is-never-unchoked.md)'s:
+     * whether interested peers leave before the ten-second pass ever gets to them. "Served" and
+     * "unchoked, never asked" are the choker doing its job; the two "left choked" buckets are
+     * split at the choke interval because a peer gone inside it may never have been *seen* by a
+     * pass, and one gone after it was seen and passed over — different findings, one counter each.
+     */
+    private fun interestOutcomeOf(link: PeerLink): String? {
+        val interested = link.interestedAt ?: return null
+        if (link.servedAt != null) return "served"
+        if (link.unchokedAt != null) return "unchoked, never asked"
+        val stay = elapsedMillis() - interested
+        return if (stay < config.chokeInterval.inWholeMilliseconds) {
+            "left choked inside one pass"
+        } else {
+            "left choked after a pass"
+        }
+    }
+
+    /**
      * A dial failure as one of a closed set of labels.
      *
      * **Matched on the message and not only on the type, and that is a compromise this says out
@@ -1096,11 +1121,19 @@ public class Session(
                         else -> disconnectReason(link)
                     }
                 disconnectReasons[reason] = (disconnectReasons[reason] ?: 0) + 1
+                // Only a peer that left on its own says anything about the choker; one this client
+                // hung up on at stop or pause was not given the chance to stay.
+                if (!ours) {
+                    interestOutcomeOf(link)?.let { outcome ->
+                        interestOutcomes[outcome] = (interestOutcomes[outcome] ?: 0) + 1
+                    }
+                }
                 publish {
                     it.copy(
                         connectedPeers = connected.size,
                         disconnects = disconnects,
                         disconnectReasons = disconnectReasons.toMap(),
+                        interestOutcomes = interestOutcomes.toMap(),
                     )
                 }
                 if (!stopping && !paused && scope.isActive) connectMore(scope)
@@ -1162,6 +1195,10 @@ public class Session(
                     // anyone on its own. The algorithm runs on the timer, not on the peer's word.
                     Message.Interested -> {
                         link.peerInterested = true
+                        if (link.interestedAt == null) link.interestedAt = elapsedMillis()
+                        // B-112's measurement: a peer that was unchoked before it asked — the
+                        // optimistic slot, or a leecher-to-leecher unchoke — counts from here.
+                        if (!link.choking && link.unchokedAt == null) link.unchokedAt = elapsedMillis()
                     }
 
                     Message.NotInterested -> {
@@ -1482,7 +1519,9 @@ public class Session(
         request: Message.Request,
     ) {
         link.connection.sendBlock(request.piece, request.begin, request.length)
-        link.upload.add(request.length.toLong(), elapsedMillis())
+        val now = elapsedMillis()
+        if (link.servedAt == null) link.servedAt = now
+        link.upload.add(request.length.toLong(), now)
         publish { it.copy(uploaded = uploadedSoFar()) }
     }
 
@@ -1545,6 +1584,7 @@ public class Session(
             val shouldChoke = link.connection.address !in decision.unchoked
             if (shouldChoke == link.choking) return@forEach
             link.choking = shouldChoke
+            if (!shouldChoke && link.interestedAt != null && link.unchokedAt == null) link.unchokedAt = now
             link.send(if (shouldChoke) Message.Choke else Message.Unchoke)
             if (shouldChoke) rejectWaiting(link) else drainWaitingUploads()
         }
@@ -1937,6 +1977,15 @@ public class Session(
         /** Closed by this session because a second connection to the same peer won the tie (B-111). */
         var duplicate: Boolean = false
 
+        /** When the peer first said `interested`, in session milliseconds, or null if it never did (B-112). */
+        var interestedAt: Long? = null
+
+        /** When this session first unchoked the peer after it was interested; null until then. */
+        var unchokedAt: Long? = null
+
+        /** When the first block went to this peer; null until then. */
+        var servedAt: Long? = null
+
         /** What this peer was last told about the swarm, so the next `ut_pex` can be a delta. */
         var lastPexSent: Set<PeerAddress> = emptySet()
     }
@@ -1992,6 +2041,7 @@ private fun SessionState.copy(
     dialFailures: Map<String, Int> = this.dialFailures,
     disconnects: Long = this.disconnects,
     disconnectReasons: Map<String, Int> = this.disconnectReasons,
+    interestOutcomes: Map<String, Int> = this.interestOutcomes,
     startedPieces: Int = this.startedPieces,
     meanPieceMillis: Long = this.meanPieceMillis,
     trackerError: String? = this.trackerError,
@@ -2031,6 +2081,7 @@ private fun SessionState.copy(
         dialFailures = dialFailures,
         disconnects = disconnects,
         disconnectReasons = disconnectReasons,
+        interestOutcomes = interestOutcomes,
         startedPieces = startedPieces,
         meanPieceMillis = meanPieceMillis,
         sessionError = sessionError,
