@@ -19,6 +19,7 @@ import kotlin.test.Test
 import kotlin.test.assertContains
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.milliseconds
@@ -281,15 +282,19 @@ class SocketPeerConnectionTest {
         }
 
     /**
-     * B-96: the deadline is the handshake's, not each read's.
+     * B-96: the deadline belongs to the handshake, not to each read of it.
      *
-     * This peer sends thirty-four of the sixty-eight bytes and then stops. A per-read `SO_TIMEOUT`
-     * would be renewed by that first half; the total deadline is what ends it.
+     * **A peer that stops dead does not test this, and the first version of this test did exactly
+     * that.** `SO_TIMEOUT` is per read, so a peer that sends half and then falls silent expires it
+     * anyway — one interval later — and that test passed with or without the total deadline. A
+     * peer that keeps dribbling is what separates them: a byte every 300 ms renews a 600 ms
+     * per-read timeout for ever, and would take 68 × 300 ms to finish if it ever did. The total
+     * deadline ends it at 600 ms.
      */
     @Test
-    fun aPeerThatSendsHalfTheHandshakeDoesNotRenewTheDeadline(): Unit =
+    fun aPeerThatDribblesTheHandshakeDoesNotRenewTheDeadline(): Unit =
         runBlocking {
-            SilentListener(sendFirst = 34).use { listener ->
+            SilentListener(dribbleEvery = 300.milliseconds).use { listener ->
                 val started = System.nanoTime()
                 val thrown =
                     assertFailsWith<java.net.SocketTimeoutException> {
@@ -299,12 +304,17 @@ class SocketPeerConnectionTest {
                             infoHash,
                             peerId,
                             BufferPool(capacity = 4),
-                            handshakeTimeout = 700.milliseconds,
+                            handshakeTimeout = 600.milliseconds,
                         )
                     }
                 val elapsed = (System.nanoTime() - started) / 1_000_000
-                assertTrue(elapsed in 500..4_000, "the dial ended after ${elapsed}ms, not at the deadline")
-                assertContains(thrown.message ?: "", "34 of 68")
+                assertTrue(
+                    elapsed < 3_000,
+                    "the dial took ${elapsed}ms: the deadline is being renewed by every byte that arrives",
+                )
+                // Bytes did arrive, so this is not the silent case passing under another name.
+                assertContains(thrown.message ?: "", "of 68 handshake bytes")
+                assertFalse((thrown.message ?: "").startsWith("peer sent 0 "), "no byte arrived at all")
             }
         }
 
@@ -393,7 +403,7 @@ class SocketPeerConnectionTest {
      * Not [FakePeer], which completes the handshake by design; this is the peer that does not.
      */
     private class SilentListener(
-        private val sendFirst: Int = 0,
+        private val dribbleEvery: kotlin.time.Duration? = null,
     ) : AutoCloseable {
         private val server =
             java.nio.channels.ServerSocketChannel
@@ -419,17 +429,20 @@ class SocketPeerConnectionTest {
                             break
                         }
                     accepted += socket
-                    if (sendFirst > 0) {
-                        try {
-                            val half =
-                                ByteBuffer.wrap(
-                                    Handshake(infoHashOf(), peerIdOf(), Handshake.reservedBits()).encode(),
-                                    0,
-                                    sendFirst,
-                                )
-                            while (half.hasRemaining()) socket.write(half)
-                        } catch (closed: java.io.IOException) {
-                            // The client gave up first, which is what these tests are about.
+                    if (dribbleEvery != null) {
+                        Thread.ofVirtual().start {
+                            try {
+                                val bytes = Handshake(infoHashOf(), peerIdOf(), Handshake.reservedBits()).encode()
+                                for (byte in bytes) {
+                                    val one = ByteBuffer.wrap(byteArrayOf(byte))
+                                    while (one.hasRemaining()) socket.write(one)
+                                    Thread.sleep(dribbleEvery.inWholeMilliseconds)
+                                }
+                            } catch (closed: java.io.IOException) {
+                                // The client gave up first, which is what this test is about.
+                            } catch (interrupted: InterruptedException) {
+                                Thread.currentThread().interrupt()
+                            }
                         }
                     }
                 }
