@@ -1,7 +1,7 @@
 ---
 id: B-100
 title: "Protocol encryption (MSE/PE): the peers that will not talk in the clear"
-status: wip
+status: question
 priority: P2
 size: L
 stage: m9-swarm
@@ -309,3 +309,33 @@ handshake both ways, the plaintext discrimination, and a probe that fails honest
 party. What is missing is one difference that six rounds of comparison have not located, and the
 stage has three untouched items whose value does not depend on finding it. This is where a loop
 should move on rather than grind, and the note above says exactly where to resume.
+
+## The question, 2026-09-17
+
+Six iterations, and the rule this backlog works to is explicit about what that means: three
+attempts without an acceptance criterion moving is a question for a person, not a fourth attempt.
+This is the sixth.
+
+**What exists and is worth keeping whatever is decided.** The primitives, measured rather than
+assumed. Both sides of the handshake, tested across padding lengths with the assertion that the
+streams stay in step rather than that the handshake completed. The plaintext discrimination. A
+probe that dials a third party and fails honestly. And a set of findings that are true regardless:
+that a symmetric test cannot see a symmetric mistake, and that comparing implementations at points
+which differ in more than one thing produces confident wrong answers — twice, here.
+
+**What is not known**: why a message an independent implementation reads field-for-field correctly
+is refused by libtorrent when this client sends it and accepted when the independent one does.
+
+The three answers, and they are the owner's:
+
+- **Keep going.** The next step is the timing measurement — the gap between reading `Yb` and
+  sending message 3, cold on a JVM — and then capturing libtorrent's own bytes as a dialler, which
+  needs a way to run a process on that machine that survives an SSH session. Neither is more than an
+  hour, and either could end it.
+- **Ship what there is, disabled.** The code is sound as far as anything can show; leave it behind a
+  setting that is off, with the probe as the gate that turns it on. The cost is dead code with a
+  known unknown in it.
+- **Drop it.** [B-98](B-98-how-many-peers-does-this-client-meet.md) did not show encryption to be
+  the bottleneck — 2 856 of 4 423 failed dials were `connect timed out`, which is
+  [B-103](B-103-upnp-and-nat-pmp-port-mapping.md)'s problem and not this one. MSE's value here was
+  always the peers that refuse plaintext, and nobody has counted them.

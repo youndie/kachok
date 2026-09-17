@@ -52,7 +52,7 @@ which is also the order of work.
 
 | Task | | Priority | Size | Blocked by |
 |---|---|---|---|---|
-| [B-100](docs/backlog/B-100-protocol-encryption.md) `[~]` | Protocol encryption (MSE/PE): the peers that will not talk in the clear | P2 | L | B-98 |
+| [B-100](docs/backlog/B-100-protocol-encryption.md) `[?]` | Protocol encryption (MSE/PE): the peers that will not talk in the clear | P2 | L | B-98 |
 | [B-103](docs/backlog/B-103-upnp-and-nat-pmp-port-mapping.md) `[ ]` | Port mapping (UPnP IGD, NAT-PMP/PCP): reopening B-09's rejection, because the reason given was a dependency | P2 | M | B-98 |
 | [B-79](docs/backlog/B-79-the-windows-state-outlives-its-composition.md) `[ ]` | The window's state outlives its composition | P2 | L | - |
 | [B-80](docs/backlog/B-80-the-ui-moves-to-commonmain.md) `[ ]` | The UI moves to commonMain | P2 | L | B-79 |
