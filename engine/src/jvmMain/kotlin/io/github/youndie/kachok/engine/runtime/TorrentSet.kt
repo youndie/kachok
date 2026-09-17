@@ -8,6 +8,7 @@ import io.github.youndie.kachok.engine.io.EngineDispatchers
 import io.github.youndie.kachok.engine.io.PeerListener
 import io.github.youndie.kachok.engine.io.SocketPeerConnection
 import io.github.youndie.kachok.engine.metainfo.Metainfo
+import io.github.youndie.kachok.engine.nat.LsdSocket
 import io.github.youndie.kachok.engine.nat.PortMapper
 import io.github.youndie.kachok.engine.nat.PortMapping
 import io.github.youndie.kachok.engine.session.Command
@@ -249,10 +250,40 @@ public class TorrentSet(
         runtime.close()
     }
 
+    /**
+     * Local service discovery, started with the first torrent and stopped with the set (B-102).
+     *
+     * **On, and unlike the DHT it is not a decision.** Nothing leaves the segment, so there is
+     * nothing to announce to strangers and nothing to argue about; what it costs is one datagram
+     * every five minutes and what it buys is the nearest peer in the swarm by a long way. A private
+     * torrent is excluded by BEP 27 below, which is the one rule it does answer to.
+     */
+    private val lsd = LsdSocket(dispatchers.io)
+
+    /** Why the segment is not being announced to, or null when it is. */
+    public var localDiscovery: String? = "not started"
+        private set
+
     @Synchronized
     private fun startAccepting() {
         if (accepting) return
         accepting = true
+        listener?.let { bound ->
+            localDiscovery =
+                lsd.start(
+                    scope = scope,
+                    listenPort = bound.port,
+                    // BEP 27: a private torrent's swarm is the tracker's business, and local
+                    // discovery is on the list of things it switches off — the same list `ut_pex`
+                    // and the DHT are on.
+                    held = { byInfoHash.values.filterNot { it.metainfo.isPrivate }.map { it.metainfo.infoHash } },
+                    onPeer = { infoHash, address ->
+                        byInfoHash[infoHash.hex()]?.let { runtime ->
+                            scope.launch { runtime.session.send(Command.AddPeers(listOf(address))) }
+                        }
+                    },
+                )
+        }
         listener?.start(scope) { socket ->
             // Read first, route second: which torrent this peer wants is in its handshake, and
             // nothing before that says which session should answer.
@@ -290,6 +321,7 @@ public class TorrentSet(
         // cannot re-map what this is dropping.
         mappingJob?.cancel()
         if (mapping is PortMapping.Mapped) listener?.let { mapper.release(it.port) }
+        lsd.close()
         listener?.close()
         dhtTransport?.close()
         byInfoHash.values.forEach { it.close() }
