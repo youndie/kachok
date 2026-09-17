@@ -1013,6 +1013,59 @@ usage and exits is a document nobody can trust about anything else either.
 
 ---
 
+### D13. How many peers this client meets is unmeasured, and the instruments now exist
+
+*Opened 2026-09-17 by [B-98](../backlog/B-98-how-many-peers-does-this-client-meet.md). Status:
+instrumented, not yet run.*
+
+Every claim in stage M9 is a reading of the code, not a measurement. An owner compared this client
+against a mature one on the same public torrent on Windows and saw several times the peer count;
+reading the source found six mechanisms that plainly cost peers, and not one of them carries a
+number. The ordering between them is therefore a hypothesis, and this is where it stops being one.
+
+**What is comparable between two clients, and what is not.** Each client counts "peers" its own
+way — some include half-open dials, some include peers they are choked by, some count per torrent
+and some per session — so the two windows' numbers cannot be subtracted from each other. An
+established TCP connection owned by the process is the same fact for both, and the operating system
+is what reports it. `scripts/peer_reach.py` samples exactly that, from `ss`, `lsof` or `netstat`
+depending on the host, every ten seconds, for any process id. It counts **distinct remote
+endpoints**, not sockets: one peer is one `ip:port`, however many connections lead to it.
+
+**What only this client can report about itself** is how hard it worked for the peers it holds.
+`SessionState` gained `dialsAttempted`, `dialsHandshaked` and `dialFailures` — the last bucketed by
+a closed set of labels rather than by message, because a dial failure's message names the address
+it failed to reach and counting messages would give one bucket per peer. A client holding five
+peers after fifty dials and one holding five after six are different clients, and until these
+existed they were indistinguishable from outside.
+
+**Two clients on one machine are not two independent samples.** They share a NAT binding, an
+uplink and a public address, and a peer already connected to one refuses a second connection from
+the same address — so running them at once makes each look worse than it is. The runs are therefore
+sequential, within the same hour, on the same torrent, and each records the swarm size its tracker
+reported at the start, so that a swarm which emptied between runs is visible rather than invisible.
+
+The table below is the shape of the answer, not the answer. It is filled in by whoever has a real
+swarm, a reference client and a machine to run them on; nothing in it is guessed.
+
+| Run | Client | Median held | p90 | Peak | Distinct ever | Time to half peak | Dials | Handshaked | Swarm reported |
+|---|---|---|---|---|---|---|---|---|---|
+| 1 | kachok before M9 | | | | | | | | |
+| 2 | kachok before M9 | | | | | | | | |
+| 3 | kachok after M9 | | | | | | | | |
+| 4 | kachok after M9 | | | | | | | | |
+| 5 | reference client | | | | | | n/a | n/a | |
+| 6 | reference client | | | | | | n/a | n/a | |
+
+Twice each, because one run of a variant is not a measurement. *Time to half peak* is the column
+that separates [B-95](../backlog/B-95-the-dial-loop-only-runs-when-something-else-happens.md) from
+everything else: a client that reaches its ceiling in a minute and one that takes twenty look
+identical in every other column.
+
+`maxPeers = 50` waits on this table. It is the placeholder `SessionConfig` opens with, it has never
+bound because the client has never reached it, and it gets a number here or an explicit decision to
+keep it — with the run that produced it named beside it, the way every other default in this
+document is.
+
 ## 3. Risks and open questions
 
 **Risk 1 — measured, and it did not happen.** Carrier pinning and compensation hiding a thread
