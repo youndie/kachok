@@ -52,6 +52,19 @@ object Cli {
                 }
             }
 
+            "mcp" -> {
+                try {
+                    // The protocol owns stdout; `out` is where its frames go and `err` is the only
+                    // place a human-readable line may be written.
+                    io.github.youndie.kachok.cli.mcp.Mcp
+                        .run(Arguments.parseMcp(arguments.drop(1)), System.`in`, out, err)
+                } catch (usage: UsageException) {
+                    err.appendLine("kachok: ${usage.message}")
+                    err.appendLine(Arguments.USAGE)
+                    Download.EXIT_USAGE
+                }
+            }
+
             null -> {
                 err.appendLine(Arguments.USAGE)
                 Download.EXIT_USAGE

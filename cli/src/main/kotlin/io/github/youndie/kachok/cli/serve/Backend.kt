@@ -233,22 +233,7 @@ internal class Backend(
         }
     }
 
-    private fun snapshot(): Snapshot =
-        Snapshot(
-            torrents = set.torrents.map { it.state.value.onTheWire() },
-            listenPort = set.listenPort,
-            dhtNodes =
-                if (set.dhtEnabled) {
-                    set.torrents
-                        .firstOrNull()
-                        ?.state
-                        ?.value
-                        ?.dhtNodes ?: 0
-                } else {
-                    null
-                },
-            sequence = sampled.incrementAndGet(),
-        )
+    private fun snapshot(): Snapshot = set.snapshot(sampled.incrementAndGet())
 
     override fun close() {
         server.close()
@@ -259,6 +244,29 @@ internal class Backend(
         const val DEFAULT_PORT: Int = 0
     }
 }
+
+/**
+ * The whole set as one payload, numbered by the caller.
+ *
+ * Shared by the socket and the MCP resource (B-108) so that an agent reading `kachok://snapshot`
+ * gets byte-for-byte what a browser page gets — one shape of the truth, not two that drift.
+ */
+internal fun TorrentSet.snapshot(sequence: Long): Snapshot =
+    Snapshot(
+        torrents = torrents.map { it.state.value.onTheWire() },
+        listenPort = listenPort,
+        dhtNodes =
+            if (dhtEnabled) {
+                torrents
+                    .firstOrNull()
+                    ?.state
+                    ?.value
+                    ?.dhtNodes ?: 0
+            } else {
+                null
+            },
+        sequence = sequence,
+    )
 
 /**
  * The engine's state as the wire's.
