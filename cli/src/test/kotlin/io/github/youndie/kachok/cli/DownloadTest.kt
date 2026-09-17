@@ -6,12 +6,23 @@ import io.github.youndie.kachok.engine.bencode.BDictionary
 import io.github.youndie.kachok.engine.bencode.BInteger
 import io.github.youndie.kachok.engine.bencode.BString
 import io.github.youndie.kachok.engine.bencode.Bencode
+import io.github.youndie.kachok.engine.io.EngineDispatchers
 import io.github.youndie.kachok.engine.metainfo.Metainfo
 import io.github.youndie.kachok.engine.metainfo.MetainfoParser
+import io.github.youndie.kachok.engine.runtime.RuntimeOptions
+import io.github.youndie.kachok.engine.runtime.TorrentSet
 import io.github.youndie.kachok.engine.wire.ExtensionHandshake
 import io.github.youndie.kachok.engine.wire.Message
 import io.github.youndie.kachok.engine.wire.PeerWire
 import io.github.youndie.kachok.swarm.SeedingPeer
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import java.net.InetSocketAddress
 import java.nio.file.Files
 import java.nio.file.Path
@@ -340,4 +351,97 @@ class DownloadTest {
             assertContains(err.toString(), "kachok download")
         }
     }
+
+    /**
+     * `--seed` keeps the set alive, so a second client can actually download from the seeder.
+     *
+     * The set used to be closed in a `finally` right after the download settled — before the
+     * seeding branch — so the seeder had no listener to be reached on and no open files to serve
+     * from, and sat at "seeding" looking exactly like a seeder
+     * ([B-109](../../../../../../../../docs/backlog/B-109-download-seed-closes-the-set-before-it-seeds.md)).
+     * What proves it is the other side finishing, not this side's log; and the seeder is then
+     * stopped the way Ctrl-C stops it, through the same interrupt path a cut-short download takes.
+     */
+    @Test
+    fun aSeedingDownloadServesASecondClientUntilItIsInterrupted(): Unit =
+        runBlocking {
+            // The seeder's port is known only once it prints it, so the tracker's answer is decided late —
+            // and never handed to the seeder itself, which would otherwise dial its own port.
+            var advertised: Int? = null
+            val started = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
+            started.createContext("/annc") { exchange: HttpExchange ->
+                val asking =
+                    Regex("port=(\\d+)")
+                        .find(exchange.requestURI.rawQuery.orEmpty())
+                        ?.groupValues
+                        ?.get(1)
+                        ?.toInt()
+                val port = advertised
+                val packed =
+                    if (port != null && port != asking) {
+                        byteArrayOf(127, 0, 0, 1, ((port shr 8) and 0xFF).toByte(), (port and 0xFF).toByte())
+                    } else {
+                        ByteArray(0)
+                    }
+                val body =
+                    Bencode.encode(
+                        BDictionary(mapOf(BString("interval") to BInteger(1800), BString("peers") to BString(packed))),
+                    )
+                exchange.sendResponseHeaders(200, body.size.toLong())
+                exchange.responseBody.use { it.write(body) }
+            }
+            started.start()
+            server = started
+            val trackerUrl = "http://127.0.0.1:${started.address.port}/annc"
+            val torrent = root.resolve("fixture.torrent")
+            Files.write(torrent, torrentBytes(trackerUrl))
+            val seedDir = root.resolve("seed").also { Files.createDirectories(it) }
+            Files.write(seedDir.resolve("payload.bin"), content)
+
+            // Buffers, not builders: the seeder writes from its own thread while this one reads.
+            val out = StringBuffer()
+            val err = StringBuffer()
+            val seeding =
+                async(Dispatchers.Default) {
+                    Download(
+                        Arguments.parseDownload(
+                            listOf(torrent.toString(), "--dir", seedDir.toString(), "--seed", "--no-dht"),
+                        ),
+                        out,
+                        err,
+                    ).run(this)
+                }
+            withTimeout(30_000) { while (!out.toString().contains("seeding")) delay(50) }
+            advertised = Regex("listening on port (\\d+)").find(out.toString())!!.groupValues[1].toInt()
+
+            val dispatchers = EngineDispatchers()
+            val job = SupervisorJob()
+            val scope = CoroutineScope(coroutineContext + dispatchers.io + job)
+            val set = TorrentSet(dispatchers, scope)
+            try {
+                val leecher =
+                    set.add(
+                        MetainfoParser.parse(torrentBytes(trackerUrl)),
+                        RuntimeOptions(directory = root.resolve("leech")),
+                    )
+                leecher.restore()
+                leecher.start(scope)
+                withTimeout(60_000) { while (!leecher.state.value.isComplete) delay(50) }
+                assertContentEquals(
+                    content,
+                    Files.readAllBytes(root.resolve("leech").resolve("payload.bin")),
+                    "the second client's file is not the torrent's",
+                )
+            } finally {
+                set.close()
+                job.cancelAndJoin()
+                dispatchers.close()
+            }
+
+            // Ctrl-C, as a test can send it: the seeding wait is cancelled, and the seeder stops.
+            seeding.cancel()
+            seeding.join()
+            assertContains(out.toString(), "seeding")
+            assertEquals("", err.toString(), "the seeder complained on the way out")
+        }
 }
