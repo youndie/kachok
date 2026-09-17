@@ -88,6 +88,7 @@ tasks.register<JavaExec>("mseInteropProbe") {
     classpath = files(testCompilation.runtimeDependencyFiles, testCompilation.output.allOutputs)
     systemProperty("peer", providers.gradleProperty("peer").getOrElse(""))
     systemProperty("hash", providers.gradleProperty("hash").getOrElse(""))
+    systemProperty("dump", providers.gradleProperty("dump").getOrElse(""))
     javaLauncher.set(
         javaToolchains.launcherFor {
             languageVersion.set(java.toolchain.languageVersion.get())

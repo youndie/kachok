@@ -272,3 +272,40 @@ the probe and it should have come before the last three hypotheses.
 The interop probe still fails, so the item stays open. What can be said now that could not before is
 that the failure is narrow: two implementations of the same protocol, sending fields a third
 implementation reads identically, and only one of them accepted.
+
+## Iteration 6 — 2026-09-17: the wire compared, and the item parked
+
+The probe now dumps every read and write with `-Pdump=<file>`. The Kotlin dialler's wire:
+
+```
+W 394   Ya (96) + PadA (298)
+R 96    Yb
+W 454   req1 (20) + req2^req3 (20) + body (414)
+R 1 …   the scan, one byte at a time, until the peer closes
+```
+
+The independent Python dialler's is the same shape: two writes, the first a key and its padding, the
+second forty bytes of markers and an encrypted body. Only the padding lengths differ, and those are
+proven not to matter.
+
+**So every comparison available has now been made and every one of them says the two are the same.**
+The fields, read by an independent accepter: identical. The structure on the wire: identical. And
+the RC4 itself is transitively proven equal — that accepter decrypted the *Kotlin's* body with
+*Python's* cipher and got `VC` as zeros and every field after it, which two different keystreams
+cannot do.
+
+What remains untested is not in the bytes:
+
+- **Timing.** The JVM does `SecureRandom` seeding, a `modPow`, five SHA-1s and two 1 024-byte
+  keystream discards between reading `Yb` and sending message 3, all of it cold. If libtorrent
+  bounds that gap more tightly than its general handshake timeout, a slow dialler is refused whatever
+  it sends. Measuring the gap in the probe is the next thing to try and it is one line.
+- **libtorrent's own bytes as a dialler**, which five attempts have failed to capture for reasons
+  unrelated to MSE, the last of them an LSD announce that drew no connection — itself a small finding
+  for [B-102](B-102-local-service-discovery.md).
+
+**The item is parked here, not abandoned.** What exists is real and tested: the primitives, the
+handshake both ways, the plaintext discrimination, and a probe that fails honestly against a third
+party. What is missing is one difference that six rounds of comparison have not located, and the
+stage has three untouched items whose value does not depend on finding it. This is where a loop
+should move on rather than grind, and the note above says exactly where to resume.

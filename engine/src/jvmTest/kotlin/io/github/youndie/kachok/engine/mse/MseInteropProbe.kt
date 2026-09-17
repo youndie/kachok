@@ -42,23 +42,53 @@ public object MseInteropProbe {
         Socket().use { socket ->
             socket.connect(InetSocketAddress(host, port), CONNECT_TIMEOUT)
             socket.soTimeout = READ_TIMEOUT
+            // Every byte, in order, with the call that carried it. Comparing two implementations
+            // through a parser that agrees with both says nothing; the wire is the only place a
+            // difference can still be hiding.
+            val log = StringBuilder()
             val stream =
                 object : ByteStream {
                     override fun read(
                         into: ByteArray,
                         fromIndex: Int,
                         toIndex: Int,
-                    ): Int = socket.getInputStream().read(into, fromIndex, toIndex - fromIndex)
+                    ): Int {
+                        val got = socket.getInputStream().read(into, fromIndex, toIndex - fromIndex)
+                        if (got >
+                            0
+                        ) {
+                            log
+                                .append(
+                                    "R ",
+                                ).append(got)
+                                .append(' ')
+                                .append(hex(into, fromIndex, fromIndex + got))
+                                .append('\n')
+                        }
+                        return got
+                    }
 
                     override fun write(
                         bytes: ByteArray,
                         fromIndex: Int,
                         toIndex: Int,
                     ) {
+                        log
+                            .append(
+                                "W ",
+                            ).append(toIndex - fromIndex)
+                            .append(' ')
+                            .append(hex(bytes, fromIndex, toIndex))
+                            .append('\n')
                         socket.getOutputStream().write(bytes, fromIndex, toIndex - fromIndex)
                         socket.getOutputStream().flush()
                     }
                 }
+            Runtime.getRuntime().addShutdownHook(
+                Thread {
+                    System.getProperty("dump").orNullIfBlank()?.let { java.io.File(it).writeText(log.toString()) }
+                },
+            )
 
             // The BitTorrent handshake rides inside the MSE one as `IA`, which is what a real
             // client does and what makes the first reply arrive in one round trip.
@@ -91,6 +121,12 @@ public object MseInteropProbe {
     }
 
     private fun String?.orNullIfBlank(): String? = this?.takeIf { it.isNotBlank() }
+
+    private fun hex(
+        bytes: ByteArray,
+        fromIndex: Int,
+        toIndex: Int,
+    ): String = (fromIndex until toIndex).joinToString("") { "%02x".format(bytes[it]) }
 
     private const val CONNECT_TIMEOUT = 10_000
     private const val READ_TIMEOUT = 15_000
