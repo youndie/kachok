@@ -48,7 +48,7 @@ which is also the order of work.
 
 <!-- BEGIN INDEX -->
 
-## Open (15)
+## Open (16)
 
 | Task | | Priority | Size | Blocked by |
 |---|---|---|---|---|
@@ -56,6 +56,7 @@ which is also the order of work.
 | [B-98](docs/backlog/B-98-how-many-peers-does-this-client-meet.md) `[ ]` | How many peers does this client meet? Measure it against a reference client, then set the cap | P1 | M | - |
 | [B-100](docs/backlog/B-100-protocol-encryption.md) `[ ]` | Protocol encryption (MSE/PE): the peers that will not talk in the clear | P2 | L | B-98 |
 | [B-103](docs/backlog/B-103-upnp-and-nat-pmp-port-mapping.md) `[ ]` | Port mapping (UPnP IGD, NAT-PMP/PCP): reopening B-09's rejection, because the reason given was a dependency | P2 | M | B-98 |
+| [B-104](docs/backlog/B-104-the-settings-screen-cannot-hold-another-row.md) `[ ]` | The settings screen is exactly full: an eleventh row pushes the tenth somewhere nobody can reach it | P2 | S | - |
 | [B-79](docs/backlog/B-79-the-windows-state-outlives-its-composition.md) `[ ]` | The window's state outlives its composition | P2 | L | - |
 | [B-80](docs/backlog/B-80-the-ui-moves-to-commonmain.md) `[ ]` | The UI moves to commonMain | P2 | L | B-79 |
 | [B-93](docs/backlog/B-93-opening-a-downloaded-executable.md) `[ ]` | Double-clicking a downloaded executable, and the warning Windows never gets to show | P2 | M | - |
