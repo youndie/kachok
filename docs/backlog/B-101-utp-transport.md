@@ -1,7 +1,7 @@
 ---
 id: B-101
 title: "µTP (BEP 29): the transport this client cannot be reached on"
-status: open
+status: done
 priority: P3
 size: XL
 stage: m9-swarm
@@ -51,3 +51,57 @@ another, and multiplexing many streams over one datagram flow. It is not a week.
   `engine/src/jvmMain/kotlin/io/github/youndie/kachok/engine/io/SocketPeerDialer.kt`,
   `engine/src/jvmMain/kotlin/io/github/youndie/kachok/engine/io/PeerListener.kt`,
   `docs/research/research-architecture.md`.
+
+## Done 2026-09-17 — deferred, with the number that would un-defer it
+
+**Taken while [B-103](B-103-upnp-and-nat-pmp-port-mapping.md) is still `wip`, and that is said out
+loud rather than arranged around.** The `blocked_by` was never about B-103 being *finished*; it was
+about its evidence existing, because the question here is whether TCP reachability is what is left
+after everything cheaper has been done. That evidence exists now, and B-103's remaining work — an
+acceptance run on a router that maps, which this network does not have — cannot change it.
+
+### What the measurement says about reachability
+
+From [B-98](B-98-how-many-peers-does-this-client-meet.md)'s twenty-minute run, the client's own
+counters:
+
+```
+dials 303/4423 (connect timed out 2856, refused 850, closed during the handshake 349, reset 29, …)
+```
+
+**2 856 of 4 423 dials — 65 % — end in `connect timed out`.** Those are peers an outgoing TCP
+connection cannot reach. That is the number this item is about, and it is large.
+
+It is also **not** a number µTP fixes. A peer unreachable over TCP is, in the overwhelming majority,
+a peer behind a NAT with nothing forwarded — and µTP does not traverse a NAT any more than TCP does.
+What reaches those peers is one of two things, and neither is this item:
+
+- **They dial us**, which needs a forwarded port — [B-103](B-103-upnp-and-nat-pmp-port-mapping.md),
+  built, and the reason it was built first.
+- **Hole punching**, which needs a peer that can reach both ends to relay the attempt — and which
+  needs µTP underneath it, which is how µTP would earn its place rather than by being a second
+  transport for its own sake.
+
+### The decision
+
+**Deferred.** The number that would un-defer it is not the 65 % above; it is what remains *after* a
+run with a forwarded port. If, on a network where B-103 succeeds, incoming connections still leave
+this client materially short of a reference client on the same swarm, then the difference is
+reachability that TCP cannot buy and µTP becomes the next thing. Until that run exists there is no
+evidence for starting an XL piece of work whose literature is congestion control.
+
+Two smaller things that are true regardless and are worth having written down:
+
+- **µTP's other half is politeness, not reach.** LEDBAT yields to interactive traffic; a TCP-only
+  client saturating an uplink makes its owner's other traffic worse in a way a µTP client's does
+  not. That is a real cost this client imposes and it is not measured anywhere. It is not enough on
+  its own to justify the work, and it should not be forgotten when the work is next considered.
+- **The half that is easier to write is the half worth less.** Dialling over µTP reaches peers that
+  already reach us; *accepting* over it is what a NAT'd peer needs. An implementation that does the
+  first and defers the second has spent the effort and bought nothing.
+
+### What was rejected and stays rejected
+
+Taking a µTP implementation as a dependency. There is no maintained JVM one this project would put
+on its hot path, and `:engine` keeps its transport behind an interface it owns precisely so that
+this stays a choice rather than a constraint.

@@ -1163,6 +1163,32 @@ bound because the client has never reached it, and it gets a number here or an e
 keep it — with the run that produced it named beside it, the way every other default in this
 document is.
 
+### D14. µTP is deferred, and the number that would change that is not the obvious one
+
+*Decided 2026-09-17 by [B-101](../backlog/B-101-utp-transport.md).*
+
+Every peer connection is TCP. The obvious argument for adding BEP 29's µTP is
+[D13](#d13-how-many-peers-does-this-client-meet-is-unmeasured-and-the-instruments-now-exist)'s own
+figure: **2 856 of 4 423 dials end in `connect timed out`**, 65 % of them, and those are peers an
+outgoing connection cannot reach.
+
+That argument does not hold, and the reason is worth keeping. A peer unreachable over TCP is almost
+always a peer behind a NAT with nothing forwarded, and **µTP does not traverse a NAT either**. What
+reaches those peers is a forwarded port so they can dial *us*
+([B-103](../backlog/B-103-upnp-and-nat-pmp-port-mapping.md)), or hole punching — which itself needs
+µTP underneath, and which is how µTP would earn a place rather than by being a second transport for
+its own sake.
+
+So the number that would un-defer it is not the 65 %. It is what remains *after* a run with a
+forwarded port: if incoming connections still leave this client materially short of a reference
+client on the same swarm, the gap is reachability TCP cannot buy. That run does not exist, because
+the network this was measured on has a router that maps nothing.
+
+One cost is real, unmeasured, and imposed on somebody else: µTP's LEDBAT yields to interactive
+traffic, and a TCP-only client saturating an uplink makes its owner's other traffic worse in a way a
+µTP client's does not. It is not enough on its own to justify an XL piece of work whose literature is
+congestion control, and it should not be forgotten the next time this is weighed.
+
 ## 3. Risks and open questions
 
 **Risk 1 — measured, and it did not happen.** Carrier pinning and compensation hiding a thread
