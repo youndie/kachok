@@ -210,3 +210,37 @@ entirely: accepting one leaves a hole that no lease will ever close.
 
 **What is left**: the SSDP socket and the two HTTP calls, then the fallback order in `PortMapper`,
 then the acceptance run on a router that maps — which this network still does not have.
+
+## Iteration 6 — 2026-09-17: the fallback, and the test that caught its cost
+
+`UpnpMapper` does the I/O — one SSDP datagram, a GET for the description, a SOAP POST — and
+`PortMapper` tries it **only when NAT-PMP is met with silence**. Not when NAT-PMP *refuses*: a
+router that says "port mapping is switched off" has answered the question, and asking the same box
+the same thing in another protocol is noise on somebody's network for an answer already given.
+
+Three decisions that are easy to get wrong and invisible when you do:
+
+- **Released through whichever protocol made it.** A NAT-PMP release sent to a mapping UPnP made is
+  a packet the router has no record for; it succeeds silently and the hole stays open for the rest
+  of the lease.
+- **The internal address is the one the router sees us at**, taken by connecting a datagram socket
+  to the device that replied. `InetAddress.getLocalHost()` on a machine with several interfaces is
+  a coin toss, and a mapping pointed at the wrong one is a router forwarding to nothing while this
+  client reports success.
+- **A non-2xx reply is read, not discarded.** A UPnP refusal arrives as HTTP 500 carrying the fault
+  code, which is the only explanation the router ever gives.
+
+**The existing timing test caught exactly the thing it should have**: adding a fallback made the
+total wait longer, and it failed rather than quietly passing at the new number. Its bound now covers
+both protocols, because silence from the first is what sends the mapper to the second and the sum is
+what a person would wait through. Against the real gateway here, end to end:
+
+```
+NOT MAPPED after 7028ms: the router at 192.168.1.1 does not answer NAT-PMP, and no UPnP gateway answered
+```
+
+Seven seconds, naming both, off the opening path — which is why the ask was launched rather than
+awaited two iterations ago, and is the second time that decision has paid.
+
+**What is left**: nothing but the acceptance run, and it needs a router that maps. Everything this
+item can build is built.
