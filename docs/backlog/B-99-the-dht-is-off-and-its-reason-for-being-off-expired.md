@@ -1,7 +1,7 @@
 ---
 id: B-99
 title: "The DHT is off by default, and the reason written beside the default has since come true"
-status: question
+status: done
 priority: P2
 size: S
 stage: m9-swarm
@@ -57,3 +57,27 @@ one, which is why this is a question and not an open item.
   `engine/src/jvmMain/kotlin/io/github/youndie/kachok/engine/runtime/TorrentRuntime.kt`,
   `ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/session/SettingsFrom.kt`,
   `docs/research/research-architecture.md`.
+
+**Answered by the owner 2026-09-17: on.** And by then it was not a close question — run 4 of
+[B-98](B-98-how-many-peers-does-this-client-meet.md) is the default configuration against a swarm of
+526, and it held **one peer**, because `torrent.ubuntu.com` hands out exactly one per announce at
+`numwant` unset, 50 and 200 alike. A client without the DHT does not get a small share of a public
+swarm; it gets one address.
+
+**The answer is "on" for the products and still "off" for the engine, and that split is the whole
+of the implementation.** `SetOptions.dht` — the only switch that actually opens a socket, as it
+turned out — stays `false`: ten of this repository's own tests build a `TorrentSet` with its
+defaults, and a library that contacts three public bootstrap routers because it was *constructed*
+is a different thing from a client that joins because somebody installed it. The CLI and the window
+answer the second question with `true`. That is also the half of the original reason that has not
+expired, and it is now asserted rather than assumed — `theEngineItselfStillJoinsNothingUnlessTold`.
+
+`--dht` is gone and `--no-dht` takes its place. Three tests asserted the old default and were right
+to until it was measured; each now asserts the new one and says what moved it. The settings row
+keeps its paragraph: a switch that announces this machine's address to strangers earns its
+explanation whichever way it is set, which is the rule the screen was written to and is not what
+changed here.
+
+**A dead switch found on the way and removed.** `RuntimeOptions.dht` was read by nothing. The DHT
+belongs to the set, not to a torrent, so the field had been a plausible-looking no-op since
+[B-54](B-54-many-torrents.md) split them — a caller could set it, see no error, and get no DHT.

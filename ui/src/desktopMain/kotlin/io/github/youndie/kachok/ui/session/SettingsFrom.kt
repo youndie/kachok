@@ -23,7 +23,16 @@ internal data class Preferences(
     val pipelineDepth: Int? = null,
     val uploadLimitKibPerSecond: Long? = null,
     val downloadLimitKibPerSecond: Long? = null,
-    val dht: Boolean = false,
+    /**
+     * Join the DHT, and **on** since B-99.
+     *
+     * The measurement that decided it: on a public torrent whose tracker hands out one peer per
+     * announce — which `torrent.ubuntu.com` does, at every `numwant` — a client without the DHT
+     * holds one peer and a client with it holds thirty. The engine's own default stays off, because
+     * a library must not announce this machine to strangers merely by being constructed; this is
+     * the product deciding for the person who installed it.
+     */
+    val dht: Boolean = true,
     /** Ask every tracker the torrent names rather than only the first that answers (BEP 12). */
     val announceToAllTrackers: Boolean = false,
     val autostart: Boolean = false,
@@ -288,10 +297,11 @@ internal fun settingsOf(
                             label = "Join the DHT (BEP 5)",
                             note =
                                 "Joining announces this machine's address to strangers, starting " +
-                                    "with three public bootstrap routers. kachok only needs it for " +
-                                    "a magnet link that names no tracker, so it is off until you " +
-                                    "ask. A private torrent never joins, whatever this says.",
-                            default = "off",
+                                    "with three public bootstrap routers. On, because most public " +
+                                    "trackers hand out a handful of peers and the rest of the swarm " +
+                                    "is only reachable here. A private torrent never joins, " +
+                                    "whatever this says.",
+                            default = "on",
                             value = "",
                             toggle = preferences.dht,
                         ),

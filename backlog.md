@@ -48,7 +48,7 @@ which is also the order of work.
 
 <!-- BEGIN INDEX -->
 
-## Open (16)
+## Open (15)
 
 | Task | | Priority | Size | Blocked by |
 |---|---|---|---|---|
@@ -60,7 +60,6 @@ which is also the order of work.
 | [B-79](docs/backlog/B-79-the-windows-state-outlives-its-composition.md) `[ ]` | The window's state outlives its composition | P2 | L | - |
 | [B-80](docs/backlog/B-80-the-ui-moves-to-commonmain.md) `[ ]` | The UI moves to commonMain | P2 | L | B-79 |
 | [B-93](docs/backlog/B-93-opening-a-downloaded-executable.md) `[ ]` | Double-clicking a downloaded executable, and the warning Windows never gets to show | P2 | M | - |
-| [B-99](docs/backlog/B-99-the-dht-is-off-and-its-reason-for-being-off-expired.md) `[?]` | The DHT is off by default, and the reason written beside the default has since come true | P2 | S | - |
 | [B-101](docs/backlog/B-101-utp-transport.md) `[ ]` | µTP (BEP 29): the transport this client cannot be reached on | P3 | XL | B-98, B-103 |
 | [B-102](docs/backlog/B-102-local-service-discovery.md) `[ ]` | Local service discovery (BEP 14): the peers on the same network are never found | P3 | S | - |
 | [B-37](docs/backlog/B-37-v2-and-hybrid-torrents.md) `[?]` | v2 and hybrid torrents (BEP 52): SHA-256 piece layers | P3 | L | B-04 |
@@ -69,7 +68,7 @@ which is also the order of work.
 | [B-87](docs/backlog/B-87-a-server-with-a-web-face.md) `[ ]` | Phase 3: a headless server with a web face, installable on a box that is always on | P3 | XL | B-80 |
 | [B-02](docs/backlog/B-02-ci-runs-build-and-docs-gates.md) `[ ]` | CI runs the build and the documentation gates on every push | infra | S | B-01 |
 
-## Closed (89)
+## Closed (90)
 
 **M0 — The build and its gates**
 
@@ -143,6 +142,7 @@ which is also the order of work.
 - [B-105](docs/backlog/B-105-connections-are-made-and-not-kept.md) `[x]` - Three hundred handshakes, twenty-two peers held — and the client asks nineteen of them for nothing
 - [B-95](docs/backlog/B-95-the-dial-loop-only-runs-when-something-else-happens.md) `[x]` - The client stops dialling: there is no periodic top-up, and a dial in flight is dialled again
 - [B-96](docs/backlog/B-96-the-handshake-read-has-no-deadline.md) `[x]` - A peer that accepts the connection and then says nothing is never given up on
+- [B-99](docs/backlog/B-99-the-dht-is-off-and-its-reason-for-being-off-expired.md) `[x]` - The DHT is off by default, and the reason written beside the default has since come true
 
 **Phase 2 — UI**
 

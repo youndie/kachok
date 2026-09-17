@@ -118,9 +118,11 @@ class SettingsFromTest {
     @Test
     fun theDhtToggleCarriesItsExplanation() {
         val dht = setting("Join the DHT (BEP 5)")
-        assertEquals("off", dht.default)
-        assertEquals(false, dht.toggle)
+        assertEquals("on", dht.default, "B-99 turned it on; the measurement is in the item")
+        assertEquals(true, dht.toggle)
         val note = dht.note.orEmpty()
+        // The paragraph is the point of the row and outlives the default it explains: a switch that
+        // announces this machine to strangers earns its explanation whichever way it is set.
         assertTrue(note.contains("announces this machine's address to strangers"), note)
         assertTrue(note.contains("A private torrent never joins"), note)
     }

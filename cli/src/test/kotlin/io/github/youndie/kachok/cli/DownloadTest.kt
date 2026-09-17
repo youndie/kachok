@@ -280,12 +280,31 @@ class DownloadTest {
     }
 
     @Test
-    fun theDhtIsOffUnlessAskedFor() {
-        // Joining it means contacting three public routers and announcing this machine to
-        // strangers. Nothing in phase 1 needs that — every torrent this client can open names a
-        // tracker — and a default of "on" would also mean every run of this suite doing it.
-        assertTrue(!Arguments.parseDownload(listOf("x.torrent")).dht)
-        assertTrue(Arguments.parseDownload(listOf("x.torrent", "--dht")).dht)
+    fun theDhtIsJoinedUnlessTheCommandLineRefusesIt() {
+        // **This test used to assert the opposite and was right to, until it was measured.**
+        // `torrent.ubuntu.com` hands out one peer per announce whatever `numwant` asks for, against
+        // a swarm of 526: a client without the DHT does not get a small share of a public swarm, it
+        // gets one address (B-99).
+        assertTrue(Arguments.parseDownload(listOf("x.torrent")).dht, "the DHT is joined by default")
+        assertTrue(!Arguments.parseDownload(listOf("x.torrent", "--no-dht")).dht, "--no-dht stays out")
+    }
+
+    /**
+     * The half of the old reason that has not expired, and the reason it is asserted here.
+     *
+     * A default of "on" in the *engine* would mean every run of this suite contacting three public
+     * bootstrap routers, because ten tests build a `TorrentSet` with its defaults. What a person
+     * running the client gets and what a library does when it is constructed are different
+     * questions, and this is the line that keeps them apart.
+     */
+    @Test
+    fun theEngineItselfStillJoinsNothingUnlessTold() {
+        assertTrue(
+            !io.github.youndie.kachok.engine.runtime
+                .SetOptions()
+                .dht,
+            "the library's own default must stay off",
+        )
     }
 
     @Test

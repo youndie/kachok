@@ -40,7 +40,6 @@ public class RuntimeOptions(
     public val port: Int? = null,
     public val maxPeers: Int = DEFAULT_MAX_PEERS,
     public val pipelineDepth: Int = DEFAULT_PIPELINE,
-    public val dht: Boolean = false,
     /** Ask every tracker the torrent names, not only the first that answers (BEP 12's default). */
     public val announceToAllTrackers: Boolean = false,
     public val uploadLimitBytesPerSecond: Long = NO_LIMIT,

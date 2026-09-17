@@ -20,6 +20,16 @@ import java.util.concurrent.ConcurrentHashMap
 /** What the whole process chooses, as opposed to what one torrent does. */
 public class SetOptions(
     public val port: Int? = null,
+    /**
+     * Join the DHT (BEP 5).
+     *
+     * **Off here and on in the products, and the split is deliberate (B-99).** Joining opens a
+     * socket and announces this machine's address to three public routers; a library must not do
+     * that because it was constructed, and ten of this repository's own tests build a set with
+     * these defaults. What a *person* running the client should get is a different question, and
+     * the CLI and the window answer it with `true` — measured: without the DHT, a public torrent
+     * whose tracker hands out one peer per announce leaves this client with one peer.
+     */
     public val dht: Boolean = false,
 )
 

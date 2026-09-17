@@ -167,7 +167,7 @@ class SettingsScreenTest {
             onNodeWithContentDescription("Join the DHT (BEP 5)").performScrollTo().performClick()
             val toggled = changes.filterIsInstance<SettingChange.Toggled>().single()
             assertEquals(SettingKey.Dht, toggled.key)
-            assertEquals(true, toggled.on, "it is off, so a click asks for on")
+            assertEquals(false, toggled.on, "it is on since B-99, so a click asks for off")
         }
 
     @Test
