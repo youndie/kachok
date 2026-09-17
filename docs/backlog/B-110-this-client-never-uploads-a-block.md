@@ -21,7 +21,7 @@ void, adds the length to its own upload meter, and publishes `uploaded` from
 `connection.uploaded` — which is the one counter that tells the truth, and stays at zero.
 
 **The whole upload side is built and tested and wired to nothing.** [B-20](B-20-upload-read-path.md)
-measured `transferTo` from the page cache to a socket; [B-21](B-21-choker.md) unchokes the four
+measured `transferTo` from the page cache to a socket; [B-21](B-21-choking-algorithm.md) unchokes the four
 best interested peers; [B-22](B-22-rate-limits.md) budgets what they get. Every one of them is
 exercised against a fake connection, and the one line that would have joined them to a socket was
 never written. No test asserts that a real peer received a byte from this client, on any surface.
