@@ -95,3 +95,39 @@ harder and pays more — an accepting side that must tell a plaintext `0x13 BitT
 from the first key of an obfuscated handshake with no length to go on. Getting that wrong loses the
 plaintext peers as well, so it is the part that needs a test for both openings before it is wired
 into `PeerListener`.
+
+## Iteration 2 — 2026-09-17: the handshake, and what a symmetric test cannot see
+
+Both sides are written, against a `ByteStream` rather than a socket, and tested with a pipe and two
+threads. The hard part is that **neither side knows where the other's padding ends**, so both scan:
+the accepter for `HASH('req1', S)`, which it can compute as soon as it has `Ya`, and the dialler for
+the accepter's encrypted `VC`, which is the first eight bytes of that side's keystream and therefore
+predictable exactly. Both scans are bounded — past the bound the peer is not speaking MSE, and
+waiting longer is how a client hangs instead of failing, which is
+[B-96](B-96-the-handshake-read-has-no-deadline.md) one protocol up.
+
+A recorded byte script would have asserted the recording. The scan is what goes wrong and it only
+misbehaves at particular padding lengths, so `theScanSurvivesEveryPaddingLength` runs twenty
+exchanges rather than one, and the assertion is not that the handshake *completed* but that a
+message sent through the resulting streams comes back — a handshake can complete with the two
+keystreams one byte apart.
+
+### The finding, and it is about the tests rather than the code
+
+**Removing the 1 024-byte keystream discard changes nothing. Every test still passes.**
+
+That is not a weak test suite, it is the shape of the problem: when both ends of the conversation are
+this client, every *symmetric* property is invisible. The discard, the exact ASCII prefixes, the key
+widths, the byte order of `crypto_provide` — get any of them consistently wrong and this client
+still talks to itself perfectly. It is precisely the class of defect that ships.
+
+So the tests here are worth what they are worth — they cover the asymmetric half, which is real: the
+scan, the torrent lookup, the carried `IA`, the plaintext discrimination, the verification constant.
+What they cannot do is decide whether this is MSE or merely an internally consistent protocol of its
+own. **Only a third party can**, and the acceptance criterion already says so; what has changed is
+that it is now the *only* thing that can close this item, rather than a nice confirmation at the end.
+
+The oracle is at hand: the measurement machine of [B-98](B-98-how-many-peers-does-this-client-meet.md)
+runs qBittorrent 5.2.1, whose own start-up log reports `Encryption support: ON`. The next iteration
+wires the handshake into `SocketPeerConnection` and `PeerListener` and dials that client — which is
+what will say whether the discard matters, and will say it in one connection.
