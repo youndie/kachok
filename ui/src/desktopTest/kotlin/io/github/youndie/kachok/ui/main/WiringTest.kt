@@ -89,8 +89,9 @@ class WiringTest {
      * The clipboard prompt's two answers, and the overlay a drag draws.
      *
      * What a test can reach here is the state and the presses. Turning an AWT drop into that state
-     * is the half no test drives: `DragAndDropEvent` wraps a type a test cannot construct, and
-     * dragging a file between two applications needs a second application.
+     * is decided in `DroppedFiles`, which has its own test on hand-built transferables (B-107); the
+     * one line that unwraps `DragAndDropEvent` is still the line no test drives, because dragging a
+     * file between two applications needs a second application.
      */
     @Test
     fun theClipboardPromptsAnswersLeaveTheWindow(): Unit =

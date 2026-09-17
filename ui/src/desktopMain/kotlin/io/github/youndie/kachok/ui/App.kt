@@ -51,6 +51,7 @@ import io.github.youndie.kachok.engine.runtime.fetchMetainfo
 import io.github.youndie.kachok.engine.session.FilePriority
 import io.github.youndie.kachok.engine.storage.FileSet
 import io.github.youndie.kachok.ui.add.AddTorrentState
+import io.github.youndie.kachok.ui.add.DroppedFiles
 import io.github.youndie.kachok.ui.details.DetailsTab
 import io.github.youndie.kachok.ui.icons.appIcon
 import io.github.youndie.kachok.ui.main.MainWindow
@@ -424,6 +425,7 @@ private class Fetching(
  * abrupt one.
  */
 @Composable
+@OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
 internal fun Client(
     initial: Path?,
     directory: Path,
@@ -957,7 +959,7 @@ internal fun Client(
                     remember {
                         object : DragAndDropTarget {
                             override fun onEntered(event: DragAndDropEvent) {
-                                dropping = droppedPaths(event).map { it.fileName.toString() }
+                                dropping = DroppedFiles.hovering(event.awtTransferable)
                             }
 
                             override fun onExited(event: DragAndDropEvent) {
@@ -970,11 +972,8 @@ internal fun Client(
 
                             override fun onDrop(event: DragAndDropEvent): Boolean {
                                 dropping = emptyList()
-                                // The first `.torrent` and not all of them: the dialog asks about
-                                // one torrent, and four would need a queue the window has not got.
                                 val path =
-                                    droppedPaths(event)
-                                        .firstOrNull { it.toString().endsWith(".torrent") }
+                                    DroppedFiles.firstTorrent(DroppedFiles.paths(event.awtTransferable))
                                         ?: return false
                                 pendingDrop = path
                                 return true
@@ -1352,30 +1351,6 @@ private fun torrentAt(
     } catch (malformed: IllegalArgumentException) {
         System.err.println("kachok: $path is not a usable torrent: ${malformed.message}")
         null
-    }
-
-/**
- * The files an AWT drop is carrying, or empty for a drop of something else.
- *
- * Wrapped in the same way the clipboard is: a transferable whose flavour is not what it advertised
- * throws, and a window that fell over because somebody dragged a browser tab onto it would be worse
- * than one that ignores the drop.
- */
-@OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
-@Suppress("UNCHECKED_CAST")
-private fun droppedPaths(event: DragAndDropEvent): List<Path> =
-    try {
-        val transferable = event.awtTransferable
-        if (!transferable.isDataFlavorSupported(DataFlavor.javaFileListFlavor)) {
-            emptyList()
-        } else {
-            (transferable.getTransferData(DataFlavor.javaFileListFlavor) as List<java.io.File>)
-                .map { it.toPath() }
-        }
-    } catch (unsupported: UnsupportedFlavorException) {
-        emptyList()
-    } catch (unreadable: IOException) {
-        emptyList()
     }
 
 /**

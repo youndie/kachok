@@ -57,7 +57,10 @@ internal class MainWindowState(
     val adding: AddTorrentState? = null,
     /** A magnet noticed on the clipboard when the window came back into focus. */
     val clipboardMagnet: String? = null,
-    /** The files hovering over the window right now. Empty means nothing is being dragged. */
+    /**
+     * The files hovering over the window right now, by name — or `DroppedFiles.UNNAMED_DROP` alone
+     * when the platform will not say the names before the drop. Empty means nothing is being dragged.
+     */
     val dropping: List<String> = emptyList(),
     /** Non-null while the settings screen is open, which is instead of the list rather than over it. */
     val settings: SettingsState? = null,
