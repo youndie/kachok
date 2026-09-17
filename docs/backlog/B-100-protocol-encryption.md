@@ -1,7 +1,7 @@
 ---
 id: B-100
 title: "Protocol encryption (MSE/PE): the peers that will not talk in the clear"
-status: open
+status: wip
 priority: P2
 size: L
 stage: m9-swarm
@@ -57,3 +57,41 @@ rejected; it was never considered.
 - Anchors: `engine/src/jvmMain/kotlin/io/github/youndie/kachok/engine/io/SocketPeerConnection.kt`,
   `engine/src/jvmMain/kotlin/io/github/youndie/kachok/engine/io/PeerListener.kt`,
   `engine/src/commonMain/kotlin/io/github/youndie/kachok/engine/wire/Handshake.kt`.
+
+## Iteration 1 — 2026-09-17: the primitives, probed before they were written
+
+`engine/.../mse/` holds Diffie-Hellman over MSE's 768-bit prime and a running RC4 keystream, behind
+interfaces with an `expect` factory. Not `expect class`: that is still Beta and this project
+compiles with warnings as errors — a constraint worth recording, because the obvious shape for a
+platform primitive with state is exactly the one the build refuses.
+
+**Three things were measured on JDK 25 before a line of this was committed**, because all three
+decide the design and two of them fail silently:
+
+- The JDK's ARCFOUR matches RFC 6229's 40-bit vector, so nothing here is hand-written — which is
+  what this item's decision said.
+- `modPow` on the prime costs 3 ms. Once per connection, beneath notice.
+- **`Cipher.doFinal` restarts the keystream; `Cipher.update` continues it.** A client using
+  `doFinal` re-encrypts every message with the same keystream bytes. Talking to its own other half
+  it is perfectly symmetric and every test passes; against any other client it is gibberish after
+  the first message. The test asserts RFC 6229's *second* block explicitly for that reason, and the
+  mutation confirms it: swapping `update` for `doFinal` fails
+  `theKeystreamContinuesAcrossCallsRatherThanRestarting` and `discardingAdvancesTheStreamByExactlyThatMany`,
+  and nothing else.
+
+One more trap closed in passing: the public key is padded to 96 bytes by hand, because
+`BigInteger.toByteArray()` returns the two's-complement form — 97 bytes whenever the top bit is set,
+fewer than 96 whenever the value is small. Both are wrong on the wire, the first happens about half
+the time, and the symptom is a peer that disconnects without a word. `everyKeyIsPaddedToTheFullWidth`
+runs forty key pairs rather than one.
+
+`MseHandshake` carries the key schedule — the five prefixed hashes, the obfuscated info hash, the
+1 024-byte keystream discard — and a test asserts the five derived values are five *different*
+values, which is the whole reason the prefixes exist.
+
+**What is left, and it is most of the item.** The handshake state machine and the socket
+integration: the five messages, the padding, `crypto_provide`/`crypto_select`, and the half that is
+harder and pays more — an accepting side that must tell a plaintext `0x13 BitTorrent protocol`
+from the first key of an obfuscated handshake with no length to go on. Getting that wrong loses the
+plaintext peers as well, so it is the part that needs a test for both openings before it is wired
+into `PeerListener`.
