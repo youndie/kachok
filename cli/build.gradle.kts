@@ -1,6 +1,6 @@
 plugins {
-    alias(libs.plugins.kotlinJvm)
-    alias(libs.plugins.kotlinSerialization)
+    alias(wip.plugins.kotlinJvm)
+    alias(wip.plugins.kotlinSerialization)
     application
     id("io.github.youndie.sborka.base")
     id("io.github.youndie.sborka.test")

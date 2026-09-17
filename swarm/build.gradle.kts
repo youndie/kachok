@@ -1,5 +1,5 @@
 plugins {
-    alias(libs.plugins.kotlinJvm)
+    alias(wip.plugins.kotlinJvm)
     id("io.github.youndie.sborka.base")
     id("io.github.youndie.sborka.lint")
 }

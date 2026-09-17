@@ -1,14 +1,15 @@
 [versions]
 # The compiler. Everything that has to agree with it (coroutines, serialization) comes from the
 # shared `wip` catalog that `io.github.youndie.sborka.settings` puts beside this one.
-kotlin = "2.4.10"
 # The shared build conventions. One number: every sborka plugin below takes its version from here,
 # and settings.gradle.kts repeats it by hand because a settings plugin cannot read a catalog.
-sborka = "0.4.0.43"
+sborka = "0.4.0.87"
+# The compiler comes with them. `wip`, the catalog a sborka release publishes, carries `kotlin`,
+# `ksp` and `composeMultiplatform` — three versions that are one decision: KSP is built against a
+# compiler, the Compose plugin is versioned by it, and a Compose Multiplatform release is built
+# against a plugin range.
 # Phase 2. Pinned here rather than taken from the shared `wip` catalog, which carries none of these.
-compose-multiplatform = "1.12.0"
 # KSP is versioned independently of the Kotlin compiler since KSP2; viddik's processor runs on it.
-ksp = "2.3.11"
 # viddik ships the plugin, the annotations and the capture engine under one version, which is what
 # keeps the processor and the renderer in step. 0.4.0 is on Maven Central under
 # `io.github.youndie.viddik`; everything up to 0.3.3 is on reposilite under `ru.workinprogress` and
@@ -22,14 +23,8 @@ appframe = "0.1.24"
 appframe = { module = "io.github.youndie:appframe-desktop", version.ref = "appframe" }
 
 [plugins]
-kotlinSerialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
-kotlinMultiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
-kotlinJvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
 sborkaBase = { id = "io.github.youndie.sborka.base", version.ref = "sborka" }
 sborkaTest = { id = "io.github.youndie.sborka.test", version.ref = "sborka" }
 sborkaKmp = { id = "io.github.youndie.sborka.kmp", version.ref = "sborka" }
 sborkaLint = { id = "io.github.youndie.sborka.lint", version.ref = "sborka" }
-composeMultiplatform = { id = "org.jetbrains.compose", version.ref = "compose-multiplatform" }
-composeCompiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
-ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
 viddik = { id = "io.github.youndie.viddik", version.ref = "viddik" }

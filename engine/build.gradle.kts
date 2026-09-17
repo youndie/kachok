@@ -1,7 +1,7 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmDefaultMode
 
 plugins {
-    alias(libs.plugins.kotlinMultiplatform)
+    alias(wip.plugins.kotlinMultiplatform)
     id("io.github.youndie.sborka.kmp")
     id("io.github.youndie.sborka.lint")
 }

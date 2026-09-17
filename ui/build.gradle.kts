@@ -33,10 +33,10 @@ val builds: String =
             .ifBlank { "0" }
 
 plugins {
-    alias(libs.plugins.kotlinMultiplatform)
-    alias(libs.plugins.composeMultiplatform)
-    alias(libs.plugins.composeCompiler)
-    alias(libs.plugins.ksp)
+    alias(wip.plugins.kotlinMultiplatform)
+    alias(wip.plugins.composeMultiplatform)
+    alias(wip.plugins.composeCompiler)
+    alias(wip.plugins.ksp)
     alias(libs.plugins.viddik)
     id("io.github.youndie.sborka.kmp")
     id("io.github.youndie.sborka.lint")
