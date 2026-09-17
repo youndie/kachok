@@ -1,7 +1,7 @@
 ---
 id: B-96
 title: "A peer that accepts the connection and then says nothing is never given up on"
-status: open
+status: done
 priority: P1
 size: S
 stage: m9-swarm
@@ -51,3 +51,47 @@ the caller is the listener's accept loop.
   thirty-four of the sixty-eight bytes.
 - Anchors: `engine/src/jvmMain/kotlin/io/github/youndie/kachok/engine/io/SocketPeerConnection.kt`,
   `engine/src/jvmMain/kotlin/io/github/youndie/kachok/engine/io/PeerListener.kt`.
+
+**Done 2026-09-17.** The handshake is read through the channel's own
+`socket().getInputStream()`, which honours `SO_TIMEOUT`, with the timeout recomputed from a single
+deadline before every read. Both entry points use it: `connect` for the dial and `readHandshake` for
+the accept.
+
+**The mechanism was probed before it was written into the code, because three of the four obvious
+routes do not work.** A blocking `SocketChannel.read` ignores `SO_TIMEOUT` by specification.
+`withTimeout` around it does not end it either — a virtual thread blocked in a socket read is not at
+a suspension point, so cancellation has nowhere to land. A selector would work and is the one thing
+this file has committed to not having. The adapted `InputStream` was the remaining door, and two of
+its properties had to hold or the approach fails silently; both were measured on JDK 25.0.2 on
+Linux and on macOS: a read expires at the deadline (401–405 ms for a 400 ms timeout), and it does
+**not** read ahead — after taking exactly sixty-eight bytes, the next channel read returned byte
+sixty-eight. The second one has its own test, `theFirstWireMessageAfterTheHandshakeIsNotSwallowedByTheAdaptor`,
+because if it were false the symptom would be a peer that connects and then never says anything —
+indistinguishable from the defect this item fixed, and invisible to a timeout test.
+
+**A test that looked right and proved nothing.** The first version of the total-deadline test used a
+peer that sent thirty-four bytes and stopped. `SO_TIMEOUT` is per read, so that peer expires it
+anyway, one interval later: the test passed with and without the total deadline. What separates
+them is a peer that keeps dribbling — a byte every 300 ms renews a 600 ms per-read timeout for ever.
+That is what the test does now.
+
+**Two mechanisms hold the total deadline, and the first mutation only moved one of them.** The check
+at the top of the loop is what throws with a message naming how far the peer got; the shrinking
+`SO_TIMEOUT` is what keeps the last read from overshooting by a further whole timeout. Replacing
+only the second left the first enforcing the deadline, the test stayed green, and the mutation
+looked like evidence that the test was weak. It was evidence that the analysis was. With both
+replaced, the dribble test fails after the twenty seconds the peer needs to finish.
+
+Mutations run, after the implementation was committed: `soTimeout = 0` — the suite **hangs** rather
+than failing, which is exactly the defect's signature and the reason it was never noticed; a purely
+per-read timeout — `aPeerThatDribblesTheHandshakeDoesNotRenewTheDeadline` fails and nothing else.
+
+**One thing beyond the item.** The expiry is rethrown naming how many of the sixty-eight bytes
+arrived. `SocketTimeoutException`'s own text is "Read timed out", and that string reaches a person
+through `lastPeerError`, where "nothing at all" and "half a handshake" are worth telling apart.
+
+The timeout is eight seconds and is a guess, marked as one where it is declared;
+[B-98](B-98-how-many-peers-does-this-client-meet.md) is what gives it a number.
+
+Ran on the Linux build machine: `./gradlew build` green, 633 tests across `:engine` and `:ui`,
+0 skipped, 0 failed, counted out of the JUnit XML.

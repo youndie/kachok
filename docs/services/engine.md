@@ -240,6 +240,13 @@ them. Nothing is read from the environment by this module; that is [cli](cli.md)
   them. Before [B-95](../backlog/B-95-the-dial-loop-only-runs-when-something-else-happens.md) a
   client that lost forty-five of its first fifty dials stayed on the five that answered until the
   next announce, half an hour later, with hundreds of untried addresses in `known`.
+* **A blocking `SocketChannel` read cannot be given a deadline, and three of the four ways round
+  that do not work.** `SO_TIMEOUT` does not reach channel operations; `withTimeout` cannot end a
+  read on a virtual thread, which is not at a suspension point while it blocks; a selector would
+  work and is what this engine has committed to not having. What is left is the channel's own
+  `socket().getInputStream()`, which does honour `SO_TIMEOUT` and — measured on JDK 25.0.2 on Linux
+  and macOS — does not read ahead, so the wire reader that follows loses nothing
+  ([B-96](../backlog/B-96-the-handshake-read-has-no-deadline.md)).
 * **A known address has three states and not two.** `connected` and `failed` do not cover an
   address inside a ten-second `connect`, and most of a public swarm's addresses are in exactly that
   state for exactly that long — 22 of 50 in B-19's measurement. Without the third set, `dialling`,
