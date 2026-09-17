@@ -69,6 +69,7 @@ internal enum class SettingKey(
             "the buffer pool is sized from it when a torrent opens, and a session cannot grow the " +
                 "pool it was handed",
     ),
+    AllTrackers,
     UploadLimit,
     DownloadLimit,
     Dht,

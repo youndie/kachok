@@ -86,6 +86,8 @@ internal fun loadPreferences(
         uploadLimitKibPerSecond = number(UPLOAD_LIMIT) ?: fallback.uploadLimitKibPerSecond,
         downloadLimitKibPerSecond = number(DOWNLOAD_LIMIT) ?: fallback.downloadLimitKibPerSecond,
         dht = text(DHT)?.toBooleanStrictOrNull() ?: fallback.dht,
+        announceToAllTrackers =
+            text(ALL_TRACKERS)?.toBooleanStrictOrNull() ?: fallback.announceToAllTrackers,
         // The file is what the settings screen shows; whether the entry is *really* there is asked
         // of the system when the screen opens, because somebody can remove it without this client.
         autostart = text(AUTOSTART)?.toBooleanStrictOrNull() ?: fallback.autostart,
@@ -117,6 +119,7 @@ internal fun savePreferences(
             setProperty(DIRECTORY, preferences.directory)
             setProperty(START_WHEN_ADDED, preferences.startWhenAdded.toString())
             setProperty(DHT, preferences.dht.toString())
+            setProperty(ALL_TRACKERS, preferences.announceToAllTrackers.toString())
             setProperty(AUTOSTART, preferences.autostart.toString())
             preferences.lastDirectory?.let { setProperty(LAST_DIRECTORY, it) }
             setProperty(CLOSE_TO_TRAY, preferences.closeToTray.toString())
@@ -146,6 +149,7 @@ private const val PIPELINE_DEPTH = "pipelineDepth"
 private const val UPLOAD_LIMIT = "uploadLimitKibPerSecond"
 private const val DOWNLOAD_LIMIT = "downloadLimitKibPerSecond"
 private const val DHT = "dht"
+private const val ALL_TRACKERS = "announceToAllTrackers"
 private const val AUTOSTART = "autostart"
 private const val LAST_DIRECTORY = "lastDirectory"
 private const val CLOSE_TO_TRAY = "closeToTray"

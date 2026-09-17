@@ -24,6 +24,8 @@ internal data class Preferences(
     val uploadLimitKibPerSecond: Long? = null,
     val downloadLimitKibPerSecond: Long? = null,
     val dht: Boolean = false,
+    /** Ask every tracker the torrent names rather than only the first that answers (BEP 12). */
+    val announceToAllTrackers: Boolean = false,
     val autostart: Boolean = false,
     /** Closing the window leaves the client running in the tray rather than stopping the torrents. */
     val closeToTray: Boolean = true,
@@ -72,6 +74,7 @@ internal data class Preferences(
         when (key) {
             SettingKey.StartWhenAdded -> copy(startWhenAdded = on)
             SettingKey.Dht -> copy(dht = on)
+            SettingKey.AllTrackers -> copy(announceToAllTrackers = on)
             SettingKey.Autostart -> copy(autostart = on)
             SettingKey.CloseToTray -> copy(closeToTray = on)
             else -> this
@@ -121,6 +124,7 @@ internal data class Preferences(
             pipelineDepth = pipelineDepth ?: RuntimeOptions.DEFAULT_PIPELINE,
             uploadLimitBytesPerSecond = (uploadLimitKibPerSecond ?: 0) * KIB,
             downloadLimitBytesPerSecond = (downloadLimitKibPerSecond ?: 0) * KIB,
+            announceToAllTrackers = announceToAllTrackers,
             unwantedFiles = unwanted,
             sequential = sequential,
         )
@@ -203,6 +207,14 @@ internal fun settingsOf(
                             default = "${defaults.maxPeers}",
                             value = "${preferences.maxPeers ?: defaults.maxPeers}",
                             changed = preferences.maxPeers != null && preferences.maxPeers != defaults.maxPeers,
+                        ),
+                        Setting(
+                            key = SettingKey.AllTrackers,
+                            label = "Ask every tracker",
+                            note = "Off asks the first that answers, which is what BEP 12 wants.",
+                            default = "off",
+                            value = "",
+                            toggle = preferences.announceToAllTrackers,
                         ),
                         Setting(
                             key = SettingKey.PipelineDepth,
