@@ -69,6 +69,10 @@ class PortMapperTest {
             timeout = 300.milliseconds,
             attempts = attempts,
             routerPort = router.port,
+            // Pointed at a multicast group nothing is listening on, with a short window: these
+            // tests are about the NAT-PMP side, and a real discovery would add three seconds to
+            // every one of them for an answer that is always no.
+            upnp = UpnpMapper(discoveryTimeout = 50.milliseconds, searchAddress = "239.255.255.251"),
         )
 
     @Test
@@ -92,9 +96,11 @@ class PortMapperTest {
     /**
      * The case this network has, and the assertion is on the clock.
      *
-     * Two attempts of three hundred milliseconds is under a second; the real settings are two of
-     * two seconds. What must not happen is a start-up that waits on a router which is never going
-     * to answer.
+     * The bound covers **both** protocols, because silence from NAT-PMP is what sends the mapper on
+     * to UPnP — so the thing a person would wait through is the sum, not either half. With the real
+     * settings that sum is two attempts of two seconds and then a three-second search; the ask is
+     * off the opening path for exactly that reason, and this test is what keeps the total from
+     * growing into something no launch can hide.
      */
     @Test
     fun aRouterThatNeverAnswersGivesUpQuicklyAndSaysSo() {
@@ -103,7 +109,9 @@ class PortMapperTest {
         val result = mapperFor(silent).map(6881) as PortMapping.NotMapped
         val elapsed = (System.nanoTime() - started) / 1_000_000
 
-        assertTrue(result.because.contains("does not answer"), result.because)
+        assertTrue(result.because.contains("does not answer NAT-PMP"), result.because)
+        // And it says what the fallback found too, rather than reporting only the first failure.
+        assertTrue(result.because.contains("UPnP", ignoreCase = true), result.because)
         assertTrue(elapsed < 2_000, "gave up after ${elapsed}ms, which is a start-up somebody waits through")
         assertEquals(2, silent.received.size, "it must retry once before giving up, and not more")
     }

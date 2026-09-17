@@ -56,6 +56,14 @@ internal class PortMapper(
      * a fake router on the loopback. Nothing in the client ever passes anything else.
      */
     private val routerPort: Int = NatPmp.PORT,
+    /**
+     * The fallback, tried only when NAT-PMP does not answer.
+     *
+     * Not when it *refuses*: a router that speaks NAT-PMP and says "port mapping is switched off"
+     * has answered the question, and asking the same box the same thing in another protocol is
+     * noise on somebody's network for an answer already given.
+     */
+    private val upnp: UpnpMapper = UpnpMapper(),
 ) {
     /**
      * Asks for [internalPort] to be forwarded, and answers within [timeout] × [attempts] whatever
@@ -71,14 +79,34 @@ internal class PortMapper(
         tcp: Boolean = true,
     ): PortMapping {
         val router = gateway ?: return PortMapping.NotMapped("no default gateway was found")
-        return exchange(NatPmp.mapRequest(internalPort, internalPort, tcp = tcp), router)
-            ?.let { mapping ->
-                when {
-                    !mapping.succeeded -> PortMapping.NotMapped(mapping.refusal ?: "the router refused")
-                    mapping.externalPort == 0 -> PortMapping.NotMapped("the router mapped port 0, which is no port")
-                    else -> PortMapping.Mapped(mapping.externalPort, mapping.lifetimeSeconds)
-                }
-            } ?: PortMapping.NotMapped("the router at ${router.hostAddress} does not answer NAT-PMP")
+        val answer = exchange(NatPmp.mapRequest(internalPort, internalPort, tcp = tcp), router)
+        if (answer != null) {
+            usedUpnp = false
+            return when {
+                !answer.succeeded -> PortMapping.NotMapped(answer.refusal ?: "the router refused")
+                answer.externalPort == 0 -> PortMapping.NotMapped("the router mapped port 0, which is no port")
+                else -> PortMapping.Mapped(answer.externalPort, answer.lifetimeSeconds)
+            }
+        }
+        // Silence, so the router may simply not speak this. UPnP is four times the work for the
+        // same result, which is why it is second and not first.
+        val fallback = upnp.map(internalPort)
+        usedUpnp = fallback is PortMapping.Mapped
+        return when (fallback) {
+            is PortMapping.Mapped -> {
+                fallback
+            }
+
+            is PortMapping.NotMapped -> {
+                PortMapping.NotMapped(
+                    "the router at ${router.hostAddress} does not answer NAT-PMP, and ${fallback.because}",
+                )
+            }
+
+            PortMapping.NotTried -> {
+                PortMapping.NotMapped("the router at ${router.hostAddress} does not answer NAT-PMP")
+            }
+        }
     }
 
     /**
@@ -92,12 +120,21 @@ internal class PortMapper(
         internalPort: Int,
         tcp: Boolean = true,
     ) {
+        // Released through whichever protocol made it. A NAT-PMP release sent to a mapping UPnP
+        // made is a packet the router has no record for, and the hole stays open.
+        if (usedUpnp) {
+            upnp.release(internalPort)
+            return
+        }
         val router = gateway ?: return
         exchange(
             NatPmp.mapRequest(internalPort, lifetimeSeconds = NatPmp.RELEASE_LIFETIME, tcp = tcp),
             router,
         )
     }
+
+    /** Which protocol made the mapping this holds, because that is the one that can take it back. */
+    private var usedUpnp = false
 
     /** When to renew: half the lease, which is RFC 6886's advice and leaves room for one failure. */
     fun renewAfter(mapping: PortMapping.Mapped): Duration = (mapping.lifetimeSeconds / 2).seconds
