@@ -37,6 +37,7 @@ which is also the order of work.
 | `m6-resume` | M6 — Resume | Atomic resume files, start-up verification, graceful shutdown. |
 | `m7-measure` | M7 — Measure and ship | JFR baseline, heap and collector, the run-time image, the AOT cache — every hypothesis in the research gets its number here. |
 | `m8-extensions` | M8 — Extensions | UDP trackers, fast extension, PEX, DHT, magnets, v2, IPv6. |
+| `m9-swarm` | M9 — Meeting the swarm | Why this client meets fewer peers than a mature one on the same torrent: the dial loop, the announce, and the peer sources and transports it does not have. |
 | `phase-2-ui` | Phase 2 — UI | Compose desktop in-process: the window, its screens, the installers and the OS integration. |
 | `phase-3-mobile` | Phase 3 — Mobile | Android and iOS targets. Placeholder. |
 | `phase-3-server` | Phase 3 — Server | The headless client as a service on a box that is always on, and the browser build that is its face. Placeholder. |
@@ -47,13 +48,22 @@ which is also the order of work.
 
 <!-- BEGIN INDEX -->
 
-## Open (8)
+## Open (17)
 
 | Task | | Priority | Size | Blocked by |
 |---|---|---|---|---|
+| [B-95](docs/backlog/B-95-the-dial-loop-only-runs-when-something-else-happens.md) `[ ]` | The client stops dialling: there is no periodic top-up, and a dial in flight is dialled again | P0 | S | - |
+| [B-96](docs/backlog/B-96-the-handshake-read-has-no-deadline.md) `[ ]` | A peer that accepts the connection and then says nothing is never given up on | P1 | S | - |
+| [B-97](docs/backlog/B-97-the-announce-never-says-how-many-peers-it-wants.md) `[ ]` | The announce never says how many peers it wants, and only one tracker is ever asked | P1 | S/M | - |
+| [B-98](docs/backlog/B-98-how-many-peers-does-this-client-meet.md) `[ ]` | How many peers does this client meet? Measure it against a reference client, then set the cap | P1 | M | - |
+| [B-100](docs/backlog/B-100-protocol-encryption.md) `[ ]` | Protocol encryption (MSE/PE): the peers that will not talk in the clear | P2 | L | B-98 |
+| [B-103](docs/backlog/B-103-upnp-and-nat-pmp-port-mapping.md) `[ ]` | Port mapping (UPnP IGD, NAT-PMP/PCP): reopening B-09's rejection, because the reason given was a dependency | P2 | M | B-98 |
 | [B-79](docs/backlog/B-79-the-windows-state-outlives-its-composition.md) `[ ]` | The window's state outlives its composition | P2 | L | - |
 | [B-80](docs/backlog/B-80-the-ui-moves-to-commonmain.md) `[ ]` | The UI moves to commonMain | P2 | L | B-79 |
 | [B-93](docs/backlog/B-93-opening-a-downloaded-executable.md) `[ ]` | Double-clicking a downloaded executable, and the warning Windows never gets to show | P2 | M | - |
+| [B-99](docs/backlog/B-99-the-dht-is-off-and-its-reason-for-being-off-expired.md) `[?]` | The DHT is off by default, and the reason written beside the default has since come true | P2 | S | - |
+| [B-101](docs/backlog/B-101-utp-transport.md) `[ ]` | µTP (BEP 29): the transport this client cannot be reached on | P3 | XL | B-98, B-103 |
+| [B-102](docs/backlog/B-102-local-service-discovery.md) `[ ]` | Local service discovery (BEP 14): the peers on the same network are never found | P3 | S | - |
 | [B-37](docs/backlog/B-37-v2-and-hybrid-torrents.md) `[?]` | v2 and hybrid torrents (BEP 52): SHA-256 piece layers | P3 | L | B-04 |
 | [B-40](docs/backlog/B-40-wasmjs-ui-is-a-client-of-the-headless-engine.md) `[ ]` | The browser build of the UI is a client of the headless engine | P3 | L | B-80 |
 | [B-41](docs/backlog/B-41-android-and-ios-targets.md) `[ ]` | Phase 3: Android and iOS targets on the engine | P3 | XL | B-39 |
@@ -203,6 +213,13 @@ owes it.
 [B-41](docs/backlog/B-41-android-and-ios-targets.md) exist so that phase 1 keeps the engine's API
 in the shape those phases need — a state flow and a command channel — and for no other reason. An
 acceptance criterion written now would be re-written then.
+
+**M9 exists because an owner compared this client against another one, and the comparison has not been repeated.** Every item in the stage names a mechanism read out of the code — a dial loop that
+only runs on events, a handshake with no deadline, an announce that asks for nothing, three peer
+sources and one transport that are missing. None of them names a number, so the order between them
+is a hypothesis and [B-98](docs/backlog/B-98-how-many-peers-does-this-client-meet.md) is what turns
+it into one. Fixing the cheap items first is right regardless; *claiming* they were the gap is not,
+until the measurement says so.
 
 **"Done" means the build said so.** [B-01](docs/backlog/B-01-gradle-skeleton-builds-on-jdk-25.md)
 is the only closed item and it closed on a green build, not on the files existing;
