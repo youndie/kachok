@@ -48,14 +48,17 @@ which is also the order of work.
 
 <!-- BEGIN INDEX -->
 
-## Open (9)
+## Open (12)
 
 | Task | | Priority | Size | Blocked by |
 |---|---|---|---|---|
 | [B-100](docs/backlog/B-100-protocol-encryption.md) `[~]` | Protocol encryption (MSE/PE): the peers that will not talk in the clear | P2 | L | B-98 |
+| [B-107](docs/backlog/B-107-dropping-a-torrent-does-nothing-on-macos.md) `[ ]` | Dropping a .torrent on the window does nothing on macOS | P2 | M | - |
 | [B-79](docs/backlog/B-79-the-windows-state-outlives-its-composition.md) `[ ]` | The window's state outlives its composition | P2 | L | - |
 | [B-80](docs/backlog/B-80-the-ui-moves-to-commonmain.md) `[ ]` | The UI moves to commonMain | P2 | L | B-79 |
 | [B-93](docs/backlog/B-93-opening-a-downloaded-executable.md) `[ ]` | Double-clicking a downloaded executable, and the warning Windows never gets to show | P2 | M | - |
+| [B-106](docs/backlog/B-106-per-file-priority.md) `[ ]` | Per-file priority: which file of a torrent the picker fetches first | P3 | L | - |
+| [B-108](docs/backlog/B-108-an-mcp-server-for-agents.md) `[?]` | An MCP server, so an agent can drive the client — wanted at all? | P3 | M | - |
 | [B-37](docs/backlog/B-37-v2-and-hybrid-torrents.md) `[?]` | v2 and hybrid torrents (BEP 52): SHA-256 piece layers | P3 | L | B-04 |
 | [B-40](docs/backlog/B-40-wasmjs-ui-is-a-client-of-the-headless-engine.md) `[ ]` | The browser build of the UI is a client of the headless engine | P3 | L | B-80 |
 | [B-41](docs/backlog/B-41-android-and-ios-targets.md) `[ ]` | Phase 3: Android and iOS targets on the engine | P3 | XL | B-39 |
