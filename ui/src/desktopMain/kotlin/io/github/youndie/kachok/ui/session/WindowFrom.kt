@@ -18,6 +18,8 @@ internal fun statusOf(
     rows: List<TorrentRowModel>,
     rates: Rates,
     listenPort: Int,
+    // Null is the state every client starts in and most stay in: nothing forwards the port.
+    mappedExternalPort: Int? = null,
     dhtNodes: Int?,
     heapUsedBytes: Long,
     heapMaxBytes: Long,
@@ -29,7 +31,16 @@ internal fun statusOf(
         // Null is "not asked for" and zero is "asked for and nothing answered yet"; the status bar
         // draws those differently, so they must not arrive here as the same value.
         dht = dhtNodes?.let { "DHT $it nodes" },
-        port = "port $listenPort listening",
+        // **Only the mapped case says more than before, and that is deliberate.** A router that
+        // forwards the port has changed something outside this machine and the person running the
+        // client is entitled to know; a router that does not is the ordinary case and does not earn
+        // a second clause on a line already carrying six figures at 24 dp (B-103).
+        port =
+            if (mappedExternalPort == null) {
+                "port $listenPort listening"
+            } else {
+                "port $listenPort to $mappedExternalPort"
+            },
         heap = Figures.heap(heapUsedBytes, heapMaxBytes),
     )
 
@@ -57,6 +68,8 @@ internal fun windowOf(
     rows: List<TorrentRowModel>,
     rates: Rates,
     listenPort: Int,
+    // Null is the state every client starts in and most stay in: nothing forwards the port.
+    mappedExternalPort: Int? = null,
     dhtNodes: Int?,
     heapUsedBytes: Long,
     heapMaxBytes: Long,
@@ -102,7 +115,7 @@ internal fun windowOf(
         dropping = dropping,
         clipboardMagnet = clipboardMagnet,
         detailsWidth = detailsWidth,
-        status = statusOf(allRows, rates, listenPort, dhtNodes, heapUsedBytes, heapMaxBytes),
+        status = statusOf(allRows, rates, listenPort, mappedExternalPort, dhtNodes, heapUsedBytes, heapMaxBytes),
         // What Pause and Resume may do is decided by the row that is selected, so the bar is built
         // from the list rather than defaulted and left.
         toolbar = ToolbarState(filter = filter).forSelection(rows.firstOrNull { it.selected }?.state),

@@ -140,6 +140,16 @@ public class TorrentSet(
                 PortMapping.NotTried -> "not mapped: no listener to map"
             }
 
+    /**
+     * The port the router is forwarding, or null.
+     *
+     * Beside [portMapping] rather than parsed out of it: a number a screen wants to draw and a
+     * sentence a person wants to read are different things, and deriving the first from the second
+     * is how a status line starts depending on the wording of an error message.
+     */
+    public val mappedExternalPort: Int?
+        get() = (mapping as? PortMapping.Mapped)?.externalPort
+
     private val mapper = PortMapper()
 
     @Volatile

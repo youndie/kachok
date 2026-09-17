@@ -43,10 +43,12 @@ class WindowFromTest {
         all: List<TorrentRowModel> = rows,
         rates: Rates = Rates(),
         dhtNodes: Int? = null,
+        mappedExternalPort: Int? = null,
     ) = windowOf(
         rows = rows,
         rates = rates,
         listenPort = 6881,
+        mappedExternalPort = mappedExternalPort,
         dhtNodes = dhtNodes,
         heapUsedBytes = 13L * 1024 * 1024,
         heapMaxBytes = 128L * 1024 * 1024,
@@ -115,6 +117,20 @@ class WindowFromTest {
         val status = window(listOf(row())).status
         assertEquals("port 6881 listening", status.port)
         assertEquals("heap 13 / 128 MiB", status.heap)
+    }
+
+    /**
+     * B-103: a forwarded port says so, and an unforwarded one says exactly what it said before.
+     *
+     * A router that maps the port has changed something outside this machine, and the person
+     * running the client is entitled to know. A router that does not is the ordinary case — most
+     * of them, on the network this was written on — and it does not earn a second clause on a line
+     * that already carries six figures in 24 dp.
+     */
+    @Test
+    fun aForwardedPortIsNamedAndAnUnforwardedOneIsNot() {
+        assertEquals("port 6881 to 49152", window(listOf(row()), mappedExternalPort = 49_152).status.port)
+        assertEquals("port 6881 listening", window(listOf(row()), mappedExternalPort = null).status.port)
     }
 
     @Test
