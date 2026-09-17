@@ -48,11 +48,10 @@ which is also the order of work.
 
 <!-- BEGIN INDEX -->
 
-## Open (17)
+## Open (16)
 
 | Task | | Priority | Size | Blocked by |
 |---|---|---|---|---|
-| [B-95](docs/backlog/B-95-the-dial-loop-only-runs-when-something-else-happens.md) `[ ]` | The client stops dialling: there is no periodic top-up, and a dial in flight is dialled again | P0 | S | - |
 | [B-96](docs/backlog/B-96-the-handshake-read-has-no-deadline.md) `[ ]` | A peer that accepts the connection and then says nothing is never given up on | P1 | S | - |
 | [B-97](docs/backlog/B-97-the-announce-never-says-how-many-peers-it-wants.md) `[ ]` | The announce never says how many peers it wants, and only one tracker is ever asked | P1 | S/M | - |
 | [B-98](docs/backlog/B-98-how-many-peers-does-this-client-meet.md) `[ ]` | How many peers does this client meet? Measure it against a reference client, then set the cap | P1 | M | - |
@@ -70,7 +69,7 @@ which is also the order of work.
 | [B-87](docs/backlog/B-87-a-server-with-a-web-face.md) `[ ]` | Phase 3: a headless server with a web face, installable on a box that is always on | P3 | XL | B-80 |
 | [B-02](docs/backlog/B-02-ci-runs-build-and-docs-gates.md) `[ ]` | CI runs the build and the documentation gates on every push | infra | S | B-01 |
 
-## Closed (86)
+## Closed (87)
 
 **M0 — The build and its gates**
 
@@ -138,6 +137,10 @@ which is also the order of work.
 - [B-36](docs/backlog/B-36-ut-metadata-and-magnets.md) `[x]` - Metadata exchange (BEP 9): make magnet links downloadable
 - [B-38](docs/backlog/B-38-ipv6.md) `[x]` - IPv6 peers and trackers (BEP 7)
 - [B-45](docs/backlog/B-45-serve-metadata-to-peers.md) `[x]` - Serve the info dictionary to peers that ask (BEP 9)
+
+**M9 — Meeting the swarm**
+
+- [B-95](docs/backlog/B-95-the-dial-loop-only-runs-when-something-else-happens.md) `[x]` - The client stops dialling: there is no periodic top-up, and a dial in flight is dialled again
 
 **Phase 2 — UI**
 

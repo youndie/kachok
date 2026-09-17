@@ -234,6 +234,18 @@ them. Nothing is read from the environment by this module; that is [cli](cli.md)
 * **A throttled download would stall without the timer.** Requests are normally issued when a block
   arrives, and no block arrives while nothing is asked for; the tick that refills the budget is
   also what asks every peer for more.
+* **The connection count would fall without the timer too, and for longer.** Every other caller of
+  `connectMore` is an event — an announce, a DHT lookup, a `ut_pex` message, a peer disconnecting —
+  and none of them fires when a batch of dials simply fails, which on a public swarm is most of
+  them. Before [B-95](../backlog/B-95-the-dial-loop-only-runs-when-something-else-happens.md) a
+  client that lost forty-five of its first fifty dials stayed on the five that answered until the
+  next announce, half an hour later, with hundreds of untried addresses in `known`.
+* **A known address has three states and not two.** `connected` and `failed` do not cover an
+  address inside a ten-second `connect`, and most of a public swarm's addresses are in exactly that
+  state for exactly that long — 22 of 50 in B-19's measurement. Without the third set, `dialling`,
+  a second caller dials the same address again, the later link wins `connected[address]`, and the
+  earlier one leaks with its coroutine and its picker entry. Dials in flight are also subtracted
+  from the room, or a per-tick loop launches a fresh `maxPeers` on top of the outstanding ones.
 * **`index in started` on a `Map<Int, _>` boxes the index.** The picker asks it once per piece per
   request, which is where half of the profile's `Integer` allocations came from; a `BooleanArray`
   beside the map answers the same question for nothing. Both mutations of `started` go through one
