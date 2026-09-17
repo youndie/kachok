@@ -3,7 +3,7 @@
 # shared `wip` catalog that `io.github.youndie.sborka.settings` puts beside this one.
 # The shared build conventions. One number: every sborka plugin below takes its version from here,
 # and settings.gradle.kts repeats it by hand because a settings plugin cannot read a catalog.
-sborka = "0.4.0.87"
+sborka = "0.4.0.90"
 # The compiler comes with them. `wip`, the catalog a sborka release publishes, carries `kotlin`,
 # `ksp` and `composeMultiplatform` — three versions that are one decision: KSP is built against a
 # compiler, the Compose plugin is versioned by it, and a Compose Multiplatform release is built
