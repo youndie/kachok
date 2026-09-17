@@ -8,10 +8,16 @@ import io.github.youndie.kachok.engine.io.EngineDispatchers
 import io.github.youndie.kachok.engine.io.PeerListener
 import io.github.youndie.kachok.engine.io.SocketPeerConnection
 import io.github.youndie.kachok.engine.metainfo.Metainfo
+import io.github.youndie.kachok.engine.nat.PortMapper
+import io.github.youndie.kachok.engine.nat.PortMapping
 import io.github.youndie.kachok.engine.session.Command
 import io.github.youndie.kachok.engine.storage.FileSet
 import io.github.youndie.kachok.engine.tracker.TrackerProtocol
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import java.io.IOException
 import java.net.BindException
 import java.nio.file.Path
@@ -116,6 +122,50 @@ public class TorrentSet(
 
     /** The port the trackers are told about, which is the one that was actually free. */
     public val listenPort: Int = listener?.port ?: options.port ?: TrackerProtocol.PORT_RANGE.first
+
+    /**
+     * Whether the router is forwarding [listenPort], and what it said if not (B-103).
+     *
+     * **The port mapped is the one that was bound**, never the one that was asked for.
+     * `PeerListener` already makes that distinction for the tracker — "the port that was free is
+     * the one the tracker must be told about" — and a mapping that disagreed with the announce
+     * would be the same defect one layer down: a client telling everyone about a port that is
+     * forwarded nowhere.
+     */
+    public val portMapping: String
+        get() =
+            when (val state = mapping) {
+                is PortMapping.Mapped -> "mapped to ${state.externalPort}"
+                is PortMapping.NotMapped -> "not mapped: ${state.because}"
+                PortMapping.NotTried -> "not mapped: no listener to map"
+            }
+
+    private val mapper = PortMapper()
+
+    @Volatile
+    private var mapping: PortMapping = PortMapping.NotTried
+
+    /**
+     * Asks the router for the port, then renews at half the lease for as long as the set lives.
+     *
+     * **Launched rather than awaited**, because on a network whose router does not answer this
+     * costs four seconds and a client must not spend them before it dials anybody. The network
+     * this was written on is exactly that network, so the asynchronous shape is not speculative.
+     */
+    private val mappingJob: Job? =
+        listener?.let { bound ->
+            scope.launch(dispatchers.io) {
+                while (isActive) {
+                    val result = mapper.map(bound.port)
+                    mapping = result
+                    // A refusal is not retried on a timer. A router that does not speak NAT-PMP
+                    // will not have learned it in an hour, and asking again every half hour is
+                    // noise on somebody's network for no chance of a different answer.
+                    val next = (result as? PortMapping.Mapped)?.let { mapper.renewAfter(it) } ?: break
+                    delay(next)
+                }
+            }
+        }
 
     /** Null when the DHT is off, which is what the status bar draws differently from zero nodes. */
     public val dhtPort: Int? get() = dhtTransport?.port
@@ -224,6 +274,12 @@ public class TorrentSet(
     }
 
     override fun close() {
+        // **The mapping is given back before anything else goes**, and it is best effort by
+        // design: a client that maps a port and exits without releasing leaves a hole in a router
+        // it does not own for the rest of the lease. The cancel comes first so the renewal loop
+        // cannot re-map what this is dropping.
+        mappingJob?.cancel()
+        if (mapping is PortMapping.Mapped) listener?.let { mapper.release(it.port) }
         listener?.close()
         dhtTransport?.close()
         byInfoHash.values.forEach { it.close() }
