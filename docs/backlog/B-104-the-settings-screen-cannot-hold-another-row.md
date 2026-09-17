@@ -1,7 +1,7 @@
 ---
 id: B-104
 title: "The settings screen is exactly full: an eleventh row pushes the tenth somewhere nobody can reach it"
-status: open
+status: done
 priority: P2
 size: S
 stage: phase-2-ui
@@ -50,3 +50,31 @@ row is already gone today — [B-75](B-75-the-window-below-800dp.md) sized the w
 - Anchors: `ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/settings/Settings.kt`,
   `ui/src/desktopTest/kotlin/io/github/youndie/kachok/ui/main/WiringTest.kt`,
   `ui/src/desktopTest/snapshots/settings_screen.png`.
+
+**Done 2026-09-17.** The sections scroll; the footnote below them does not. Landed in two commits on
+purpose, because the two halves of the acceptance criterion prove different things and would have
+proved neither together.
+
+The first is the scroll alone, with ten rows, and `viddikVerify` **passed without the golden being
+re-recorded** — the fix costs nothing where nothing was wrong. The second adds the eleventh row,
+[B-97](B-97-the-announce-never-says-how-many-peers-it-wants.md)'s *Ask every tracker*, and the
+golden moved by 9.49 % of its pixels and was re-recorded and looked at.
+
+**The guard needed changing too, and the distinction matters.** With the screen scrolling,
+`everyEditableSettingLeavesTheWindow` still failed on *Join the DHT*: `performClick` on a row below
+the fold reaches nothing. The rows are now scrolled to before they are touched, which is what a
+person does. That is not the check being loosened to get green — its claim is unchanged, every
+editable row still has to report its change, and only the way the test reaches the row moved.
+Clicking blind was the part that was wrong, and it is what made this guard accuse the wrong setting
+in the first place.
+
+The same lesson arrived twice more the same day, when `maxPeers` was measured
+([B-98](B-98-how-many-peers-does-this-client-meet.md)): `SettingsScreenTest` found its field by the
+text `50` and `MainWindowTest` asserted `default 50`, so both failed on a screen drawing exactly
+what it should. They were a second home for a number that lives in `SessionConfig`; both now read
+the engine's own default, and neither can go stale again.
+
+**What the new golden shows, and why it is right.** The DHT row at the bottom is cut off
+mid-sentence. That is the honest un-scrolled state of a screen with more content than height, and
+the cut is the affordance that says so. A golden is a photograph of what the screen does, not an
+assertion that it looks finished.

@@ -1,7 +1,7 @@
 ---
 id: B-98
 title: "How many peers does this client meet? Measure it against a reference client, then set the cap"
-status: wip
+status: done
 priority: P1
 size: M
 stage: m9-swarm
@@ -111,3 +111,40 @@ the dependency on the answer by having the client name its own number.
 
 The item stays `wip`. It is not blocked and not a question: the work is defined, the tools exist,
 and it needs a swarm.
+
+## Done 2026-09-17 — four runs, one mechanism, and the cap set at 250
+
+The runs are in the research as D13. What they measured, in order of how much it mattered:
+
+1. **`torrent.ubuntu.com` hands out one peer per announce**, at `numwant` unset, 50 and 200 alike,
+   against a scrape reporting 526 in the swarm. On such a torrent a client with the DHT off has one
+   address and nothing else in this stage can matter — which is
+   [B-99](B-99-the-dht-is-off-and-its-reason-for-being-off-expired.md)'s whole argument, delivered
+   as run 4's single-peer row, and the owner turned the DHT on the same day.
+2. **[B-95](B-95-the-dial-loop-only-runs-when-something-else-happens.md) does what it was written
+   to do**: median 12 to 23, distinct peers met 27 to 48, half the peak at 40 s instead of 102 s,
+   and the fall-back-and-stay shape gone.
+3. **The gap to the reference client was neither discovery nor the dial loop.** 1 059 addresses
+   known, 4 423 dials, 303 handshakes, 22 held — which became
+   [B-105](B-105-connections-are-made-and-not-kept.md), and B-105 turned out to be the whole of the
+   remaining difference in throughput and most of it in peer count.
+
+**The cap is now 250, and it is a decision rather than a number.** Fifty was the placeholder
+`SessionConfig` opens with and it never bound — against a 526-peer swarm this client held 30, well
+under it. Raising it would have been pointless *until* B-105, which derives the download window
+from `maxPeers`: the cap is no longer only a ceiling on connections, it is the term that sizes the
+window and therefore the throughput. The reference client held 183–195 on the same swarm.
+
+**What 250 costs, and the flag that makes the cost stated rather than accidental.** The block pool
+caps at `window x blocksPerPiece + maxPeers` — 4 250 buffers, 68 MB of *direct* memory. HotSpot's
+default limit on direct memory is whatever `-Xmx` says, so until now the pool's real ceiling was a
+side effect of a heap number chosen for an unrelated reason, and the failure mode would have been
+`OutOfMemoryError: Direct buffer memory` under exactly the load the cap was raised to handle.
+`-XX:MaxDirectMemorySize=192m` is now explicit in the headless flags and the desktop distribution.
+The pool allocates lazily, so it is a limit and not a reservation.
+
+**Four runs and not eight**, and the reason is in D13: the measuring instrument's host is the
+owner's own connection and a reference client with no rate limit takes all of it. One sample per
+variant is weaker than the design asked for; the differences it found are large enough to survive
+that, and the one it could not have found without the counters — B-105 — was confirmed separately by
+a fix that moved the number sevenfold.
