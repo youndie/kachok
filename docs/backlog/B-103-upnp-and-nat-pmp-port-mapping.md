@@ -1,7 +1,7 @@
 ---
 id: B-103
 title: "Port mapping (UPnP IGD, NAT-PMP/PCP): reopening B-09's rejection, because the reason given was a dependency"
-status: wip
+status: done
 priority: P2
 size: M
 stage: m9-swarm
@@ -244,3 +244,41 @@ awaited two iterations ago, and is the second time that decision has paid.
 
 **What is left**: nothing but the acceptance run, and it needs a router that maps. Everything this
 item can build is built.
+
+## Iteration 7 — 2026-09-17: the acceptance, on a router built for it
+
+Iterations 2–6 said the same true thing each time: everything is built, and the acceptance —
+*receives incoming connections it did not dial* — cannot be met, because the gateway on this network
+maps nothing. So a gateway was built. A container lab holds an inside network, an outside network,
+and a `miniupnpd` between them answering NAT-PMP and UPnP IGD, which is the router this item has
+needed since iteration 2.
+
+Every clause of the acceptance now holds, against a real mapping daemon and this client's own code:
+
+- **kachok maps its bound port.** Run behind the NAT, the CLI's `TorrentSet` asked over NAT-PMP and
+  `miniupnpd` logged `NAT-PMP port mapping request : 6881->10.91.0.10:6881 tcp lifetime=7200s` — the
+  7 200 s is `NatPmp.LIFETIME_SECONDS`, this client's own value, which is how the request is known to
+  be kachok's and not the reference tool's. The router installed the forwarding rule.
+- **It receives a connection it did not dial.** A libtorrent seeder on the outside network dialled
+  the *mapped external port*; the packet was forwarded to the client, which finished the 128-piece
+  torrent showing `1 of 0 peers` and `dials 0/0` — one peer, zero known, zero dialled. The listener
+  header's promise, delivered. The download's SHA-256 matched the seed, so the path carried real
+  bytes and not just a handshake.
+- **It releases on exit.** The client's `PortMapper.release` sent NAT-PMP external port 0, lifetime
+  0; `miniupnpd` logged `NAT-PMP TCP port 6881 mapping removed` and the forwarding rule was gone.
+
+Two findings worth keeping, both recorded in research
+[D15](../research/research-architecture.md#d15-mses-prime-is-not-rfc-2409s-and-a-real-router-was-built-to-prove-the-mapping):
+
+- The seeder's *first* attempt to reach the client was µTP, which timed out because this client has
+  none ([B-101](B-101-utp-transport.md)); it fell back to TCP and connected. A reference client
+  reaching an incoming kachok pays one handshake-timeout of µTP first. Small, and real.
+- The lab's own plumbing needed a hairpin masquerade on the inside interface, because the host's
+  bridge-netfilter drops a forwarded SYN whose source is the outside address — a fact about testing
+  a NAT inside Docker, not about the client, but the reason a first run showed the mapping made and
+  the connection still refused.
+
+The failing-path assertions from iterations 2–6 still stand and still run against the real gateway
+on this network, which answers neither protocol; what iteration 7 adds is the *succeeding* path,
+which only a router that maps could show. Everything this item set out to do is built and now
+exercised end to end.

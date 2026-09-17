@@ -1189,6 +1189,63 @@ traffic, and a TCP-only client saturating an uplink makes its owner's other traf
 µTP client's does not. It is not enough on its own to justify an XL piece of work whose literature is
 congestion control, and it should not be forgotten the next time this is weighed.
 
+### D15. MSE's prime is not RFC 2409's, and a real router was built to prove the mapping
+
+*Established 2026-09-17 by [B-100](../backlog/B-100-protocol-encryption.md) and
+[B-103](../backlog/B-103-upnp-and-nat-pmp-port-mapping.md), against a real reference client and a
+real gateway.*
+
+**The MSE handshake failed against libtorrent for six iterations because of twelve hexadecimal
+digits.** Message Stream Encryption uses its own 768-bit prime, and it is *not* RFC 2409's group 1,
+though both are built from the digits of π and agree for their first 180 digits. RFC 2409 ends
+`…A63A3620FFFFFFFFFFFFFFFF`; MSE's ends `…A63A36210000000000090563`. libtorrent's `pe_crypto.cpp`
+and Transmission's `crypto.c` carry the latter.
+
+The lesson is the one the earlier iterations kept re-learning and is now paid for: **a symmetric
+test cannot see a symmetric mistake.** This client used the RFC prime, an independent Python check
+written from the same reading used the RFC prime, and the two agreed with each other perfectly and
+with no mainstream client. Every unit test passed. Only a third party could tell them apart, and it
+took building the harness to dial one: `:engine:mseInteropProbe` against libtorrent 2.0.10 now
+completes both ways —
+
+| reference client setting | `crypto_select` | result |
+|---|---|---|
+| `out_enc_policy=forced, allowed_enc_level=rc4` | RC4 | INTEROP OK, reply decrypts to the right info hash |
+| `out_enc_policy=forced, allowed_enc_level=both` | plaintext | INTEROP OK |
+
+A known-answer test now pins the prime by the property only the correct one has: with fixed
+exponents the two primes give different shared secrets, and the code's must match MSE's. Reverting
+`MseHandshake.PRIME_HEX` to the RFC value fails it — which is the CI-runnable guard the six
+iterations never had, because the interop probe needs a peer.
+
+**What is done and what is not.** The handshake, both sides, and the primitives are correct and
+proven against a real client. MSE is *not yet wired into the live connection path*:
+`SocketPeerConnection` still speaks plaintext, and there is a reason it is a separate piece of work
+rather than a finish to this one — the zero-copy upload path (`FileChannel.transferTo`, D3/§1.3d)
+cannot be RC4'd in the kernel, so an encrypted connection has to give it up and copy each block
+through user space. That is a real change to the hot path, not a wrapper, and it is scoped as the
+remaining work on [B-100](../backlog/B-100-protocol-encryption.md).
+
+**Port mapping was proven on a router that does not exist on this network, by building one.**
+[B-103](../backlog/B-103-upnp-and-nat-pmp-port-mapping.md) could show its *failing* path against the
+real gateway here but never its mapping path, because that gateway maps nothing. A container lab —
+an inside network, an outside network, and a `miniupnpd` between them answering NAT-PMP and UPnP —
+closed that gap. Every clause of the item's acceptance now holds against a real mapping daemon:
+
+- kachok's own `PortMapper` mapped its bound port over NAT-PMP (lifetime 7 200 s, its own constant,
+  distinct from the reference tool's), and `miniupnpd` installed the forwarding rule.
+- A seeder on the outside network dialled the *mapped* port and reached the client behind the NAT:
+  the client finished the torrent with `1 of 0 peers` and `dials 0/0` — an incoming connection it
+  never dialled, which is precisely what the listener's header promised and the mapping delivered.
+  The bytes were correct end to end (SHA-256 of the download matched the seed).
+- On exit the client released the mapping (NAT-PMP external port 0, lifetime 0) and the forwarding
+  rule was gone from the router.
+
+The one incidental finding: the outside seeder's *first* attempt was µTP and timed out, because
+this client has none ([D14](#d14-utp-is-deferred-and-the-number-that-would-change-that-is-not-the-obvious-one));
+it fell back to TCP and connected. A reference client reaching an incoming kachok will pay one
+handshake-timeout of µTP before it does.
+
 ## 3. Risks and open questions
 
 **Risk 1 — measured, and it did not happen.** Carrier pinning and compensation hiding a thread

@@ -1,7 +1,7 @@
 ---
 id: B-100
 title: "Protocol encryption (MSE/PE): the peers that will not talk in the clear"
-status: question
+status: wip
 priority: P2
 size: L
 stage: m9-swarm
@@ -339,3 +339,56 @@ The three answers, and they are the owner's:
   the bottleneck — 2 856 of 4 423 failed dials were `connect timed out`, which is
   [B-103](B-103-upnp-and-nat-pmp-port-mapping.md)'s problem and not this one. MSE's value here was
   always the peers that refuse plaintext, and nobody has counted them.
+
+## Iteration 7 — 2026-09-17: the question is answered — it was the prime
+
+**The prime.** Message Stream Encryption uses its own 768-bit modulus, and it is **not** RFC 2409's
+group 1 — the reading six iterations were built on. The two agree for 180 of 192 hex digits (both
+are π) and differ in the last twelve: RFC 2409 ends `…A63A3620FFFFFFFFFFFFFFFF`, MSE ends
+`…A63A36210000000000090563`. libtorrent's `pe_crypto.cpp` and Transmission's `crypto.c` carry the
+latter; this client and its independent Python check both carried the former, which is exactly why
+they agreed with each other and with nothing else. `MseHandshake.PRIME_HEX` now holds MSE's value
+and `Crypto.jvm.kt` reads it; the generator is unchanged.
+
+**Proven against a real client, both ways.** A libtorrent 2.0.10 seeder was stood up on the build
+machine with encryption forced, and `:engine:mseInteropProbe` dialled it:
+
+| reference setting | `crypto_select` | result |
+|---|---|---|
+| `out_enc_policy=forced, allowed_enc_level=rc4` | RC4 | INTEROP OK — its handshake decrypted to the right info hash |
+| `out_enc_policy=forced, allowed_enc_level=both` | plaintext | INTEROP OK |
+
+The independent Python dialler, corrected to the same prime, is now `INDEPENDENT IMPLEMENTATION:
+ACCEPTED` seven times running, where before it was refused after message 3 — the clean differential
+iteration 5 asked for, resolved.
+
+**The regression the six iterations could not have caught, now caught.**
+`theSharedSecretIsComputedOverMsesPrimeAndNotRfc2409s` is a known-answer test: with fixed exponents
+the two primes give different shared secrets, and the code's `agree` must match MSE's. Reverting
+`PRIME_HEX` to the RFC value fails it — mutation-verified. This is the CI guard that does not need a
+peer, and it exists because a symmetric test cannot see a symmetric mistake (research
+[D15](../research/research-architecture.md#d15-mses-prime-is-not-rfc-2409s-and-a-real-router-was-built-to-prove-the-mapping)).
+
+**What is done, and the one thing that is not.** The handshake, both sides, the primitives, the
+plaintext discrimination, and interop against a real encryption-requiring client: done and proven.
+What remains is wiring MSE into the **live** connection path — `SocketPeerConnection` still speaks
+only plaintext, so a real download does not use any of this yet. It is a separate piece of work and
+not a wrapper, because the zero-copy upload path (`FileChannel.transferTo`) cannot be RC4'd in the
+kernel: an encrypted connection has to abandon it and copy each block through user space, which is a
+change to the measured hot path. The dial path also needs a fall-back-to-plaintext-on-refusal, and
+the accept path the first-byte sniff (`0x13` vs a key) that `Mse.looksPlaintext` already provides.
+Then B-98's measurement is re-run to count what the encrypted peers were worth.
+
+## The question, resolved 2026-09-17
+
+The six-iteration question — *why a message an independent implementation reads correctly is refused
+by libtorrent* — is **answered**: both implementations read the wrong prime, so "independent" was an
+illusion of a shared misreading. The owner's three options collapse into one: **keep going**, which
+was done, and it works against a real client.
+
+The item stays `wip` rather than `done` for one honest reason: its acceptance names a real
+connection ("this client connects, in both directions, to a mainstream client configured to require
+encryption"), and the interop *probe* is not a real download — MSE is proven but not yet on the live
+connection path. The remaining work is scoped in iteration 7 and is a candidate for its own item
+(the hot-path integration is independent of everything else in this one). What is built is correct,
+proven, and guarded; what is left is integration, not discovery.
