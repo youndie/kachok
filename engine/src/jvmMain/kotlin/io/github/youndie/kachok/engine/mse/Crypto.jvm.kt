@@ -9,16 +9,10 @@ import javax.crypto.spec.SecretKeySpec
 // 768-bit prime costs 3 ms here (measured on JDK 25.0.2), which is once per connection and beneath
 // notice; a hand-rolled RC4 would be twenty lines of the kind nobody reviews twice.
 
-/** The 768-bit MODP prime of RFC 2409 group 1, which MSE adopted, and its generator. */
-private val P =
-    BigInteger(
-        "FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD129024E088A67CC74" +
-            "020BBEA63B139B22514A08798E3404DDEF9519B3CD3A431B302B0A6DF25F1437" +
-            "4FE1356D6D51C245E485B576625E7EC6F44C42E9A63A3620FFFFFFFFFFFFFFFF",
-        16,
-    )
+/** MSE's prime and generator — the specification's own, not RFC 2409's; see [MseHandshake.PRIME_HEX]. */
+private val P = BigInteger(MseHandshake.PRIME_HEX, 16)
 
-private val G = BigInteger.TWO
+private val G = BigInteger.valueOf(MseHandshake.GENERATOR.toLong())
 
 private class JvmDhKeyPair(
     private val secret: BigInteger,

@@ -46,6 +46,9 @@ public object MseInteropProbe {
             // through a parser that agrees with both says nothing; the wire is the only place a
             // difference can still be hiding.
             val log = StringBuilder()
+            val started = System.nanoTime()
+
+            fun stamp(): String = "%7.1fms ".format((System.nanoTime() - started) / 1_000_000.0)
             val stream =
                 object : ByteStream {
                     override fun read(
@@ -58,6 +61,7 @@ public object MseInteropProbe {
                             0
                         ) {
                             log
+                                .append(stamp())
                                 .append(
                                     "R ",
                                 ).append(got)
@@ -74,6 +78,7 @@ public object MseInteropProbe {
                         toIndex: Int,
                     ) {
                         log
+                            .append(stamp())
                             .append(
                                 "W ",
                             ).append(toIndex - fromIndex)

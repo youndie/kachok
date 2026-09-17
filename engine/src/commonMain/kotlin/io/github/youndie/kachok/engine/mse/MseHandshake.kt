@@ -31,10 +31,26 @@ import io.github.youndie.kachok.engine.platform.sha1
  * in the clear.
  */
 internal object MseHandshake {
-    // The prime and the generator live with the primitive that needs them: they are a 768-bit
-    // number and a 2, and common code has no type for the first, so putting them here would mean
-    // inventing one for two constants nothing else in this file touches. The Diffie-Hellman
-    // `actual` is their only reader; see `Crypto.jvm.kt`.
+    /**
+     * MSE's own 768-bit prime, in hexadecimal — **and not RFC 2409's group 1, which it is not.**
+     *
+     * The two agree for the first 180 hexadecimal digits, because both are built from the digits
+     * of π, and differ in the last twelve: RFC 2409 ends `...A63A3620FFFFFFFFFFFFFFFF` and this one
+     * ends `...A63A36210000000000090563`. An implementation that reads "the 768-bit MODP prime" and
+     * reaches for the RFC gets a number that agrees with every other implementation that made the
+     * same reading — this client and its independent Python check both did — and with nobody
+     * else. libtorrent's `pe_crypto.cpp` and Transmission's `crypto.c` carry this one.
+     *
+     * It is common code and a string because the platform `actual` is its only reader and common
+     * code has no 768-bit integer; the test that pins its tail lives beside it for that reason.
+     */
+    const val PRIME_HEX: String =
+        "FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD129024E088A67CC74" +
+            "020BBEA63B139B22514A08798E3404DDEF9519B3CD3A431B302B0A6DF25F1437" +
+            "4FE1356D6D51C245E485B576625E7EC6F44C42E9A63A36210000000000090563"
+
+    /** The generator, which is 2 in both documents. */
+    const val GENERATOR: Int = 2
 
     /** Public keys are this wide on the wire, left-padded, whatever the number's magnitude. */
     const val KEY_SIZE: Int = 96
