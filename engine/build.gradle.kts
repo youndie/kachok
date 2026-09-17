@@ -74,6 +74,27 @@ tasks.register<JavaExec>("blockedWriteProbe") {
     )
 }
 
+// B-100's probe: dial a real encrypted client. Not part of `build` — it needs a peer to talk to,
+// and the whole point is that it is not this client on both ends.
+tasks.register<JavaExec>("mseInteropProbe") {
+    group = "verification"
+    description = "Dials a third-party client over MSE and checks its reply decrypts"
+    mainClass.set("io.github.youndie.kachok.engine.mse.MseInteropProbe")
+    val testCompilation =
+        kotlin.targets
+            .getByName("jvm")
+            .compilations
+            .getByName("test")
+    classpath = files(testCompilation.runtimeDependencyFiles, testCompilation.output.allOutputs)
+    systemProperty("peer", providers.gradleProperty("peer").getOrElse(""))
+    systemProperty("hash", providers.gradleProperty("hash").getOrElse(""))
+    javaLauncher.set(
+        javaToolchains.launcherFor {
+            languageVersion.set(java.toolchain.languageVersion.get())
+        },
+    )
+}
+
 // Prints the probe's class path, so the same classes can be run under another kernel:
 // `docker run … java -cp "$(./gradlew -q :engine:probeClasspath)" …`.
 tasks.register("probeClasspath") {

@@ -131,3 +131,44 @@ The oracle is at hand: the measurement machine of [B-98](B-98-how-many-peers-doe
 runs qBittorrent 5.2.1, whose own start-up log reports `Encryption support: ON`. The next iteration
 wires the handshake into `SocketPeerConnection` and `PeerListener` and dials that client — which is
 what will say whether the discard matters, and will say it in one connection.
+
+## Iteration 3 — 2026-09-17: the oracle answered, and the answer was no
+
+`:engine:mseInteropProbe` dials a real client and checks that its BitTorrent handshake decrypts
+through the stream this client derived. Run against qBittorrent 5.2.1 on the measurement machine,
+holding `ubuntu-26.04-desktop-amd64.iso`, it **fails**: the peer resets the connection after this
+client's third message.
+
+That is the item working as designed. Four things are now established, and the order they were
+established in is the point:
+
+1. **The subject is real.** A plaintext BEP 3 handshake to the same port, for the same info hash,
+   gets a full sixty-eight bytes back from `-qB5210-`. The torrent is active, the port is right,
+   and the peer accepts connections. Without this control the reset would have been just as
+   consistent with a paused torrent, and every conclusion below would have been about nothing.
+2. **It is not the Kotlin.** An independent MSE dialler written in Python from the specification,
+   sharing no code with this repository, is rejected in exactly the same way. Two implementations
+   that disagree with a third party in the same place agree with *each other* about something that
+   is wrong — which is what a second implementation is for, and what neither could have told me
+   alone.
+3. **The peer is not rejecting the connection itself.** Sending only `Ya` and padding, it replies
+   with `Yb` and 379 bytes of `PadB` immediately and then holds the connection open, waiting. It is
+   the third message it refuses.
+4. **So the fault is in message 3, in a reading of the specification shared by both
+   implementations** — `HASH('req1', S)`, the masked info hash, or the encrypted body's layout.
+
+**What was not obtained, and it is the thing that would settle it.** libtorrent's own bytes as a
+*dialler*. Three attempts to make qBittorrent connect to a listener failed for a reason that has
+nothing to do with MSE: a process started from an SSH session on that machine dies with the session,
+`x.pe` in a magnet is ignored for a torrent already held, and the scheduled-task route that worked
+earlier did not this time. A listener that records what a correct client sends, checked against the
+same derivation, would say in one connection whether `req1` matches — and therefore whether `S` is
+right — and that is the next thing to do rather than another reading of the same paragraph.
+
+The probe stays. It is the only test in this item that can fail for a true reason, and it should be
+run before every claim that the encryption works.
+
+Incidentally, from the same machine's log while it was up:
+`UPnP/NAT-PMP port mapping failed. Message: "could not map port using UPnP: no router found"` — the
+reference client tries to map its port on every start, which is
+[B-103](B-103-upnp-and-nat-pmp-port-mapping.md)'s whole premise, observed rather than assumed.
