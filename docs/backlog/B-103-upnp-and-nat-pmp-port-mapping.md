@@ -130,3 +130,31 @@ shutdown, the UPnP fallback, and the status line. And an honest note for whoever
 acceptance criterion — *receives incoming connections it did not dial* — **cannot be met on this
 network**. It needs a router that maps, or this one with mapping turned on in its settings. That is
 the owner's to arrange and is not a thing more code can fix.
+
+## Iteration 3 — 2026-09-17: wired into the set, asked beside the opening rather than on it
+
+`TorrentSet` now asks the router for **the port the listener actually bound**, renews at half the
+lease, and releases on close. `portMapping` is a sentence the window can show.
+
+The port is the bound one and never the requested one. `PeerListener`'s header already draws that
+line for the tracker — *"the port that was free is the one the tracker must be told about"* — and a
+mapping that disagreed with the announce is the same defect one layer down: a client telling
+everyone about a port that is forwarded nowhere.
+
+**The ask is launched, not awaited, and the reason is measured.** On the gateway here it costs four
+seconds to find out the answer is no. Done on the opening path that is four seconds of a client
+that has not dialled anybody, every start. Two tests hold the shape — opening a set and closing one
+each finish in well under a second — and the mutation confirms them: moving the ask onto the
+opening path fails `openingASetDoesNotWaitForTheRouter` and nothing else.
+
+Two decisions worth keeping:
+
+- **A refusal is not retried on a timer.** A router that does not speak NAT-PMP will not have
+  learned it in half an hour, and asking again is traffic on somebody's network for no chance of a
+  different answer. A *success* is renewed at half the lease, which leaves room for one failure
+  before the hole closes.
+- **Close cancels the renewal before it releases**, so the loop cannot re-map what is being
+  dropped, and it releases only what was mapped.
+
+**What is left**: the UPnP fallback, and the status line in the window. And the acceptance criterion
+still needs a router that maps — which this network does not have, as iteration 2 recorded.
