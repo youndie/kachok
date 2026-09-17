@@ -178,3 +178,35 @@ it, and that is where the UPnP fallback's own failures will go too.
 
 **What is left on this item**: the UPnP fallback, and an acceptance run on a router that maps —
 which this network does not have.
+
+## Iteration 5 — 2026-09-17: UPnP's text, and the two ways it picks the wrong thing
+
+`Upnp.kt` is the parsing half — the search datagram, the `LOCATION` header, the control URL, the
+SOAP envelopes and the fault codes. The I/O is next; this is the part that decides whether the I/O
+talks to the right thing.
+
+**Two silent-failure modes, each with a fixture that contains the trap:**
+
+- **The `LOCATION` header is case-insensitive and devices disagree about it.** `LOCATION`,
+  `Location` and `location` all turn up. A client that matches one spelling fails against a share of
+  the routers it meets, and the failure presents as "this router has no UPnP" — indistinguishable
+  from the truth, which is why it survives.
+- **A description lists several services and the first one usually maps nothing.** Taking the
+  document's first `<controlURL>` is the obvious implementation; on the fixture here it picks
+  `/ctl/L3F`, a layer-3 forwarding service that accepts the SOAP call and forwards no port. The
+  client then reports a mapping it does not have, which is worse than reporting none — it tells its
+  owner they are reachable when they are not. The control URL is taken from inside the *mapping*
+  service's block.
+
+**The description is scanned, not parsed as XML, and the trade has a name.** A real parser means
+`java.xml` in the run-time image — megabytes against the 32 MB measured in research §1.3b — for one
+document read once per start. The scan is narrow and fails by finding nothing rather than by finding
+something wrong. If a router turns up whose description defeats it, the answer is the module and not
+a cleverer expression, and that is written where the next person will read it.
+
+Refusals carry their code's meaning rather than a number. 718 is somebody else already holds that
+port — try another. 725 is the router only makes permanent mappings, which is a different decision
+entirely: accepting one leaves a hole that no lease will ever close.
+
+**What is left**: the SSDP socket and the two HTTP calls, then the fallback order in `PortMapper`,
+then the acceptance run on a router that maps — which this network still does not have.
