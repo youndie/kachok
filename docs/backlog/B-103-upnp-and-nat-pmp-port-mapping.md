@@ -95,3 +95,38 @@ then the UPnP fallback, then telling the window. Finding the gateway is the part
 answer — the JVM has no route-table API — so it will be a platform-specific reading of `ip route`,
 `route -n get default` or `Get-NetRoute` with a documented fallback, and that is worth writing down
 before it is written.
+
+## Iteration 2 — 2026-09-17: the mapper, and the router that is not there
+
+**The network this was written on answers neither protocol.** A NAT-PMP request to the default
+gateway drew nothing in three attempts; a UPnP `M-SEARCH` for an `InternetGatewayDevice` drew
+nothing in six seconds; and the reference client on the same segment says it in its own words —
+`could not map port using UPnP: no router found`. There is a NAT — the gateway is 192.168.1.1 and
+the external address is a public one — it simply does not offer mapping, or has it switched off.
+
+That was established **before** the code was written rather than discovered after, and it decided
+the shape of it. The path this item can actually demonstrate here is the *failing* one, so that is
+the path with the assertions on it:
+
+- Two attempts of two seconds, then `NotMapped` carrying which router did not answer. Measured end
+  to end against the real gateway through `:engine:portMapProbe`: **`NOT MAPPED after 4016ms: the
+  router at 192.168.1.1 does not answer NAT-PMP`**. A client that waits on a router which will
+  never answer is worse than one that never asked, so the test asserts the clock as well as the
+  words.
+- Three states and not two. "We did not manage" and "we did not try" call for different things from
+  a person, and a status line that conflates them stops being read.
+- A refusal arrives in the router's own terms. Five RFC codes, five different sentences.
+
+**Finding the gateway has no portable answer.** The JVM has no route-table API, so this reads the
+platform's own route command and falls back to the first address of this machine's subnet. The
+fallback is a guess and says so: what a mapping is worth is whatever the router's reply says, and a
+client that maps on the wrong address has told its owner it is reachable when it is not.
+
+`:engine:portMapProbe` exists for the same reason the MSE probe does — the subject is somebody
+else's router, and only a real one can show a mapping being *made*. It releases what it maps.
+
+**What is left**: wiring it into `TorrentSet` beside the listener, the renewal timer, the release on
+shutdown, the UPnP fallback, and the status line. And an honest note for whoever closes this: the
+acceptance criterion — *receives incoming connections it did not dial* — **cannot be met on this
+network**. It needs a router that maps, or this one with mapping turned on in its settings. That is
+the owner's to arrange and is not a thing more code can fix.
