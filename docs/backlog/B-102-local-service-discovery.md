@@ -1,7 +1,7 @@
 ---
 id: B-102
 title: "Local service discovery (BEP 14): the peers on the same network are never found"
-status: wip
+status: done
 priority: P3
 size: S
 stage: m9-swarm
@@ -82,3 +82,38 @@ finding each other — is what settles it, not another reading of the specificat
 
 **What is left**: the socket, in `TorrentSet` beside the listener and the DHT, and the two-instance
 acceptance run that is also the check on the paragraph above.
+
+## Done 2026-09-17 — two on one machine, which is the harder half
+
+`LsdSocket` joins the group on every interface that will take it, announces what the set holds every
+five minutes, and hands what it hears to the session that wants it. Started with the first torrent,
+closed with the set, and excluding private torrents — BEP 27 puts local discovery on the same list
+as `ut_pex` and the DHT, which is the one rule it answers to.
+
+The acceptance is two sockets on one machine, and that is **not** a weaker version of "two instances
+on one network": it is the harder half. Everything below was found by running it, and none of it by
+reading the specification again.
+
+- **Multicast loopback is left on**, which is the opposite of what a multicast socket usually wants.
+  Two copies on one machine — a seedbox, and this acceptance — never hear each other without it.
+  Hearing *ourselves* is the cookie's job, not a reason to switch off a class of peer. And the
+  property that controls it is deprecated with an **inverted** replacement: the old `loopbackMode`
+  took `true` to mean *disable*. Porting it by keeping the value is a silent loss.
+- **`SO_REUSEADDR` has to be set before the bind**, so the socket is made unbound and bound after.
+  `MulticastSocket(port)` binds inside its constructor, and the second client on a machine then gets
+  *address already in use* — a seedbox again.
+- **Inside `apply` on the socket, a bare `port` is `MulticastSocket.getPort()`**, which is −1 while
+  unbound. It bound to port −1. The parameter is `groupPort` now and the comment says why. Nothing
+  but two sockets in one test would have found this.
+
+**And a fact about the machine rather than the code, which the test refused to hide.** 6771 could
+not be bound on the build box at all — not by this client and not by a three-line Python probe. It
+is held, through WSL's port mirroring, by the reference client running on Windows with Local Peer
+Discovery on. The test therefore uses a group and port of its own; binding BEP 14's would have made
+it report "unavailable" for ever, which is a check that never runs wearing the face of one that
+passes. The first two runs did exactly that, and the only reason it was noticed is that the
+unavailable branch prints before it returns.
+
+That also settles the doubt iteration 1 recorded. The hand-sent announce during B-100's
+investigation drew nothing because **this** machine's stack could not have been listening on 6771 in
+the first place — the port was somebody else's. It was the segment, not the packet.
