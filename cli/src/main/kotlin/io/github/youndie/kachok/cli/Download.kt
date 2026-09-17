@@ -306,7 +306,13 @@ class Download(
             // B-98: what the client did to get those peers, not only how many it has. A run that
             // holds five peers after fifty dials and one that holds five after six are different
             // clients, and the progress line was the only place a headless run could say so.
+            // What was served, and how many of the connected peers want anything at all: a swarm
+            // where every reachable peer is a seed has nobody to serve, and that is a different
+            // reading of `up 0` from a client that cannot serve (B-110).
             append(", up ").append(state.uploaded)
+            append(", ").append(state.peers.count { it.peerInterested }).append(" want ours")
+            // And how many of them could: a peer holding every piece wants nothing from anybody.
+            append(" of ").append(state.peers.count { it.pieces < state.pieceCount }).append(" leechers")
             append(", dials ")
                 .append(state.dialsHandshaked)
                 .append('/')
