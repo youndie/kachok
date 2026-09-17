@@ -286,6 +286,21 @@ them. Nothing is read from the environment by this module; that is [cli](cli.md)
   one departure, an unchoked one — which is how [B-112](../backlog/B-112-a-peer-interested-for-seconds-is-never-unchoked.md)
   was dropped rather than argued; the counter stays on the `download` summary line for the next
   time somebody suspects the choker.
+* **A send to a peer never waits, and a full queue is a dead peer.** The connection's writer is
+  a blocking `socket.write` behind a queue of sixty-four; a peer that keeps the socket open and
+  reads nothing fills the kernel, then the queue, and `send` used to suspend the caller on the
+  sixty-fifth — the timer's keep-alives, the `have` broadcast, the choke pass — and with the timer
+  gone nothing expired, dialled or unchoked: a download frozen at 20 MiB/s with peers unchoked and
+  requests outstanding for ever, three runs out of three on a reachable machine
+  ([B-114](../backlog/B-114-a-peer-that-stops-reading-stops-the-whole-session.md)). `send` is
+  `trySend` now; a full queue closes the connection and throws, and the session counts the peer
+  under `not reading`. B-19 handled the closed queue; this is the full one.
+* **A DHT lookup that leaves the client short is retaken in seconds, not minutes.** The first
+  lookup on the public swarm, taken while two bootstrap nodes were not answering, found nothing,
+  and the tracker there hands out one peer per announce: one peer for the whole `dhtInterval`,
+  twice in a row. A lookup after which `known` is below `maxPeers` is followed by another after
+  `dhtStarvedInterval` (30 s), doubling up to `dhtInterval`; the announce keeps its own clock.
+  Five bootstrap nodes instead of three (B-114).
 * **A known address has three states and not two.** `connected` and `failed` do not cover an
   address inside a ten-second `connect`, and most of a public swarm's addresses are in exactly that
   state for exactly that long — 22 of 50 in B-19's measurement. Without the third set, `dialling`,
