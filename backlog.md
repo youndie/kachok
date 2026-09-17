@@ -48,10 +48,11 @@ which is also the order of work.
 
 <!-- BEGIN INDEX -->
 
-## Open (16)
+## Open (17)
 
 | Task | | Priority | Size | Blocked by |
 |---|---|---|---|---|
+| [B-105](docs/backlog/B-105-connections-are-made-and-not-kept.md) `[ ]` | Three hundred handshakes, twenty-two peers held — and the client asks nineteen of them for nothing | P0 | M | - |
 | [B-97](docs/backlog/B-97-the-announce-never-says-how-many-peers-it-wants.md) `[ ]` | The announce never says how many peers it wants, and only one tracker is ever asked | P1 | S/M | - |
 | [B-98](docs/backlog/B-98-how-many-peers-does-this-client-meet.md) `[~]` | How many peers does this client meet? Measure it against a reference client, then set the cap | P1 | M | - |
 | [B-100](docs/backlog/B-100-protocol-encryption.md) `[ ]` | Protocol encryption (MSE/PE): the peers that will not talk in the clear | P2 | L | B-98 |

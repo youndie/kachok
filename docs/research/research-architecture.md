@@ -1086,18 +1086,45 @@ because the reference client reached seventy peers inside two minutes: the dynam
 happen early, and eight runs at twenty minutes buys every variant a second sample, which thirty
 would not.
 
-| Run | Client | Median held | p90 | Peak | Distinct ever | Time to half peak | Dials | Handshaked |
-|---|---|---|---|---|---|---|---|---|
-| 1 | kachok before M9, DHT on | | | | | | | |
-| 2 | kachok after M9, DHT on | | | | | | | |
-| 3 | qBittorrent 5.2.1 | | | | | | n/a | n/a |
-| 4 | kachok after M9, default | | | | | | | |
-| 5 | kachok before M9, DHT on | | | | | | | |
-| 6 | kachok after M9, DHT on | | | | | | | |
-| 7 | qBittorrent 5.2.1 | | | | | | n/a | n/a |
-| 8 | kachok after M9, default | | | | | | | |
+| Run | Client | Median held | p90 | Peak | Distinct ever | Time to half peak | Dials | Handshaked | Downloaded |
+|---|---|---|---|---|---|---|---|---|---|
+| 1 | kachok before M9, DHT on | 12 | 18 | 21 | 27 | 102 s | n/a | n/a | 61 % |
+| 2 | kachok after M9, DHT on | 23 | 27 | 31 | 48 | 40 s | 4 423 | 303 | 6 % |
+| 3 | qBittorrent 5.2.1 | 183 | 192 | 195 | 273 | 72 s | n/a | n/a | not read |
+| 4 | kachok after M9, default | 1 | 1 | 1 | 1 | 0 s | 1 | 1 | 0 % |
 
-Twice each, because one run of a variant is not a measurement. *Time to half peak* is the column
+**Four runs and one each, which is not the eight this was designed as. Read it accordingly.** The
+owner's connection is the measuring instrument's host as well as its subject, and a reference
+client holding 190 peers with no rate limit takes all of it; the second qBittorrent run was
+dropped at their request and the second pass of the kachok variants with it. `n/a` in the dial
+columns is not a missing measurement: the *before* build predates the counters, and qBittorrent
+does not report in these terms at all. Run 4 is the default configuration and its row is the whole
+argument of [B-99](../backlog/B-99-the-dht-is-off-and-its-reason-for-being-off-expired.md): one
+peer, because the tracker hands out one and there is no second source.
+
+**What runs 1 and 2 say, and what they do not.** This stage roughly doubles what the client holds
+— median 12 to 23, distinct peers met 27 to 48, time to half its peak 102 s to 40 s — and it
+removes the shape the defect was named for: run 1 climbs to 21 by five minutes and then falls back
+to 11 and stays there, while run 2 holds 20–27 for the whole twenty minutes. That is
+[B-95](../backlog/B-95-the-dial-loop-only-runs-when-something-else-happens.md) doing exactly what
+it was written to do.
+
+It is also nowhere near enough, and it came with a number that has to be looked at rather than
+celebrated: **run 1 downloaded 61 % of the file and run 2 downloaded 6 %.** Run 2 held three times
+the peers, nineteen of which had unchoked it, and had fourteen requests outstanding against run 1's
+forty-five. More peers, less work in flight, a tenth of the throughput. One run each cannot tell a
+regression from a swarm that changed between 16:51 and 17:11, and this document does not claim it
+is one — it is [B-105](../backlog/B-105-connections-are-made-and-not-kept.md), which starts by
+building the instrument that would say.
+
+**Where the gap to the reference client actually is.** Not discovery: run 2 knew 1 059 addresses.
+Not, any longer, the dial loop. Of 4 423 dials, 303 reached a handshake — 6.9 %, and 2 856 of the
+failures are `connect timed out`, which is a swarm mostly behind NAT that an outgoing connection
+cannot reach and that could have reached us
+([B-103](../backlog/B-103-upnp-and-nat-pmp-port-mapping.md)). And of those 303 handshakes, 22 were
+still held at the end: connections are made and not kept, which nothing in the client counts.
+
+Twice each was the design, because one run of a variant is not a measurement. *Time to half peak* is the column
 that separates [B-95](../backlog/B-95-the-dial-loop-only-runs-when-something-else-happens.md) from
 everything else: a client that reaches its ceiling in a minute and one that takes twenty look
 identical in every other column.
