@@ -158,3 +158,23 @@ Two decisions worth keeping:
 
 **What is left**: the UPnP fallback, and the status line in the window. And the acceptance criterion
 still needs a router that maps — which this network does not have, as iteration 2 recorded.
+
+## Iteration 4 — 2026-09-17: the window says so, and only when there is something to say
+
+The status line reads `port 6881 to 49152` when the router forwards it, and `port 6881 listening` —
+exactly what it read before — when nothing does. The goldens are unchanged, which is the point: a
+client whose router does not map has gained no new noise on a line that already carries six figures
+in 24 dp, and a client whose router does has gained the one fact it could not otherwise know.
+
+The external port travels to the window as a number beside the sentence rather than being parsed
+out of it. A screen wants a figure and a person wants words; deriving the first from the second is
+how a status line starts depending on the wording of an error message.
+
+The reason a mapping *failed* is deliberately not on that line. It is one line for the whole
+process and the failing case is the common one; a client that shouts "not mapped: the router at
+192.168.1.1 does not answer NAT-PMP" at every start has made its status bar unreadable to say
+something almost nobody can act on. `TorrentSet.portMapping` carries the sentence for whoever wants
+it, and that is where the UPnP fallback's own failures will go too.
+
+**What is left on this item**: the UPnP fallback, and an acceptance run on a router that maps —
+which this network does not have.
