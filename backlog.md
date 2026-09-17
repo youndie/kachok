@@ -58,7 +58,7 @@ which is also the order of work.
 | [B-80](docs/backlog/B-80-the-ui-moves-to-commonmain.md) `[ ]` | The UI moves to commonMain | P2 | L | B-79 |
 | [B-93](docs/backlog/B-93-opening-a-downloaded-executable.md) `[ ]` | Double-clicking a downloaded executable, and the warning Windows never gets to show | P2 | M | - |
 | [B-101](docs/backlog/B-101-utp-transport.md) `[ ]` | µTP (BEP 29): the transport this client cannot be reached on | P3 | XL | B-98, B-103 |
-| [B-102](docs/backlog/B-102-local-service-discovery.md) `[ ]` | Local service discovery (BEP 14): the peers on the same network are never found | P3 | S | - |
+| [B-102](docs/backlog/B-102-local-service-discovery.md) `[~]` | Local service discovery (BEP 14): the peers on the same network are never found | P3 | S | - |
 | [B-37](docs/backlog/B-37-v2-and-hybrid-torrents.md) `[?]` | v2 and hybrid torrents (BEP 52): SHA-256 piece layers | P3 | L | B-04 |
 | [B-40](docs/backlog/B-40-wasmjs-ui-is-a-client-of-the-headless-engine.md) `[ ]` | The browser build of the UI is a client of the headless engine | P3 | L | B-80 |
 | [B-41](docs/backlog/B-41-android-and-ios-targets.md) `[ ]` | Phase 3: Android and iOS targets on the engine | P3 | XL | B-39 |

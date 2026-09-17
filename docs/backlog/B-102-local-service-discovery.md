@@ -1,7 +1,7 @@
 ---
 id: B-102
 title: "Local service discovery (BEP 14): the peers on the same network are never found"
-status: open
+status: wip
 priority: P3
 size: S
 stage: m9-swarm
@@ -49,3 +49,36 @@ is having.
 - Anchors: `engine/src/jvmMain/kotlin/io/github/youndie/kachok/engine/runtime/TorrentSet.kt`,
   `engine/src/jvmMain/kotlin/io/github/youndie/kachok/engine/io/PeerListener.kt`,
   `engine/src/commonMain/kotlin/io/github/youndie/kachok/engine/session/Session.kt`.
+
+## Iteration 1 — 2026-09-17: the datagram, and the trap inside it
+
+`Lsd.kt` is BEP 14's text: the `BT-SEARCH` request this client sends and the reading of somebody
+else's. In common code, so both halves are testable without a network — which matters more here than
+it looks, because of what the network on this segment turned out to do (below).
+
+**The cookie is the only thing stopping a client from finding itself**, and it is the part an
+implementation leaves out. A multicast announce arrives back on the socket that sent it. A client
+with no value to recognise reads its own packet, dials its own listening port, and connects to
+itself — which *succeeds*: a peer appears in the list, the handshake completes, and nothing is ever
+transferred. `ourOwnAnnounceComingBackIsNotAPeer` is the test, and the mutation confirms it is the
+only one that catches it.
+
+A smaller trap beside it: header *names* are compared case-insensitively, header *values* are not.
+Clients disagree about the case they send names in; comparing a cookie the same way would have two
+clients that happened to choose the same letters in different cases each ignoring the other as
+itself.
+
+Everything unreadable is a non-event rather than a failure — somebody else's protocol on the group,
+a hash that is not forty hex characters, a port nobody can dial. Same rule as the DHT's transport
+and NAT-PMP's, and for the same reason: a multicast group carries whatever anybody puts on it.
+
+**A finding from B-100's investigation that belongs here.** An LSD announce was sent by hand from
+this machine to the group, for a torrent the reference client on the same `/24` was holding with
+Local Peer Discovery *on* by its own log — and nothing dialled back, over six announces and forty
+seconds. Either the multicast did not traverse between those two hosts, or the announce was
+malformed in a way this implementation may share. **That is a fact about the segment or about the
+packet and it is not yet known which**, so the acceptance criterion — two instances on one network
+finding each other — is what settles it, not another reading of the specification.
+
+**What is left**: the socket, in `TorrentSet` beside the listener and the DHT, and the two-instance
+acceptance run that is also the check on the paragraph above.
