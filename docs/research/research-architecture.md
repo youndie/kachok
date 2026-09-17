@@ -1044,17 +1044,58 @@ the same address — so running them at once makes each look worse than it is. T
 sequential, within the same hour, on the same torrent, and each records the swarm size its tracker
 reported at the start, so that a swarm which emptied between runs is visible rather than invisible.
 
-The table below is the shape of the answer, not the answer. It is filled in by whoever has a real
-swarm, a reference client and a machine to run them on; nothing in it is guessed.
+**What the first smoke run found, before any measurement was taken.** `torrent.ubuntu.com` returns
+**exactly one peer per announce**, at `numwant` unset, 50 and 200 alike — three requests, same
+answer — while its own scrape reports 515 seeders and 11 leechers for the same info hash. The
+tracker is not a peer source on that swarm; it is a bootstrap into one. A client with the DHT off
+therefore has one address to work with, and nothing stage M9 changed can matter to it: the dial
+loop has nothing to dial.
 
-| Run | Client | Median held | p90 | Peak | Distinct ever | Time to half peak | Dials | Handshaked | Swarm reported |
-|---|---|---|---|---|---|---|---|---|---|
-| 1 | kachok before M9 | | | | | | | | |
-| 2 | kachok before M9 | | | | | | | | |
-| 3 | kachok after M9 | | | | | | | | |
-| 4 | kachok after M9 | | | | | | | | |
-| 5 | reference client | | | | | | n/a | n/a | |
-| 6 | reference client | | | | | | n/a | n/a | |
+That reshaped the runs. A `before M9` against `after M9` comparison with the DHT off would compare
+one peer against one peer and prove only that the tracker is stingy. The variants are therefore
+four, and `--dht` is a parameter of the harness rather than a constant:
+
+- `kachok before M9, DHT on` — the dial loop as it was, on a swarm that has peers to dial;
+- `kachok after M9, DHT on` — the same swarm, with this stage's changes;
+- `kachok after M9, default` — what a person actually gets, with the DHT off;
+- `qBittorrent 5.2.1` — the reference, whose own start-up log reports DHT, LSD, PEX and encryption
+  all on.
+
+It also moves the weight of the original question. If the peers of a public swarm are reachable
+only through the DHT, then the dominant reason a mature client shows more of them is
+[B-99](../backlog/B-99-the-dht-is-off-and-its-reason-for-being-off-expired.md) — the default this
+project has not revisited since the condition it was waiting on came true — and not
+[B-95](../backlog/B-95-the-dial-loop-only-runs-when-something-else-happens.md). The runs are what
+decide that, and the fourth variant is in the list so that the cost of the default is a number
+rather than an inference.
+
+An earlier attempt used `ubuntu-24.04.3`, whose tracker answered *"Requested download is not
+authorized for use with this tracker"* to a hand-built announce carrying an independently computed
+info hash — the release had been superseded and de-listed. qBittorrent found 74 peers on it anyway,
+from the DHT, which is the same lesson arriving by accident: **a torrent whose tracker refuses the
+announce looks exactly like a client whose announce is broken**, and the only thing that told them
+apart was reproducing the request by hand.
+
+The table below is the shape of the answer, not the answer.
+
+Subject: `ubuntu-26.04-desktop-amd64.iso`, 515 seeders and 11 leechers by the tracker's scrape at
+the start — the busiest of four candidates, and one the tracker still authorises. Eight runs of
+twenty minutes, two per variant, interleaved rather than blocked, so that a swarm which thins over
+an afternoon cannot systematically favour whichever variant ran first. Twenty and not thirty
+because the reference client reached seventy peers inside two minutes: the dynamics this is about
+happen early, and eight runs at twenty minutes buys every variant a second sample, which thirty
+would not.
+
+| Run | Client | Median held | p90 | Peak | Distinct ever | Time to half peak | Dials | Handshaked |
+|---|---|---|---|---|---|---|---|---|
+| 1 | kachok before M9, DHT on | | | | | | | |
+| 2 | kachok after M9, DHT on | | | | | | | |
+| 3 | qBittorrent 5.2.1 | | | | | | n/a | n/a |
+| 4 | kachok after M9, default | | | | | | | |
+| 5 | kachok before M9, DHT on | | | | | | | |
+| 6 | kachok after M9, DHT on | | | | | | | |
+| 7 | qBittorrent 5.2.1 | | | | | | n/a | n/a |
+| 8 | kachok after M9, default | | | | | | | |
 
 Twice each, because one run of a variant is not a measurement. *Time to half peak* is the column
 that separates [B-95](../backlog/B-95-the-dial-loop-only-runs-when-something-else-happens.md) from

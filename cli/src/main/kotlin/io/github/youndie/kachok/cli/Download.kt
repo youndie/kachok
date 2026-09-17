@@ -281,6 +281,22 @@ class Download(
                 .append(" unchoked, ")
                 .append(state.outstandingRequests)
                 .append(" out)")
+            // B-98: what the client did to get those peers, not only how many it has. A run that
+            // holds five peers after fifty dials and one that holds five after six are different
+            // clients, and the progress line was the only place a headless run could say so.
+            append(", dials ")
+                .append(state.dialsHandshaked)
+                .append('/')
+                .append(state.dialsAttempted)
+            if (state.dialFailures.isNotEmpty()) {
+                append(" (")
+                append(
+                    state.dialFailures.entries.sortedByDescending { it.value }.joinToString(
+                        ", ",
+                    ) { "${it.key} ${it.value}" },
+                )
+                append(')')
+            }
             if (state.hashFailures > 0) append(", ").append(state.hashFailures).append(" hash failures")
             state.trackerError?.let { append(", tracker: ").append(it) }
             // A degraded session that says nothing is how a stalled download looked for three runs.
