@@ -1,6 +1,6 @@
 plugins {
-    alias(libs.plugins.kotlinMultiplatform)
-    alias(libs.plugins.kotlinSerialization)
+    alias(wip.plugins.kotlinMultiplatform)
+    alias(wip.plugins.kotlinSerialization)
     id("io.github.youndie.sborka.kmp")
     id("io.github.youndie.sborka.lint")
 }
