@@ -1,7 +1,7 @@
 ---
 id: B-103
 title: "Port mapping (UPnP IGD, NAT-PMP/PCP): reopening B-09's rejection, because the reason given was a dependency"
-status: open
+status: wip
 priority: P2
 size: M
 stage: m9-swarm
@@ -57,3 +57,41 @@ different objection and should be recorded as that one if it is the one that sta
 - Anchors: `engine/src/jvmMain/kotlin/io/github/youndie/kachok/engine/io/PeerListener.kt`,
   `engine/src/jvmMain/kotlin/io/github/youndie/kachok/engine/runtime/TorrentSet.kt`,
   `ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/main/StatusBar.kt`.
+
+## Iteration 1 — 2026-09-17: the protocol, before any socket
+
+`engine/.../nat/NatPmp.kt` is the whole of NAT-PMP: twelve bytes out, sixteen back. It is in common
+code and has no socket in it, so the parsing is testable without a router — which matters here more
+than usual, because the subject of this item is *somebody else's* router and there is exactly one on
+this network to try.
+
+**NAT-PMP first and UPnP as the fallback**, and the order is about size rather than preference. UPnP
+IGD is an SSDP datagram, an HTTP fetch of a device description, an XML parse and a SOAP call; this
+is one file. PCP (RFC 6887) supersedes NAT-PMP and is deliberately absent: its version byte is what
+a NAT-PMP-only router rejects, so a client speaking it falls back anyway, and the pair worth having
+is these two. PCP earns a place when a router turns up that speaks it and neither of the others.
+
+Two decisions the item did not spell out and the code now does:
+
+- **A refusal comes back carrying its reason, not as a null.** The five RFC result codes become
+  five different sentences, and an unknown code still says something. "The router refused" is not
+  something a person can act on; "the router has port mapping switched off" is, and it calls for a
+  different action from "the router does not speak NAT-PMP". A test asserts the five are distinct,
+  because a mapping from five codes to one polite sentence would pass every other check.
+- **A release sends a zero external port.** RFC 6886 says the field is ignored when the lifetime is
+  zero. A router that does *not* ignore it reads the packet as a request for that port with a zero
+  lifetime — which is how an implementation asks for a mapping while meaning to drop one, and
+  leaving a hole open in a router this client does not own is the part of this item that is
+  somebody else's problem. The mutation confirms the test: naming the port on a release fails
+  `releasingAsksForNothingAndForNoTime` and nothing else.
+
+A datagram that is not a response is a non-event rather than a failure — too short, the wrong
+version, or somebody *else's* request arriving on the same socket, which is what happens when
+another thing on the segment is also mapping ports. Same rule as the DHT's transport, and for the
+same reason.
+
+**What is left**: the socket, the default gateway, the renewal timer and the release on shutdown,
+then the UPnP fallback, then telling the window. Finding the gateway is the part with no portable
+answer — the JVM has no route-table API — so it will be a platform-specific reading of `ip route`,
+`route -n get default` or `Get-NetRoute` with a documented fallback, and that is worth writing down
+before it is written.
