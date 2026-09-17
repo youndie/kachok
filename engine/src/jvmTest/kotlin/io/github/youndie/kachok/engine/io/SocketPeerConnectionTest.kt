@@ -21,6 +21,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 
 /**
@@ -250,5 +251,208 @@ class SocketPeerConnectionTest {
          * per connection, which is what the design exists to avoid.
          */
         val CARRIER_HEADROOM: Int = Runtime.getRuntime().availableProcessors() + 32
+    }
+
+    /**
+     * B-96: a peer that accepts the connection and then says nothing.
+     *
+     * The connect timeout does not cover this — the TCP handshake succeeded — and before this item
+     * the read that follows had no deadline at all, so the dial never ended: the address stayed out
+     * of `connected` and out of `failed`, and the session redialled it at every top-up.
+     */
+    @Test
+    fun aPeerThatAcceptsAndThenSaysNothingEndsTheDialAtTheDeadline(): Unit =
+        runBlocking {
+            SilentListener().use { listener ->
+                val started = System.nanoTime()
+                assertFailsWith<java.net.SocketTimeoutException> {
+                    SocketPeerConnection.connect(
+                        scope,
+                        listener.address,
+                        infoHash,
+                        peerId,
+                        BufferPool(capacity = 4),
+                        handshakeTimeout = 700.milliseconds,
+                    )
+                }
+                val elapsed = (System.nanoTime() - started) / 1_000_000
+                assertTrue(elapsed in 500..4_000, "the dial ended after ${elapsed}ms, not at the deadline")
+            }
+        }
+
+    /**
+     * B-96: the deadline is the handshake's, not each read's.
+     *
+     * This peer sends thirty-four of the sixty-eight bytes and then stops. A per-read `SO_TIMEOUT`
+     * would be renewed by that first half; the total deadline is what ends it.
+     */
+    @Test
+    fun aPeerThatSendsHalfTheHandshakeDoesNotRenewTheDeadline(): Unit =
+        runBlocking {
+            SilentListener(sendFirst = 34).use { listener ->
+                val started = System.nanoTime()
+                val thrown =
+                    assertFailsWith<java.net.SocketTimeoutException> {
+                        SocketPeerConnection.connect(
+                            scope,
+                            listener.address,
+                            infoHash,
+                            peerId,
+                            BufferPool(capacity = 4),
+                            handshakeTimeout = 700.milliseconds,
+                        )
+                    }
+                val elapsed = (System.nanoTime() - started) / 1_000_000
+                assertTrue(elapsed in 500..4_000, "the dial ended after ${elapsed}ms, not at the deadline")
+                assertContains(thrown.message ?: "", "34 of 68")
+            }
+        }
+
+    /**
+     * The positive control, and the reason it is here.
+     *
+     * The handshake is now read through the socket's adapted `InputStream` so that `SO_TIMEOUT`
+     * applies to it, and the wire that follows is read through the channel. That only works because
+     * the adaptor does not read ahead — if it buffered, the first message after the handshake would
+     * be eaten and the symptom would be a peer that connects and then never says anything, which is
+     * indistinguishable from the bug this item fixed. A timeout test alone would stay green
+     * through that.
+     */
+    @Test
+    fun theFirstWireMessageAfterTheHandshakeIsNotSwallowedByTheAdaptor(): Unit =
+        runBlocking {
+            FakePeer(
+                infoHash = infoHash,
+                afterHandshake = { socket ->
+                    FakePeer.write(socket, PeerWire.encode(Message.Unchoke))
+                    FakePeer.write(socket, PeerWire.encode(Message.Have(PieceIndex(7))))
+                    FakePeer.park(socket)
+                },
+            ).use { peer ->
+                val connection =
+                    SocketPeerConnection.connect(scope, peer.address, infoHash, peerId, BufferPool(capacity = 4))
+                val seen =
+                    withTimeout(5.seconds) {
+                        listOf(connection.events.receive(), connection.events.receive())
+                    }
+                // `Message.Have` is a plain class, not a data one, so the list is compared by
+                // what the messages carry rather than by equality they do not define.
+                val messages = seen.map { (it as PeerEvent.Received).message }
+                assertEquals(
+                    listOf("Unchoke", "Have(7)"),
+                    messages.map {
+                        when (it) {
+                            is Message.Have -> "Have(${it.piece.value})"
+                            else -> it::class.simpleName
+                        }
+                    },
+                    "a message was lost between the handshake reader and the wire reader",
+                )
+                connection.close()
+            }
+        }
+
+    /**
+     * B-96 on the accepting side, which is the side the deadline matters most on.
+     *
+     * A dial that hangs costs one address this client chose. An accept that hangs costs a
+     * coroutine opened by whoever connected to us — not a peer this client picked, and not a number
+     * it controls.
+     */
+    @Test
+    fun anIncomingConnectionThatSendsNoHandshakeIsGivenUpOnToo(): Unit =
+        runBlocking {
+            java.nio.channels.ServerSocketChannel
+                .open()
+                .bind(java.net.InetSocketAddress("127.0.0.1", 0), 4)
+                .use { server ->
+                    val client =
+                        java.nio.channels.SocketChannel
+                            .open(server.localAddress)
+                    client.use {
+                        val incoming = server.accept()
+                        incoming.use {
+                            val started = System.nanoTime()
+                            assertFailsWith<java.net.SocketTimeoutException> {
+                                // The client above connected and will say nothing at all.
+                                SocketPeerConnection.readHandshake(incoming, timeout = 700.milliseconds)
+                            }
+                            val elapsed = (System.nanoTime() - started) / 1_000_000
+                            assertTrue(
+                                elapsed in 500..4_000,
+                                "the accept ended after ${elapsed}ms, not at the deadline",
+                            )
+                        }
+                    }
+                }
+        }
+
+    /**
+     * A listener that accepts and then says nothing, or says only part of a handshake.
+     *
+     * Not [FakePeer], which completes the handshake by design; this is the peer that does not.
+     */
+    private class SilentListener(
+        private val sendFirst: Int = 0,
+    ) : AutoCloseable {
+        private val server =
+            java.nio.channels.ServerSocketChannel
+                .open()
+                .bind(java.net.InetSocketAddress("127.0.0.1", 0), 16)
+
+        val address =
+            io.github.youndie.kachok.engine.peer
+                .PeerAddress(
+                    "127.0.0.1",
+                    (server.localAddress as java.net.InetSocketAddress).port,
+                )
+
+        private val accepted = java.util.concurrent.ConcurrentLinkedQueue<java.nio.channels.SocketChannel>()
+
+        private val acceptor =
+            Thread.ofVirtual().start {
+                while (server.isOpen) {
+                    val socket =
+                        try {
+                            server.accept()
+                        } catch (closed: java.io.IOException) {
+                            break
+                        }
+                    accepted += socket
+                    if (sendFirst > 0) {
+                        try {
+                            val half =
+                                ByteBuffer.wrap(
+                                    Handshake(infoHashOf(), peerIdOf(), Handshake.reservedBits()).encode(),
+                                    0,
+                                    sendFirst,
+                                )
+                            while (half.hasRemaining()) socket.write(half)
+                        } catch (closed: java.io.IOException) {
+                            // The client gave up first, which is what these tests are about.
+                        }
+                    }
+                }
+            }
+
+        private fun infoHashOf() = InfoHash(ByteArray(20) { it.toByte() })
+
+        private fun peerIdOf() = PeerId("-FAKE01-000000000000".encodeToByteArray())
+
+        override fun close() {
+            try {
+                server.close()
+            } catch (ignored: java.io.IOException) {
+                // Tearing down.
+            }
+            accepted.forEach {
+                try {
+                    it.close()
+                } catch (ignored: java.io.IOException) {
+                    // Tearing down.
+                }
+            }
+            acceptor.interrupt()
+        }
     }
 }
