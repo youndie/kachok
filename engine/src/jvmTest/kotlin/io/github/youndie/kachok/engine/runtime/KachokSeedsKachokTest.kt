@@ -155,22 +155,22 @@ class KachokSeedsKachokTest {
                 while (seeder.state.value.uploaded < content.size && System.nanoTime() < settled) Thread.sleep(50)
                 val s = seeder.state.value
                 val l = leecher.state.value
-                // Two counts of one transfer, kept by two processes' worth of code, must agree —
-                // and both must cover the file. Not "equals the file's length": the two clients
-                // hold *two* connections to each other (the seeder dials back the port the
-                // leecher's extended handshake advertised, B-111), and the leecher's endgame asks
-                // for every block on both, so the seeder honestly serves the file twice. That is
-                // B-111's defect and this test's finding; the counter is right either way.
-                assertTrue(
-                    s.uploaded >= content.size,
+                // Exactly the file, and not a byte more: with B-111 a second connection to the same
+                // peer — local discovery dialling back what the tracker gave — is dropped, so
+                // endgame has no "other" peer to ask for everything again. Before that the seeder
+                // honestly served the file twice, 120 000 of 60 000 bytes.
+                assertEquals(
+                    content.size.toLong(),
+                    s.uploaded,
                     "the seeder served ${s.uploaded} of ${content.size} bytes; connected=${s.connectedPeers}, " +
-                        "leecher downloaded=${l.downloaded} on ${l.connectedPeers} connection(s)",
+                        "reasons=${s.disconnectReasons}; leecher downloaded=${l.downloaded} on ${l.connectedPeers}",
                 )
                 assertEquals(
                     l.downloaded,
                     s.uploaded,
                     "what one side counted as served, the other counted as received",
                 )
+                assertTrue(s.connectedPeers <= 1 && l.connectedPeers <= 1, "two connections to one peer survived")
             } finally {
                 leecherSet.close()
                 seederSet.close()

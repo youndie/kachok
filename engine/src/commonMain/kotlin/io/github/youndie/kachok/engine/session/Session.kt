@@ -970,6 +970,50 @@ public class Session(
         dialled: Boolean,
     ) {
         val address = connection.address
+        // **One connection per peer, by peer id and not by address** — the address is exactly what
+        // differs: the same client reached through loopback and through the LAN, or dialled off
+        // the tracker and dialled back off local discovery, is one peer, and a picker that saw two
+        // asked the second for everything in endgame while a seeder served the file twice
+        // ([B-111](../../../../../../../../docs/backlog/B-111-two-connections-to-the-same-peer.md)).
+        // BEP 3 says to drop the second; the cheapest case of the same rule is a connection
+        // offering *our* id, which is a tracker or LSD handing back our own address.
+        val theirs = connection.handshake.peerId.bytes
+        val ourselves = theirs.contentEquals(peerId.bytes)
+        val held =
+            if (ourselves) {
+                null
+            } else {
+                connected.values.firstOrNull {
+                    it.connection.handshake.peerId.bytes
+                        .contentEquals(theirs)
+                }
+            }
+        // **Which of the two survives has to be the same answer on both machines**, or two clients
+        // that hear each other at once — LSD on one segment does exactly that — each keep the one
+        // they saw first, which is a different one, close the other, and have nothing; then
+        // redial after the wait and do it again. So the rule is not "first seen" but a tie-break
+        // both sides can compute from the two handshakes: the connection *dialled by the lower
+        // peer id* is the one that stays. Two of the same kind — a peer reconnecting from a fresh
+        // port before the old socket has been noticed dead — keep the one already held.
+        val keptIsDialled = peerId.bytes.compareUnsigned(theirs) < 0
+        val newcomerStays = held != null && dialled == keptIsDialled && held.dialled != dialled
+        if (ourselves || (held != null && !newcomerStays)) {
+            connection.close()
+            // The same wait a failed dial gets: whoever handed out this address will hand it out
+            // again, and a duplicate redialled every tick is a busy wait against a peer we hold.
+            failed[address] = timeSource.markNow()
+            disconnects++
+            val reason = if (ourselves) "ourselves" else "duplicate peer"
+            disconnectReasons[reason] = (disconnectReasons[reason] ?: 0) + 1
+            publish { it.copy(disconnects = disconnects, disconnectReasons = disconnectReasons.toMap()) }
+            return
+        }
+        if (held != null) {
+            // The one already held is the loser: closing it lands in its own coroutine's teardown,
+            // which counts it under the same reason so the two sides of the tie read alike.
+            held.duplicate = true
+            held.connection.close()
+        }
         val link = PeerLink(connection)
         // Which side dialled decides what BEP 11 may say about this peer: the address an accepted
         // connection came from is an ephemeral port, not one anybody can dial back.
@@ -1045,7 +1089,12 @@ public class Session(
                 // on for a pause or a re-check is its own bucket rather than a silence, because
                 // "we closed it" and "it went away" are the two answers B-105 has to tell apart.
                 disconnects++
-                val reason = if (ours) "closed by us" else disconnectReason(link)
+                val reason =
+                    when {
+                        ours -> "closed by us"
+                        link.duplicate -> "duplicate peer"
+                        else -> disconnectReason(link)
+                    }
                 disconnectReasons[reason] = (disconnectReasons[reason] ?: 0) + 1
                 publish {
                     it.copy(
@@ -1885,11 +1934,24 @@ public class Session(
         /** Whether this client dialled the peer, or the peer dialled it (BEP 11 cares). */
         var dialled: Boolean = false
 
+        /** Closed by this session because a second connection to the same peer won the tie (B-111). */
+        var duplicate: Boolean = false
+
         /** What this peer was last told about the swarm, so the next `ut_pex` can be a delta. */
         var lastPexSent: Set<PeerAddress> = emptySet()
     }
 
     private companion object {
+        /** Byte-wise, unsigned, the order a peer id has on the wire; both sides of a tie compute it. */
+        private fun ByteArray.compareUnsigned(other: ByteArray): Int {
+            val shared = minOf(size, other.size)
+            for (i in 0 until shared) {
+                val delta = (this[i].toInt() and 0xFF) - (other[i].toInt() and 0xFF)
+                if (delta != 0) return delta
+            }
+            return size - other.size
+        }
+
         const val DEFAULT_ANNOUNCE_SECONDS = 1800
         const val MIN_ANNOUNCE_SECONDS = 60
         const val MILLIS_PER_SECOND = 1000L
