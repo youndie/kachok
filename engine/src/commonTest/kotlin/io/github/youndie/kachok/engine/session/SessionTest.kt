@@ -2373,4 +2373,105 @@ class SessionTest {
             )
             job.cancelAndJoin()
         }
+
+    /**
+     * B-95: the connections are topped up by the clock, not by whatever event happens along.
+     *
+     * Twenty-four of the thirty addresses refuse. The session holds ten at a time, so the first
+     * pass dials ten and every one of them fails — and nothing in the old code asked for a
+     * replacement: a failed dial recorded itself in `failed` and returned, and the next caller of
+     * `connectMore` was the announce, thirty minutes of virtual time away. The assertion is that
+     * within a few ticks the client is at its cap, with the announce interval nowhere near.
+     */
+    @Test
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    fun theConnectionsAreToppedUpOnTheTimerAndNotOnlyWhenSomethingHappens(): Unit =
+        runTest {
+            val metainfo = torrent(pieces = 4)
+            val all = (1..30).map { PeerAddress("10.0.0.$it", 6881) }
+            val dialer = FakeDialer(metainfo.infoHash, refuse = all.take(24).toSet())
+            val tracker = FakeTracker(all)
+            val session =
+                session(
+                    metainfo,
+                    dialer,
+                    tracker,
+                    FakeStorage(),
+                    AgreeableHasher(metainfo),
+                    config = SessionConfig(maxStartedPieces = 4, pipelineDepth = 2, maxPeers = 6),
+                )
+
+            val job = session.start(kotlinx.coroutines.CoroutineScope(coroutineContext + handler))
+            testScheduler.runCurrent()
+            assertEquals(
+                0,
+                session.state.value.connectedPeers,
+                "the first pass dials six addresses and all six refuse",
+            )
+
+            // Well short of the 1 800 s announce interval, so nothing but the timer can be dialling.
+            repeat(8) {
+                testScheduler.advanceTimeBy(1_000)
+                testScheduler.runCurrent()
+            }
+
+            assertEquals(6, session.state.value.connectedPeers, "the timer never reached the peers that answer")
+            // Without this the test would also pass on the old code if the announce interval ever
+            // dropped below the window above: it is the timer that has to be doing the dialling.
+            assertEquals(
+                listOf<AnnounceEvent?>(AnnounceEvent.STARTED),
+                tracker.events,
+                "a second announce ran, so this proves nothing about the timer",
+            )
+            assertEquals(30, dialer.dialled.size, "every address was tried exactly once")
+            job.cancelAndJoin()
+        }
+
+    /**
+     * B-95: an address whose dial is still outstanding is not dialled a second time.
+     *
+     * The dialer here never answers, which is what most of a public swarm's addresses do for the
+     * length of the connect timeout. With the timer dialling every tick and no record of what is
+     * in flight, each of those addresses would be dialled once a second for ever.
+     */
+    @Test
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    fun anAddressWhoseDialIsStillOutstandingIsNotDialledAgain(): Unit =
+        runTest {
+            val metainfo = torrent(pieces = 4)
+            val silent = SilentDialer()
+            val session =
+                session(
+                    metainfo,
+                    silent,
+                    FakeTracker(listOf(peerA, peerB, peerC)),
+                    FakeStorage(),
+                    AgreeableHasher(metainfo),
+                    config = SessionConfig(maxStartedPieces = 4, pipelineDepth = 2, maxPeers = 10),
+                )
+
+            val job = session.start(kotlinx.coroutines.CoroutineScope(coroutineContext + handler))
+            testScheduler.runCurrent()
+            repeat(10) {
+                testScheduler.advanceTimeBy(1_000)
+                testScheduler.runCurrent()
+            }
+
+            assertEquals(
+                listOf(peerA, peerB, peerC),
+                silent.dialled,
+                "each address is dialled once while its dial is outstanding, not once per tick",
+            )
+            job.cancelAndJoin()
+        }
+
+    /** A dialer whose `connect` never returns — the address a swarm hands out that does not answer. */
+    private class SilentDialer : PeerDialer {
+        val dialled = mutableListOf<PeerAddress>()
+
+        override suspend fun connect(address: PeerAddress): PeerConnection {
+            dialled += address
+            kotlinx.coroutines.awaitCancellation()
+        }
+    }
 }

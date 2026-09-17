@@ -147,6 +147,20 @@ public class Session(
     private val failed = HashMap<PeerAddress, kotlin.time.TimeMark>()
 
     /**
+     * Addresses whose dial has gone out and not yet come back.
+     *
+     * The third state a known address can be in, and the one that did not exist. [connected] says
+     * a peer answered, [failed] says it refused; an address inside a ten-second `connect` was in
+     * neither, so it was dialled again by every caller of [connectMore] that happened along. See
+     * that function for what the duplicate costs.
+     *
+     * An address leaves here when the dial ends, either way. The one path that does not clear it is
+     * a coroutine cancelled before [runPeer] runs at all, which happens when the session is being
+     * torn down and there is nothing left to dial.
+     */
+    private val dialling = HashSet<PeerAddress>()
+
+    /**
      * Peers this client hung up on deliberately — for a pause or a re-check.
      *
      * [serve]'s `finally` records every disconnection in [failed] so that a peer which accepts and
@@ -321,7 +335,7 @@ public class Session(
         if (dht != null && !metainfo.isPrivate && config.dhtBootstrap.isNotEmpty()) {
             sessionScope.launchGuarded("dht") { dhtLoop(sessionScope) }
         }
-        sessionScope.launchGuarded("timer") { timerLoop() }
+        sessionScope.launchGuarded("timer") { timerLoop(sessionScope) }
         sessionScope.launchGuarded("commands") { commandLoop(sessionScope, sessionJob) }
         return sessionJob
     }
@@ -376,9 +390,11 @@ public class Session(
                     }
                     command.uploadLimitBytesPerSecond?.let { uploadBudget.retune(it) }
                     command.downloadLimitBytesPerSecond?.let { downloadBudget.retune(it) }
-                    // Both of these are wake-ups, and both are necessary. Raising the peer count
-                    // matters only if somebody dials, and the loop that would is the one that runs
-                    // when a peer drops — an hour away. Raising a download limit is worse: requests
+                    // Both of these are wake-ups. Raising the peer count no longer depends on one:
+                    // [timerLoop] dials every tick since B-95, so the new cap is acted on within a
+                    // second either way and this call only makes it immediate. It is kept because
+                    // "the setting took effect when you closed the dialog" is the behaviour a
+                    // person expects from a dialog. Raising a download limit is not the same: requests
                     // are normally issued when a block arrives, no block arrives while nothing is
                     // asked for, and `refillRateLimits` — which exists to break exactly that
                     // circle — returns immediately once there is no limit left to refill. A
@@ -689,18 +705,40 @@ public class Session(
             }
         }
 
+    /**
+     * Dials up to the number of connections this session is short of.
+     *
+     * **[dialling] is why this is not three lines.** A dial takes up to the connect timeout, and
+     * for most of a public swarm's addresses it takes all of it — 22 of 50 dials were still inside
+     * `connect` when five connections were doing the work (B-19). An address in that state is in
+     * neither [connected] nor [failed], so without a third set every call here would dial it again:
+     * two sockets to one peer, `connected[address]` keeping the second, and the first leaking with
+     * its coroutine and its picker entry. That was survivable while the callers were rare events;
+     * [timerLoop] calls this every tick, which makes it the normal case.
+     *
+     * For the same reason the room is counted against dials in flight as well as connections.
+     * Counting only [connected] would launch a fresh `maxPeers` dials every tick on top of the ones
+     * already outstanding, which is a burst of hundreds of sockets against a swarm that has not
+     * answered the first ones yet.
+     */
     private fun connectMore(scope: CoroutineScope) {
-        if (paused) return
-        val room = maxPeers - connected.size
+        if (paused || stopping) return
+        val room = maxPeers - connected.size - dialling.size
         if (room <= 0) return
         known
             .asSequence()
-            .filter { it !in connected }
+            .filter { it !in connected && it !in dialling }
             .filter { address ->
                 failed[address]?.let { it.elapsedNow() >= config.reconnectDelay } ?: true
             }.take(room)
             .toList()
-            .forEach { address -> scope.launch { runPeer(scope, address) } }
+            .forEach { address ->
+                // Entered here and not inside the coroutine, because `launch` only schedules: the
+                // session's dispatcher runs one coroutine at a time, so a second `connectMore` can
+                // run before the first one's children have started and would see an empty set.
+                dialling += address
+                scope.launch { runPeer(scope, address) }
+            }
     }
 
     /** One coroutine per peer, from the dial to the last event. */
@@ -722,8 +760,10 @@ public class Session(
                 // A blanket `catch (Exception)` around a suspending call swallows cancellation as
                 // well, and a peer that cannot be cancelled outlives the session it belongs to.
                 // Rethrow it first, always.
+                dialling -= address
                 throw cancelled
             } catch (refused: Exception) {
+                dialling -= address
                 failed[address] = timeSource.markNow()
                 // Kept and published: "no peers, no reason" is a state nobody can act on.
                 publish {
@@ -731,6 +771,14 @@ public class Session(
                 }
                 return
             }
+        // **At the dial's end and not in a `finally` around [serve].** The address is about to be
+        // in [connected], and an entry left here would be counted twice by `connectMore`'s room —
+        // once as a connection and once as a dial — so the session would keep that many slots
+        // permanently empty. A `finally` is wrong for the mirror reason: it would fire when this
+        // peer's connection ends, by which time a reconnect may already have put the address back
+        // here, and it would remove somebody else's entry. That is the race the
+        // `connected[address] === link` guard in [serve] exists for, one set over.
+        dialling -= address
         serve(scope, connection, dialled = true)
     }
 
@@ -1330,7 +1378,7 @@ public class Session(
      * happens here; a per-peer ticker would be one waking coroutine per peer for periods that are
      * not per-peer in the first place.
      */
-    private suspend fun timerLoop() {
+    private suspend fun timerLoop(scope: CoroutineScope) {
         var sinceKeepAlive = kotlin.time.Duration.ZERO
         var sinceFlush = kotlin.time.Duration.ZERO
         var sinceChoke = kotlin.time.Duration.ZERO
@@ -1356,6 +1404,15 @@ public class Session(
             }
             tick("rates") { refillRateLimits() }
             tick("expiry") { expireRequests() }
+            // **The only thing that keeps the connection count up, and it used to not be here.**
+            //
+            // Every other caller of `connectMore` is an event: an announce, a DHT lookup, a
+            // `ut_pex` message, a peer disconnecting. None of them fires when a batch of dials
+            // simply fails, which on a public swarm is most of them — so a client that lost
+            // forty-five of its first fifty dials sat on the five that answered until the next
+            // announce, half an hour later, with hundreds of untried addresses in `known`. A swarm
+            // is not an event source; the thing that tops the connections up has to be the clock.
+            tick("dialling") { connectMore(scope) }
             sinceResume += config.tick
             if (sinceResume >= config.resumeInterval) {
                 sinceResume = kotlin.time.Duration.ZERO
