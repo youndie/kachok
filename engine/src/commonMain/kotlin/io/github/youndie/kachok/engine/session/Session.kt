@@ -685,6 +685,7 @@ public class Session(
     private suspend fun dhtLoop(scope: CoroutineScope) {
         val node = dht ?: return
         node.bootstrap(scope, config.dhtBootstrap)
+        var starvedWait = config.dhtStarvedInterval
         while (!stopping) {
             // Announcing to the DHT is saying "this client has it and will serve it", which a
             // paused one will not.
@@ -692,6 +693,7 @@ public class Session(
                 delay(config.dhtInterval)
                 continue
             }
+            var wait = config.dhtInterval
             tick("dht lookup") {
                 val found = node.lookup(scope, metainfo.infoHash)
                 if (found.peers.isNotEmpty()) {
@@ -702,11 +704,30 @@ public class Session(
                         connectMore(scope)
                     }
                 }
-                node.announce(scope, metainfo.infoHash, listenPort, found.tokens)
-                dhtAnnouncedAt = timeSource.markNow()
+                // The announce keeps its own clock: a starving client looks again in seconds, but
+                // saying "I have it" every thirty seconds to the same eight nodes is noise.
+                val announceDue = dhtAnnouncedAt?.let { it.elapsedNow() >= config.dhtInterval } ?: true
+                if (announceDue) {
+                    node.announce(scope, metainfo.infoHash, listenPort, found.tokens)
+                    dhtAnnouncedAt = timeSource.markNow()
+                }
                 publish { it.copy(dhtNodes = node.table.size) }
+                // **A lookup that left the client short of addresses is not kept for fifteen
+                // minutes.** The first lookup on the public swarm, taken while two of the three
+                // bootstrap nodes were not answering this address, found nothing — and the
+                // tracker there hands out one peer — so the client sat on one peer for the whole
+                // interval, twice in a row, while the reference client on the same box held
+                // seventy seeds. Fewer known addresses than connections it could hold is the sign
+                // of a snapshot worth retaking soon; the wait doubles so a swarm that really is
+                // this small is not asked every half minute for ever.
+                if (known.size < config.maxPeers) {
+                    wait = starvedWait
+                    starvedWait = (starvedWait * 2).coerceAtMost(config.dhtInterval)
+                } else {
+                    starvedWait = config.dhtStarvedInterval
+                }
             }
-            delay(config.dhtInterval)
+            delay(wait)
         }
     }
 
@@ -928,6 +949,7 @@ public class Session(
         return when {
             name == "WireException" -> "protocol error"
             name == "EOFException" -> "peer closed"
+            "stopped reading" in text -> "not reading"
             "reset" in text -> "reset"
             "abort" in text -> "aborted"
             else -> "other"
@@ -1154,7 +1176,9 @@ public class Session(
             }
 
             is PeerEvent.BlockReceived -> {
-                link.outstanding--
+                // Not below zero: a block that was in flight when the peer choked us — and the
+                // choke zeroed the count — still arrives, and used to be counted as minus one.
+                link.outstanding = (link.outstanding - 1).coerceAtLeast(0)
                 val block = event.block
                 link.download.add(block.length.toLong(), elapsedMillis())
                 picker.blockReceived(address, block.piece, block.begin).forEach { other ->
@@ -1789,6 +1813,9 @@ public class Session(
         } catch (cancelled: kotlinx.coroutines.CancellationException) {
             throw cancelled
         } catch (gone: Exception) {
+            // Kept on the link so that its teardown can name the reason — "not reading" is the one
+            // the connection raises itself, having closed the peer for it.
+            if (endedBy == null) endedBy = gone
             publish {
                 it.copy(lastPeerError = "${connection.address}: ${gone.message ?: gone::class.simpleName}")
             }

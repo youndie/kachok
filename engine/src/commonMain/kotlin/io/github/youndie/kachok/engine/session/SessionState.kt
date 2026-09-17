@@ -410,6 +410,17 @@ public class SessionConfig(
      * findable, rare enough that it is not a load on the network.
      */
     public val dhtInterval: Duration = 15.minutes,
+    /**
+     * How soon to look again while the client knows fewer addresses than it could hold.
+     *
+     * A lookup is a snapshot of a network that changes, and a first one taken while the bootstrap
+     * nodes were throttling this address is a snapshot of nothing: on the public swarm it left the
+     * client with the tracker's one peer for the whole of [dhtInterval], twice in a row. So a
+     * lookup that leaves `known` below `maxPeers` is followed by another after this long, doubling
+     * each time until it reaches [dhtInterval]; one that leaves the client with more addresses
+     * than it can use is kept for the full interval, as before.
+     */
+    public val dhtStarvedInterval: Duration = 30.seconds,
     /** Where to start from when the routing table is empty. Empty means the DHT is off. */
     public val dhtBootstrap: List<io.github.youndie.kachok.engine.peer.PeerAddress> = emptyList(),
     /**

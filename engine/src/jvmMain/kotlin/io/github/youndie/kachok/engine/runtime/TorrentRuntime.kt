@@ -330,6 +330,11 @@ public class TorrentRuntime internal constructor(
                 PeerAddress("router.bittorrent.com", 6881),
                 PeerAddress("dht.transmissionbt.com", 6881),
                 PeerAddress("router.utorrent.com", 6881),
+                // Two more, because on 2026-09-18 the first and the third stopped answering this
+                // address for an hour and the DHT went in through transmissionbt alone; libtorrent
+                // ships both of these as well.
+                PeerAddress("dht.libtorrent.org", 25401),
+                PeerAddress("dht.aelitis.com", 6881),
             )
 
         /**

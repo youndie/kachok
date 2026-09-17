@@ -14,6 +14,7 @@ import io.github.youndie.kachok.engine.wire.WireException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.channels.ClosedSendChannelException
 import kotlinx.coroutines.channels.ReceiveChannel
 import kotlinx.coroutines.launch
 import java.io.EOFException
@@ -77,7 +78,29 @@ public class SocketPeerConnection private constructor(
     override val events: ReceiveChannel<PeerEvent> get() = incoming
 
     override suspend fun send(message: Message) {
-        outgoing.send(Outgoing.Frame(message))
+        enqueue(Outgoing.Frame(message))
+    }
+
+    /**
+     * Queues without ever waiting, and gives up on a peer that has stopped reading.
+     *
+     * **A queue that suspends its sender is a peer that can stop the session.** The writer is a
+     * blocking `socket.write`, so a peer that keeps the connection open and reads nothing fills
+     * the kernel's buffers, then this queue, and then the next `send` to it suspends whoever
+     * called — the timer's keep-alives, the `have` broadcast after every piece, the choke pass —
+     * and with the timer gone nothing expires a request, nothing dials, nothing unchokes: the
+     * download stands still with peers unchoked and requests outstanding for ever. Measured on
+     * the public swarm from a machine peers can reach: three runs, each frozen for the rest of
+     * its three minutes at 24–29 % after a burst at 20 MiB/s. B-19 met the same failure in the
+     * shape of a *closed* queue; this is the shape of a full one. Sixty-four unread messages is
+     * not a slow peer, it is a dead one, and it is closed here rather than waited for.
+     */
+    private fun enqueue(item: Outgoing) {
+        val result = outgoing.trySend(item)
+        if (result.isSuccess) return
+        if (result.isClosed) throw ClosedSendChannelException("connection to $address is closed")
+        close()
+        throw IOException("$address stopped reading: $OUTGOING_QUEUE messages queued and none taken")
     }
 
     /**
@@ -92,7 +115,7 @@ public class SocketPeerConnection private constructor(
         begin: Int,
         length: Int,
     ) {
-        outgoing.send(Outgoing.Block(piece, begin, length))
+        enqueue(Outgoing.Block(piece, begin, length))
     }
 
     /**

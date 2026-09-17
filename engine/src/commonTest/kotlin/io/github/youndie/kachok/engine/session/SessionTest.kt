@@ -184,7 +184,14 @@ class SessionTest {
 
         override val events: ReceiveChannel<PeerEvent> get() = incoming
 
+        /** Set to make every send fail the way a connection to a peer that stopped reading does. */
+        var sendFailsWith: Exception? = null
+
         override suspend fun send(message: Message) {
+            sendFailsWith?.let {
+                close()
+                throw it
+            }
             sent += message
         }
 
@@ -1233,10 +1240,12 @@ class SessionTest {
         highFiles: Set<Int> = emptySet(),
         sequential: Boolean = false,
         timeSource: kotlin.time.TimeSource = kotlin.time.TimeSource.Monotonic,
+        dht: io.github.youndie.kachok.engine.dht.Dht? = null,
     ) = Session(
         metainfo = metainfo,
         peerId = ourPeerId,
         timeSource = timeSource,
+        dht = dht,
         listenPort = 6881,
         dialer = dialer,
         trackerClient = tracker,
@@ -2983,6 +2992,191 @@ class SessionTest {
                 mapOf("served" to 1, "left choked after a pass" to 1, "left choked inside one pass" to 1),
                 session.state.value.interestOutcomes,
             )
+            job.cancelAndJoin()
+        }
+
+    /**
+     * One DHT node that answers everything and holds nothing: every lookup costs one `get_peers`,
+     * so counting those is counting lookups.
+     */
+    private class LonelyDht(
+        private val holds: List<PeerAddress> = emptyList(),
+    ) : io.github.youndie.kachok.engine.dht.KrpcTransport {
+        val node =
+            io.github.youndie.kachok.engine.dht.DhtNode(
+                io.github.youndie.kachok.engine.dht
+                    .NodeId(ByteArray(20) { 0x0F }),
+                PeerAddress("10.0.0.9", 6881),
+            )
+        var lookups = 0
+        var announces = 0
+
+        override suspend fun query(
+            node: PeerAddress,
+            method: String,
+            arguments: io.github.youndie.kachok.engine.bencode.BDictionary,
+        ): io.github.youndie.kachok.engine.dht.KrpcMessage.Response {
+            val fields = LinkedHashMap<BString, io.github.youndie.kachok.engine.bencode.BValue>()
+            fields[BString("id")] = BString(this.node.id.bytes)
+            when (method) {
+                io.github.youndie.kachok.engine.dht.Krpc.FIND_NODE -> {
+                    fields[BString("nodes")] =
+                        BString(
+                            io.github.youndie.kachok.engine.dht.Krpc
+                                .encodeNodes(listOf(this.node)),
+                        )
+                }
+
+                io.github.youndie.kachok.engine.dht.Krpc.GET_PEERS -> {
+                    lookups++
+                    fields[BString("token")] = BString("t".encodeToByteArray())
+                    if (holds.isNotEmpty()) {
+                        fields[BString("values")] =
+                            io.github.youndie.kachok.engine.dht.Krpc
+                                .encodeValues(holds)
+                    } else {
+                        fields[BString("nodes")] =
+                            BString(
+                                io.github.youndie.kachok.engine.dht.Krpc
+                                    .encodeNodes(listOf(this.node)),
+                            )
+                    }
+                }
+
+                io.github.youndie.kachok.engine.dht.Krpc.ANNOUNCE_PEER -> {
+                    announces++
+                }
+            }
+            return io.github.youndie.kachok.engine.dht.KrpcMessage
+                .Response(byteArrayOf(1), BDictionary(fields))
+        }
+    }
+
+    private fun dhtConfig() =
+        SessionConfig(
+            maxStartedPieces = 4,
+            pipelineDepth = 2,
+            maxPeers = 10,
+            dhtBootstrap = listOf(PeerAddress("10.0.0.9", 6881)),
+        )
+
+    /**
+     * A lookup that leaves the client short of addresses is retaken in seconds, doubling, and not
+     * kept for fifteen minutes: on the public swarm the first one, taken while the bootstrap
+     * nodes were not answering, found nothing, and the tracker there hands out one peer.
+     */
+    @Test
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    fun aLookupThatFoundTooFewPeersIsRetakenSoonAndBacksOff() =
+        runTest {
+            val metainfo = torrent(pieces = 4)
+            val transport = LonelyDht()
+            val dht =
+                io.github.youndie.kachok.engine.dht.Dht(
+                    io.github.youndie.kachok.engine.dht
+                        .NodeId(ByteArray(20) { 0x01 }),
+                    transport,
+                )
+            val session =
+                session(
+                    metainfo,
+                    FakeDialer(metainfo.infoHash),
+                    FakeTracker(emptyList()),
+                    FakeStorage(),
+                    AgreeableHasher(metainfo),
+                    config = dhtConfig(),
+                    timeSource = testScheduler.timeSource,
+                    dht = dht,
+                )
+            val job = session.start(kotlinx.coroutines.CoroutineScope(coroutineContext + handler))
+            testScheduler.runCurrent()
+            assertEquals(1, transport.lookups, "the first lookup happens at start")
+
+            testScheduler.advanceTimeBy(31_000)
+            testScheduler.runCurrent()
+            assertEquals(2, transport.lookups, "a starving client looks again after thirty seconds")
+            testScheduler.advanceTimeBy(31_000)
+            testScheduler.runCurrent()
+            assertEquals(2, transport.lookups, "the second wait is a minute, not another thirty seconds")
+            testScheduler.advanceTimeBy(30_000)
+            testScheduler.runCurrent()
+            assertEquals(3, transport.lookups)
+            assertEquals(1, transport.announces, "looking again is not announcing again")
+            job.cancelAndJoin()
+        }
+
+    /** A client with more addresses than it can hold keeps the snapshot for the full interval. */
+    @Test
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    fun aLookupThatFoundEnoughPeersIsKeptForTheFullInterval() =
+        runTest {
+            val metainfo = torrent(pieces = 4)
+            val plenty = (1..12).map { PeerAddress("10.1.0.$it", 6881) }
+            val transport = LonelyDht(holds = plenty)
+            val dht =
+                io.github.youndie.kachok.engine.dht.Dht(
+                    io.github.youndie.kachok.engine.dht
+                        .NodeId(ByteArray(20) { 0x01 }),
+                    transport,
+                )
+            val session =
+                session(
+                    metainfo,
+                    FakeDialer(metainfo.infoHash, refuse = plenty.toSet()),
+                    FakeTracker(emptyList()),
+                    FakeStorage(),
+                    AgreeableHasher(metainfo),
+                    config = dhtConfig(),
+                    timeSource = testScheduler.timeSource,
+                    dht = dht,
+                )
+            val job = session.start(kotlinx.coroutines.CoroutineScope(coroutineContext + handler))
+            testScheduler.runCurrent()
+            assertEquals(1, transport.lookups)
+            assertEquals(12, session.state.value.knownPeers)
+
+            testScheduler.advanceTimeBy(14 * 60_000L)
+            testScheduler.runCurrent()
+            assertEquals(1, transport.lookups, "twelve known against ten wanted is not starving")
+            testScheduler.advanceTimeBy(2 * 60_000L)
+            testScheduler.runCurrent()
+            assertEquals(2, transport.lookups)
+            job.cancelAndJoin()
+        }
+
+    /**
+     * The session's side of the same guarantee: a send the connection refuses because the peer
+     * stopped reading ends that peer, counted under its own reason, and the timer that tried —
+     * here the keep-alive — goes on to the next tick rather than waiting on it.
+     */
+    @Test
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    fun aPeerThatStoppedReadingIsDroppedAndCountedAndTheTimerGoesOn() =
+        runTest {
+            val metainfo = torrent(pieces = 4)
+            val dialer = FakeDialer(metainfo.infoHash)
+            val session =
+                session(metainfo, dialer, FakeTracker(listOf(peerA, peerB)), FakeStorage(), AgreeableHasher(metainfo))
+            val job = session.start(kotlinx.coroutines.CoroutineScope(coroutineContext + handler))
+            testScheduler.runCurrent()
+            val stuck = dialer.connections.getValue(peerA)
+            val fine = dialer.connections.getValue(peerB)
+            stuck.sendFailsWith = java.io.IOException("$peerA stopped reading: 64 messages queued and none taken")
+
+            testScheduler.advanceTimeBy(125_000)
+            testScheduler.runCurrent()
+
+            assertEquals(
+                1,
+                session.state.value.disconnectReasons["not reading"],
+                session.state.value.disconnectReasons
+                    .toString(),
+            )
+            assertTrue(
+                fine.sent.any { it === Message.KeepAlive },
+                "the keep-alive never reached the peer after the stuck one",
+            )
+            assertEquals(1, session.state.value.connectedPeers)
             job.cancelAndJoin()
         }
 
