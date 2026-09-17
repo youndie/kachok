@@ -65,6 +65,7 @@ What exists on `main` today:
 | `.../engine/io/SocketPeerConnection.kt` | one peer, one blocking `SocketChannel`, one virtual thread; `connect` and `accept`, blocks read straight into pool buffers |
 | `.../engine/io/PeerListener.kt` | the 6881–6889 probe and the accept loop |
 | `.../engine/io/SocketPeerDialer.kt` | the `PeerDialer` the session dials through |
+| `.../engine/io/BlockSource.kt` | where a connection serves blocks from — required, `FileStorage` for a torrent and `NoBlocks` for a metadata fetch (B-110) |
 | `.../engine/storage/PieceLayout.kt` | piece and block to file spans, by cumulative offsets |
 | `.../engine/storage/PieceHasher.kt` | the interface a piece is verified through, before it is written |
 | `.../engine/storage/BlockWriter.kt` | the single writer: blocks in, verified pieces out, buffers back to the pool |
@@ -256,6 +257,22 @@ them. Nothing is read from the environment by this module; that is [cli](cli.md)
   connection after the third message. It cost six iterations to find, because only a third party can
   see it; `MseHandshake.PRIME_HEX` now carries the right value and a known-answer test pins it
   ([B-100](../backlog/B-100-protocol-encryption.md)).
+* **Every connection names where it serves blocks from, and none has a default.** `SocketPeerConnection`
+  took a nullable storage for six milestones that nothing ever passed, and a request it could not
+  serve was dropped without a word — so this client uploaded nothing to anybody, on any surface,
+  while the choker, the budget and `transferTo` were each tested against a fake and passed. The
+  storage is a required `BlockSource` now: the runtime's `FileStorage` for a torrent, and `NoBlocks`
+  — which throws — for the one honest case, a metadata fetch that holds no pieces
+  ([B-110](../backlog/B-110-this-client-never-uploads-a-block.md)).
+* **`uploaded` is one accumulator, read off the connections.** The truthful count of an upload is
+  the connection's own, taken after `transferTo` returned; a connection that leaves adds its count
+  to the departed total, the live ones are summed on the tick, and the tracker is told the same
+  number. Before B-110 the state summed the live links at the moment a block was *queued* and the
+  tracker was told a field nothing incremented — both read zero, and both were right.
+* **Two clients on one segment hold two connections to each other.** The tracker sends one to dial
+  the other; local discovery sends the other to dial back; nothing compares peer ids across the
+  two, and the picker sees two peers — so endgame asks the second for everything and a seeder
+  serves the file twice ([B-111](../backlog/B-111-two-connections-to-the-same-peer.md)).
 * **A known address has three states and not two.** `connected` and `failed` do not cover an
   address inside a ten-second `connect`, and most of a public swarm's addresses are in exactly that
   state for exactly that long — 22 of 50 in B-19's measurement. Without the third set, `dialling`,

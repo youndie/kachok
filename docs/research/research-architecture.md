@@ -1163,6 +1163,18 @@ bound because the client has never reached it, and it gets a number here or an e
 keep it — with the run that produced it named beside it, the way every other default in this
 document is.
 
+**Amended 2026-09-17, at the point where the numbers above stop meaning what they said
+([B-110](../backlog/B-110-this-client-never-uploads-a-block.md)).** Every figure in this section —
+the 4 423 dials, the 303 handshakes, the 22 held, the peers-held medians of 12, 17, 23 and 30 —
+was taken by a client that **uploaded nothing to anybody**. No live connection had been given the
+storage to serve from, and a request it could not serve was dropped in silence; the tracker was
+told `uploaded=0` throughout. This used to be read as a client that meets fewer peers; it cannot be
+read that way, because a peer that never reciprocates is one every choker in the swarm ranks last
+and drops first, and "connections are made and not kept" is exactly what a swarm does to such a
+client. The working replacement is the measurement re-run with the client serving, which is
+recorded in B-110 with an `uploaded` column beside the old ones; what does *not* change is D13's
+method, which was sound, or B-105's finding, which was a real second cause.
+
 ### D14. µTP is deferred, and the number that would change that is not the obvious one
 
 *Decided 2026-09-17 by [B-101](../backlog/B-101-utp-transport.md).*

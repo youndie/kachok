@@ -1,12 +1,11 @@
 ---
 id: B-109
 title: "`kachok download --seed` closes the set before it seeds, so nobody can reach it"
-status: open
+status: done
 priority: P2
 size: S
 stage: m5-seeding
 epic: feature-download
-blocked_by: [B-110]
 ---
 
 # B-109 — `kachok download --seed` closes the set before it seeds, so nobody can reach it
@@ -53,3 +52,27 @@ worst kind, because it fills other clients' peer lists with an address that answ
 - Anchors: `cli/src/main/kotlin/io/github/youndie/kachok/cli/Download.kt`,
   `engine/src/jvmMain/kotlin/io/github/youndie/kachok/engine/runtime/TorrentSet.kt`,
   `cli/src/test/kotlin/io/github/youndie/kachok/cli/DownloadTest.kt`.
+
+## Iteration 1 — 2026-09-17: the set outlives the seeding wait, and the second client finishes
+
+`set.close()` moved out of the `finally` that ran the moment the download settled and into one
+`finally` around the whole command, after the runtime has stopped — so the port mapping is still
+given back on every path, and the order is now stop-then-close rather than close-then-stop (the
+record used to be written after the files were shut). The seeding branch waits on the same
+`interrupted` signal a cut-short download does and leaves through the same `stopInterrupted`,
+so Ctrl-C on a seeder now tells the tracker, closes the peers and releases the mapping instead of
+the JVM going away mid-announce; the shutdown hook stays armed for it.
+
+**Acceptance, through the real path:** `aSeedingDownloadServesASecondClientUntilItIsInterrupted`
+runs `download --seed` on a directory that already holds the file, reads the port it printed, tells
+a tracker to hand that port to whoever asks (and not to the seeder itself), and lets a second
+`TorrentSet` in the same process download from it. The second client finishes and its bytes match;
+the seeder is then cancelled the way Ctrl-C cancels it and leaves with nothing on stderr. It passes
+only with [B-110](B-110-this-client-never-uploads-a-block.md) in the same change: before that the
+listener was open and the connection it accepted had nothing to serve from.
+
+**And against a third party.** The same `download --seed`, rate-limited to 800 KiB/s, on the build
+machine; qBittorrent 5.2.1 on the Windows machine added the torrent and finished it in fifteen
+seconds with the file byte-complete on its disk. A seeder that is reachable, serves, and is
+throttled as asked.
+

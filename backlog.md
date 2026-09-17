@@ -52,20 +52,20 @@ which is also the order of work.
 
 | Task | | Priority | Size | Blocked by |
 |---|---|---|---|---|
-| [B-110](docs/backlog/B-110-this-client-never-uploads-a-block.md) `[ ]` | This client never uploads a block: no live connection is ever given the storage to serve from | P1 | S | - |
 | [B-100](docs/backlog/B-100-protocol-encryption.md) `[~]` | Protocol encryption (MSE/PE): the peers that will not talk in the clear | P2 | L | B-98 |
 | [B-107](docs/backlog/B-107-dropping-a-torrent-does-nothing-on-macos.md) `[ ]` | Dropping a .torrent on the window does nothing on macOS | P2 | M | - |
-| [B-109](docs/backlog/B-109-download-seed-closes-the-set-before-it-seeds.md) `[ ]` | `kachok download --seed` closes the set before it seeds, so nobody can reach it | P2 | S | B-110 |
+| [B-111](docs/backlog/B-111-two-connections-to-the-same-peer.md) `[ ]` | Two connections to the same peer: nothing drops the second, and endgame asks it for everything again | P2 | S | - |
 | [B-79](docs/backlog/B-79-the-windows-state-outlives-its-composition.md) `[ ]` | The window's state outlives its composition | P2 | L | - |
 | [B-80](docs/backlog/B-80-the-ui-moves-to-commonmain.md) `[ ]` | The UI moves to commonMain | P2 | L | B-79 |
 | [B-93](docs/backlog/B-93-opening-a-downloaded-executable.md) `[ ]` | Double-clicking a downloaded executable, and the warning Windows never gets to show | P2 | M | - |
+| [B-112](docs/backlog/B-112-a-peer-interested-for-seconds-is-never-unchoked.md) `[ ]` | A peer interested for a few seconds is never unchoked: the choke pass is the only place an unchoke happens | P3 | S | - |
 | [B-37](docs/backlog/B-37-v2-and-hybrid-torrents.md) `[?]` | v2 and hybrid torrents (BEP 52): SHA-256 piece layers | P3 | L | B-04 |
 | [B-40](docs/backlog/B-40-wasmjs-ui-is-a-client-of-the-headless-engine.md) `[ ]` | The browser build of the UI is a client of the headless engine | P3 | L | B-80 |
 | [B-41](docs/backlog/B-41-android-and-ios-targets.md) `[ ]` | Phase 3: Android and iOS targets on the engine | P3 | XL | B-39 |
 | [B-87](docs/backlog/B-87-a-server-with-a-web-face.md) `[ ]` | Phase 3: a headless server with a web face, installable on a box that is always on | P3 | XL | B-80 |
 | [B-02](docs/backlog/B-02-ci-runs-build-and-docs-gates.md) `[ ]` | CI runs the build and the documentation gates on every push | infra | S | B-01 |
 
-## Closed (98)
+## Closed (100)
 
 **M0 — The build and its gates**
 
@@ -103,6 +103,8 @@ which is also the order of work.
 
 **M5 — Seeding**
 
+- [B-109](docs/backlog/B-109-download-seed-closes-the-set-before-it-seeds.md) `[x]` - `kachok download --seed` closes the set before it seeds, so nobody can reach it
+- [B-110](docs/backlog/B-110-this-client-never-uploads-a-block.md) `[x]` - This client never uploads a block: no live connection is ever given the storage to serve from
 - [B-20](docs/backlog/B-20-upload-read-path.md) `[x]` - Serve requests with FileChannel.transferTo
 - [B-21](docs/backlog/B-21-choking-algorithm.md) `[x]` - The ten-second choker with optimistic unchoke
 - [B-22](docs/backlog/B-22-rate-limits.md) `[x]` - Upload and download rate limits
