@@ -6,8 +6,11 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.v2.runComposeUiTest
+import io.github.youndie.kachok.engine.runtime.RuntimeOptions
+import io.github.youndie.kachok.engine.session.SessionConfig
 import io.github.youndie.kachok.ui.session.Preferences
 import io.github.youndie.kachok.ui.session.settingsOf
 import io.github.youndie.kachok.ui.theme.KachokTheme
@@ -63,7 +66,7 @@ class SettingsScreenTest {
         runComposeUiTest {
             val changes = mutableListOf<SettingChange>()
             setContent { KachokTheme { SettingsScreen(settingsOf(preferences)) { changes += it } } }
-            onNodeWithContentDescription("Start torrents when added").performClick()
+            onNodeWithContentDescription("Start torrents when added").performScrollTo().performClick()
             val toggled = changes.filterIsInstance<SettingChange.Toggled>().single()
             assertEquals(SettingKey.StartWhenAdded, toggled.key)
             assertEquals(false, toggled.on, "it is on, so a click asks for off")
@@ -75,7 +78,7 @@ class SettingsScreenTest {
         runComposeUiTest {
             val changes = mutableListOf<SettingChange>()
             setContent { KachokTheme { SettingsScreen(settingsOf(preferences)) { changes += it } } }
-            onNodeWithContentDescription("Close to the tray").performClick()
+            onNodeWithContentDescription("Close to the tray").performScrollTo().performClick()
             val toggled = changes.filterIsInstance<SettingChange.Toggled>().single()
             assertEquals(SettingKey.CloseToTray, toggled.key)
             assertEquals(false, toggled.on, "it is on by default, so a click asks for off")
@@ -122,7 +125,7 @@ class SettingsScreenTest {
         runComposeUiTest {
             val changes = mutableListOf<SettingChange>()
             setContent { KachokTheme { SettingsScreen(settingsOf(preferences)) { changes += it } } }
-            onNodeWithContentDescription("Start with the computer").performClick()
+            onNodeWithContentDescription("Start with the computer").performScrollTo().performClick()
             val toggled = changes.filterIsInstance<SettingChange.Toggled>().single()
             assertEquals(SettingKey.Autostart, toggled.key)
             assertEquals(true, toggled.on, "it is off, so a click asks for on")
@@ -161,10 +164,10 @@ class SettingsScreenTest {
         runComposeUiTest {
             val changes = mutableListOf<SettingChange>()
             setContent { KachokTheme { SettingsScreen(settingsOf(preferences)) { changes += it } } }
-            onNodeWithContentDescription("Join the DHT (BEP 5)").performClick()
+            onNodeWithContentDescription("Join the DHT (BEP 5)").performScrollTo().performClick()
             val toggled = changes.filterIsInstance<SettingChange.Toggled>().single()
             assertEquals(SettingKey.Dht, toggled.key)
-            assertEquals(true, toggled.on, "it is off, so a click asks for on")
+            assertEquals(false, toggled.on, "it is on since B-99, so a click asks for off")
         }
 
     @Test
@@ -172,7 +175,7 @@ class SettingsScreenTest {
         runComposeUiTest {
             val changes = mutableListOf<SettingChange>()
             setContent { KachokTheme { SettingsScreen(settingsOf(preferences)) { changes += it } } }
-            onNodeWithContentDescription("Browse").performClick()
+            onNodeWithContentDescription("Browse").performScrollTo().performClick()
             assertEquals(
                 SettingKey.SaveTo,
                 changes.filterIsInstance<SettingChange.Browsed>().single().key,
@@ -184,7 +187,10 @@ class SettingsScreenTest {
         runComposeUiTest {
             val changes = mutableListOf<SettingChange>()
             setContent { KachokTheme { SettingsScreen(settingsOf(preferences)) { changes += it } } }
-            onNodeWithText("50").performTextReplacement("80")
+            // The engine's own default and not a number written out here. Spelled "50", this test
+            // was a second home for a figure that lives in `SessionConfig`, and it failed the day
+            // that figure was measured (B-98) — on a screen drawing exactly what it should.
+            onNodeWithText("${SessionConfig().maxPeers}").performScrollTo().performTextReplacement("80")
             val typed = changes.filterIsInstance<SettingChange.Typed>().single()
             assertEquals(SettingKey.MaxPeers, typed.key)
             assertEquals("80", typed.text)
@@ -210,7 +216,11 @@ class SettingsScreenTest {
     fun clearingAFieldKeepsTheDefaultRatherThanMeaningZero() {
         val cleared = preferences.typed(SettingKey.MaxPeers, "")
         assertEquals(null, cleared.maxPeers)
-        assertEquals(50, cleared.runtimeOptions().maxPeers, "the engine's own default, not zero")
+        assertEquals(
+            RuntimeOptions.DEFAULT_MAX_PEERS,
+            cleared.runtimeOptions().maxPeers,
+            "the engine's own default, not zero",
+        )
     }
 
     private companion object {

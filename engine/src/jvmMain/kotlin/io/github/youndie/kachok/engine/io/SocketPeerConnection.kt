@@ -20,10 +20,12 @@ import kotlinx.coroutines.launch
 import java.io.EOFException
 import java.io.IOException
 import java.net.InetSocketAddress
+import java.net.SocketTimeoutException
 import java.nio.ByteBuffer
 import java.nio.channels.SocketChannel
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
+import kotlin.time.TimeSource
 
 /** A [Block] whose bytes are a pooled direct buffer, flipped and ready to be written. */
 public class PooledBlock internal constructor(
@@ -273,6 +275,86 @@ public class SocketPeerConnection private constructor(
         /** Long enough for a slow route, short enough that a dead peer is not a lost slot. */
         public val DEFAULT_CONNECT_TIMEOUT: Duration = 10.seconds
 
+        /**
+         * How long a peer has to send its sixty-eight bytes once the connection is up.
+         *
+         * **A guess, and it says so** — B-98 is what gives it a number. The shape of the guess:
+         * longer than a slow route's round trip, and shorter than the connect timeout, because a
+         * peer that answered the SYN and then said nothing has already proved more than a peer
+         * that never answered at all and deserves less patience, not more.
+         */
+        public val DEFAULT_HANDSHAKE_TIMEOUT: Duration = 8.seconds
+
+        /**
+         * Reads exactly [Handshake.SIZE] bytes, or throws once [timeout] has passed **in total**.
+         *
+         * **Why this reads through the socket's stream and not the channel.** A blocking
+         * `SocketChannel.read` has no deadline and ignores `SO_TIMEOUT` — the javadoc is explicit
+         * that the adapted socket's timeout does not reach channel operations. Two other routes
+         * were measured and rejected: `withTimeout` around the read does not end it, because a
+         * virtual thread blocked in a socket read is not at a suspension point and cancellation has
+         * nowhere to land; a selector would end it and is the one thing this file has committed to
+         * not having (see the class comment). The channel's own `socket().getInputStream()` is the
+         * remaining door, and it honours `SO_TIMEOUT`.
+         *
+         * Two properties of that stream were verified on JDK 25.0.2, on Linux and on macOS, before
+         * this was written, because the whole approach fails silently if either is false:
+         * a read with `SO_TIMEOUT` set throws `SocketTimeoutException` at the deadline (401–405 ms
+         * for a 400 ms timeout), and **it does not read ahead** — after taking exactly sixty-eight
+         * bytes the following channel read returned byte sixty-eight, so nothing the wire needs is
+         * swallowed by the adaptor.
+         *
+         * **The deadline is recomputed before every read, and that is the point of the loop.**
+         * `SO_TIMEOUT` is per read: a peer sending one byte every seven seconds would renew it for
+         * ever, which is a slower version of the hang this exists to end.
+         */
+        private fun readHandshakeBy(
+            socket: SocketChannel,
+            timeout: Duration,
+        ): Handshake {
+            val socketAdaptor = socket.socket()
+            val deadline = TimeSource.Monotonic.markNow() + timeout
+            val bytes = ByteArray(Handshake.SIZE)
+            var read = 0
+            try {
+                val stream = socketAdaptor.getInputStream()
+                while (read < Handshake.SIZE) {
+                    // Negated because a mark in the future has a negative elapsed time.
+                    val left = -deadline.elapsedNow()
+                    if (!left.isPositive()) {
+                        throw SocketTimeoutException("peer sent $read of ${Handshake.SIZE} handshake bytes in $timeout")
+                    }
+                    // At least one millisecond, or a sub-millisecond remainder would round to zero,
+                    // and zero is `SO_TIMEOUT` for "wait for ever" — the bug this whole function is.
+                    socketAdaptor.soTimeout = left.inWholeMilliseconds.coerceAtLeast(1).toInt()
+                    val got =
+                        try {
+                            stream.read(bytes, read, Handshake.SIZE - read)
+                        } catch (expired: SocketTimeoutException) {
+                            // The stream's own message is "Read timed out", which reaches a person
+                            // through `lastPeerError` and tells them nothing. How far the peer got
+                            // is the part worth knowing: nothing at all reads differently from
+                            // half a handshake.
+                            throw SocketTimeoutException(
+                                "peer sent $read of ${Handshake.SIZE} handshake bytes in $timeout",
+                            )
+                        }
+                    if (got < 0) throw EOFException("peer closed during the handshake")
+                    read += got
+                }
+            } finally {
+                // Back to no timeout, because from here the wire is read through the channel, where
+                // silence is legitimate: a seed with nothing to say sends a keep-alive every two
+                // minutes and nothing in between.
+                try {
+                    socketAdaptor.soTimeout = 0
+                } catch (gone: java.net.SocketException) {
+                    // The socket is already closed, which is every failing path through here.
+                }
+            }
+            return Handshake.decode(bytes)
+        }
+
         private const val OUTGOING_QUEUE = 64
         private const val INCOMING_QUEUE = 64
         private const val SCRATCH_SIZE = 16
@@ -293,6 +375,7 @@ public class SocketPeerConnection private constructor(
             pool: BufferPool,
             reserved: ByteArray = Handshake.reservedBits(),
             connectTimeout: Duration = DEFAULT_CONNECT_TIMEOUT,
+            handshakeTimeout: Duration = DEFAULT_HANDSHAKE_TIMEOUT,
         ): SocketPeerConnection {
             val socket = SocketChannel.open()
             try {
@@ -310,13 +393,10 @@ public class SocketPeerConnection private constructor(
                 val out = ByteBuffer.wrap(ours.encode())
                 while (out.hasRemaining()) socket.write(out)
 
-                val theirs = ByteBuffer.allocate(Handshake.SIZE)
-                while (theirs.hasRemaining()) {
-                    if (socket.read(theirs) < 0) {
-                        throw EOFException("peer closed during the handshake")
-                    }
-                }
-                val handshake = Handshake.decode(theirs.array())
+                // Bounded from here. The write above is not: sixty-eight bytes fit in any send
+                // buffer, so it does not block, and a deadline around it would be a deadline around
+                // nothing.
+                val handshake = readHandshakeBy(socket, handshakeTimeout)
                 if (!handshake.infoHash.bytes.contentEquals(infoHash.bytes)) {
                     throw WireException("peer answered for another torrent: ${handshake.infoHash.bytes.toHex()}")
                 }
@@ -365,13 +445,16 @@ public class SocketPeerConnection private constructor(
          * The socket is left open on success and closed on failure, because a caller that has
          * nothing to route this to still has to close it and should not have to remember.
          */
-        public fun readHandshake(socket: SocketChannel): Handshake {
+        public fun readHandshake(
+            socket: SocketChannel,
+            timeout: Duration = DEFAULT_HANDSHAKE_TIMEOUT,
+        ): Handshake {
             try {
-                val theirs = ByteBuffer.allocate(Handshake.SIZE)
-                while (theirs.hasRemaining()) {
-                    if (socket.read(theirs) < 0) throw EOFException("peer closed during the handshake")
-                }
-                return Handshake.decode(theirs.array())
+                // **The accepting side needs this more than the dialling one.** A dial that hangs
+                // costs one address; an accept that hangs costs a coroutine held by whoever chose
+                // to connect to us, which is not a peer this client picked and not a number it
+                // controls. Anybody on the network can open sixty-eight-byte-shaped silences.
+                return readHandshakeBy(socket, timeout)
             } catch (failure: Throwable) {
                 socket.closeQuietly()
                 throw failure

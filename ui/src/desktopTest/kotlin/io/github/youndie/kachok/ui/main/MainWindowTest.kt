@@ -6,6 +6,7 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.v2.runComposeUiTest
+import io.github.youndie.kachok.engine.session.SessionConfig
 import io.github.youndie.kachok.ui.add.designTorrentToAdd
 import io.github.youndie.kachok.ui.session.Preferences
 import io.github.youndie.kachok.ui.session.settingsOf
@@ -152,7 +153,10 @@ class MainWindowTest {
                 }
             }
             onNodeWithText("Connections to keep up").assertIsDisplayed()
-            onNodeWithText("default 50").assertIsDisplayed()
+            // Read off the engine's own default rather than written out. Spelling it "default 50"
+            // made this test a second place the number lived, and it went stale the day the number
+            // was measured (B-98) — failing on a screen that was drawing exactly what it should.
+            onNodeWithText("default ${SessionConfig().maxPeers}").assertIsDisplayed()
             onNodeWithText("Info hash").assertDoesNotExist()
             onNodeWithText("debian-13.1.0-amd64-DVD-1.iso").assertDoesNotExist()
         }

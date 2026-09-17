@@ -27,6 +27,7 @@ import io.github.youndie.kachok.engine.wire.Message
 import io.github.youndie.kachok.engine.wire.MetadataMessage
 import io.github.youndie.kachok.engine.wire.PeerWire
 import io.github.youndie.kachok.engine.wire.PexMessage
+import io.github.youndie.kachok.engine.wire.WireException
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.ReceiveChannel
@@ -2373,4 +2374,347 @@ class SessionTest {
             )
             job.cancelAndJoin()
         }
+
+    /**
+     * B-95: the connections are topped up by the clock, not by whatever event happens along.
+     *
+     * Twenty-four of the thirty addresses refuse. The session holds ten at a time, so the first
+     * pass dials ten and every one of them fails — and nothing in the old code asked for a
+     * replacement: a failed dial recorded itself in `failed` and returned, and the next caller of
+     * `connectMore` was the announce, thirty minutes of virtual time away. The assertion is that
+     * within a few ticks the client is at its cap, with the announce interval nowhere near.
+     */
+    @Test
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    fun theConnectionsAreToppedUpOnTheTimerAndNotOnlyWhenSomethingHappens(): Unit =
+        runTest {
+            val metainfo = torrent(pieces = 4)
+            val all = (1..30).map { PeerAddress("10.0.0.$it", 6881) }
+            val dialer = FakeDialer(metainfo.infoHash, refuse = all.take(24).toSet())
+            val tracker = FakeTracker(all)
+            val session =
+                session(
+                    metainfo,
+                    dialer,
+                    tracker,
+                    FakeStorage(),
+                    AgreeableHasher(metainfo),
+                    config = SessionConfig(maxStartedPieces = 4, pipelineDepth = 2, maxPeers = 6),
+                )
+
+            val job = session.start(kotlinx.coroutines.CoroutineScope(coroutineContext + handler))
+            testScheduler.runCurrent()
+            assertEquals(
+                0,
+                session.state.value.connectedPeers,
+                "the first pass dials six addresses and all six refuse",
+            )
+
+            // Well short of the 1 800 s announce interval, so nothing but the timer can be dialling.
+            repeat(8) {
+                testScheduler.advanceTimeBy(1_000)
+                testScheduler.runCurrent()
+            }
+
+            assertEquals(6, session.state.value.connectedPeers, "the timer never reached the peers that answer")
+            // Without this the test would also pass on the old code if the announce interval ever
+            // dropped below the window above: it is the timer that has to be doing the dialling.
+            assertEquals(
+                listOf<AnnounceEvent?>(AnnounceEvent.STARTED),
+                tracker.events,
+                "a second announce ran, so this proves nothing about the timer",
+            )
+            assertEquals(30, dialer.dialled.size, "every address was tried exactly once")
+            job.cancelAndJoin()
+        }
+
+    /**
+     * B-95: an address whose dial is still outstanding is not dialled a second time.
+     *
+     * The dialer here never answers, which is what most of a public swarm's addresses do for the
+     * length of the connect timeout. With the timer dialling every tick and no record of what is
+     * in flight, each of those addresses would be dialled once a second for ever.
+     */
+    @Test
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    fun anAddressWhoseDialIsStillOutstandingIsNotDialledAgain(): Unit =
+        runTest {
+            val metainfo = torrent(pieces = 4)
+            val silent = SilentDialer()
+            val session =
+                session(
+                    metainfo,
+                    silent,
+                    FakeTracker(listOf(peerA, peerB, peerC)),
+                    FakeStorage(),
+                    AgreeableHasher(metainfo),
+                    config = SessionConfig(maxStartedPieces = 4, pipelineDepth = 2, maxPeers = 10),
+                )
+
+            val job = session.start(kotlinx.coroutines.CoroutineScope(coroutineContext + handler))
+            testScheduler.runCurrent()
+            repeat(10) {
+                testScheduler.advanceTimeBy(1_000)
+                testScheduler.runCurrent()
+            }
+
+            assertEquals(
+                listOf(peerA, peerB, peerC),
+                silent.dialled,
+                "each address is dialled once while its dial is outstanding, not once per tick",
+            )
+            job.cancelAndJoin()
+        }
+
+    /** A dialer whose `connect` never returns — the address a swarm hands out that does not answer. */
+    private class SilentDialer : PeerDialer {
+        val dialled = mutableListOf<PeerAddress>()
+
+        override suspend fun connect(address: PeerAddress): PeerConnection {
+            dialled += address
+            kotlinx.coroutines.awaitCancellation()
+        }
+    }
+
+    /**
+     * B-97: the announce asks for the connections this client is short of.
+     *
+     * `numWant` existed on the request, both transports wrote it, and the session never filled it
+     * in — so every announce asked for whatever default the tracker had picked.
+     */
+    @Test
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    fun theAnnounceAsksForTheConnectionsThisClientIsShortOf(): Unit =
+        runTest {
+            val metainfo = torrent(pieces = 4)
+            val dialer = FakeDialer(metainfo.infoHash)
+            val tracker = RecordingTracker(listOf(peerA, peerB))
+            val session =
+                session(
+                    metainfo,
+                    dialer,
+                    tracker,
+                    FakeStorage(),
+                    AgreeableHasher(metainfo),
+                    config = SessionConfig(maxStartedPieces = 4, pipelineDepth = 2, maxPeers = 6),
+                )
+
+            val job = session.start(kotlinx.coroutines.CoroutineScope(coroutineContext + handler))
+            testScheduler.runCurrent()
+
+            assertEquals(6, tracker.numWants.first(), "the first announce is made with nothing connected")
+            assertEquals(2, session.state.value.connectedPeers)
+
+            session.send(Command.Announce)
+            testScheduler.runCurrent()
+            assertEquals(4, tracker.numWants.last(), "six wanted, two connected, so four short")
+            job.cancelAndJoin()
+        }
+
+    /** B-97: a client that is leaving asks for nobody, whatever its deficit says. */
+    @Test
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    fun aStoppedAnnounceAsksForNoPeers(): Unit =
+        runTest {
+            val metainfo = torrent(pieces = 4)
+            val tracker = RecordingTracker(listOf(peerA))
+            val session =
+                session(
+                    metainfo,
+                    FakeDialer(metainfo.infoHash),
+                    tracker,
+                    FakeStorage(),
+                    AgreeableHasher(metainfo),
+                    config = SessionConfig(maxStartedPieces = 4, pipelineDepth = 2, maxPeers = 6),
+                )
+
+            val job = session.start(kotlinx.coroutines.CoroutineScope(coroutineContext + handler))
+            testScheduler.runCurrent()
+            session.send(Command.Pause)
+            testScheduler.runCurrent()
+
+            val stopped = tracker.events.indexOf(AnnounceEvent.STOPPED)
+            assertTrue(stopped >= 0, "the pause did not announce stopped")
+            assertEquals(0, tracker.numWants[stopped], "a client that is leaving still asked for peers")
+            job.cancelAndJoin()
+        }
+
+    /**
+     * B-97: off, the first tracker that answers ends the announce; on, every one is asked and the
+     * peers are the union.
+     */
+    @Test
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    fun askingEveryTrackerIsASettingAndNotTheDefault(): Unit =
+        runTest {
+            val metainfo = threeTrackerTorrent(pieces = 4)
+            val perTracker =
+                mapOf(
+                    "http://a.example/annc" to listOf(peerA),
+                    "http://b.example/annc" to listOf(peerB),
+                    "http://c.example/annc" to listOf(peerA, peerC),
+                )
+
+            val defaultTracker = PerUrlTracker(perTracker)
+            val byDefault =
+                session(
+                    metainfo,
+                    FakeDialer(metainfo.infoHash),
+                    defaultTracker,
+                    FakeStorage(),
+                    AgreeableHasher(metainfo),
+                    config = SessionConfig(maxStartedPieces = 4, pipelineDepth = 2, maxPeers = 10),
+                )
+            val first = byDefault.start(kotlinx.coroutines.CoroutineScope(coroutineContext + handler))
+            testScheduler.runCurrent()
+            assertEquals(listOf("http://a.example/annc"), defaultTracker.asked, "BEP 12: the first that answers")
+            assertEquals(1, byDefault.state.value.knownPeers)
+            first.cancelAndJoin()
+
+            val allTracker = PerUrlTracker(perTracker)
+            val toAll =
+                session(
+                    metainfo,
+                    FakeDialer(metainfo.infoHash),
+                    allTracker,
+                    FakeStorage(),
+                    AgreeableHasher(metainfo),
+                    config =
+                        SessionConfig(
+                            maxStartedPieces = 4,
+                            pipelineDepth = 2,
+                            maxPeers = 10,
+                            announceToAllTrackers = true,
+                        ),
+                )
+            val second = toAll.start(kotlinx.coroutines.CoroutineScope(coroutineContext + handler))
+            testScheduler.runCurrent()
+            assertEquals(perTracker.keys.toList(), allTracker.asked, "every tracker the torrent names")
+            // Three addresses and not four: peer A is named by two trackers and is one peer.
+            assertEquals(3, toAll.state.value.knownPeers, "the peers are the union, deduplicated")
+            second.cancelAndJoin()
+        }
+
+    /**
+     * B-98: the dials are counted, and the failures are counted by kind.
+     *
+     * `connectedPeers` alone cannot tell a client holding two peers after three dials from one
+     * holding two after thirty — which is the entire question the measurement asks.
+     */
+    @Test
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    fun theDialsAndTheirFailuresAreCounted(): Unit =
+        runTest {
+            val metainfo = torrent(pieces = 4)
+            val all = listOf(peerA, peerB, peerC)
+            // Peer B refuses with a wire error, peer C with a timeout: two labels, not two messages.
+            val dialer =
+                LabelledDialer(
+                    metainfo.infoHash,
+                    peerB to WireException("peer answered for another torrent: ab12"),
+                    peerC to IllegalStateException("Connection refused"),
+                )
+            val session =
+                session(
+                    metainfo,
+                    dialer,
+                    FakeTracker(all),
+                    FakeStorage(),
+                    AgreeableHasher(metainfo),
+                    config = SessionConfig(maxStartedPieces = 4, pipelineDepth = 2, maxPeers = 10),
+                )
+
+            val job = session.start(kotlinx.coroutines.CoroutineScope(coroutineContext + handler))
+            testScheduler.runCurrent()
+
+            val state = session.state.value
+            assertEquals(3, state.dialsAttempted, "one per address the session dialled")
+            assertEquals(1, state.dialsHandshaked, "only peer A answered")
+            assertEquals(1, state.connectedPeers)
+            assertEquals(
+                mapOf("another torrent" to 1, "refused" to 1),
+                state.dialFailures,
+                "failures are bucketed by kind, not by the message that names an address",
+            )
+            job.cancelAndJoin()
+        }
+
+    /** A dialer that fails named addresses with a chosen exception, so the labels can be asserted. */
+    private class LabelledDialer(
+        private val infoHash: io.github.youndie.kachok.engine.InfoHash,
+        vararg failures: Pair<PeerAddress, Exception>,
+    ) : PeerDialer {
+        private val failWith = failures.toMap()
+        val connections = LinkedHashMap<PeerAddress, FakeConnection>()
+
+        override suspend fun connect(address: PeerAddress): PeerConnection {
+            failWith[address]?.let { throw it }
+            return connections.getOrPut(address) { FakeConnection(address, infoHash) }
+        }
+    }
+
+    /** A tracker that remembers what it was asked for, not only that it was asked. */
+    private class RecordingTracker(
+        private val peers: List<PeerAddress>,
+    ) : TrackerClient {
+        val events = mutableListOf<AnnounceEvent?>()
+        val numWants = mutableListOf<Int?>()
+
+        override suspend fun announce(
+            tracker: String,
+            request: AnnounceRequest,
+        ): AnnounceResponse {
+            events += request.event
+            numWants += request.numWant
+            return AnnounceResponse(interval = 1800, peers = peers)
+        }
+    }
+
+    /** A tracker whose answer depends on which URL was called, so a union can be told from a first. */
+    private class PerUrlTracker(
+        private val byUrl: Map<String, List<PeerAddress>>,
+    ) : TrackerClient {
+        val asked = mutableListOf<String>()
+
+        override suspend fun announce(
+            tracker: String,
+            request: AnnounceRequest,
+        ): AnnounceResponse {
+            asked += tracker
+            val peers = byUrl[tracker] ?: throw TrackerException("no such tracker")
+            return AnnounceResponse(interval = 1800, peers = peers)
+        }
+    }
+
+    /** A torrent whose `announce-list` names three trackers, each with its own slice of the swarm. */
+    private fun threeTrackerTorrent(pieces: Int): Metainfo {
+        val info =
+            BDictionary(
+                mapOf(
+                    BString("length") to BInteger(pieces.toLong() * PeerWire.BLOCK_SIZE),
+                    BString("name") to BString("fixture"),
+                    BString("piece length") to BInteger(PeerWire.BLOCK_SIZE.toLong()),
+                    BString("pieces") to BString(ByteArray(pieces * Metainfo.HASH_SIZE) { it.toByte() }),
+                ),
+            )
+        val root =
+            BDictionary(
+                mapOf(
+                    BString("announce") to BString("http://a.example/annc"),
+                    BString("announce-list") to
+                        io.github.youndie.kachok.engine.bencode.BList(
+                            listOf(
+                                io.github.youndie.kachok.engine.bencode
+                                    .BList(listOf(BString("http://a.example/annc"))),
+                                io.github.youndie.kachok.engine.bencode
+                                    .BList(listOf(BString("http://b.example/annc"))),
+                                io.github.youndie.kachok.engine.bencode
+                                    .BList(listOf(BString("http://c.example/annc"))),
+                            ),
+                        ),
+                    BString("info") to info,
+                ),
+            )
+        return MetainfoParser.parse(Bencode.encode(root))
+    }
 }

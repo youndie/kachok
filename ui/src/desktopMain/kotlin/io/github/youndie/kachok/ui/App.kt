@@ -799,6 +799,7 @@ internal fun Client(
                             directories =
                                 running.associate { it.metainfo.infoHash.hex() to it.directory.toString() },
                             listenPort = set.listenPort,
+                            mappedExternalPort = set.mappedExternalPort,
                             dhtNodes =
                                 if (set.dhtEnabled) {
                                     running
@@ -869,6 +870,7 @@ internal fun Client(
                     up = ordered.sumOf { it.rates.up },
                 ),
             listenPort = snapshot.listenPort,
+            mappedExternalPort = snapshot.mappedExternalPort,
             dhtNodes = snapshot.dhtNodes,
             heapUsedBytes = snapshot.heapUsedBytes,
             heapMaxBytes = snapshot.heapMaxBytes,
@@ -1249,6 +1251,8 @@ private class EngineSnapshot(
     val filePaths: Map<String, List<String>>,
     val directories: Map<String, String>,
     val listenPort: Int,
+    /** The port the router forwards to [listenPort], or null when nothing does (B-103). */
+    val mappedExternalPort: Int?,
     val dhtNodes: Int?,
     val heapUsedBytes: Long,
     val heapMaxBytes: Long,

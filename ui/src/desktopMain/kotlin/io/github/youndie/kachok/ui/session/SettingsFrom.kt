@@ -23,7 +23,18 @@ internal data class Preferences(
     val pipelineDepth: Int? = null,
     val uploadLimitKibPerSecond: Long? = null,
     val downloadLimitKibPerSecond: Long? = null,
-    val dht: Boolean = false,
+    /**
+     * Join the DHT, and **on** since B-99.
+     *
+     * The measurement that decided it: on a public torrent whose tracker hands out one peer per
+     * announce — which `torrent.ubuntu.com` does, at every `numwant` — a client without the DHT
+     * holds one peer and a client with it holds thirty. The engine's own default stays off, because
+     * a library must not announce this machine to strangers merely by being constructed; this is
+     * the product deciding for the person who installed it.
+     */
+    val dht: Boolean = true,
+    /** Ask every tracker the torrent names rather than only the first that answers (BEP 12). */
+    val announceToAllTrackers: Boolean = false,
     val autostart: Boolean = false,
     /** Closing the window leaves the client running in the tray rather than stopping the torrents. */
     val closeToTray: Boolean = true,
@@ -72,6 +83,7 @@ internal data class Preferences(
         when (key) {
             SettingKey.StartWhenAdded -> copy(startWhenAdded = on)
             SettingKey.Dht -> copy(dht = on)
+            SettingKey.AllTrackers -> copy(announceToAllTrackers = on)
             SettingKey.Autostart -> copy(autostart = on)
             SettingKey.CloseToTray -> copy(closeToTray = on)
             else -> this
@@ -121,6 +133,7 @@ internal data class Preferences(
             pipelineDepth = pipelineDepth ?: RuntimeOptions.DEFAULT_PIPELINE,
             uploadLimitBytesPerSecond = (uploadLimitKibPerSecond ?: 0) * KIB,
             downloadLimitBytesPerSecond = (downloadLimitKibPerSecond ?: 0) * KIB,
+            announceToAllTrackers = announceToAllTrackers,
             unwantedFiles = unwanted,
             sequential = sequential,
         )
@@ -205,6 +218,14 @@ internal fun settingsOf(
                             changed = preferences.maxPeers != null && preferences.maxPeers != defaults.maxPeers,
                         ),
                         Setting(
+                            key = SettingKey.AllTrackers,
+                            label = "Ask every tracker",
+                            note = "Off asks the first that answers, which is what BEP 12 wants.",
+                            default = "off",
+                            value = "",
+                            toggle = preferences.announceToAllTrackers,
+                        ),
+                        Setting(
                             key = SettingKey.PipelineDepth,
                             label = "Requests outstanding per peer",
                             note = "Too few idles the link; too many hold pool buffers.",
@@ -276,10 +297,11 @@ internal fun settingsOf(
                             label = "Join the DHT (BEP 5)",
                             note =
                                 "Joining announces this machine's address to strangers, starting " +
-                                    "with three public bootstrap routers. kachok only needs it for " +
-                                    "a magnet link that names no tracker, so it is off until you " +
-                                    "ask. A private torrent never joins, whatever this says.",
-                            default = "off",
+                                    "with three public bootstrap routers. On, because most public " +
+                                    "trackers hand out a handful of peers and the rest of the swarm " +
+                                    "is only reachable here. A private torrent never joins, " +
+                                    "whatever this says.",
+                            default = "on",
                             value = "",
                             toggle = preferences.dht,
                         ),

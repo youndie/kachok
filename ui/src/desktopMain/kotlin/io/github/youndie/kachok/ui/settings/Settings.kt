@@ -13,8 +13,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -67,6 +69,7 @@ internal enum class SettingKey(
             "the buffer pool is sized from it when a torrent opens, and a session cannot grow the " +
                 "pool it was handed",
     ),
+    AllTrackers,
     UploadLimit,
     DownloadLimit,
     Dht,
@@ -153,7 +156,12 @@ internal fun SettingsScreen(
 ) {
     val scheme = MaterialTheme.colorScheme
     Column(modifier.fillMaxSize().background(scheme.surface)) {
-        Column(Modifier.weight(1f).fillMaxWidth()) {
+        // **Scrolls, and the footnote below it does not.** At the artboard's 620×760 the rows
+        // filled the screen exactly, so the next setting added pushed the last one off it — not
+        // out of reach by scrolling, which is recoverable, but clipped, which is not. It was found
+        // by `everyEditableSettingLeavesTheWindow` failing and naming the *wrong* setting: the new
+        // row reported its change and *Join the DHT*, last on the screen, reported nothing (B-104).
+        Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState())) {
             state.sections.forEach { section ->
                 Text(
                     section.title,

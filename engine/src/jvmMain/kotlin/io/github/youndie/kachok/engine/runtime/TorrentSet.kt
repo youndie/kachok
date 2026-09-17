@@ -8,10 +8,17 @@ import io.github.youndie.kachok.engine.io.EngineDispatchers
 import io.github.youndie.kachok.engine.io.PeerListener
 import io.github.youndie.kachok.engine.io.SocketPeerConnection
 import io.github.youndie.kachok.engine.metainfo.Metainfo
+import io.github.youndie.kachok.engine.nat.LsdSocket
+import io.github.youndie.kachok.engine.nat.PortMapper
+import io.github.youndie.kachok.engine.nat.PortMapping
 import io.github.youndie.kachok.engine.session.Command
 import io.github.youndie.kachok.engine.storage.FileSet
 import io.github.youndie.kachok.engine.tracker.TrackerProtocol
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import java.io.IOException
 import java.net.BindException
 import java.nio.file.Path
@@ -20,6 +27,16 @@ import java.util.concurrent.ConcurrentHashMap
 /** What the whole process chooses, as opposed to what one torrent does. */
 public class SetOptions(
     public val port: Int? = null,
+    /**
+     * Join the DHT (BEP 5).
+     *
+     * **Off here and on in the products, and the split is deliberate (B-99).** Joining opens a
+     * socket and announces this machine's address to three public routers; a library must not do
+     * that because it was constructed, and ten of this repository's own tests build a set with
+     * these defaults. What a *person* running the client should get is a different question, and
+     * the CLI and the window answer it with `true` — measured: without the DHT, a public torrent
+     * whose tracker hands out one peer per announce leaves this client with one peer.
+     */
     public val dht: Boolean = false,
 )
 
@@ -107,6 +124,60 @@ public class TorrentSet(
     /** The port the trackers are told about, which is the one that was actually free. */
     public val listenPort: Int = listener?.port ?: options.port ?: TrackerProtocol.PORT_RANGE.first
 
+    /**
+     * Whether the router is forwarding [listenPort], and what it said if not (B-103).
+     *
+     * **The port mapped is the one that was bound**, never the one that was asked for.
+     * `PeerListener` already makes that distinction for the tracker — "the port that was free is
+     * the one the tracker must be told about" — and a mapping that disagreed with the announce
+     * would be the same defect one layer down: a client telling everyone about a port that is
+     * forwarded nowhere.
+     */
+    public val portMapping: String
+        get() =
+            when (val state = mapping) {
+                is PortMapping.Mapped -> "mapped to ${state.externalPort}"
+                is PortMapping.NotMapped -> "not mapped: ${state.because}"
+                PortMapping.NotTried -> "not mapped: no listener to map"
+            }
+
+    /**
+     * The port the router is forwarding, or null.
+     *
+     * Beside [portMapping] rather than parsed out of it: a number a screen wants to draw and a
+     * sentence a person wants to read are different things, and deriving the first from the second
+     * is how a status line starts depending on the wording of an error message.
+     */
+    public val mappedExternalPort: Int?
+        get() = (mapping as? PortMapping.Mapped)?.externalPort
+
+    private val mapper = PortMapper()
+
+    @Volatile
+    private var mapping: PortMapping = PortMapping.NotTried
+
+    /**
+     * Asks the router for the port, then renews at half the lease for as long as the set lives.
+     *
+     * **Launched rather than awaited**, because on a network whose router does not answer this
+     * costs four seconds and a client must not spend them before it dials anybody. The network
+     * this was written on is exactly that network, so the asynchronous shape is not speculative.
+     */
+    private val mappingJob: Job? =
+        listener?.let { bound ->
+            scope.launch(dispatchers.io) {
+                while (isActive) {
+                    val result = mapper.map(bound.port)
+                    mapping = result
+                    // A refusal is not retried on a timer. A router that does not speak NAT-PMP
+                    // will not have learned it in an hour, and asking again every half hour is
+                    // noise on somebody's network for no chance of a different answer.
+                    val next = (result as? PortMapping.Mapped)?.let { mapper.renewAfter(it) } ?: break
+                    delay(next)
+                }
+            }
+        }
+
     /** Null when the DHT is off, which is what the status bar draws differently from zero nodes. */
     public val dhtPort: Int? get() = dhtTransport?.port
 
@@ -179,10 +250,40 @@ public class TorrentSet(
         runtime.close()
     }
 
+    /**
+     * Local service discovery, started with the first torrent and stopped with the set (B-102).
+     *
+     * **On, and unlike the DHT it is not a decision.** Nothing leaves the segment, so there is
+     * nothing to announce to strangers and nothing to argue about; what it costs is one datagram
+     * every five minutes and what it buys is the nearest peer in the swarm by a long way. A private
+     * torrent is excluded by BEP 27 below, which is the one rule it does answer to.
+     */
+    private val lsd = LsdSocket(dispatchers.io)
+
+    /** Why the segment is not being announced to, or null when it is. */
+    public var localDiscovery: String? = "not started"
+        private set
+
     @Synchronized
     private fun startAccepting() {
         if (accepting) return
         accepting = true
+        listener?.let { bound ->
+            localDiscovery =
+                lsd.start(
+                    scope = scope,
+                    listenPort = bound.port,
+                    // BEP 27: a private torrent's swarm is the tracker's business, and local
+                    // discovery is on the list of things it switches off — the same list `ut_pex`
+                    // and the DHT are on.
+                    held = { byInfoHash.values.filterNot { it.metainfo.isPrivate }.map { it.metainfo.infoHash } },
+                    onPeer = { infoHash, address ->
+                        byInfoHash[infoHash.hex()]?.let { runtime ->
+                            scope.launch { runtime.session.send(Command.AddPeers(listOf(address))) }
+                        }
+                    },
+                )
+        }
         listener?.start(scope) { socket ->
             // Read first, route second: which torrent this peer wants is in its handshake, and
             // nothing before that says which session should answer.
@@ -214,6 +315,13 @@ public class TorrentSet(
     }
 
     override fun close() {
+        // **The mapping is given back before anything else goes**, and it is best effort by
+        // design: a client that maps a port and exits without releasing leaves a hole in a router
+        // it does not own for the rest of the lease. The cancel comes first so the renewal loop
+        // cannot re-map what this is dropping.
+        mappingJob?.cancel()
+        if (mapping is PortMapping.Mapped) listener?.let { mapper.release(it.port) }
+        lsd.close()
         listener?.close()
         dhtTransport?.close()
         byInfoHash.values.forEach { it.close() }

@@ -1013,6 +1013,239 @@ usage and exits is a document nobody can trust about anything else either.
 
 ---
 
+### D13. How many peers this client meets is unmeasured, and the instruments now exist
+
+*Opened 2026-09-17 by [B-98](../backlog/B-98-how-many-peers-does-this-client-meet.md). Status:
+instrumented, not yet run.*
+
+Every claim in stage M9 is a reading of the code, not a measurement. An owner compared this client
+against a mature one on the same public torrent on Windows and saw several times the peer count;
+reading the source found six mechanisms that plainly cost peers, and not one of them carries a
+number. The ordering between them is therefore a hypothesis, and this is where it stops being one.
+
+**What is comparable between two clients, and what is not.** Each client counts "peers" its own
+way — some include half-open dials, some include peers they are choked by, some count per torrent
+and some per session — so the two windows' numbers cannot be subtracted from each other. An
+established TCP connection owned by the process is the same fact for both, and the operating system
+is what reports it. `scripts/peer_reach.py` samples exactly that, from `ss`, `lsof` or `netstat`
+depending on the host, every ten seconds, for any process id. It counts **distinct remote
+endpoints**, not sockets: one peer is one `ip:port`, however many connections lead to it.
+
+**What only this client can report about itself** is how hard it worked for the peers it holds.
+`SessionState` gained `dialsAttempted`, `dialsHandshaked` and `dialFailures` — the last bucketed by
+a closed set of labels rather than by message, because a dial failure's message names the address
+it failed to reach and counting messages would give one bucket per peer. A client holding five
+peers after fifty dials and one holding five after six are different clients, and until these
+existed they were indistinguishable from outside.
+
+**Two clients on one machine are not two independent samples.** They share a NAT binding, an
+uplink and a public address, and a peer already connected to one refuses a second connection from
+the same address — so running them at once makes each look worse than it is. The runs are therefore
+sequential, within the same hour, on the same torrent, and each records the swarm size its tracker
+reported at the start, so that a swarm which emptied between runs is visible rather than invisible.
+
+**What the first smoke run found, before any measurement was taken.** `torrent.ubuntu.com` returns
+**exactly one peer per announce**, at `numwant` unset, 50 and 200 alike — three requests, same
+answer — while its own scrape reports 515 seeders and 11 leechers for the same info hash. The
+tracker is not a peer source on that swarm; it is a bootstrap into one. A client with the DHT off
+therefore has one address to work with, and nothing stage M9 changed can matter to it: the dial
+loop has nothing to dial.
+
+That reshaped the runs. A `before M9` against `after M9` comparison with the DHT off would compare
+one peer against one peer and prove only that the tracker is stingy. The variants are therefore
+four, and `--dht` is a parameter of the harness rather than a constant:
+
+- `kachok before M9, DHT on` — the dial loop as it was, on a swarm that has peers to dial;
+- `kachok after M9, DHT on` — the same swarm, with this stage's changes;
+- `kachok after M9, default` — what a person actually gets, with the DHT off;
+- `qBittorrent 5.2.1` — the reference, whose own start-up log reports DHT, LSD, PEX and encryption
+  all on.
+
+It also moves the weight of the original question. If the peers of a public swarm are reachable
+only through the DHT, then the dominant reason a mature client shows more of them is
+[B-99](../backlog/B-99-the-dht-is-off-and-its-reason-for-being-off-expired.md) — the default this
+project has not revisited since the condition it was waiting on came true — and not
+[B-95](../backlog/B-95-the-dial-loop-only-runs-when-something-else-happens.md). The runs are what
+decide that, and the fourth variant is in the list so that the cost of the default is a number
+rather than an inference.
+
+An earlier attempt used `ubuntu-24.04.3`, whose tracker answered *"Requested download is not
+authorized for use with this tracker"* to a hand-built announce carrying an independently computed
+info hash — the release had been superseded and de-listed. qBittorrent found 74 peers on it anyway,
+from the DHT, which is the same lesson arriving by accident: **a torrent whose tracker refuses the
+announce looks exactly like a client whose announce is broken**, and the only thing that told them
+apart was reproducing the request by hand.
+
+The table below is the shape of the answer, not the answer.
+
+Subject: `ubuntu-26.04-desktop-amd64.iso`, 515 seeders and 11 leechers by the tracker's scrape at
+the start — the busiest of four candidates, and one the tracker still authorises. Eight runs of
+twenty minutes, two per variant, interleaved rather than blocked, so that a swarm which thins over
+an afternoon cannot systematically favour whichever variant ran first. Twenty and not thirty
+because the reference client reached seventy peers inside two minutes: the dynamics this is about
+happen early, and eight runs at twenty minutes buys every variant a second sample, which thirty
+would not.
+
+| Run | Client | Median held | p90 | Peak | Distinct ever | Time to half peak | Dials | Handshaked | Downloaded |
+|---|---|---|---|---|---|---|---|---|---|
+| 1 | kachok before M9, DHT on | 12 | 18 | 21 | 27 | 102 s | n/a | n/a | 61 % |
+| 2 | kachok after M9, DHT on | 23 | 27 | 31 | 48 | 40 s | 4 423 | 303 | 6 % |
+| 3 | qBittorrent 5.2.1 | 183 | 192 | 195 | 273 | 72 s | n/a | n/a | not read |
+| 4 | kachok after M9, default | 1 | 1 | 1 | 1 | 0 s | 1 | 1 | 0 % |
+
+**Four runs and one each, which is not the eight this was designed as. Read it accordingly.** The
+owner's connection is the measuring instrument's host as well as its subject, and a reference
+client holding 190 peers with no rate limit takes all of it; the second qBittorrent run was
+dropped at their request and the second pass of the kachok variants with it. `n/a` in the dial
+columns is not a missing measurement: the *before* build predates the counters, and qBittorrent
+does not report in these terms at all. Run 4 is the default configuration and its row is the whole
+argument of [B-99](../backlog/B-99-the-dht-is-off-and-its-reason-for-being-off-expired.md): one
+peer, because the tracker hands out one and there is no second source.
+
+**What runs 1 and 2 say, and what they do not.** This stage roughly doubles what the client holds
+— median 12 to 23, distinct peers met 27 to 48, time to half its peak 102 s to 40 s — and it
+removes the shape the defect was named for: run 1 climbs to 21 by five minutes and then falls back
+to 11 and stays there, while run 2 holds 20–27 for the whole twenty minutes. That is
+[B-95](../backlog/B-95-the-dial-loop-only-runs-when-something-else-happens.md) doing exactly what
+it was written to do.
+
+It is also nowhere near enough, and it came with a number that has to be looked at rather than
+celebrated: **run 1 downloaded 61 % of the file and run 2 downloaded 6 %.** Run 2 held three times
+the peers, nineteen of which had unchoked it, and had fourteen requests outstanding against run 1's
+forty-five. More peers, less work in flight, a tenth of the throughput. One run each cannot tell a
+regression from a swarm that changed between 16:51 and 17:11, and this document does not claim it
+is one — it is [B-105](../backlog/B-105-connections-are-made-and-not-kept.md), which starts by
+building the instrument that would say.
+
+**Where the gap to the reference client actually is.** Not discovery: run 2 knew 1 059 addresses.
+Not, any longer, the dial loop. Of 4 423 dials, 303 reached a handshake — 6.9 %, and 2 856 of the
+failures are `connect timed out`, which is a swarm mostly behind NAT that an outgoing connection
+cannot reach and that could have reached us
+([B-103](../backlog/B-103-upnp-and-nat-pmp-port-mapping.md)). And of those 303 handshakes, 22 were
+still held at the end: connections are made and not kept, which nothing in the client counts.
+
+Twice each was the design, because one run of a variant is not a measurement.
+
+**What the four runs were actually measuring, found afterwards.** The 61 % against 6 % above is not
+a regression and not swarm noise: it is
+[B-105](../backlog/B-105-connections-are-made-and-not-kept.md). `maxStartedPieces` was a constant
+8, a piece holds its picker slot from its first requested block until the writer has hashed it, and
+a diagnostic run reported `window 8 pieces @ 959ms` — 8 x 256 KiB / 0.959 s = 2.13 MB/s against a
+measured 2.03 MB/s. **The client's throughput was its window, and the window did not know how many
+peers there were.** So more peers meant a smaller share each, fewer requests outstanding, and less
+downloaded — and the peers noticed: 40 of that run's 44 disconnections were `peer closed, never
+asked`.
+
+That also retires the reading that run 2's peer count came at the cost of its speed. The window is
+now `maxPeers x pipelineDepth` blocks and the same eight minutes on the same torrent finished it:
+
+| | before | after |
+|---|---|---|
+| window | 8 pieces @ 959 ms | 50 pieces @ 657 ms |
+| requests outstanding | 32–57 | 258–279 |
+| peers held, median | 17 | 30 |
+| unchoked of connected | 9 of 13 | 27 of 28 |
+| downloaded in eight minutes | 15 % | 100 % |
+
+Roughly 2 MB/s to roughly 14, with the peer count rising rather than falling — which is the point:
+the two were never a trade, they were one defect. The buffer pool, sized from the same figure,
+peaked at 772 of 850.
+
+D3 said the pool and the started-piece count "are chosen together" and it is still true; what it did
+not say, and now does, is that **both of them are chosen against the peer count**, and that a
+constant there is a speed limit nobody can see. *Time to half peak* is the column
+that separates [B-95](../backlog/B-95-the-dial-loop-only-runs-when-something-else-happens.md) from
+everything else: a client that reaches its ceiling in a minute and one that takes twenty look
+identical in every other column.
+
+`maxPeers = 50` waits on this table. It is the placeholder `SessionConfig` opens with, it has never
+bound because the client has never reached it, and it gets a number here or an explicit decision to
+keep it — with the run that produced it named beside it, the way every other default in this
+document is.
+
+### D14. µTP is deferred, and the number that would change that is not the obvious one
+
+*Decided 2026-09-17 by [B-101](../backlog/B-101-utp-transport.md).*
+
+Every peer connection is TCP. The obvious argument for adding BEP 29's µTP is
+[D13](#d13-how-many-peers-does-this-client-meet-is-unmeasured-and-the-instruments-now-exist)'s own
+figure: **2 856 of 4 423 dials end in `connect timed out`**, 65 % of them, and those are peers an
+outgoing connection cannot reach.
+
+That argument does not hold, and the reason is worth keeping. A peer unreachable over TCP is almost
+always a peer behind a NAT with nothing forwarded, and **µTP does not traverse a NAT either**. What
+reaches those peers is a forwarded port so they can dial *us*
+([B-103](../backlog/B-103-upnp-and-nat-pmp-port-mapping.md)), or hole punching — which itself needs
+µTP underneath, and which is how µTP would earn a place rather than by being a second transport for
+its own sake.
+
+So the number that would un-defer it is not the 65 %. It is what remains *after* a run with a
+forwarded port: if incoming connections still leave this client materially short of a reference
+client on the same swarm, the gap is reachability TCP cannot buy. That run does not exist, because
+the network this was measured on has a router that maps nothing.
+
+One cost is real, unmeasured, and imposed on somebody else: µTP's LEDBAT yields to interactive
+traffic, and a TCP-only client saturating an uplink makes its owner's other traffic worse in a way a
+µTP client's does not. It is not enough on its own to justify an XL piece of work whose literature is
+congestion control, and it should not be forgotten the next time this is weighed.
+
+### D15. MSE's prime is not RFC 2409's, and a real router was built to prove the mapping
+
+*Established 2026-09-17 by [B-100](../backlog/B-100-protocol-encryption.md) and
+[B-103](../backlog/B-103-upnp-and-nat-pmp-port-mapping.md), against a real reference client and a
+real gateway.*
+
+**The MSE handshake failed against libtorrent for six iterations because of twelve hexadecimal
+digits.** Message Stream Encryption uses its own 768-bit prime, and it is *not* RFC 2409's group 1,
+though both are built from the digits of π and agree for their first 180 digits. RFC 2409 ends
+`…A63A3620FFFFFFFFFFFFFFFF`; MSE's ends `…A63A36210000000000090563`. libtorrent's `pe_crypto.cpp`
+and Transmission's `crypto.c` carry the latter.
+
+The lesson is the one the earlier iterations kept re-learning and is now paid for: **a symmetric
+test cannot see a symmetric mistake.** This client used the RFC prime, an independent Python check
+written from the same reading used the RFC prime, and the two agreed with each other perfectly and
+with no mainstream client. Every unit test passed. Only a third party could tell them apart, and it
+took building the harness to dial one: `:engine:mseInteropProbe` against libtorrent 2.0.10 now
+completes both ways —
+
+| reference client setting | `crypto_select` | result |
+|---|---|---|
+| `out_enc_policy=forced, allowed_enc_level=rc4` | RC4 | INTEROP OK, reply decrypts to the right info hash |
+| `out_enc_policy=forced, allowed_enc_level=both` | plaintext | INTEROP OK |
+
+A known-answer test now pins the prime by the property only the correct one has: with fixed
+exponents the two primes give different shared secrets, and the code's must match MSE's. Reverting
+`MseHandshake.PRIME_HEX` to the RFC value fails it — which is the CI-runnable guard the six
+iterations never had, because the interop probe needs a peer.
+
+**What is done and what is not.** The handshake, both sides, and the primitives are correct and
+proven against a real client. MSE is *not yet wired into the live connection path*:
+`SocketPeerConnection` still speaks plaintext, and there is a reason it is a separate piece of work
+rather than a finish to this one — the zero-copy upload path (`FileChannel.transferTo`, D3/§1.3d)
+cannot be RC4'd in the kernel, so an encrypted connection has to give it up and copy each block
+through user space. That is a real change to the hot path, not a wrapper, and it is scoped as the
+remaining work on [B-100](../backlog/B-100-protocol-encryption.md).
+
+**Port mapping was proven on a router that does not exist on this network, by building one.**
+[B-103](../backlog/B-103-upnp-and-nat-pmp-port-mapping.md) could show its *failing* path against the
+real gateway here but never its mapping path, because that gateway maps nothing. A container lab —
+an inside network, an outside network, and a `miniupnpd` between them answering NAT-PMP and UPnP —
+closed that gap. Every clause of the item's acceptance now holds against a real mapping daemon:
+
+- kachok's own `PortMapper` mapped its bound port over NAT-PMP (lifetime 7 200 s, its own constant,
+  distinct from the reference tool's), and `miniupnpd` installed the forwarding rule.
+- A seeder on the outside network dialled the *mapped* port and reached the client behind the NAT:
+  the client finished the torrent with `1 of 0 peers` and `dials 0/0` — an incoming connection it
+  never dialled, which is precisely what the listener's header promised and the mapping delivered.
+  The bytes were correct end to end (SHA-256 of the download matched the seed).
+- On exit the client released the mapping (NAT-PMP external port 0, lifetime 0) and the forwarding
+  rule was gone from the router.
+
+The one incidental finding: the outside seeder's *first* attempt was µTP and timed out, because
+this client has none ([D14](#d14-utp-is-deferred-and-the-number-that-would-change-that-is-not-the-obvious-one));
+it fell back to TCP and connected. A reference client reaching an incoming kachok will pay one
+handshake-timeout of µTP before it does.
+
 ## 3. Risks and open questions
 
 **Risk 1 — measured, and it did not happen.** Carrier pinning and compensation hiding a thread

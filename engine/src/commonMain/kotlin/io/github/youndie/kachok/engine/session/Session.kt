@@ -147,6 +147,29 @@ public class Session(
     private val failed = HashMap<PeerAddress, kotlin.time.TimeMark>()
 
     /**
+     * Addresses whose dial has gone out and not yet come back.
+     *
+     * The third state a known address can be in, and the one that did not exist. [connected] says
+     * a peer answered, [failed] says it refused; an address inside a ten-second `connect` was in
+     * neither, so it was dialled again by every caller of [connectMore] that happened along. See
+     * that function for what the duplicate costs.
+     *
+     * An address leaves here when the dial ends, either way. The one path that does not clear it is
+     * a coroutine cancelled before [runPeer] runs at all, which happens when the session is being
+     * torn down and there is nothing left to dial.
+     */
+    private val dialling = HashSet<PeerAddress>()
+
+    /** [SessionState.dialsAttempted] and its two companions, kept here and published on change. */
+    private var dialsAttempted = 0L
+    private var dialsHandshaked = 0L
+    private val dialFailures = LinkedHashMap<String, Int>()
+
+    /** [SessionState.disconnects] and its tally. The mirror of the two above. */
+    private var disconnects = 0L
+    private val disconnectReasons = LinkedHashMap<String, Int>()
+
+    /**
      * Peers this client hung up on deliberately — for a pause or a re-check.
      *
      * [serve]'s `finally` records every disconnection in [failed] so that a peer which accepts and
@@ -321,7 +344,7 @@ public class Session(
         if (dht != null && !metainfo.isPrivate && config.dhtBootstrap.isNotEmpty()) {
             sessionScope.launchGuarded("dht") { dhtLoop(sessionScope) }
         }
-        sessionScope.launchGuarded("timer") { timerLoop() }
+        sessionScope.launchGuarded("timer") { timerLoop(sessionScope) }
         sessionScope.launchGuarded("commands") { commandLoop(sessionScope, sessionJob) }
         return sessionJob
     }
@@ -376,9 +399,11 @@ public class Session(
                     }
                     command.uploadLimitBytesPerSecond?.let { uploadBudget.retune(it) }
                     command.downloadLimitBytesPerSecond?.let { downloadBudget.retune(it) }
-                    // Both of these are wake-ups, and both are necessary. Raising the peer count
-                    // matters only if somebody dials, and the loop that would is the one that runs
-                    // when a peer drops — an hour away. Raising a download limit is worse: requests
+                    // Both of these are wake-ups. Raising the peer count no longer depends on one:
+                    // [timerLoop] dials every tick since B-95, so the new cap is acted on within a
+                    // second either way and this call only makes it immediate. It is kept because
+                    // "the setting took effect when you closed the dialog" is the behaviour a
+                    // person expects from a dialog. Raising a download limit is not the same: requests
                     // are normally issued when a block arrives, no block arrives while nothing is
                     // asked for, and `refillRateLimits` — which exists to break exactly that
                     // circle — returns immediately once there is no limit left to refill. A
@@ -615,7 +640,36 @@ public class Session(
         }
     }
 
-    /** Every tracker in order until one answers; a dead tracker is not a dead swarm. */
+    /**
+     * How many addresses to ask a tracker for: the connections this client is short of.
+     *
+     * **A number and not the absence of one.** `numwant` was never filled in, so both transports
+     * asked for the tracker's own default — chosen by somebody who does not know what this client
+     * needs, and on the common implementations a number small enough to be interesting next to
+     * `maxPeers`. Asking for the deficit instead is also the reason not to send a large constant:
+     * a client sitting at its cap that keeps asking for hundreds of addresses is load on a tracker
+     * for a list it will not dial.
+     *
+     * Dials in flight are not subtracted. Most of them fail — that is the measurement this whole
+     * stage came out of — so counting them as connections would ask for too few exactly when the
+     * client needs most.
+     *
+     * Zero on `stopped`, whatever the deficit says: a client that is leaving has no use for peers,
+     * and BEP 3's optional field is the standard way to tell a tracker so.
+     */
+    private fun numWant(event: AnnounceEvent?): Int =
+        if (event == AnnounceEvent.STOPPED) 0 else (maxPeers - connected.size).coerceAtLeast(0)
+
+    /**
+     * Every tracker in order until one answers; a dead tracker is not a dead swarm.
+     *
+     * **Unless [SessionConfig.announceToAllTrackers], and that is a setting rather than the
+     * default.** Stopping at the first that answers is what BEP 12 asks for, and on a public
+     * torrent the trackers largely hold the same peers, so asking all of them multiplies this
+     * client's announces for mostly the same addresses. A swarm genuinely split across trackers
+     * that do not share peers is the case the default cannot serve, and the case this switch
+     * exists for.
+     */
     private suspend fun announce(event: AnnounceEvent?): List<PeerAddress> {
         val snapshot = mutableState.value
         val request =
@@ -627,16 +681,27 @@ public class Session(
                 downloaded = snapshot.downloaded,
                 left = snapshot.left,
                 event = event,
+                numWant = numWant(event),
             )
         var lastError: String? = null
+        // A set and not a list: two trackers of one torrent hand back overlapping swarms, and
+        // `known` would deduplicate them anyway — doing it here keeps the count this reports
+        // honest about how many distinct peers the announce actually found.
+        val found = LinkedHashSet<PeerAddress>()
+        var answered = false
         metainfo.trackers.forEach { tracker ->
+            if (answered && !config.announceToAllTrackers) return@forEach
             try {
                 val response = trackerClient.announce(tracker, request)
-                announceInterval = response.interval.coerceAtLeast(MIN_ANNOUNCE_SECONDS)
+                // The shortest interval any tracker asked for. Announcing to several and then
+                // keeping the last one's interval would obey whichever tracker happened to be last
+                // in the metainfo.
+                val interval = response.interval.coerceAtLeast(MIN_ANNOUNCE_SECONDS)
+                announceInterval = if (answered) minOf(announceInterval, interval) else interval
+                answered = true
+                found += response.peers
                 trackerReports[tracker] =
                     TrackerReport(timeSource.markNow(), failure = null, response.peers.size, announceInterval.toLong())
-                publish { it.copy(trackerError = null, trackers = trackerViews()) }
-                return response.peers
             } catch (refused: TrackerException) {
                 lastError = refused.message
                 trackerReports[tracker] =
@@ -648,8 +713,8 @@ public class Session(
                     )
             }
         }
-        publish { it.copy(trackerError = lastError, trackers = trackerViews()) }
-        return emptyList()
+        publish { it.copy(trackerError = if (answered) null else lastError, trackers = trackerViews()) }
+        return found.toList()
     }
 
     /**
@@ -689,18 +754,41 @@ public class Session(
             }
         }
 
+    /**
+     * Dials up to the number of connections this session is short of.
+     *
+     * **[dialling] is why this is not three lines.** A dial takes up to the connect timeout, and
+     * for most of a public swarm's addresses it takes all of it — 22 of 50 dials were still inside
+     * `connect` when five connections were doing the work (B-19). An address in that state is in
+     * neither [connected] nor [failed], so without a third set every call here would dial it again:
+     * two sockets to one peer, `connected[address]` keeping the second, and the first leaking with
+     * its coroutine and its picker entry. That was survivable while the callers were rare events;
+     * [timerLoop] calls this every tick, which makes it the normal case.
+     *
+     * For the same reason the room is counted against dials in flight as well as connections.
+     * Counting only [connected] would launch a fresh `maxPeers` dials every tick on top of the ones
+     * already outstanding, which is a burst of hundreds of sockets against a swarm that has not
+     * answered the first ones yet.
+     */
     private fun connectMore(scope: CoroutineScope) {
-        if (paused) return
-        val room = maxPeers - connected.size
+        if (paused || stopping) return
+        val room = maxPeers - connected.size - dialling.size
         if (room <= 0) return
         known
             .asSequence()
-            .filter { it !in connected }
+            .filter { it !in connected && it !in dialling }
             .filter { address ->
                 failed[address]?.let { it.elapsedNow() >= config.reconnectDelay } ?: true
             }.take(room)
             .toList()
-            .forEach { address -> scope.launch { runPeer(scope, address) } }
+            .forEach { address ->
+                // Entered here and not inside the coroutine, because `launch` only schedules: the
+                // session's dispatcher runs one coroutine at a time, so a second `connectMore` can
+                // run before the first one's children have started and would see an empty set.
+                dialling += address
+                dialsAttempted++
+                scope.launch { runPeer(scope, address) }
+            }
     }
 
     /** One coroutine per peer, from the dial to the last event. */
@@ -722,16 +810,85 @@ public class Session(
                 // A blanket `catch (Exception)` around a suspending call swallows cancellation as
                 // well, and a peer that cannot be cancelled outlives the session it belongs to.
                 // Rethrow it first, always.
+                dialling -= address
                 throw cancelled
             } catch (refused: Exception) {
+                dialling -= address
                 failed[address] = timeSource.markNow()
+                val label = dialFailureLabel(refused)
+                dialFailures[label] = (dialFailures[label] ?: 0) + 1
                 // Kept and published: "no peers, no reason" is a state nobody can act on.
                 publish {
-                    it.copy(lastPeerError = "$address: ${refused.message ?: refused::class.simpleName}")
+                    it.copy(
+                        lastPeerError = "$address: ${refused.message ?: refused::class.simpleName}",
+                        dialsAttempted = dialsAttempted,
+                        dialFailures = dialFailures.toMap(),
+                    )
                 }
                 return
             }
+        // **At the dial's end and not in a `finally` around [serve].** The address is about to be
+        // in [connected], and an entry left here would be counted twice by `connectMore`'s room —
+        // once as a connection and once as a dial — so the session would keep that many slots
+        // permanently empty. A `finally` is wrong for the mirror reason: it would fire when this
+        // peer's connection ends, by which time a reconnect may already have put the address back
+        // here, and it would remove somebody else's entry. That is the race the
+        // `connected[address] === link` guard in [serve] exists for, one set over.
+        dialling -= address
+        dialsHandshaked++
+        publish { it.copy(dialsAttempted = dialsAttempted, dialsHandshaked = dialsHandshaked) }
         serve(scope, connection, dialled = true)
+    }
+
+    /**
+     * Why one connection ended, as one of a closed set of labels.
+     *
+     * The same rule as [dialFailureLabel] and for the same reason: the message of the exception
+     * that ended a connection names the peer, so counting messages would give one bucket per peer.
+     * What is worth telling apart here is who stopped and why — a peer that closed cleanly, one
+     * that vanished, one this client dropped for protocol reasons, and one that was never asked
+     * for anything and lost interest in us.
+     */
+    private fun disconnectReason(link: PeerLink): String {
+        val failure = link.endedBy
+        val name =
+            failure?.let { it::class.simpleName }
+                ?: return if (link.everRequested) "peer closed" else "peer closed, never asked"
+        val text = failure.message?.lowercase() ?: ""
+        return when {
+            name == "WireException" -> "protocol error"
+            name == "EOFException" -> "peer closed"
+            "reset" in text -> "reset"
+            "abort" in text -> "aborted"
+            else -> "other"
+        }
+    }
+
+    /**
+     * A dial failure as one of a closed set of labels.
+     *
+     * **Matched on the message and not only on the type, and that is a compromise this says out
+     * loud.** The platform throws `IOException` or `SocketException` for cases a person needs told
+     * apart — nothing listening, nothing answering, the route gone — and the text is the only
+     * thing that distinguishes them. So the mapping is best-effort, lowercase, and everything it
+     * does not recognise lands in `other` rather than in a bucket of its own: a label set that
+     * grows with the wording of somebody's libc would make two runs incomparable, which is the one
+     * thing these counters exist to avoid.
+     */
+    private fun dialFailureLabel(failure: Exception): String {
+        val name = failure::class.simpleName ?: "other"
+        val text = failure.message?.lowercase() ?: ""
+        return when {
+            name == "SocketTimeoutException" && "handshake" in text -> "handshake timed out"
+            name == "SocketTimeoutException" -> "connect timed out"
+            name == "WireException" && "another torrent" in text -> "another torrent"
+            name == "WireException" -> "bad handshake"
+            name == "EOFException" -> "closed during the handshake"
+            "connection refused" in text -> "refused"
+            "unreachable" in text -> "unreachable"
+            "reset" in text -> "reset"
+            else -> "other"
+        }
     }
 
     /**
@@ -793,6 +950,7 @@ public class Session(
             // throw here would reach the exception handler as an uncaught failure — visible in a
             // test as "uncaught exceptions before the test started", and in production as a log
             // line nobody can attribute. The peer is dropped and the reason is published.
+            link.endedBy = failure
             publish { it.copy(lastPeerError = "$address: ${failure.message ?: failure::class.simpleName}") }
         } finally {
             connection.close()
@@ -813,8 +971,22 @@ public class Session(
                 // which is a busy wait against somebody else's machine as well as our own. A peer
                 // this client hung up on for a pause or a re-check is not that, and must not be
                 // made to serve the delay.
-                if (!closedByUs.remove(address)) failed[address] = timeSource.markNow()
-                publish { it.copy(connectedPeers = connected.size) }
+                val ours = closedByUs.remove(address)
+                if (!ours) failed[address] = timeSource.markNow()
+                // Counted here and not at every `close()`: this is the one place that knows the
+                // connection was the registered one and is really over. A peer this client hung up
+                // on for a pause or a re-check is its own bucket rather than a silence, because
+                // "we closed it" and "it went away" are the two answers B-105 has to tell apart.
+                disconnects++
+                val reason = if (ours) "closed by us" else disconnectReason(link)
+                disconnectReasons[reason] = (disconnectReasons[reason] ?: 0) + 1
+                publish {
+                    it.copy(
+                        connectedPeers = connected.size,
+                        disconnects = disconnects,
+                        disconnectReasons = disconnectReasons.toMap(),
+                    )
+                }
                 if (!stopping && !paused && scope.isActive) connectMore(scope)
             }
         }
@@ -1295,6 +1467,7 @@ public class Session(
             downloadBudget.take(request.length.toLong())
             if (!link.send(Message.Request(request.piece, request.begin, request.length))) return
             link.outstanding++
+            link.everRequested = true
         }
     }
 
@@ -1330,7 +1503,7 @@ public class Session(
      * happens here; a per-peer ticker would be one waking coroutine per peer for periods that are
      * not per-peer in the first place.
      */
-    private suspend fun timerLoop() {
+    private suspend fun timerLoop(scope: CoroutineScope) {
         var sinceKeepAlive = kotlin.time.Duration.ZERO
         var sinceFlush = kotlin.time.Duration.ZERO
         var sinceChoke = kotlin.time.Duration.ZERO
@@ -1354,8 +1527,24 @@ public class Session(
                 sincePex = kotlin.time.Duration.ZERO
                 tick("peer exchange") { sendPex() }
             }
+            // B-105: the download window, once a tick. A figure nobody can see is a figure nobody
+            // notices going wrong, and this one bounds the whole client's throughput.
+            tick("window") {
+                val closed = picker.finishedPieces
+                val mean = if (closed > 0) picker.finishedPieceMillis / closed else 0L
+                publish { it.copy(startedPieces = picker.startedPieces, meanPieceMillis = mean) }
+            }
             tick("rates") { refillRateLimits() }
             tick("expiry") { expireRequests() }
+            // **The only thing that keeps the connection count up, and it used to not be here.**
+            //
+            // Every other caller of `connectMore` is an event: an announce, a DHT lookup, a
+            // `ut_pex` message, a peer disconnecting. None of them fires when a batch of dials
+            // simply fails, which on a public swarm is most of them — so a client that lost
+            // forty-five of its first fifty dials sat on the five that answered until the next
+            // announce, half an hour later, with hundreds of untried addresses in `known`. A swarm
+            // is not an event source; the thing that tops the connections up has to be the clock.
+            tick("dialling") { connectMore(scope) }
             sinceResume += config.tick
             if (sinceResume >= config.resumeInterval) {
                 sinceResume = kotlin.time.Duration.ZERO
@@ -1560,6 +1749,12 @@ public class Session(
     private class PeerLink(
         val connection: PeerConnection,
     ) {
+        /** What ended this connection, or null when the peer simply closed it (B-105). */
+        var endedBy: Exception? = null
+
+        /** Whether this client ever asked this peer for anything. A peer never asked has no reason to stay. */
+        var everRequested: Boolean = false
+
         /** This peer as a row: everything a reader is allowed to know, and nothing they can hold. */
         fun view(
             nowMillis: Long,
@@ -1659,6 +1854,13 @@ private fun SessionState.copy(
     hashFailures: Int = this.hashFailures,
     verifiedPieces: Int = this.verifiedPieces,
     verifyingOf: Int = this.verifyingOf,
+    dialsAttempted: Long = this.dialsAttempted,
+    dialsHandshaked: Long = this.dialsHandshaked,
+    dialFailures: Map<String, Int> = this.dialFailures,
+    disconnects: Long = this.disconnects,
+    disconnectReasons: Map<String, Int> = this.disconnectReasons,
+    startedPieces: Int = this.startedPieces,
+    meanPieceMillis: Long = this.meanPieceMillis,
     trackerError: String? = this.trackerError,
     lastPeerError: String? = this.lastPeerError,
     sessionError: String? = this.sessionError,
@@ -1691,6 +1893,13 @@ private fun SessionState.copy(
         verifyingOf = verifyingOf,
         trackerError = trackerError,
         lastPeerError = lastPeerError,
+        dialsAttempted = dialsAttempted,
+        dialsHandshaked = dialsHandshaked,
+        dialFailures = dialFailures,
+        disconnects = disconnects,
+        disconnectReasons = disconnectReasons,
+        startedPieces = startedPieces,
+        meanPieceMillis = meanPieceMillis,
         sessionError = sessionError,
         isComplete = isComplete,
         paused = paused,

@@ -35,16 +35,30 @@ class DownloadOptions(
     val uploadLimit: Long,
     val downloadLimit: Long,
     /**
-     * BEP 5, and **off** unless asked for.
+     * BEP 5, and **on** unless `--no-dht` says otherwise.
      *
-     * Mainstream clients join the DHT by default and this one will too, once there is a torrent
-     * that needs it — a magnet link, which is
-     * [B-36](../../../../../../../docs/backlog/B-36-ut-metadata-and-magnets.md). Until then every
-     * torrent this client can open names a tracker, so joining would be contacting three public
-     * routers and announcing this machine's address to strangers for no gain. It would also mean
-     * every run of the test suite doing it.
+     * This used to be off, with a comment promising it would change "once there is a torrent that
+     * needs it — a magnet link". That arrived with
+     * [B-36](../../../../../../../docs/backlog/B-36-ut-metadata-and-magnets.md) and the default was
+     * not revisited, so the sentence spent months arguing for the opposite of what it said
+     * ([B-99](../../../../../../../docs/backlog/B-99-the-dht-is-off-and-its-reason-for-being-off-expired.md)).
+     *
+     * What settled it is a measurement rather than a promise: `torrent.ubuntu.com` hands out
+     * **one** peer per announce, at `numwant` unset, 50 and 200 alike, against a swarm of 526. A
+     * client without the DHT does not get a small share of that swarm, it gets one address. The
+     * half of the old reason that has not expired is kept where it belongs: the engine's own
+     * default stays off, so a test suite still does not contact three public routers by
+     * constructing a `TorrentSet`.
      */
     val dht: Boolean,
+    /**
+     * Ask every tracker the torrent names rather than the first that answers.
+     *
+     * Off, because BEP 12 asks clients to stop at the first working tracker and because on a
+     * public torrent the rest mostly hold the same peers. Worth turning on for a swarm split
+     * across trackers that do not share one.
+     */
+    val announceToAllTrackers: Boolean,
 )
 
 /** A command line that does not parse, with the reason a user can act on. */
@@ -69,7 +83,7 @@ object Arguments {
   --seed              keep seeding after the download completes
   --up <KiB/s>        upload limit across all peers (default: no limit)
   --down <KiB/s>      download limit across all peers (default: no limit)
-  --dht               join the DHT (BEP 5); a private torrent never does
+  --no-dht            stay out of the DHT (BEP 5), which is joined by default
 
 kachok serve [options]
 
@@ -83,7 +97,8 @@ kachok serve [options]
                       no browser page may connect at all: a WebSocket is not
                       subject to the same-origin rule, so any site could
                       otherwise drive this client.
-  --dht               join the DHT (BEP 5); a private torrent never does"""
+  --no-dht            stay out of the DHT (BEP 5), which is joined by default
+  --all-trackers      ask every tracker, not the first that answers (BEP 12)"""
 
     /**
      * `serve`'s options.
@@ -95,7 +110,7 @@ kachok serve [options]
         var directory = Path.of(".")
         var port = 0
         var peerPort: Int? = null
-        var dht = false
+        var dht = true
         val origins = mutableSetOf<String>()
         var index = 0
         while (index < arguments.size) {
@@ -120,8 +135,8 @@ kachok serve [options]
                     origins += value(arguments, ++index, argument)
                 }
 
-                "--dht" -> {
-                    dht = true
+                "--no-dht" -> {
+                    dht = false
                 }
 
                 else -> {
@@ -143,7 +158,8 @@ kachok serve [options]
         var seed = false
         var upload = 0L
         var download = 0L
-        var dht = false
+        var dht = true
+        var allTrackers = false
 
         var index = 0
         while (index < arguments.size) {
@@ -175,8 +191,12 @@ kachok serve [options]
                     upload = number(value(arguments, ++index, argument), argument).toLong() * BYTES_PER_KIB
                 }
 
-                "--dht" -> {
-                    dht = true
+                "--no-dht" -> {
+                    dht = false
+                }
+
+                "--all-trackers" -> {
+                    allTrackers = true
                 }
 
                 "--down" -> {
@@ -207,6 +227,7 @@ kachok serve [options]
             uploadLimit = upload,
             downloadLimit = download,
             dht = dht,
+            announceToAllTrackers = allTrackers,
         )
     }
 
@@ -224,6 +245,6 @@ kachok serve [options]
 
     private const val MAGNET_SCHEME = "magnet:"
     private const val BYTES_PER_KIB = 1024L
-    private const val DEFAULT_PEERS = 50
+    private const val DEFAULT_PEERS = 250
     private const val DEFAULT_PIPELINE = 16
 }

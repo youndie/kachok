@@ -7,6 +7,7 @@ import kotlin.test.Test
 import kotlin.test.assertContains
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 /** The acceptance criteria of B-15's protocol half, and the tracker scenarios of feature-download. */
@@ -14,16 +15,38 @@ class TrackerProtocolTest {
     private val infoHash = InfoHash(ByteArray(20) { (it * 11).toByte() })
     private val peerId = PeerId("-KA0001-0123456789AB".encodeToByteArray())
 
-    private fun request(event: AnnounceEvent? = null) =
-        AnnounceRequest(
-            infoHash = infoHash,
-            peerId = peerId,
-            port = 6882,
-            uploaded = 0,
-            downloaded = 1024,
-            left = 2048,
-            event = event,
-        )
+    private fun request(
+        event: AnnounceEvent? = null,
+        numWant: Int? = null,
+    ) = AnnounceRequest(
+        infoHash = infoHash,
+        peerId = peerId,
+        port = 6882,
+        uploaded = 0,
+        downloaded = 1024,
+        left = 2048,
+        event = event,
+        numWant = numWant,
+    )
+
+    /**
+     * B-97: `numwant` is sent when the session names one, and omitted when it does not.
+     *
+     * Zero is a number and not an absence — it is how a client at its cap, or one that is leaving,
+     * tells a tracker to send nothing — so it must reach the query string rather than being tidied
+     * away as a default.
+     */
+    @Test
+    fun numwantReachesTheQueryStringIncludingZero() {
+        val asking = TrackerProtocol.announceUrl("http://tracker.example/annc", request(numWant = 45))
+        assertContains(asking, "&numwant=45")
+
+        val full = TrackerProtocol.announceUrl("http://tracker.example/annc", request(numWant = 0))
+        assertContains(full, "&numwant=0")
+
+        val silent = TrackerProtocol.announceUrl("http://tracker.example/annc", request())
+        assertFalse(silent.contains("numwant"), "an unset numwant must not become a number")
+    }
 
     @Test
     fun theInfoHashIsPercentEncodedOneRawByteAtATime() {

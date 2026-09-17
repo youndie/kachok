@@ -240,11 +240,27 @@ class WiringTest {
             }
             val screen = settingsOf(Preferences(directory = "/tmp/x"))
             val editable = screen.all.filter { it.key.editable }
+            // **Scrolled to before it is touched, which is what a person does.** The screen scrolls
+            // since [B-104](../../../../../../../../../docs/backlog/B-104-the-settings-screen-cannot-hold-another-row.md)
+            // and a blind click on a row below the fold reaches nothing — which is how this guard
+            // reported the *last* setting as unwired when an unrelated row was added above it.
             editable.forEach { setting ->
                 when {
-                    setting.folder -> onNodeWithContentDescription("Browse").performClick()
-                    setting.toggle != null -> onNodeWithContentDescription(setting.label).performClick()
-                    else -> onNodeWithContentDescription(setting.label).performTextReplacement("7")
+                    setting.folder -> {
+                        onNodeWithContentDescription("Browse").performScrollTo().performClick()
+                    }
+
+                    setting.toggle != null -> {
+                        onNodeWithContentDescription(setting.label)
+                            .performScrollTo()
+                            .performClick()
+                    }
+
+                    else -> {
+                        onNodeWithContentDescription(setting.label)
+                            .performScrollTo()
+                            .performTextReplacement("7")
+                    }
                 }
             }
             assertEquals(

@@ -52,6 +52,49 @@ public class SessionState(
     /** Why the last dial failed. "No peers, no reason" is a state nobody can act on. */
     public val lastPeerError: String? = null,
     /**
+     * Dials this session has started, and how many of them reached a handshake.
+     *
+     * **Counters and not a rate**, because the question they exist for is asked over a whole run:
+     * how much of a swarm this client can actually reach
+     * ([B-98](../backlog/B-98-how-many-peers-does-this-client-meet.md)). `connectedPeers` answers
+     * "how many now" and says nothing about how many were tried to get there — a client holding
+     * five peers after fifty dials and one holding five after six are different clients, and until
+     * these existed they looked identical from outside.
+     */
+    public val dialsAttempted: Long = 0,
+    public val dialsHandshaked: Long = 0,
+    /**
+     * Why dials failed, counted by a short stable label.
+     *
+     * **Not by message.** A dial failure's message carries the address it failed to reach, so
+     * counting messages would produce one bucket per peer and answer nothing. The labels are a
+     * closed set chosen to separate the cases that mean different things: a peer that never
+     * answered, one that refused, one that answered and then said nothing, and one that answered
+     * for a different torrent are four different swarms to be in.
+     */
+    public val dialFailures: Map<String, Int> = emptyMap(),
+    /**
+     * Connections that ended, and why — the mirror of [dialFailures], which counts dials that never
+     * became connections and is silent about the ones that did.
+     *
+     * B-105: three hundred handshakes succeeded in a twenty-minute run and twenty-two peers were
+     * held at the end of it, with the cap nowhere near. Roughly two hundred and eighty connections
+     * ended and the client could not say whether it or the peer had hung up, let alone why.
+     */
+    public val disconnects: Long = 0,
+    public val disconnectReasons: Map<String, Int> = emptyMap(),
+    /**
+     * Pieces the picker has open, and the mean milliseconds a piece stays open.
+     *
+     * **These two are the download window**: no more than [startedPieces] pieces are ever in
+     * flight, each holds its slot until the writer has hashed it, so the ceiling on throughput is
+     * one piece's bytes times the slots divided by that latency. Measured and not derived, because
+     * the arithmetic that first suggested it — 61 % of a file in one run and 6 % in the next, with
+     * three times the peers — is an inference from two runs and this is the reading that settles it.
+     */
+    public val startedPieces: Int = 0,
+    public val meanPieceMillis: Long = 0,
+    /**
      * A loop of the session itself failed. Non-null means the session is degraded and somebody
      * has to look; it exists so that such a failure is a visible state rather than a log line in
      * whatever the platform does with uncaught coroutine exceptions.
@@ -275,8 +318,16 @@ public class SessionConfig(
     public val maxStartedPieces: Int = 8,
     /** Requests kept outstanding per peer. Too few idles the link; too many hold pool buffers. */
     public val pipelineDepth: Int = 16,
-    /** Connections to keep up. */
-    public val maxPeers: Int = 50,
+    /**
+     * Connections to keep up.
+     *
+     * **250, measured rather than guessed (B-98).** It was 50, and 50 was a placeholder that
+     * never bound: against a 526-peer swarm this client held 30. What the runs showed is that
+     * the ceiling was never the cap — it was the download window, which is now derived from
+     * *this* number, so raising it widens the window with it. The reference client held 190 on
+     * the same swarm, which is what 250 leaves room for.
+     */
+    public val maxPeers: Int = 250,
     /** BEP 3's four regular slots; the optimistic peer takes one of them when it is interested. */
     public val maxUnchoked: Int = 4,
     /** BEP 3: "only changing who's choked once every ten seconds". */
@@ -319,6 +370,15 @@ public class SessionConfig(
     public val dhtInterval: Duration = 15.minutes,
     /** Where to start from when the routing table is empty. Empty means the DHT is off. */
     public val dhtBootstrap: List<io.github.youndie.kachok.engine.peer.PeerAddress> = emptyList(),
+    /**
+     * Ask every tracker the torrent names, not only the first that answers.
+     *
+     * Off, because BEP 12's rule is the first that answers and on a public torrent the trackers
+     * mostly hold the same peers — so the default costs one announce and the switch costs as many
+     * as the metainfo lists. On for a swarm genuinely split across trackers that do not share,
+     * which is the only case the default cannot serve.
+     */
+    public val announceToAllTrackers: Boolean = false,
     /** Wait before dialling a peer that just failed. */
     public val reconnectDelay: Duration = 30.seconds,
     /**

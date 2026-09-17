@@ -234,6 +234,34 @@ them. Nothing is read from the environment by this module; that is [cli](cli.md)
 * **A throttled download would stall without the timer.** Requests are normally issued when a block
   arrives, and no block arrives while nothing is asked for; the tick that refills the budget is
   also what asks every peer for more.
+* **The connection count would fall without the timer too, and for longer.** Every other caller of
+  `connectMore` is an event — an announce, a DHT lookup, a `ut_pex` message, a peer disconnecting —
+  and none of them fires when a batch of dials simply fails, which on a public swarm is most of
+  them. Before [B-95](../backlog/B-95-the-dial-loop-only-runs-when-something-else-happens.md) a
+  client that lost forty-five of its first fifty dials stayed on the five that answered until the
+  next announce, half an hour later, with hundreds of untried addresses in `known`.
+* **A blocking `SocketChannel` read cannot be given a deadline, and three of the four ways round
+  that do not work.** `SO_TIMEOUT` does not reach channel operations; `withTimeout` cannot end a
+  read on a virtual thread, which is not at a suspension point while it blocks; a selector would
+  work and is what this engine has committed to not having. What is left is the channel's own
+  `socket().getInputStream()`, which does honour `SO_TIMEOUT` and — measured on JDK 25.0.2 on Linux
+  and macOS — does not read ahead, so the wire reader that follows loses nothing
+  ([B-96](../backlog/B-96-the-handshake-read-has-no-deadline.md)).
+* **MSE's Diffie-Hellman prime is not RFC 2409's group 1, and reading it as such fails silently
+  against every real client and no test.** The two 768-bit numbers agree for 180 of their 192
+  hexadecimal digits — both come from π — and differ only in the last twelve: RFC 2409 ends
+  `…A63A3620FFFFFFFFFFFFFFFF`, MSE ends `…A63A36210000000000090563`. A client using the wrong one
+  derives a shared secret that agrees with any other client that made the same mistake and with no
+  mainstream peer, so a handshake that talks to its own other half passes and libtorrent resets the
+  connection after the third message. It cost six iterations to find, because only a third party can
+  see it; `MseHandshake.PRIME_HEX` now carries the right value and a known-answer test pins it
+  ([B-100](../backlog/B-100-protocol-encryption.md)).
+* **A known address has three states and not two.** `connected` and `failed` do not cover an
+  address inside a ten-second `connect`, and most of a public swarm's addresses are in exactly that
+  state for exactly that long — 22 of 50 in B-19's measurement. Without the third set, `dialling`,
+  a second caller dials the same address again, the later link wins `connected[address]`, and the
+  earlier one leaks with its coroutine and its picker entry. Dials in flight are also subtracted
+  from the room, or a per-tick loop launches a fresh `maxPeers` on top of the outstanding ones.
 * **`index in started` on a `Map<Int, _>` boxes the index.** The picker asks it once per piece per
   request, which is where half of the profile's `Integer` allocations came from; a `BooleanArray`
   beside the map answers the same question for nothing. Both mutations of `started` go through one
