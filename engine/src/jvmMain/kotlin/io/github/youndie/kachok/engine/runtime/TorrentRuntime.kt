@@ -41,6 +41,8 @@ public class RuntimeOptions(
     public val maxPeers: Int = DEFAULT_MAX_PEERS,
     public val pipelineDepth: Int = DEFAULT_PIPELINE,
     public val dht: Boolean = false,
+    /** Ask every tracker the torrent names, not only the first that answers (BEP 12's default). */
+    public val announceToAllTrackers: Boolean = false,
     public val uploadLimitBytesPerSecond: Long = NO_LIMIT,
     public val downloadLimitBytesPerSecond: Long = NO_LIMIT,
     /**
@@ -271,6 +273,7 @@ public class TorrentRuntime internal constructor(
                             pipelineDepth = options.pipelineDepth,
                             maxPeers = options.maxPeers,
                             reserved = reserved,
+                            announceToAllTrackers = options.announceToAllTrackers,
                             dhtBootstrap = if (dht != null) BOOTSTRAP_NODES else emptyList(),
                             uploadLimitBytesPerSecond = options.uploadLimitBytesPerSecond,
                             downloadLimitBytesPerSecond = options.downloadLimitBytesPerSecond,

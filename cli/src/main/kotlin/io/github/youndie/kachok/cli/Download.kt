@@ -149,6 +149,7 @@ class Download(
                         pipelineDepth = options.pipelineDepth,
                         uploadLimitBytesPerSecond = options.uploadLimit,
                         downloadLimitBytesPerSecond = options.downloadLimit,
+                        announceToAllTrackers = options.announceToAllTrackers,
                     ),
                 onResumeFailure = { err.appendLine("kachok: $it") },
             )

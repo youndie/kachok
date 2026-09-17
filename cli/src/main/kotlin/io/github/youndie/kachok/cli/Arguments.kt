@@ -45,6 +45,14 @@ class DownloadOptions(
      * every run of the test suite doing it.
      */
     val dht: Boolean,
+    /**
+     * Ask every tracker the torrent names rather than the first that answers.
+     *
+     * Off, because BEP 12 asks clients to stop at the first working tracker and because on a
+     * public torrent the rest mostly hold the same peers. Worth turning on for a swarm split
+     * across trackers that do not share one.
+     */
+    val announceToAllTrackers: Boolean,
 )
 
 /** A command line that does not parse, with the reason a user can act on. */
@@ -83,7 +91,8 @@ kachok serve [options]
                       no browser page may connect at all: a WebSocket is not
                       subject to the same-origin rule, so any site could
                       otherwise drive this client.
-  --dht               join the DHT (BEP 5); a private torrent never does"""
+  --dht               join the DHT (BEP 5); a private torrent never does
+  --all-trackers      ask every tracker, not the first that answers (BEP 12)"""
 
     /**
      * `serve`'s options.
@@ -144,6 +153,7 @@ kachok serve [options]
         var upload = 0L
         var download = 0L
         var dht = false
+        var allTrackers = false
 
         var index = 0
         while (index < arguments.size) {
@@ -179,6 +189,10 @@ kachok serve [options]
                     dht = true
                 }
 
+                "--all-trackers" -> {
+                    allTrackers = true
+                }
+
                 "--down" -> {
                     download = number(value(arguments, ++index, argument), argument).toLong() * BYTES_PER_KIB
                 }
@@ -207,6 +221,7 @@ kachok serve [options]
             uploadLimit = upload,
             downloadLimit = download,
             dht = dht,
+            announceToAllTrackers = allTrackers,
         )
     }
 

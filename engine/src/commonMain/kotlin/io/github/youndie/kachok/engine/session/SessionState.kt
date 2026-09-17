@@ -319,6 +319,15 @@ public class SessionConfig(
     public val dhtInterval: Duration = 15.minutes,
     /** Where to start from when the routing table is empty. Empty means the DHT is off. */
     public val dhtBootstrap: List<io.github.youndie.kachok.engine.peer.PeerAddress> = emptyList(),
+    /**
+     * Ask every tracker the torrent names, not only the first that answers.
+     *
+     * Off, because BEP 12's rule is the first that answers and on a public torrent the trackers
+     * mostly hold the same peers — so the default costs one announce and the switch costs as many
+     * as the metainfo lists. On for a swarm genuinely split across trackers that do not share,
+     * which is the only case the default cannot serve.
+     */
+    public val announceToAllTrackers: Boolean = false,
     /** Wait before dialling a peer that just failed. */
     public val reconnectDelay: Duration = 30.seconds,
     /**

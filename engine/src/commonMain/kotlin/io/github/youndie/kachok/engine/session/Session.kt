@@ -631,7 +631,36 @@ public class Session(
         }
     }
 
-    /** Every tracker in order until one answers; a dead tracker is not a dead swarm. */
+    /**
+     * How many addresses to ask a tracker for: the connections this client is short of.
+     *
+     * **A number and not the absence of one.** `numwant` was never filled in, so both transports
+     * asked for the tracker's own default — chosen by somebody who does not know what this client
+     * needs, and on the common implementations a number small enough to be interesting next to
+     * `maxPeers`. Asking for the deficit instead is also the reason not to send a large constant:
+     * a client sitting at its cap that keeps asking for hundreds of addresses is load on a tracker
+     * for a list it will not dial.
+     *
+     * Dials in flight are not subtracted. Most of them fail — that is the measurement this whole
+     * stage came out of — so counting them as connections would ask for too few exactly when the
+     * client needs most.
+     *
+     * Zero on `stopped`, whatever the deficit says: a client that is leaving has no use for peers,
+     * and BEP 3's optional field is the standard way to tell a tracker so.
+     */
+    private fun numWant(event: AnnounceEvent?): Int =
+        if (event == AnnounceEvent.STOPPED) 0 else (maxPeers - connected.size).coerceAtLeast(0)
+
+    /**
+     * Every tracker in order until one answers; a dead tracker is not a dead swarm.
+     *
+     * **Unless [SessionConfig.announceToAllTrackers], and that is a setting rather than the
+     * default.** Stopping at the first that answers is what BEP 12 asks for, and on a public
+     * torrent the trackers largely hold the same peers, so asking all of them multiplies this
+     * client's announces for mostly the same addresses. A swarm genuinely split across trackers
+     * that do not share peers is the case the default cannot serve, and the case this switch
+     * exists for.
+     */
     private suspend fun announce(event: AnnounceEvent?): List<PeerAddress> {
         val snapshot = mutableState.value
         val request =
@@ -643,16 +672,27 @@ public class Session(
                 downloaded = snapshot.downloaded,
                 left = snapshot.left,
                 event = event,
+                numWant = numWant(event),
             )
         var lastError: String? = null
+        // A set and not a list: two trackers of one torrent hand back overlapping swarms, and
+        // `known` would deduplicate them anyway — doing it here keeps the count this reports
+        // honest about how many distinct peers the announce actually found.
+        val found = LinkedHashSet<PeerAddress>()
+        var answered = false
         metainfo.trackers.forEach { tracker ->
+            if (answered && !config.announceToAllTrackers) return@forEach
             try {
                 val response = trackerClient.announce(tracker, request)
-                announceInterval = response.interval.coerceAtLeast(MIN_ANNOUNCE_SECONDS)
+                // The shortest interval any tracker asked for. Announcing to several and then
+                // keeping the last one's interval would obey whichever tracker happened to be last
+                // in the metainfo.
+                val interval = response.interval.coerceAtLeast(MIN_ANNOUNCE_SECONDS)
+                announceInterval = if (answered) minOf(announceInterval, interval) else interval
+                answered = true
+                found += response.peers
                 trackerReports[tracker] =
                     TrackerReport(timeSource.markNow(), failure = null, response.peers.size, announceInterval.toLong())
-                publish { it.copy(trackerError = null, trackers = trackerViews()) }
-                return response.peers
             } catch (refused: TrackerException) {
                 lastError = refused.message
                 trackerReports[tracker] =
@@ -664,8 +704,8 @@ public class Session(
                     )
             }
         }
-        publish { it.copy(trackerError = lastError, trackers = trackerViews()) }
-        return emptyList()
+        publish { it.copy(trackerError = if (answered) null else lastError, trackers = trackerViews()) }
+        return found.toList()
     }
 
     /**

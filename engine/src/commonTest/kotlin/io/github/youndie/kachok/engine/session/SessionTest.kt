@@ -2474,4 +2474,188 @@ class SessionTest {
             kotlinx.coroutines.awaitCancellation()
         }
     }
+
+    /**
+     * B-97: the announce asks for the connections this client is short of.
+     *
+     * `numWant` existed on the request, both transports wrote it, and the session never filled it
+     * in — so every announce asked for whatever default the tracker had picked.
+     */
+    @Test
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    fun theAnnounceAsksForTheConnectionsThisClientIsShortOf(): Unit =
+        runTest {
+            val metainfo = torrent(pieces = 4)
+            val dialer = FakeDialer(metainfo.infoHash)
+            val tracker = RecordingTracker(listOf(peerA, peerB))
+            val session =
+                session(
+                    metainfo,
+                    dialer,
+                    tracker,
+                    FakeStorage(),
+                    AgreeableHasher(metainfo),
+                    config = SessionConfig(maxStartedPieces = 4, pipelineDepth = 2, maxPeers = 6),
+                )
+
+            val job = session.start(kotlinx.coroutines.CoroutineScope(coroutineContext + handler))
+            testScheduler.runCurrent()
+
+            assertEquals(6, tracker.numWants.first(), "the first announce is made with nothing connected")
+            assertEquals(2, session.state.value.connectedPeers)
+
+            session.send(Command.Announce)
+            testScheduler.runCurrent()
+            assertEquals(4, tracker.numWants.last(), "six wanted, two connected, so four short")
+            job.cancelAndJoin()
+        }
+
+    /** B-97: a client that is leaving asks for nobody, whatever its deficit says. */
+    @Test
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    fun aStoppedAnnounceAsksForNoPeers(): Unit =
+        runTest {
+            val metainfo = torrent(pieces = 4)
+            val tracker = RecordingTracker(listOf(peerA))
+            val session =
+                session(
+                    metainfo,
+                    FakeDialer(metainfo.infoHash),
+                    tracker,
+                    FakeStorage(),
+                    AgreeableHasher(metainfo),
+                    config = SessionConfig(maxStartedPieces = 4, pipelineDepth = 2, maxPeers = 6),
+                )
+
+            val job = session.start(kotlinx.coroutines.CoroutineScope(coroutineContext + handler))
+            testScheduler.runCurrent()
+            session.send(Command.Pause)
+            testScheduler.runCurrent()
+
+            val stopped = tracker.events.indexOf(AnnounceEvent.STOPPED)
+            assertTrue(stopped >= 0, "the pause did not announce stopped")
+            assertEquals(0, tracker.numWants[stopped], "a client that is leaving still asked for peers")
+            job.cancelAndJoin()
+        }
+
+    /**
+     * B-97: off, the first tracker that answers ends the announce; on, every one is asked and the
+     * peers are the union.
+     */
+    @Test
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    fun askingEveryTrackerIsASettingAndNotTheDefault(): Unit =
+        runTest {
+            val metainfo = threeTrackerTorrent(pieces = 4)
+            val perTracker =
+                mapOf(
+                    "http://a.example/annc" to listOf(peerA),
+                    "http://b.example/annc" to listOf(peerB),
+                    "http://c.example/annc" to listOf(peerA, peerC),
+                )
+
+            val defaultTracker = PerUrlTracker(perTracker)
+            val byDefault =
+                session(
+                    metainfo,
+                    FakeDialer(metainfo.infoHash),
+                    defaultTracker,
+                    FakeStorage(),
+                    AgreeableHasher(metainfo),
+                    config = SessionConfig(maxStartedPieces = 4, pipelineDepth = 2, maxPeers = 10),
+                )
+            val first = byDefault.start(kotlinx.coroutines.CoroutineScope(coroutineContext + handler))
+            testScheduler.runCurrent()
+            assertEquals(listOf("http://a.example/annc"), defaultTracker.asked, "BEP 12: the first that answers")
+            assertEquals(1, byDefault.state.value.knownPeers)
+            first.cancelAndJoin()
+
+            val allTracker = PerUrlTracker(perTracker)
+            val toAll =
+                session(
+                    metainfo,
+                    FakeDialer(metainfo.infoHash),
+                    allTracker,
+                    FakeStorage(),
+                    AgreeableHasher(metainfo),
+                    config =
+                        SessionConfig(
+                            maxStartedPieces = 4,
+                            pipelineDepth = 2,
+                            maxPeers = 10,
+                            announceToAllTrackers = true,
+                        ),
+                )
+            val second = toAll.start(kotlinx.coroutines.CoroutineScope(coroutineContext + handler))
+            testScheduler.runCurrent()
+            assertEquals(perTracker.keys.toList(), allTracker.asked, "every tracker the torrent names")
+            // Three addresses and not four: peer A is named by two trackers and is one peer.
+            assertEquals(3, toAll.state.value.knownPeers, "the peers are the union, deduplicated")
+            second.cancelAndJoin()
+        }
+
+    /** A tracker that remembers what it was asked for, not only that it was asked. */
+    private class RecordingTracker(
+        private val peers: List<PeerAddress>,
+    ) : TrackerClient {
+        val events = mutableListOf<AnnounceEvent?>()
+        val numWants = mutableListOf<Int?>()
+
+        override suspend fun announce(
+            tracker: String,
+            request: AnnounceRequest,
+        ): AnnounceResponse {
+            events += request.event
+            numWants += request.numWant
+            return AnnounceResponse(interval = 1800, peers = peers)
+        }
+    }
+
+    /** A tracker whose answer depends on which URL was called, so a union can be told from a first. */
+    private class PerUrlTracker(
+        private val byUrl: Map<String, List<PeerAddress>>,
+    ) : TrackerClient {
+        val asked = mutableListOf<String>()
+
+        override suspend fun announce(
+            tracker: String,
+            request: AnnounceRequest,
+        ): AnnounceResponse {
+            asked += tracker
+            val peers = byUrl[tracker] ?: throw TrackerException("no such tracker")
+            return AnnounceResponse(interval = 1800, peers = peers)
+        }
+    }
+
+    /** A torrent whose `announce-list` names three trackers, each with its own slice of the swarm. */
+    private fun threeTrackerTorrent(pieces: Int): Metainfo {
+        val info =
+            BDictionary(
+                mapOf(
+                    BString("length") to BInteger(pieces.toLong() * PeerWire.BLOCK_SIZE),
+                    BString("name") to BString("fixture"),
+                    BString("piece length") to BInteger(PeerWire.BLOCK_SIZE.toLong()),
+                    BString("pieces") to BString(ByteArray(pieces * Metainfo.HASH_SIZE) { it.toByte() }),
+                ),
+            )
+        val root =
+            BDictionary(
+                mapOf(
+                    BString("announce") to BString("http://a.example/annc"),
+                    BString("announce-list") to
+                        io.github.youndie.kachok.engine.bencode.BList(
+                            listOf(
+                                io.github.youndie.kachok.engine.bencode
+                                    .BList(listOf(BString("http://a.example/annc"))),
+                                io.github.youndie.kachok.engine.bencode
+                                    .BList(listOf(BString("http://b.example/annc"))),
+                                io.github.youndie.kachok.engine.bencode
+                                    .BList(listOf(BString("http://c.example/annc"))),
+                            ),
+                        ),
+                    BString("info") to info,
+                ),
+            )
+        return MetainfoParser.parse(Bencode.encode(root))
+    }
 }

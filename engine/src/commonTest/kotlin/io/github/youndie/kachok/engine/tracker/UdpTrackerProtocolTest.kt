@@ -29,6 +29,24 @@ class UdpTrackerProtocolTest {
         numWant = numWant,
     )
 
+    /**
+     * B-97: the same number in BEP 15's own slot, and zero is not "the default".
+     *
+     * The UDP protocol spells "however many you like" as -1, so a client at its cap asking for
+     * nothing and a client that has not decided are one byte apart and mean opposite things.
+     */
+    @Test
+    fun numwantIsWrittenAtByteNinetyTwoAndZeroIsNotMinusOne() {
+        val asking = UdpTrackerProtocol.announceRequest(1L, 7, key = 99, request = request(numWant = 45))
+        assertEquals(45, PeerWire.readInt(asking, 92))
+
+        val full = UdpTrackerProtocol.announceRequest(1L, 7, key = 99, request = request(numWant = 0))
+        assertEquals(0, PeerWire.readInt(full, 92), "at the cap the client asks for nobody")
+
+        val silent = UdpTrackerProtocol.announceRequest(1L, 7, key = 99, request = request())
+        assertEquals(-1, PeerWire.readInt(silent, 92), "BEP 15's 'however many you like'")
+    }
+
     @Test
     fun aConnectRequestIsTheMagicTheActionAndTheTransaction() {
         val packet = UdpTrackerProtocol.connectRequest(0x0BADF00D)
