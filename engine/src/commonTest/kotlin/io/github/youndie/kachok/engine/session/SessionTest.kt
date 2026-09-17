@@ -27,6 +27,7 @@ import io.github.youndie.kachok.engine.wire.Message
 import io.github.youndie.kachok.engine.wire.MetadataMessage
 import io.github.youndie.kachok.engine.wire.PeerWire
 import io.github.youndie.kachok.engine.wire.PexMessage
+import io.github.youndie.kachok.engine.wire.WireException
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.ReceiveChannel
@@ -2593,6 +2594,64 @@ class SessionTest {
             assertEquals(3, toAll.state.value.knownPeers, "the peers are the union, deduplicated")
             second.cancelAndJoin()
         }
+
+    /**
+     * B-98: the dials are counted, and the failures are counted by kind.
+     *
+     * `connectedPeers` alone cannot tell a client holding two peers after three dials from one
+     * holding two after thirty — which is the entire question the measurement asks.
+     */
+    @Test
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    fun theDialsAndTheirFailuresAreCounted(): Unit =
+        runTest {
+            val metainfo = torrent(pieces = 4)
+            val all = listOf(peerA, peerB, peerC)
+            // Peer B refuses with a wire error, peer C with a timeout: two labels, not two messages.
+            val dialer =
+                LabelledDialer(
+                    metainfo.infoHash,
+                    peerB to WireException("peer answered for another torrent: ab12"),
+                    peerC to IllegalStateException("Connection refused"),
+                )
+            val session =
+                session(
+                    metainfo,
+                    dialer,
+                    FakeTracker(all),
+                    FakeStorage(),
+                    AgreeableHasher(metainfo),
+                    config = SessionConfig(maxStartedPieces = 4, pipelineDepth = 2, maxPeers = 10),
+                )
+
+            val job = session.start(kotlinx.coroutines.CoroutineScope(coroutineContext + handler))
+            testScheduler.runCurrent()
+
+            val state = session.state.value
+            assertEquals(3, state.dialsAttempted, "one per address the session dialled")
+            assertEquals(1, state.dialsHandshaked, "only peer A answered")
+            assertEquals(1, state.connectedPeers)
+            assertEquals(
+                mapOf("another torrent" to 1, "refused" to 1),
+                state.dialFailures,
+                "failures are bucketed by kind, not by the message that names an address",
+            )
+            job.cancelAndJoin()
+        }
+
+    /** A dialer that fails named addresses with a chosen exception, so the labels can be asserted. */
+    private class LabelledDialer(
+        private val infoHash: io.github.youndie.kachok.engine.InfoHash,
+        vararg failures: Pair<PeerAddress, Exception>,
+    ) : PeerDialer {
+        private val failWith = failures.toMap()
+        val connections = LinkedHashMap<PeerAddress, FakeConnection>()
+
+        override suspend fun connect(address: PeerAddress): PeerConnection {
+            failWith[address]?.let { throw it }
+            return connections.getOrPut(address) { FakeConnection(address, infoHash) }
+        }
+    }
 
     /** A tracker that remembers what it was asked for, not only that it was asked. */
     private class RecordingTracker(

@@ -52,6 +52,28 @@ public class SessionState(
     /** Why the last dial failed. "No peers, no reason" is a state nobody can act on. */
     public val lastPeerError: String? = null,
     /**
+     * Dials this session has started, and how many of them reached a handshake.
+     *
+     * **Counters and not a rate**, because the question they exist for is asked over a whole run:
+     * how much of a swarm this client can actually reach
+     * ([B-98](../backlog/B-98-how-many-peers-does-this-client-meet.md)). `connectedPeers` answers
+     * "how many now" and says nothing about how many were tried to get there — a client holding
+     * five peers after fifty dials and one holding five after six are different clients, and until
+     * these existed they looked identical from outside.
+     */
+    public val dialsAttempted: Long = 0,
+    public val dialsHandshaked: Long = 0,
+    /**
+     * Why dials failed, counted by a short stable label.
+     *
+     * **Not by message.** A dial failure's message carries the address it failed to reach, so
+     * counting messages would produce one bucket per peer and answer nothing. The labels are a
+     * closed set chosen to separate the cases that mean different things: a peer that never
+     * answered, one that refused, one that answered and then said nothing, and one that answered
+     * for a different torrent are four different swarms to be in.
+     */
+    public val dialFailures: Map<String, Int> = emptyMap(),
+    /**
      * A loop of the session itself failed. Non-null means the session is degraded and somebody
      * has to look; it exists so that such a failure is a visible state rather than a log line in
      * whatever the platform does with uncaught coroutine exceptions.

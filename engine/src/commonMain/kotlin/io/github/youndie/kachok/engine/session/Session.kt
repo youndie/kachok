@@ -160,6 +160,11 @@ public class Session(
      */
     private val dialling = HashSet<PeerAddress>()
 
+    /** [SessionState.dialsAttempted] and its two companions, kept here and published on change. */
+    private var dialsAttempted = 0L
+    private var dialsHandshaked = 0L
+    private val dialFailures = LinkedHashMap<String, Int>()
+
     /**
      * Peers this client hung up on deliberately — for a pause or a re-check.
      *
@@ -777,6 +782,7 @@ public class Session(
                 // session's dispatcher runs one coroutine at a time, so a second `connectMore` can
                 // run before the first one's children have started and would see an empty set.
                 dialling += address
+                dialsAttempted++
                 scope.launch { runPeer(scope, address) }
             }
     }
@@ -805,9 +811,15 @@ public class Session(
             } catch (refused: Exception) {
                 dialling -= address
                 failed[address] = timeSource.markNow()
+                val label = dialFailureLabel(refused)
+                dialFailures[label] = (dialFailures[label] ?: 0) + 1
                 // Kept and published: "no peers, no reason" is a state nobody can act on.
                 publish {
-                    it.copy(lastPeerError = "$address: ${refused.message ?: refused::class.simpleName}")
+                    it.copy(
+                        lastPeerError = "$address: ${refused.message ?: refused::class.simpleName}",
+                        dialsAttempted = dialsAttempted,
+                        dialFailures = dialFailures.toMap(),
+                    )
                 }
                 return
             }
@@ -819,7 +831,36 @@ public class Session(
         // here, and it would remove somebody else's entry. That is the race the
         // `connected[address] === link` guard in [serve] exists for, one set over.
         dialling -= address
+        dialsHandshaked++
+        publish { it.copy(dialsAttempted = dialsAttempted, dialsHandshaked = dialsHandshaked) }
         serve(scope, connection, dialled = true)
+    }
+
+    /**
+     * A dial failure as one of a closed set of labels.
+     *
+     * **Matched on the message and not only on the type, and that is a compromise this says out
+     * loud.** The platform throws `IOException` or `SocketException` for cases a person needs told
+     * apart — nothing listening, nothing answering, the route gone — and the text is the only
+     * thing that distinguishes them. So the mapping is best-effort, lowercase, and everything it
+     * does not recognise lands in `other` rather than in a bucket of its own: a label set that
+     * grows with the wording of somebody's libc would make two runs incomparable, which is the one
+     * thing these counters exist to avoid.
+     */
+    private fun dialFailureLabel(failure: Exception): String {
+        val name = failure::class.simpleName ?: "other"
+        val text = failure.message?.lowercase() ?: ""
+        return when {
+            name == "SocketTimeoutException" && "handshake" in text -> "handshake timed out"
+            name == "SocketTimeoutException" -> "connect timed out"
+            name == "WireException" && "another torrent" in text -> "another torrent"
+            name == "WireException" -> "bad handshake"
+            name == "EOFException" -> "closed during the handshake"
+            "connection refused" in text -> "refused"
+            "unreachable" in text -> "unreachable"
+            "reset" in text -> "reset"
+            else -> "other"
+        }
     }
 
     /**
@@ -1756,6 +1797,9 @@ private fun SessionState.copy(
     hashFailures: Int = this.hashFailures,
     verifiedPieces: Int = this.verifiedPieces,
     verifyingOf: Int = this.verifyingOf,
+    dialsAttempted: Long = this.dialsAttempted,
+    dialsHandshaked: Long = this.dialsHandshaked,
+    dialFailures: Map<String, Int> = this.dialFailures,
     trackerError: String? = this.trackerError,
     lastPeerError: String? = this.lastPeerError,
     sessionError: String? = this.sessionError,
@@ -1788,6 +1832,9 @@ private fun SessionState.copy(
         verifyingOf = verifyingOf,
         trackerError = trackerError,
         lastPeerError = lastPeerError,
+        dialsAttempted = dialsAttempted,
+        dialsHandshaked = dialsHandshaked,
+        dialFailures = dialFailures,
         sessionError = sessionError,
         isComplete = isComplete,
         paused = paused,
