@@ -2,6 +2,7 @@ package io.github.youndie.kachok.engine.storage
 
 import io.github.youndie.kachok.engine.PieceIndex
 import io.github.youndie.kachok.engine.hash.JvmBlock
+import io.github.youndie.kachok.engine.io.BlockSource
 import io.github.youndie.kachok.engine.io.BufferPool
 import io.github.youndie.kachok.engine.io.PooledBlock
 import io.github.youndie.kachok.engine.peer.Block
@@ -77,7 +78,8 @@ public class FileStorage(
      * few blocks rather than the memory of a piece list.
      */
     private val pool: BufferPool? = null,
-) : Storage {
+) : Storage,
+    BlockSource {
     override suspend fun write(
         piece: PieceIndex,
         blocks: List<Block>,
@@ -166,7 +168,7 @@ public class FileStorage(
      * spans the writer does — one `transferTo` per span, the read-side mirror of the gathering
      * write.
      */
-    public fun transferBlock(
+    override fun transferBlock(
         piece: PieceIndex,
         begin: Int,
         length: Int,

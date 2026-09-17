@@ -62,6 +62,7 @@ class SocketPeerConnectionTest {
                     infoHash,
                     peerId,
                     BufferPool(capacity = 4),
+                    NoBlocks,
                     connectTimeout = 1.seconds,
                 )
             }
@@ -75,7 +76,14 @@ class SocketPeerConnectionTest {
             FakePeer(infoHash = otherHash).use { peer ->
                 val thrown =
                     assertFailsWith<WireException> {
-                        SocketPeerConnection.connect(scope, peer.address, infoHash, peerId, BufferPool(capacity = 4))
+                        SocketPeerConnection.connect(
+                            scope,
+                            peer.address,
+                            infoHash,
+                            peerId,
+                            BufferPool(capacity = 4),
+                            NoBlocks,
+                        )
                     }
                 assertContains(thrown.message ?: "", "another torrent")
             }
@@ -92,6 +100,7 @@ class SocketPeerConnectionTest {
                         infoHash,
                         peerId,
                         BufferPool(capacity = 4),
+                        NoBlocks,
                         Handshake.reservedBits(extensionProtocol = true),
                     )
                 withTimeout(TIMEOUT) {
@@ -118,7 +127,7 @@ class SocketPeerConnectionTest {
                     FakePeer.park(socket)
                 },
             ).use { peer ->
-                val connection = SocketPeerConnection.connect(scope, peer.address, infoHash, peerId, pool)
+                val connection = SocketPeerConnection.connect(scope, peer.address, infoHash, peerId, pool, NoBlocks)
                 val event = withTimeout(TIMEOUT) { connection.events.receive() }
                 val received = assertIs<PeerEvent.BlockReceived>(event)
                 val pooledBlock = received.block as PooledBlock
@@ -151,7 +160,15 @@ class SocketPeerConnectionTest {
                     FakePeer.park(socket)
                 },
             ).use { peer ->
-                val connection = SocketPeerConnection.connect(scope, peer.address, infoHash, peerId, BufferPool(4))
+                val connection =
+                    SocketPeerConnection.connect(
+                        scope,
+                        peer.address,
+                        infoHash,
+                        peerId,
+                        BufferPool(4),
+                        NoBlocks,
+                    )
                 withTimeout(TIMEOUT) {
                     assertTrue(assertIs<PeerEvent.Received>(connection.events.receive()).message === Message.Unchoke)
                     assertTrue(assertIs<PeerEvent.Received>(connection.events.receive()).message === Message.KeepAlive)
@@ -181,7 +198,15 @@ class SocketPeerConnectionTest {
                     FakePeer.park(socket)
                 },
             ).use { peer ->
-                val connection = SocketPeerConnection.connect(scope, peer.address, infoHash, peerId, BufferPool(4))
+                val connection =
+                    SocketPeerConnection.connect(
+                        scope,
+                        peer.address,
+                        infoHash,
+                        peerId,
+                        BufferPool(4),
+                        NoBlocks,
+                    )
                 connection.send(Message.Interested)
                 connection.send(Message.Request(PieceIndex(1), 0, PeerWire.BLOCK_SIZE))
                 withTimeout(TIMEOUT) {
@@ -199,7 +224,15 @@ class SocketPeerConnectionTest {
     fun aPeerHangingUpIsAnOrderlyClose(): Unit =
         runBlocking {
             FakePeer(infoHash = infoHash, afterHandshake = { it.close() }).use { peer ->
-                val connection = SocketPeerConnection.connect(scope, peer.address, infoHash, peerId, BufferPool(4))
+                val connection =
+                    SocketPeerConnection.connect(
+                        scope,
+                        peer.address,
+                        infoHash,
+                        peerId,
+                        BufferPool(4),
+                        NoBlocks,
+                    )
                 val event = withTimeout(TIMEOUT) { connection.events.receive() }
                 assertNull(assertIs<PeerEvent.Closed>(event).cause, "a peer hanging up is not a failure")
                 connection.close()
@@ -219,7 +252,7 @@ class SocketPeerConnectionTest {
                 val before = platformThreads()
                 val connections =
                     (1..CONNECTIONS).map {
-                        SocketPeerConnection.connect(scope, peer.address, infoHash, peerId, pool)
+                        SocketPeerConnection.connect(scope, peer.address, infoHash, peerId, pool, NoBlocks)
                     }
                 try {
                     val after = platformThreads()
@@ -273,6 +306,7 @@ class SocketPeerConnectionTest {
                         infoHash,
                         peerId,
                         BufferPool(capacity = 4),
+                        NoBlocks,
                         handshakeTimeout = 700.milliseconds,
                     )
                 }
@@ -304,6 +338,7 @@ class SocketPeerConnectionTest {
                             infoHash,
                             peerId,
                             BufferPool(capacity = 4),
+                            NoBlocks,
                             handshakeTimeout = 600.milliseconds,
                         )
                     }
@@ -340,7 +375,14 @@ class SocketPeerConnectionTest {
                 },
             ).use { peer ->
                 val connection =
-                    SocketPeerConnection.connect(scope, peer.address, infoHash, peerId, BufferPool(capacity = 4))
+                    SocketPeerConnection.connect(
+                        scope,
+                        peer.address,
+                        infoHash,
+                        peerId,
+                        BufferPool(capacity = 4),
+                        NoBlocks,
+                    )
                 val seen =
                     withTimeout(5.seconds) {
                         listOf(connection.events.receive(), connection.events.receive())

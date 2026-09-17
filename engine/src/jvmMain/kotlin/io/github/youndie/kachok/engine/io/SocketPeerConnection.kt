@@ -7,7 +7,6 @@ import io.github.youndie.kachok.engine.hash.JvmBlock
 import io.github.youndie.kachok.engine.peer.PeerAddress
 import io.github.youndie.kachok.engine.peer.PeerConnection
 import io.github.youndie.kachok.engine.peer.PeerEvent
-import io.github.youndie.kachok.engine.storage.FileStorage
 import io.github.youndie.kachok.engine.wire.Handshake
 import io.github.youndie.kachok.engine.wire.Message
 import io.github.youndie.kachok.engine.wire.PeerWire
@@ -62,7 +61,8 @@ public class SocketPeerConnection private constructor(
     override val handshake: Handshake,
     private val socket: SocketChannel,
     private val pool: BufferPool,
-    private val blocks: FileStorage? = null,
+    /** Where the blocks this connection serves come from. Required: see [BlockSource] and B-110. */
+    private val blocks: BlockSource,
 ) : PeerConnection,
     AutoCloseable {
     /** Bytes this connection has served. The session sums these for the tracker announce. */
@@ -233,12 +233,11 @@ public class SocketPeerConnection private constructor(
                     }
 
                     is Outgoing.Block -> {
-                        val source = blocks ?: continue
                         val header = PeerWire.encodePieceHeader(item.piece, item.begin, item.length)
                         val bytes = ByteBuffer.wrap(header)
                         while (bytes.hasRemaining()) socket.write(bytes)
                         // And the block itself never enters this process.
-                        source.transferBlock(item.piece, item.begin, item.length, socket)
+                        blocks.transferBlock(item.piece, item.begin, item.length, socket)
                         uploaded += item.length.toLong()
                     }
                 }
@@ -373,6 +372,7 @@ public class SocketPeerConnection private constructor(
             infoHash: InfoHash,
             peerId: PeerId,
             pool: BufferPool,
+            blocks: BlockSource,
             reserved: ByteArray = Handshake.reservedBits(),
             connectTimeout: Duration = DEFAULT_CONNECT_TIMEOUT,
             handshakeTimeout: Duration = DEFAULT_HANDSHAKE_TIMEOUT,
@@ -400,7 +400,7 @@ public class SocketPeerConnection private constructor(
                 if (!handshake.infoHash.bytes.contentEquals(infoHash.bytes)) {
                     throw WireException("peer answered for another torrent: ${handshake.infoHash.bytes.toHex()}")
                 }
-                return SocketPeerConnection(address, handshake, socket, pool).also { it.start(scope) }
+                return SocketPeerConnection(address, handshake, socket, pool, blocks).also { it.start(scope) }
             } catch (failure: Throwable) {
                 socket.closeQuietly()
                 throw failure
@@ -420,6 +420,7 @@ public class SocketPeerConnection private constructor(
             infoHash: InfoHash,
             peerId: PeerId,
             pool: BufferPool,
+            blocks: BlockSource,
             reserved: ByteArray = Handshake.reservedBits(),
         ): SocketPeerConnection {
             try {
@@ -427,7 +428,7 @@ public class SocketPeerConnection private constructor(
                 if (!handshake.infoHash.bytes.contentEquals(infoHash.bytes)) {
                     throw WireException("peer asked for another torrent: ${handshake.infoHash.bytes.toHex()}")
                 }
-                return answer(scope, socket, handshake, infoHash, peerId, pool, reserved)
+                return answer(scope, socket, handshake, infoHash, peerId, pool, blocks, reserved)
             } catch (failure: Throwable) {
                 socket.closeQuietly()
                 throw failure
@@ -469,6 +470,7 @@ public class SocketPeerConnection private constructor(
             infoHash: InfoHash,
             peerId: PeerId,
             pool: BufferPool,
+            blocks: BlockSource,
             reserved: ByteArray = Handshake.reservedBits(),
         ): SocketPeerConnection {
             try {
@@ -477,7 +479,7 @@ public class SocketPeerConnection private constructor(
 
                 val remote = socket.remoteAddress as InetSocketAddress
                 val address = PeerAddress(remote.address.hostAddress, remote.port)
-                return SocketPeerConnection(address, handshake, socket, pool).also { it.start(scope) }
+                return SocketPeerConnection(address, handshake, socket, pool, blocks).also { it.start(scope) }
             } catch (failure: Throwable) {
                 socket.closeQuietly()
                 throw failure

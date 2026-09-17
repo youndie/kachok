@@ -4,6 +4,7 @@ import io.github.youndie.kachok.engine.PeerId
 import io.github.youndie.kachok.engine.dht.Dht
 import io.github.youndie.kachok.engine.dht.NodeId
 import io.github.youndie.kachok.engine.hash.MessageDigestPieceHasher
+import io.github.youndie.kachok.engine.io.BlockSource
 import io.github.youndie.kachok.engine.io.BufferPool
 import io.github.youndie.kachok.engine.io.DatagramKrpcTransport
 import io.github.youndie.kachok.engine.io.EngineDispatchers
@@ -96,6 +97,11 @@ public class TorrentRuntime internal constructor(
     public val reserved: ByteArray,
     /** The port the tracker was told about, which is the one the set actually bound. */
     public val listenPort: Int,
+    /**
+     * Where a connection to this torrent serves blocks from — the set needs it for the connections
+     * *it* accepts and routes here, which are half a swarm's ([B-110](../../../../../../../../docs/backlog/B-110-this-client-never-uploads-a-block.md)).
+     */
+    internal val blocks: BlockSource,
     /**
      * Where this torrent saves, which since B-81 is not always where the settings say.
      *
@@ -249,12 +255,16 @@ public class TorrentRuntime internal constructor(
             // session is told about — both extensions are two-sided, and a second place recording
             // "we advertised this" is a second place for it to be wrong.
             val reserved = Handshake.reservedBits(extensionProtocol = true, fastExtension = true)
+            // One storage for both directions: the session writes through it, and every connection
+            // — dialled here, or accepted by the set and routed to this runtime — serves from it.
+            // Until B-110 nothing gave the connections one, and this client never uploaded a block.
+            val storage = FileStorage(PieceLayout(metainfo), files, pool)
             val session =
                 Session(
                     metainfo = metainfo,
                     peerId = identity,
                     listenPort = port,
-                    dialer = SocketPeerDialer(scope, metainfo.infoHash, identity, pool, reserved),
+                    dialer = SocketPeerDialer(scope, metainfo.infoHash, identity, pool, storage, reserved),
                     // Most public torrents announce over UDP; the scheme in the URL decides,
                     // tracker by tracker, and an announce list may mix them.
                     trackerClient =
@@ -263,7 +273,7 @@ public class TorrentRuntime internal constructor(
                             udp = UdpTrackerClient(dispatchers.io),
                         ),
                     hasher = hasher,
-                    storage = FileStorage(PieceLayout(metainfo), files, pool),
+                    storage = storage,
                     resume =
                         FileResumeStore(
                             // The info hash in the name, not just the torrent's name. Two different
@@ -305,6 +315,7 @@ public class TorrentRuntime internal constructor(
                 peerId = identity,
                 reserved = reserved,
                 listenPort = port,
+                blocks = storage,
             )
         }
 

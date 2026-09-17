@@ -251,7 +251,20 @@ public class Session(
 
     /** Rotated every tick so that a limited uplink is shared rather than taken by whoever asked first. */
     private var uploadTurn = 0
-    private var uploadedBytes = 0L
+
+    /**
+     * Bytes served by connections that have since gone, plus what the resume record carried.
+     *
+     * **The truthful count of an upload is the connection's own**, taken after `transferTo`
+     * returned — and a connection that has left takes its counter with it. Until B-110 the state
+     * summed the *live* connections at the moment a block was queued (before the writer had sent
+     * it) and the tracker was told a field nothing ever incremented; both read zero for six
+     * milestones, and both were right about what this client served.
+     */
+    private var departedUploaded = 0L
+
+    private fun uploadedSoFar(): Long = departedUploaded + connected.values.sumOf { it.connection.uploaded }
+
     private var stopping = false
 
     /**
@@ -308,6 +321,7 @@ public class Session(
         // BEP 3's `left` is what this client still needs, and it does not need the files it is
         // skipping. With nothing skipped this is the torrent's own length, as before.
         val wanted = wantedBytes(metainfo, skipped)
+        departedUploaded = record?.uploaded ?: 0
         publish {
             it.copy(
                 completedPieces = verified.cardinality,
@@ -730,7 +744,7 @@ public class Session(
                 infoHash = metainfo.infoHash,
                 peerId = peerId,
                 port = listenPort,
-                uploaded = uploadedBytes,
+                uploaded = uploadedSoFar(),
                 downloaded = snapshot.downloaded,
                 left = snapshot.left,
                 event = event,
@@ -1017,7 +1031,7 @@ public class Session(
             // `next` returns nothing and the torrent asks for nothing, for ever. Found on Windows,
             // where the reconnect always wins the race; on Linux it wins sometimes.
             if (connected[address] === link) {
-                connected.remove(address)
+                connected.remove(address)?.let { departedUploaded += it.connection.uploaded }
                 picker.removePeer(address)
                 // The same wait as after a failed dial, and for a stronger reason: a peer that
                 // accepts and immediately hangs up would otherwise be redialled in a tight loop,
@@ -1420,7 +1434,7 @@ public class Session(
     ) {
         link.connection.sendBlock(request.piece, request.begin, request.length)
         link.upload.add(request.length.toLong(), elapsedMillis())
-        publish { it.copy(uploaded = connected.values.sumOf { peer -> peer.connection.uploaded }) }
+        publish { it.copy(uploaded = uploadedSoFar()) }
     }
 
     /**
@@ -1720,6 +1734,9 @@ public class Session(
                 connectedPeers = links.size,
                 unchokedPeers = links.count { link -> !link.choked },
                 outstandingRequests = links.sumOf { link -> link.outstanding },
+                // On the tick and not only when a block is queued: the writer sends after the
+                // queueing, and the last blocks of a torrent would otherwise never be counted.
+                uploaded = uploadedSoFar(),
                 // Built here and nowhere else. This is the one field whose cost grows with the
                 // swarm, and the timer is the one place in the session that already runs at the
                 // rate a table is redrawn at.

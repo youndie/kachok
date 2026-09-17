@@ -3,6 +3,7 @@ package io.github.youndie.kachok.engine.runtime
 import io.github.youndie.kachok.engine.PeerId
 import io.github.youndie.kachok.engine.io.BufferPool
 import io.github.youndie.kachok.engine.io.EngineDispatchers
+import io.github.youndie.kachok.engine.io.NoBlocks
 import io.github.youndie.kachok.engine.io.SocketPeerDialer
 import io.github.youndie.kachok.engine.metainfo.MagnetLink
 import io.github.youndie.kachok.engine.metainfo.MetadataFetcher
@@ -46,6 +47,8 @@ public suspend fun fetchMetainfo(
                 link.infoHash,
                 identity,
                 pool,
+                // There is no torrent yet, so there is nothing to serve: the one honest case.
+                NoBlocks,
                 Handshake.reservedBits(extensionProtocol = true, fastExtension = true),
             ),
         trackerClient =
