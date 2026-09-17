@@ -35,6 +35,12 @@ class DownloadOptions(
     val uploadLimit: Long,
     val downloadLimit: Long,
     /**
+     * Files to fetch before the others, by index — the `high` tier of
+     * [B-106](../../../../../../../docs/backlog/B-106-per-file-priority.md). The window changes it
+     * from the Files tab; the command line has no tab, so it is decided here.
+     */
+    val highFiles: Set<Int> = emptySet(),
+    /**
      * BEP 5, and **on** unless `--no-dht` says otherwise.
      *
      * This used to be off, with a comment promising it would change "once there is a torrent that
@@ -83,6 +89,8 @@ object Arguments {
   --seed              keep seeding after the download completes
   --up <KiB/s>        upload limit across all peers (default: no limit)
   --down <KiB/s>      download limit across all peers (default: no limit)
+  --high <n>          fetch this file (by its index in the torrent) before the
+                      others; repeatable
   --no-dht            stay out of the DHT (BEP 5), which is joined by default
 
 kachok serve [options]
@@ -160,6 +168,7 @@ kachok serve [options]
         var download = 0L
         var dht = true
         var allTrackers = false
+        val high = mutableSetOf<Int>()
 
         var index = 0
         while (index < arguments.size) {
@@ -203,6 +212,10 @@ kachok serve [options]
                     download = number(value(arguments, ++index, argument), argument).toLong() * BYTES_PER_KIB
                 }
 
+                "--high" -> {
+                    high += number(value(arguments, ++index, argument), argument)
+                }
+
                 else -> {
                     if (argument.startsWith("--")) throw UsageException("unknown option '$argument'")
                     if (source != null) throw UsageException("more than one torrent given")
@@ -226,6 +239,7 @@ kachok serve [options]
             seedAfterCompletion = seed,
             uploadLimit = upload,
             downloadLimit = download,
+            highFiles = high,
             dht = dht,
             announceToAllTrackers = allTrackers,
         )

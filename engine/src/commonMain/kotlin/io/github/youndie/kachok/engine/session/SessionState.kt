@@ -183,13 +183,33 @@ public class FileView(
     public val length: Long,
     public val verifiedBytes: Long,
     /**
-     * Whether this client is fetching it.
-     *
-     * Always true today; the setting that would make it false is
-     * [B-67](../../../../../../../../docs/backlog/B-67-per-file-selection.md).
+     * Whether this client is fetching it — `priority != SKIP`, kept as its own field because it
+     * is the question every reader of this asked before there were three answers
+     * ([B-67](../../../../../../../../docs/backlog/B-67-per-file-selection.md)).
      */
     public val wanted: Boolean = true,
+    /** Which pool the picker draws this file's pieces from; see [FilePriority]. */
+    public val priority: FilePriority = FilePriority.NORMAL,
 )
+
+/**
+ * How much a file matters, in three steps, which is one more than "wanted".
+ *
+ * **A tier reorders which pool the picker draws from; rarest-first still decides inside each.**
+ * That is the whole design ([B-106](../../../../../../../../docs/backlog/B-106-per-file-priority.md)):
+ * the picker's cost was measured rarest-first (research §1.2c) and a strict per-file order is
+ * strict sequential with a smaller scope — every peer asks for the same pieces and the client that
+ * does it finishes last, which is the argument B-65 already paid for. [HIGH] pieces are offered
+ * before the rest and the rarest of them first; [SKIP] is `unwantedFiles` under its real name.
+ *
+ * A piece that straddles two files takes the higher tier: one shared with a high file is high, one
+ * shared with a wanted file is fetched. The swarm serves pieces, not files.
+ */
+public enum class FilePriority {
+    SKIP,
+    NORMAL,
+    HIGH,
+}
 
 /**
  * One connected peer, as far as anything outside the engine is allowed to see it.
@@ -296,6 +316,21 @@ public sealed interface Command {
          * [B-89](../../../../../../../../docs/backlog/B-89-sequential-on-a-running-torrent.md).
          */
         public val sequential: Boolean? = null,
+    ) : Command
+
+    /**
+     * One file moves to another tier, on a running torrent.
+     *
+     * Like [Reconfigure.sequential] it changes what is chosen *next* and leaves what is in flight
+     * alone. Raising a file is cheap — its pieces become candidates. Lowering one *to* [FilePriority.SKIP]
+     * while its pieces are in flight is the half [B-67](../../../../../../../../docs/backlog/B-67-per-file-selection.md)
+     * left out and this leaves out too: the pieces already started finish, and the rest are not
+     * asked for. `left` and the file list are republished so the caller sees the new shape at once.
+     */
+    public class PrioritiseFile(
+        /** The file's index in the metainfo. */
+        public val file: Int,
+        public val priority: FilePriority,
     ) : Command
 
     /** Announce `stopped`, close the peers, flush, and finish. */

@@ -48,6 +48,7 @@ import io.github.youndie.kachok.engine.runtime.SetOptions
 import io.github.youndie.kachok.engine.runtime.TorrentRuntime
 import io.github.youndie.kachok.engine.runtime.TorrentSet
 import io.github.youndie.kachok.engine.runtime.fetchMetainfo
+import io.github.youndie.kachok.engine.session.FilePriority
 import io.github.youndie.kachok.engine.storage.FileSet
 import io.github.youndie.kachok.ui.add.AddTorrentState
 import io.github.youndie.kachok.ui.details.DetailsTab
@@ -83,6 +84,7 @@ import io.github.youndie.kachok.ui.session.openFile
 import io.github.youndie.kachok.ui.session.preferencesFile
 import io.github.youndie.kachok.ui.session.ratesOf
 import io.github.youndie.kachok.ui.session.rememberPaused
+import io.github.youndie.kachok.ui.session.rememberPriorities
 import io.github.youndie.kachok.ui.session.rememberSequential
 import io.github.youndie.kachok.ui.session.rememberTorrent
 import io.github.youndie.kachok.ui.session.rowOf
@@ -627,6 +629,7 @@ internal fun Client(
                     unwanted = stored.unwanted,
                     sequential = stored.sequential,
                     paused = stored.paused,
+                    high = stored.high,
                 )
             }
             initial?.let { path ->
@@ -670,6 +673,22 @@ internal fun Client(
                             // torrent, and one that does not survive a restart is one somebody has
                             // to take again every time (B-89).
                             rememberSequential(torrents, command.infoHash, command.on)
+                        }
+
+                        TorrentCommand.Kind.Priority -> {
+                            runtime.prioritise(command.file, command.priority)
+                            // Written down as well as sent, like the order: the sets are derived
+                            // from what the engine last reported *with this click applied*, rather
+                            // than awaited from the next sample, so a window closed a second after
+                            // the click still remembers it.
+                            val files = runtime.state.value.files
+                            val tierOf = { at: Int -> if (at == command.file) command.priority else files[at].priority }
+                            rememberPriorities(
+                                torrents,
+                                command.infoHash,
+                                unwanted = files.indices.filter { tierOf(it) == FilePriority.SKIP }.toSet(),
+                                high = files.indices.filter { tierOf(it) == FilePriority.HIGH }.toSet(),
+                            )
                         }
 
                         TorrentCommand.Kind.Announce -> {
@@ -1103,6 +1122,18 @@ internal fun Client(
                 commanded.trySend(TorrentCommand(it.state.infoHash.hex(), TorrentCommand.Kind.Sequential, on))
             }
         },
+        onFilePriority = { row, tier ->
+            chosenSample?.let {
+                commanded.trySend(
+                    TorrentCommand(
+                        it.state.infoHash.hex(),
+                        TorrentCommand.Kind.Priority,
+                        file = row.index,
+                        priority = tier,
+                    ),
+                )
+            }
+        },
         onShowDegraded = {
             degraded?.let { sample ->
                 selected = sample.state.infoHash.hex()
@@ -1230,10 +1261,13 @@ internal fun shortcutFor(
 private class TorrentCommand(
     val infoHash: String,
     val kind: Kind,
-    /** Only [Kind.Sequential] carries anything: which way the order is being switched. */
+    /** Only [Kind.Sequential] carries this: which way the order is being switched. */
     val on: Boolean = false,
+    /** Only [Kind.Priority] carries these: which file, and to which tier (B-106). */
+    val file: Int = -1,
+    val priority: FilePriority = FilePriority.NORMAL,
 ) {
-    enum class Kind { Pause, Resume, Recheck, Announce, Remove, RemoveWithData, Sequential }
+    enum class Kind { Pause, Resume, Recheck, Announce, Remove, RemoveWithData, Sequential, Priority }
 }
 
 /**
@@ -1273,8 +1307,10 @@ private suspend fun open(
      * it has and is not asking for the rest.
      */
     paused: Boolean = false,
+    /** Files fetched first, restored with the torrent (B-106); the add dialog has no tick for it. */
+    high: Set<Int> = emptySet(),
 ): TorrentRuntime =
-    set.add(metainfo, preferences.runtimeOptions(unwanted, sequential)).also {
+    set.add(metainfo, preferences.runtimeOptions(unwanted, sequential, high)).also {
         it.restore()
         it.start(scope, paused)
     }

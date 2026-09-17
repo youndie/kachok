@@ -104,6 +104,16 @@ public class PiecePicker(
      */
     private var unwanted: Bitfield? = null
 
+    /**
+     * Pieces to offer before every other, or null while no file is raised.
+     *
+     * **A pool and not an order.** Inside it the same rule decides — rarest first, or lowest first
+     * under [sequential] — and only when it is exhausted for a peer does the picker look at the
+     * rest. A piece here that is also in [unwanted] is unwanted; skip wins, because a file cannot
+     * be both not fetched and fetched first ([B-106](../../../../../../../../docs/backlog/B-106-per-file-priority.md)).
+     */
+    private var high: Bitfield? = null
+
     private var wantedPieces: Int = metainfo.pieceCount
 
     private var wantedHave: Int = 0
@@ -122,6 +132,31 @@ public class PiecePicker(
         unwanted = pieces
         wantedPieces = metainfo.pieceCount - pieces.cardinality
         wantedHave = (0 until metainfo.pieceCount).count { have[it] && !pieces[it] }
+    }
+
+    /**
+     * The whole priority picture at once — what to skip and what to take first — on a picker in any
+     * state, including one with pieces in flight.
+     *
+     * The difference from [skip] is the missing `check`, and it is deliberate: this is the call a
+     * running torrent gets when somebody changes their mind in the Files tab. **What is started is
+     * left alone** — [fillFromStarted] does not consult either set, so a piece begun before it was
+     * skipped still finishes, which is the only honest thing to do with blocks already on their way
+     * — and the two sets decide only what begins *next*. The counts that say when the torrent is
+     * complete are recomputed against the new skip set, so a file raised from skip makes a finished
+     * torrent unfinished again, as it should.
+     */
+    public fun prioritise(
+        skipped: Bitfield,
+        raised: Bitfield,
+    ) {
+        require(skipped.size == metainfo.pieceCount && raised.size == metainfo.pieceCount) {
+            "bitfields for ${skipped.size} and ${raised.size} pieces cannot prioritise a torrent of ${metainfo.pieceCount}"
+        }
+        unwanted = skipped.takeIf { it.cardinality > 0 }
+        high = raised.takeIf { it.cardinality > 0 }
+        wantedPieces = metainfo.pieceCount - skipped.cardinality
+        wantedHave = (0 until metainfo.pieceCount).count { have[it] && !skipped[it] }
     }
 
     /**
@@ -455,12 +490,28 @@ public class PiecePicker(
      * list-and-index version did with a list.
      */
     private fun rarestUnstarted(bitfield: Bitfield): Int? {
+        // Two passes and not one scoring: the raised pool first, and the rest only when it has
+        // nothing this peer can give. A single pass with a "priority" term in the comparison would
+        // be a fourth rule in a function whose three are already each doing a different job.
+        high?.let { pool -> pick(bitfield, within = pool)?.let { return it } }
+        return pick(bitfield, within = null)
+    }
+
+    /**
+     * The rarest (or, in order, the lowest) piece this peer has that is neither had nor started —
+     * restricted to [within] when a pool is given.
+     */
+    private fun pick(
+        bitfield: Bitfield,
+        within: Bitfield?,
+    ): Int? {
         // In order, and the first candidate wins — there is nothing to compare and no first-piece
         // randomisation to get past, because "the lowest one" is the whole rule.
         if (sequential) {
             for (index in 0 until metainfo.pieceCount) {
                 if (!bitfield[index] || have[index] || isStarted[index]) continue
                 if (unwanted?.get(index) == true) continue
+                if (within != null && !within[index]) continue
                 return index
             }
             return null
@@ -472,6 +523,7 @@ public class PiecePicker(
         for (index in 0 until metainfo.pieceCount) {
             if (!bitfield[index] || have[index] || isStarted[index]) continue
             if (unwanted?.get(index) == true) continue
+            if (within != null && !within[index]) continue
             seen++
             if (chooseAtRandom) {
                 if (random.nextInt(seen) == 0) best = index

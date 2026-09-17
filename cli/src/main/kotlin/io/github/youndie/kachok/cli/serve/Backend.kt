@@ -291,7 +291,7 @@ internal fun SessionState.onTheWire(): TorrentState =
         trackerError = trackerError,
         lastPeerError = lastPeerError,
         sessionError = sessionError,
-        files = files.map { FileState(it.path, it.length, it.verifiedBytes, it.wanted) },
+        files = files.map { FileState(it.path, it.length, it.verifiedBytes, it.wanted, it.priority.name.lowercase()) },
         peers =
             peers.map {
                 PeerState(it.address, it.client, it.choking, it.interested, it.downBytesPerSecond)

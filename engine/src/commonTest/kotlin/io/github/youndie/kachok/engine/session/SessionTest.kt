@@ -1224,6 +1224,7 @@ class SessionTest {
         config: SessionConfig = SessionConfig(maxStartedPieces = 4, pipelineDepth = 2, maxPeers = 10),
         random: kotlin.random.Random = kotlin.random.Random(1),
         unwantedFiles: Set<Int> = emptySet(),
+        highFiles: Set<Int> = emptySet(),
         sequential: Boolean = false,
     ) = Session(
         metainfo = metainfo,
@@ -1236,6 +1237,7 @@ class SessionTest {
         config = config,
         random = random,
         unwantedFiles = unwantedFiles,
+        highFiles = highFiles,
         sequential = sequential,
     ).also { sessions += it }
 
@@ -2717,4 +2719,85 @@ class SessionTest {
             )
         return MetainfoParser.parse(Bencode.encode(root))
     }
+
+    /**
+     * A file raised on a running session is asked for first, and the state says which tier it is in.
+     *
+     * The seam, as with the order (B-89): the picker's own tests know a pool can be raised and the
+     * panel's know the control asks; between them is a `Command.PrioritiseFile` branch that only
+     * this exercises ([B-106](../../../../../../../../docs/backlog/B-106-per-file-priority.md)).
+     * The request order is what a person sees as "that file moves first", so it is what is asserted,
+     * and the *state* is asserted because that is what the panel draws.
+     */
+    @Test
+    fun aFileRaisedOnARunningSessionIsAskedForFirst() =
+        runTest {
+            val metainfo = twoFileTorrent(pieces = 8)
+            val dialer = FakeDialer(metainfo.infoHash)
+            val session =
+                session(
+                    metainfo,
+                    dialer,
+                    FakeTracker(listOf(peerA)),
+                    FakeStorage(),
+                    AgreeableHasher(metainfo),
+                    config = SessionConfig(maxStartedPieces = 1, pipelineDepth = 1, maxPeers = 10),
+                )
+            session.restore(AgreeableHasher(metainfo))
+            val job = session.start(kotlinx.coroutines.CoroutineScope(coroutineContext + handler))
+            testScheduler.runCurrent()
+
+            session.send(Command.PrioritiseFile(1, FilePriority.HIGH))
+            testScheduler.runCurrent()
+            assertEquals(
+                listOf(FilePriority.NORMAL, FilePriority.HIGH),
+                session.state.value.files
+                    .map { it.priority },
+                "the tier did not reach the state, or took the other file with it",
+            )
+
+            val connection = dialer.connections.getValue(peerA)
+            connection.incoming.send(PeerEvent.Received(Message.Bitfield(allOf(metainfo.pieceCount))))
+            connection.incoming.send(PeerEvent.Received(Message.Unchoke))
+            testScheduler.runCurrent()
+
+            val first =
+                connection.sent
+                    .filterIsInstance<Message.Request>()
+                    .first()
+                    .piece
+                    .value
+            assertTrue(first >= metainfo.pieceCount / 2, "the first request ($first) was not for the raised file")
+
+            job.cancelAndJoin()
+        }
+
+    /** A file skipped on a running session leaves `left` and the file list, and does so at once. */
+    @Test
+    fun aFileSkippedOnARunningSessionStopsBeingOwed() =
+        runTest {
+            val metainfo = twoFileTorrent(pieces = 8)
+            val session =
+                session(
+                    metainfo,
+                    FakeDialer(metainfo.infoHash),
+                    FakeTracker(listOf(peerA)),
+                    FakeStorage(),
+                    AgreeableHasher(metainfo),
+                )
+            session.restore(AgreeableHasher(metainfo))
+            val job = session.start(kotlinx.coroutines.CoroutineScope(coroutineContext + handler))
+            testScheduler.runCurrent()
+            assertEquals(metainfo.totalLength, session.state.value.left)
+
+            session.send(Command.PrioritiseFile(0, FilePriority.SKIP))
+            testScheduler.runCurrent()
+
+            val state = session.state.value
+            assertEquals(metainfo.totalLength / 2, state.left, "`left` still counts the skipped file")
+            assertFalse(state.files[0].wanted, "the skipped file still reads as wanted")
+            assertEquals(FilePriority.SKIP, state.files[0].priority)
+
+            job.cancelAndJoin()
+        }
 }

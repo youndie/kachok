@@ -14,6 +14,7 @@ import io.github.youndie.kachok.engine.metainfo.Metainfo
 import io.github.youndie.kachok.engine.peer.PeerAddress
 import io.github.youndie.kachok.engine.resume.FileResumeStore
 import io.github.youndie.kachok.engine.session.Command
+import io.github.youndie.kachok.engine.session.FilePriority
 import io.github.youndie.kachok.engine.session.Session
 import io.github.youndie.kachok.engine.session.SessionConfig
 import io.github.youndie.kachok.engine.session.SessionState
@@ -47,10 +48,12 @@ public class RuntimeOptions(
     /**
      * Files this client will not fetch, by their index in the metainfo.
      *
-     * Decided when the torrent is added and never after: changing it while a torrent runs needs the
-     * picker to give back pieces it has started, which is the item's own not-covered case.
+     * The opening picture; [TorrentRuntime.prioritise] moves one file at a time afterwards
+     * ([B-106](../../../../../../../../docs/backlog/B-106-per-file-priority.md)).
      */
     public val unwantedFiles: Set<Int> = emptySet(),
+    /** Files fetched before the others, by index. Same lifetime as [unwantedFiles]. */
+    public val highFiles: Set<Int> = emptySet(),
     /** Ask for pieces in order rather than rarest first. Slower, and a worse swarm member. */
     public val sequential: Boolean = false,
 ) {
@@ -180,6 +183,17 @@ public class TorrentRuntime internal constructor(
     public suspend fun sequential(inOrder: Boolean): Unit = session.send(Command.Reconfigure(sequential = inOrder))
 
     /**
+     * One file to another tier, on the running torrent.
+     *
+     * Its own call for the same reason [sequential] is: a decision about one file of one torrent,
+     * never a setting ([B-106](../../../../../../../../docs/backlog/B-106-per-file-priority.md)).
+     */
+    public suspend fun prioritise(
+        file: Int,
+        priority: FilePriority,
+    ): Unit = session.send(Command.PrioritiseFile(file, priority))
+
+    /**
      * New values for the settings that can change under a running torrent.
      *
      * Everything else in [RuntimeOptions] is decided when the torrent is opened: the directory is
@@ -278,6 +292,7 @@ public class TorrentRuntime internal constructor(
                             downloadLimitBytesPerSecond = options.downloadLimitBytesPerSecond,
                         ),
                     unwantedFiles = options.unwantedFiles,
+                    highFiles = options.highFiles,
                     sequential = options.sequential,
                 )
             return TorrentRuntime(

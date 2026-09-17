@@ -150,6 +150,7 @@ class Download(
                         uploadLimitBytesPerSecond = options.uploadLimit,
                         downloadLimitBytesPerSecond = options.downloadLimit,
                         announceToAllTrackers = options.announceToAllTrackers,
+                        highFiles = options.highFiles,
                     ),
                 onResumeFailure = { err.appendLine("kachok: $it") },
             )

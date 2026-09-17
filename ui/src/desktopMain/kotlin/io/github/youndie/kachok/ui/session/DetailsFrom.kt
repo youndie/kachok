@@ -220,6 +220,8 @@ private fun filesOf(
             // By position, because that is the order the `FileSet` opened them in and the order
             // the metainfo lists them in. A shorter list means the metainfo has not arrived.
             path = paths.getOrNull(at),
+            priority = file.priority,
+            index = at,
         )
     }
 

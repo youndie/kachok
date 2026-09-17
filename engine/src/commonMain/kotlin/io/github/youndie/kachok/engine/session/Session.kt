@@ -23,6 +23,7 @@ import io.github.youndie.kachok.engine.storage.BlockWriter
 import io.github.youndie.kachok.engine.storage.PieceHasher
 import io.github.youndie.kachok.engine.storage.PieceOutcome
 import io.github.youndie.kachok.engine.storage.Storage
+import io.github.youndie.kachok.engine.storage.piecesOf
 import io.github.youndie.kachok.engine.storage.unwantedPieces
 import io.github.youndie.kachok.engine.storage.verifiedBytesPerFile
 import io.github.youndie.kachok.engine.storage.wantedBytes
@@ -116,11 +117,37 @@ public class Session(
      * belongs to an unwanted file — and everything else follows: what is announced as `left`, what
      * counts as complete, and what the *Files* tab draws a tick against.
      */
-    private val unwantedFiles: Set<Int> = emptySet(),
-    /** Ask for pieces in order. Decided when the torrent is opened, like [unwantedFiles]. */
+    unwantedFiles: Set<Int> = emptySet(),
+    /**
+     * Files whose pieces are asked for before every other's, by index
+     * ([B-106](../../../../../../../../docs/backlog/B-106-per-file-priority.md)).
+     *
+     * Both this and [unwantedFiles] are the *opening* picture; [Command.PrioritiseFile] changes
+     * either while the torrent runs, which is why neither is a `val` inside.
+     */
+    highFiles: Set<Int> = emptySet(),
+    /** Ask for pieces in order. Decided when the torrent is opened; [Command.Reconfigure] changes it. */
     private val sequential: Boolean = false,
 ) {
     private val picker = PiecePicker(metainfo, config.maxStartedPieces, random, sequential)
+
+    /** Which files are not fetched, and which are fetched first. Sets, because a command moves one file at a time. */
+    private val skipped: MutableSet<Int> = unwantedFiles.toMutableSet()
+    private val raised: MutableSet<Int> = highFiles.toMutableSet()
+
+    private fun priorityOf(file: Int): FilePriority =
+        when (file) {
+            in skipped -> FilePriority.SKIP
+            in raised -> FilePriority.HIGH
+            else -> FilePriority.NORMAL
+        }
+
+    /** Hands the picker the two pools, derived from the file sets and the piece boundaries. */
+    private fun applyPriorities() {
+        if (skipped.isEmpty() && raised.isEmpty()) return
+        picker.prioritise(unwantedPieces(metainfo, skipped), piecesOf(metainfo, raised))
+    }
+
     private val choker = Choker(config.maxUnchoked, random = random)
     private val writer = BlockWriter(metainfo, hasher, storage)
     private val commands = Channel<Command>(Channel.BUFFERED)
@@ -266,9 +293,9 @@ public class Session(
         record: ResumeRecord?,
         hasher: PieceHasher,
     ) {
-        // Before the restore, and every time: `skip` refuses a picker that has begun a piece, and
-        // `forget` has just emptied it, so a re-check re-applies the same set rather than losing it.
-        if (unwantedFiles.isNotEmpty()) picker.skip(unwantedPieces(metainfo, unwantedFiles))
+        // Before the restore, and every time: `forget` has just emptied the picker, so a re-check
+        // re-applies the same sets rather than losing them.
+        applyPriorities()
         val verified =
             StartupVerifier(metainfo, storage, hasher).verify(record) { checked, total ->
                 publish { it.copy(verifiedPieces = checked, verifyingOf = total) }
@@ -280,7 +307,7 @@ public class Session(
                 .sumOf { metainfo.pieceLengthAt(PieceIndex(it)).toLong() }
         // BEP 3's `left` is what this client still needs, and it does not need the files it is
         // skipping. With nothing skipped this is the torrent's own length, as before.
-        val wanted = wantedBytes(metainfo, unwantedFiles)
+        val wanted = wantedBytes(metainfo, skipped)
         publish {
             it.copy(
                 completedPieces = verified.cardinality,
@@ -383,6 +410,32 @@ public class Session(
 
                 Command.Recheck -> {
                     recheck(scope)
+                }
+
+                is Command.PrioritiseFile -> {
+                    if (command.file in metainfo.files.indices) {
+                        skipped -= command.file
+                        raised -= command.file
+                        when (command.priority) {
+                            FilePriority.SKIP -> skipped += command.file
+                            FilePriority.HIGH -> raised += command.file
+                            FilePriority.NORMAL -> Unit
+                        }
+                        // The picker may hold pieces in flight, and `prioritise` is the call that
+                        // allows that: what is started finishes, what begins next follows the new
+                        // sets. `left` follows the skip set the way it did at start-up, so a file
+                        // taken off the list stops being counted as owed.
+                        applyPriorities()
+                        publish {
+                            it.copy(
+                                left = (wantedBytes(metainfo, skipped) - it.downloaded).coerceAtLeast(0),
+                                isComplete = picker.isComplete,
+                                files = fileViews(),
+                            )
+                        }
+                        // A raised file is a reason to ask now, not on the next block that lands.
+                        connected.snapshot().forEach { requestMore(it) }
+                    }
                 }
 
                 is Command.Reconfigure -> {
@@ -1652,7 +1705,8 @@ public class Session(
                 path = file.path.joinToString("/"),
                 length = file.length,
                 verifiedBytes = verified[at],
-                wanted = at !in unwantedFiles,
+                wanted = at !in skipped,
+                priority = priorityOf(at),
             )
         }
     }
