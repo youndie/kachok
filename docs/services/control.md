@@ -134,9 +134,11 @@ answer as its default, so a test never writes into the developer's own.
 * **The read timeout is cleared for `mcp` and not for `open`.** Two seconds is right for a launch
   handing over a path and wrong for a session that sits idle between tool calls. Zero means "until
   the other end closes", which is what the pipe an attached session stands in for does.
-* **The mode word is new, and an older client running against a newer launch will not know it.**
-  It hangs up, the launch sees the socket close and takes its own path — a torrent opens a second
-  window rather than being lost. Both halves ship together, so this is a window that has been up
-  across an upgrade.
+* **The mode word is new, and an older client does not know it — it reads it as a path.** Before
+  B-117 everything after the acknowledgement was a path, so a client that has been running across
+  an upgrade takes `open` or `mcp` for one and tries to open a torrent by that name, which fails
+  where the file does not exist. The newer side is not left hanging: `kachok mcp` waits two seconds
+  for `kachok/mcp`, does not get it, and builds an engine of its own. A window that has been up
+  across an upgrade is the only place this happens, and restarting it is the whole fix.
 * **`agents` is cleared before the set is closed, not after.** An agent connecting in between is
   told there is no engine, which is true, rather than handed one that is being torn down.
