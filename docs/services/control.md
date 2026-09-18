@@ -143,6 +143,12 @@ answer as its default, so a test never writes into the developer's own.
   across an upgrade is the only place this happens, and restarting it is the whole fix.
 * **`agents` is cleared before the set is closed, not after.** An agent connecting in between is
   told there is no engine, which is true, rather than handed one that is being torn down.
+* **A goodbye is drained on both sides, and the two waits are one number.** `initialize` is answered
+  inside `receive` and is already written when the pipe closes; a `tools/call` is answered from the
+  engine's threads and is not. So the client waits for the calls it still owes before letting the
+  socket go (`McpServer.finish`), and the spawned process waits for those answers to arrive. A tool
+  call runs on a scope of the session's own — **a torrent does not**, and goes on downloading after
+  the session that asked for it has gone, which is the point of attaching to a running client.
 * **An agent's stdin reaching EOF half-closes the relay's socket; it does not close it.** Goodbye
   and *"I am no longer owed anything"* are different statements, and an agent that closes its pipe
   straight after a request is still owed that answer — the client is mid-call on its own threads and

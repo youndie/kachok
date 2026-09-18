@@ -160,9 +160,13 @@ public class SingleInstance private constructor(
         out.write("$READY\n".encodeToByteArray())
         out.flush()
         while (true) {
-            val line = reader.readLine() ?: return
+            val line = reader.readLine() ?: break
             if (line.isNotBlank()) server.receive(line)
         }
+        // The agent's end has gone, and a `tools/call` is answered from the engine's threads: what
+        // it is still owed is written into the socket here, before this thread returns and `use`
+        // closes it. The torrents it started are not waited for and do not stop.
+        server.finish(GOODBYE_MILLIS)
     }
 
     override fun close() {
@@ -332,6 +336,16 @@ public class SingleInstance private constructor(
 
         /** The client is running but has no engine yet. */
         private const val UNAVAILABLE = "kachok/no-engine"
+
+        /**
+         * How long a departing agent's owed answers are waited for.
+         *
+         * One number for the three places that wait: the client draining its calls, the socket's
+         * two ends letting each other finish, and a spawned `kachok mcp` doing the same on a pipe.
+         * They are one goodbye seen from three sides, and three numbers would be three answers to
+         * how long it lasts.
+         */
+        public const val GOODBYE_MILLIS: Long = 10_000L
         private const val CONNECT_TIMEOUT_MILLIS = 500
         private const val HANDOVER_TIMEOUT_MILLIS = 2_000
         private const val BACKLOG = 4
@@ -404,7 +418,7 @@ public class McpRelay internal constructor(
         }
         // Bounded, because the wait is for politeness and not for correctness: a client that
         // neither answers nor closes must not keep a process alive after its agent has gone.
-        answers.join(GOODBYE_MILLIS)
+        answers.join(SingleInstance.GOODBYE_MILLIS)
         closeQuietly()
     }
 
@@ -426,10 +440,5 @@ public class McpRelay internal constructor(
 
     override fun close() {
         closeQuietly()
-    }
-
-    private companion object {
-        /** How long a departing agent's owed answers are waited for. */
-        const val GOODBYE_MILLIS = 10_000L
     }
 }

@@ -15,8 +15,14 @@ import io.github.youndie.kachok.engine.session.FilePriority
 import io.github.youndie.kachok.engine.session.SessionState
 import io.github.youndie.kachok.wire.Snapshot
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.job
+import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
@@ -80,8 +86,43 @@ public class McpServer(
     private val writing = Any()
 
     /**
+     * Where a tool call runs, and **not** where a torrent runs.
+     *
+     * A call belongs to the session that asked for it: when the agent goes, the answers it is owed
+     * are the only thing left to finish, and [finish] waits for exactly these. A torrent is the
+     * opposite — `runtime.start(scope)` and the magnet fetch stay on the caller's [scope], because
+     * a download must outlive the conversation that started it, which is the whole point of
+     * attaching to a running client.
+     *
+     * A supervisor, so one refused call does not take the session's other calls with it.
+     */
+    private val calls = CoroutineScope(scope.coroutineContext + SupervisorJob(scope.coroutineContext[Job]))
+
+    /**
+     * Waits for the calls already asked for to answer, then takes no more.
+     *
+     * The agent's pipe closing means it is leaving, not that it is owed nothing: a `tools/call` is
+     * answered from the engine's threads, so a session torn down the moment its input ends loses
+     * the answer to the last thing it was asked. Bounded, because this is politeness and not
+     * correctness, and a call that will not finish must not hold a departing session open.
+     *
+     * Torrents are untouched. They were started on the caller's scope and go on downloading.
+     */
+    public fun finish(millis: Long) {
+        runBlocking {
+            withTimeoutOrNull(millis) {
+                calls.coroutineContext.job
+                    .children
+                    .toList()
+                    .joinAll()
+            }
+        }
+        calls.cancel()
+    }
+
+    /**
      * One line from the client. A request gets exactly one reply — at once for the cheap methods,
-     * from the engine's scope for a tool call — and a notification gets none.
+     * from the session's own scope for a tool call — and a notification gets none.
      */
     public fun receive(line: String) {
         val message =
@@ -132,7 +173,7 @@ public class McpServer(
             }
 
             "tools/call" -> {
-                scope.launch { send(call(id, params)) }
+                calls.launch { send(call(id, params)) }
             }
 
             else -> {

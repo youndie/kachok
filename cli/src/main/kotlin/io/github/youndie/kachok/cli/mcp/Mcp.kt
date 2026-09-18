@@ -107,6 +107,10 @@ internal object Mcp {
                     input.bufferedReader().useLines { lines ->
                         lines.forEach { line -> if (line.isNotBlank()) server.receive(line) }
                     }
+                    // Stdin closing means the agent is leaving, not that it is owed nothing: the
+                    // answer to the last `tools/call` is still on its way from the engine's
+                    // threads, and the engine is stopped in the `finally` below.
+                    server.finish(SingleInstance.GOODBYE_MILLIS)
                 }
                 EXIT_OK
             } finally {
