@@ -28,9 +28,11 @@ import io.github.youndie.kachok.engine.tracker.TrackerProtocol
 import io.github.youndie.kachok.engine.tracker.UdpTrackerClient
 import io.github.youndie.kachok.engine.wire.Handshake
 import io.github.youndie.kachok.engine.wire.PeerWire
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.withContext
 import java.net.BindException
 import java.nio.file.Files
 import java.nio.file.Path
@@ -103,6 +105,15 @@ public class TorrentRuntime internal constructor(
      */
     internal val blocks: BlockSource,
     /**
+     * The engine's own I/O dispatcher, and the reason [restore] has one at all.
+     *
+     * A suspend function that reads and hashes a hundred gigabytes on whatever thread called it is
+     * a suspend function only in its signature. The window calls this one from the composition,
+     * which on the desktop is the AWT event thread
+     * ([B-115](../../../../../../../../docs/backlog/B-115-the-startup-check-runs-on-the-window-s-thread.md)).
+     */
+    private val io: CoroutineDispatcher,
+    /**
      * Where this torrent saves, which since B-81 is not always where the settings say.
      *
      * A restored torrent keeps the folder it was added with, and the add dialog could always send
@@ -130,7 +141,7 @@ public class TorrentRuntime internal constructor(
      * A client that announced itself and then discovered it already had half the torrent would
      * have asked the swarm for it first.
      */
-    public suspend fun restore(): Unit = session.restore(hasher)
+    public suspend fun restore(): Unit = withContext(io) { session.restore(hasher) }
 
     /**
      * Starts the session in [scope].
@@ -316,6 +327,7 @@ public class TorrentRuntime internal constructor(
                 reserved = reserved,
                 listenPort = port,
                 blocks = storage,
+                io = dispatchers.io,
             )
         }
 
