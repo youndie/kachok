@@ -1,7 +1,7 @@
-package io.github.youndie.kachok.cli.mcp
+package io.github.youndie.kachok.control.mcp
 
-import io.github.youndie.kachok.cli.serve.onTheWire
-import io.github.youndie.kachok.cli.serve.snapshot
+import io.github.youndie.kachok.control.onTheWire
+import io.github.youndie.kachok.control.snapshot
 import io.github.youndie.kachok.engine.hex
 import io.github.youndie.kachok.engine.io.EngineDispatchers
 import io.github.youndie.kachok.engine.metainfo.MagnetParser
@@ -62,7 +62,7 @@ import kotlin.time.Duration.Companion.seconds
  * disconnects with "invalid JSON"; every human-readable word goes to stderr. Frames are written
  * under one lock because tool calls finish on the engine's threads in whatever order they finish.
  */
-internal class McpServer(
+public class McpServer(
     private val set: TorrentSet,
     private val scope: CoroutineScope,
     /** Where a torrent is saved when the tool call names nowhere. */
@@ -83,7 +83,7 @@ internal class McpServer(
      * One line from the client. A request gets exactly one reply — at once for the cheap methods,
      * from the engine's scope for a tool call — and a notification gets none.
      */
-    fun receive(line: String) {
+    public fun receive(line: String) {
         val message =
             try {
                 json.parseToJsonElement(line).jsonObject

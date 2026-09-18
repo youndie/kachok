@@ -1,4 +1,4 @@
-package io.github.youndie.kachok.ui.session
+package io.github.youndie.kachok.control
 
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.runBlocking

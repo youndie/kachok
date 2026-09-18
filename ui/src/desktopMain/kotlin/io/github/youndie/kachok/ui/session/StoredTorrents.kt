@@ -1,5 +1,6 @@
 package io.github.youndie.kachok.ui.session
 
+import io.github.youndie.kachok.control.configDirectory
 import io.github.youndie.kachok.engine.hex
 import io.github.youndie.kachok.engine.metainfo.Metainfo
 import io.github.youndie.kachok.engine.metainfo.MetainfoParser

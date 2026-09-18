@@ -68,6 +68,12 @@ include(":ui")
 // it and must not drag the engine — which has sockets in it — into a target that has none.
 include(":wire")
 
+// The ways in that are not a window and not a command line: the loopback socket one launch uses to
+// reach the client another launch already started, and the MCP server an agent drives over it. Its
+// own module because after B-117 both surfaces need both halves, and `:ui` may not depend on
+// `:cli` — the UI is meant to replace that module, not consume it.
+include(":control")
+
 // A tracker and a seeding peer on localhost, so that both surfaces are tested end to end against
 // the same fake instead of against one each. Test-only: nothing publishes it.
 include(":swarm")

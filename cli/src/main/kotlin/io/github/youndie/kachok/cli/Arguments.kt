@@ -115,9 +115,18 @@ kachok mcp [options]
   agent runtime that launched this process and holds both ends of the pipe.
   Nothing else is written to stdout; diagnostics go to stderr.
 
+  If a kachok is already running on this machine - a window, usually - the
+  frames go to its engine and its answers come back, so the agent and the
+  person are looking at one torrent list. With none running, this process is
+  the engine, and stopping it is the pipe closing.
+
+  --standalone        build an engine here even if a client is already running
   --dir <path>        where to write (default: the working directory)
   --port <n>          peer listening port (default: the first free of 6881-6889)
-  --no-dht            stay out of the DHT (BEP 5), which is joined by default"""
+  --no-dht            stay out of the DHT (BEP 5), which is joined by default
+
+  The last three are the engine's: attached to a running client they are named
+  on stderr as ignored, because that client decided them when it started."""
 
     /**
      * `serve`'s options.
@@ -172,19 +181,31 @@ kachok mcp [options]
         var directory = Path.of(".")
         var peerPort: Int? = null
         var dht = true
+        var standalone = false
+        // The three that are the engine's, remembered as they were spelled: attached to a running
+        // client this command builds no engine, so these are words it has to say it is ignoring
+        // rather than settings it can apply (B-117).
+        val engineOptions = linkedSetOf<String>()
         var index = 0
         while (index < arguments.size) {
             when (val argument = arguments[index]) {
                 "--dir" -> {
                     directory = Path.of(value(arguments, ++index, argument))
+                    engineOptions += argument
                 }
 
                 "--port" -> {
                     peerPort = number(value(arguments, ++index, argument), argument)
+                    engineOptions += argument
                 }
 
                 "--no-dht" -> {
                     dht = false
+                    engineOptions += argument
+                }
+
+                "--standalone" -> {
+                    standalone = true
                 }
 
                 else -> {
@@ -193,7 +214,14 @@ kachok mcp [options]
             }
             index++
         }
-        return McpOptions(directory, peerPort, dht)
+        return McpOptions(
+            directory = directory,
+            peerPort = peerPort,
+            dht = dht,
+            standalone = standalone,
+            // Nothing is overridden when this process is the one building the engine.
+            overridden = if (standalone) emptySet() else engineOptions,
+        )
     }
 
     fun parseDownload(arguments: List<String>): DownloadOptions {

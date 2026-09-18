@@ -1,6 +1,6 @@
 package io.github.youndie.kachok.ui
 
-import io.github.youndie.kachok.ui.session.configDirectory
+import io.github.youndie.kachok.control.configDirectory
 import java.nio.file.Files
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest

@@ -95,8 +95,9 @@ Surviving:
 Watching it happen:
 - [x] [feature-ui](features/feature-ui.md) — the desktop window on the design's screens, built on one rule: it may not say more than the engine knows
 
-### Services (3/3)
+### Services (4/4)
 
 - [x] [engine](services/engine.md) — the multiplatform engine: one dispatcher on virtual threads, a pool of 16 KiB direct buffers, one writer; today three value classes and the layout the backlog builds
 - [x] [cli](services/cli.md) — the headless client: argument parsing, the JVM flags, the phase-1 distribution; today a skeleton that exits with code 2
 - [x] [ui](services/ui.md) — the phase-2 desktop window on the same engine: the design's nine columns, seven states and four bars, with goldens compared against the design itself
+- [x] [control](services/control.md) — the ways in that are not a window: the single-instance lock, and the MCP server an agent drives over it from whichever process is holding the engine

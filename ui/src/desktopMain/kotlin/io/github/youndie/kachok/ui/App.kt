@@ -37,6 +37,9 @@ import androidx.compose.ui.window.rememberTrayState
 import androidx.compose.ui.window.rememberWindowState
 import io.github.youndie.appframe.AppFrame
 import io.github.youndie.appframe.TitleBarStyle
+import io.github.youndie.kachok.control.SingleInstance
+import io.github.youndie.kachok.control.configDirectory
+import io.github.youndie.kachok.control.mcp.McpServer
 import io.github.youndie.kachok.engine.hex
 import io.github.youndie.kachok.engine.io.EngineDispatchers
 import io.github.youndie.kachok.engine.metainfo.MagnetLink
@@ -66,14 +69,12 @@ import io.github.youndie.kachok.ui.session.Lifecycle
 import io.github.youndie.kachok.ui.session.Preferences
 import io.github.youndie.kachok.ui.session.Rates
 import io.github.youndie.kachok.ui.session.Sample
-import io.github.youndie.kachok.ui.session.SingleInstance
 import io.github.youndie.kachok.ui.session.StoredTorrent
 import io.github.youndie.kachok.ui.session.addFrom
 import io.github.youndie.kachok.ui.session.autostartFor
 import io.github.youndie.kachok.ui.session.brokenRow
 import io.github.youndie.kachok.ui.session.chooseDirectory
 import io.github.youndie.kachok.ui.session.clicked
-import io.github.youndie.kachok.ui.session.configDirectory
 import io.github.youndie.kachok.ui.session.detailsOf
 import io.github.youndie.kachok.ui.session.forgetTorrent
 import io.github.youndie.kachok.ui.session.inOrder
@@ -347,6 +348,7 @@ private fun run(args: Array<String>) {
                         torrent,
                         directory,
                         opened = instance.opened,
+                        agents = { instance.agents = it },
                         stopping = closing,
                         onStopped = ::exitApplication,
                         shortcut = shortcut,
@@ -455,6 +457,16 @@ internal fun Client(
      * at all ([B-84](../../../../../../../docs/backlog/B-84-torrent-files-open-with-the-client.md)).
      */
     opened: ReceiveChannel<Path>? = null,
+    /**
+     * Where an agent's MCP sessions are registered, once this window has an engine to give them
+     * ([B-117](../../../../../../../docs/backlog/B-117-one-client-for-the-window-and-the-agent.md)).
+     *
+     * A parameter and not a reach for the lock, for the same reason [settingsFile] is one: a test
+     * that registered itself on the real socket would hand whatever agent is running on this
+     * machine a window that is about to be torn down. Null in a test, and in a window that could
+     * not bind the lock at all.
+     */
+    agents: ((SingleInstance.McpSessions?) -> Unit)? = null,
     /**
      * What the settings say, reported up as they change.
      *
@@ -614,6 +626,15 @@ internal fun Client(
                 scope = scope,
                 options = SetOptions(dht = chosenPreferences.dht),
             )
+        // **An agent drives this engine, not one of its own** (B-117). Registered here and not in
+        // `main`, because the set is built on this effect: a socket that answered before there was
+        // one would hand an agent a client whose torrent list is empty and whose `add_torrent` has
+        // nowhere to go. One server per connected agent, each writing back down its own socket.
+        agents?.invoke(
+            SingleInstance.McpSessions { write ->
+                McpServer(set, scope, Path.of(chosenPreferences.directory), dispatchers, write)
+            },
+        )
         try {
             // **The remembered list first, the command line second.** A torrent named in `argv[0]`
             // that the client already has is not a second torrent; opening it again would be
@@ -852,6 +873,9 @@ internal fun Client(
                 }
             }
         } finally {
+            // Before the set is closed, not after: an agent that connects in between is told there
+            // is no engine, which is true, rather than handed one that is being torn down.
+            agents?.invoke(null)
             set.close()
             dispatchers.close()
             onStopped()
