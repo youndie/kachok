@@ -316,11 +316,21 @@ class AttachTest {
                     """"clientInfo":{"name":"t","version":"0"}}}"""
             toServer.write(initialize.toByteArray())
             toServer.write('\n'.code)
-            // Goodbye with the answer still owed, which is the whole test.
+            // A tool call, which is answered from the engine's threads rather than in `receive` —
+            // the half of this that `initialize` alone cannot show, because a frame built on the
+            // spot is already written by the time the pipe closes.
+            val listTorrents =
+                """{"jsonrpc":"2.0","id":2,"method":"tools/call",""" +
+                    """"params":{"name":"list_torrents","arguments":{}}}"""
+            toServer.write(listTorrents.toByteArray())
+            toServer.write('\n'.code)
+            // Goodbye with both answers still owed, which is the whole test.
             toServer.close()
 
             val reply = frames.reply(1)
             assertNotNull(reply["result"]?.jsonObject, "the answer went with the pipe: $reply")
+            val call = frames.reply(2)
+            assertNotNull(call["result"]?.jsonObject, "the tool call's answer went with the pipe: $call")
             server.join(JOIN_MILLIS)
             assertEquals(Mcp.EXIT_OK, exit, "the server did not exit cleanly; it said: $diagnostics")
         }
