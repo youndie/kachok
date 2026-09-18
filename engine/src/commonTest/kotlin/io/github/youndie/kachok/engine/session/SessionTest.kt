@@ -3180,6 +3180,49 @@ class SessionTest {
             job.cancelAndJoin()
         }
 
+    /**
+     * A dial that lands after the session has stopped is closed, and not registered into the map
+     * the shutdown has just emptied.
+     *
+     * Found by B-100: an encrypted dial is two round trips and, against a peer that will not have
+     * it, a timeout and a second dial — so the window between "the stop closed everything" and
+     * "this dial finished" grew from milliseconds to seconds. What landed in it was a connection
+     * with a reader parked on a socket nobody would ever close, and a client that printed
+     * `stopping` and then sat there: on the JVM that is a virtual thread inside a blocking read,
+     * which no cancellation can reach.
+     */
+    @Test
+    fun aDialThatLandsAfterTheStopIsClosedRatherThanKept() =
+        runTest {
+            val metainfo = torrent(pieces = 4)
+            val landing = kotlinx.coroutines.CompletableDeferred<Unit>()
+            val late = FakeConnection(peerA, metainfo.infoHash)
+            val slow =
+                object : PeerDialer {
+                    override suspend fun connect(address: PeerAddress): PeerConnection {
+                        // Uncancellable on purpose: a real dial is a socket and a handshake, and
+                        // the cancellation lands when it is *finished* — which is the case that
+                        // loses the connection.
+                        kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) { landing.await() }
+                        return late
+                    }
+                }
+            val session =
+                session(metainfo, slow, FakeTracker(listOf(peerA)), FakeStorage(), AgreeableHasher(metainfo))
+            val job = session.start(kotlinx.coroutines.CoroutineScope(coroutineContext + handler))
+            testScheduler.runCurrent()
+
+            session.send(Command.Stop)
+            testScheduler.runCurrent()
+            // And only now does the dial come back, with nothing left to give it to.
+            landing.complete(Unit)
+            testScheduler.runCurrent()
+
+            assertEquals(1, late.closes, "the connection that arrived after the stop was kept open")
+            assertEquals(0, session.state.value.connectedPeers)
+            job.join()
+        }
+
     /** And the cheapest case of the same rule: a peer offering this session's own id is this session. */
     @Test
     fun aConnectionOfferingOurOwnIdIsClosedAsOurselves() =

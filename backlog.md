@@ -48,24 +48,22 @@ which is also the order of work.
 
 <!-- BEGIN INDEX -->
 
-## Open (12)
+## Open (10)
 
 | Task | | Priority | Size | Blocked by |
 |---|---|---|---|---|
-| [B-100](docs/backlog/B-100-protocol-encryption.md) `[~]` | Protocol encryption (MSE/PE): the peers that will not talk in the clear | P2 | L | B-98 |
 | [B-107](docs/backlog/B-107-dropping-a-torrent-does-nothing-on-macos.md) `[~]` | Dropping a .torrent on the window does nothing on macOS | P2 | M | - |
 | [B-116](docs/backlog/B-116-a-torrent-whose-name-is-not-ascii-cannot-be-opened-on-windows.md) `[ ]` | A `.torrent` whose name is not ASCII cannot be opened on Windows: the launcher hands the path over as question marks | P2 | S | - |
 | [B-79](docs/backlog/B-79-the-windows-state-outlives-its-composition.md) `[ ]` | The window's state outlives its composition | P2 | L | - |
 | [B-80](docs/backlog/B-80-the-ui-moves-to-commonmain.md) `[ ]` | The UI moves to commonMain | P2 | L | B-79 |
 | [B-93](docs/backlog/B-93-opening-a-downloaded-executable.md) `[ ]` | Double-clicking a downloaded executable, and the warning Windows never gets to show | P2 | M | - |
-| [B-113](docs/backlog/B-113-shutdowntest-interrupts-a-download-that-has-already-finished.md) `[ ]` | `ShutdownTest` can interrupt a download that has already finished, and then finds no record | P3 | S | - |
 | [B-37](docs/backlog/B-37-v2-and-hybrid-torrents.md) `[?]` | v2 and hybrid torrents (BEP 52): SHA-256 piece layers | P3 | L | B-04 |
 | [B-40](docs/backlog/B-40-wasmjs-ui-is-a-client-of-the-headless-engine.md) `[ ]` | The browser build of the UI is a client of the headless engine | P3 | L | B-80 |
 | [B-41](docs/backlog/B-41-android-and-ios-targets.md) `[ ]` | Phase 3: Android and iOS targets on the engine | P3 | XL | B-39 |
 | [B-87](docs/backlog/B-87-a-server-with-a-web-face.md) `[ ]` | Phase 3: a headless server with a web face, installable on a box that is always on | P3 | XL | B-80 |
 | [B-02](docs/backlog/B-02-ci-runs-build-and-docs-gates.md) `[ ]` | CI runs the build and the documentation gates on every push | infra | S | B-01 |
 
-## Closed (105)
+## Closed (107)
 
 **M0 — The build and its gates**
 
@@ -138,12 +136,14 @@ which is also the order of work.
 
 **M9 — Meeting the swarm**
 
+- [B-100](docs/backlog/B-100-protocol-encryption.md) `[x]` - Protocol encryption (MSE/PE): the peers that will not talk in the clear
 - [B-101](docs/backlog/B-101-utp-transport.md) `[x]` - µTP (BEP 29): the transport this client cannot be reached on
 - [B-102](docs/backlog/B-102-local-service-discovery.md) `[x]` - Local service discovery (BEP 14): the peers on the same network are never found
 - [B-103](docs/backlog/B-103-upnp-and-nat-pmp-port-mapping.md) `[x]` - Port mapping (UPnP IGD, NAT-PMP/PCP): reopening B-09's rejection, because the reason given was a dependency
 - [B-105](docs/backlog/B-105-connections-are-made-and-not-kept.md) `[x]` - Three hundred handshakes, twenty-two peers held — and the client asks nineteen of them for nothing
 - [B-111](docs/backlog/B-111-two-connections-to-the-same-peer.md) `[x]` - Two connections to the same peer: nothing drops the second, and endgame asks it for everything again
 - [B-112](docs/backlog/B-112-a-peer-interested-for-seconds-is-never-unchoked.md) `[-]` - A peer interested for a few seconds is never unchoked: the choke pass is the only place an unchoke happens
+- [B-113](docs/backlog/B-113-shutdowntest-interrupts-a-download-that-has-already-finished.md) `[x]` - `ShutdownTest` can interrupt a download that has already finished, and then finds no record
 - [B-114](docs/backlog/B-114-a-peer-that-stops-reading-stops-the-whole-session.md) `[x]` - Against the reference client this one downloads at half the rate or not at all: a peer that stops reading stops the whole session, and a lookup that finds nothing is kept for fifteen minutes
 - [B-95](docs/backlog/B-95-the-dial-loop-only-runs-when-something-else-happens.md) `[x]` - The client stops dialling: there is no periodic top-up, and a dial in flight is dialled again
 - [B-96](docs/backlog/B-96-the-handshake-read-has-no-deadline.md) `[x]` - A peer that accepts the connection and then says nothing is never given up on

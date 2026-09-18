@@ -115,8 +115,14 @@ headless case and is what this command did everywhere before B-117.
 ```
 kachok download <file.torrent | magnet:?xt=urn:btih:…> [--dir <path>] [--port <n>]
                 [--peers <n>] [--pipeline <n>] [--seed] [--up <KiB/s>] [--down <KiB/s>]
-                [--high <n>]… [--dht]
+                [--high <n>]… [--dht] [--encryption plaintext|preferred|required]
 ```
+
+`--encryption` is `preferred` by default: dial encrypted, dial again in the clear if the peer will
+not have it, and accept either ([B-100](../backlog/B-100-protocol-encryption.md)). `plaintext` is
+what this client did before that and is the control the item's measurement compares against;
+`required` is for a network that shapes what it recognises. The progress line counts the peers
+that are actually encrypted, which is the connection's own answer and not the setting's.
 
 | Exit | Meaning |
 |---|---|

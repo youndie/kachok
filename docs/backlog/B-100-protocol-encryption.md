@@ -1,7 +1,7 @@
 ---
 id: B-100
 title: "Protocol encryption (MSE/PE): the peers that will not talk in the clear"
-status: wip
+status: done
 priority: P2
 size: L
 stage: m9-swarm
@@ -392,3 +392,65 @@ encryption"), and the interop *probe* is not a real download — MSE is proven b
 connection path. The remaining work is scoped in iteration 7 and is a candidate for its own item
 (the hot-path integration is independent of everything else in this one). What is built is correct,
 proven, and guarded; what is left is integration, not discovery.
+
+## Iteration 8 — 2026-09-18: on the live path, and proven against a client that insists on it
+
+**The wiring.** `Encryption` (`PLAINTEXT`, `PREFERRED`, `REQUIRED`) is what a caller asks for;
+`SocketPeerDialer`, `RuntimeOptions` and `SetOptions` default to `PREFERRED` and the transport
+primitive defaults to `PLAINTEXT`, because the policy belongs to the product and not to
+`SocketPeerConnection.connect` — ten tests dial that function about something else. The dial sends
+the BitTorrent handshake as MSE's `IA`, so an encrypted connection costs no extra round trip; a
+peer that will not answer it is dialled again in the clear, and only when the *encrypted
+handshake* was what failed. The accepting side reads twenty bytes and decides: BEP 3's fixed
+header, or the top of a public key. Everything after the handshake goes through
+`DecryptingChannel` and `EncryptingChannel`, which is where the cost lands — **an encrypted
+connection cannot use `transferTo`**, so its blocks are read into a heap array, encrypted and
+written, while a plaintext connection still hands the socket straight to the page cache.
+
+**Acceptance, against qBittorrent 5.2.1 on the same machine, one 2 MiB torrent, a local tracker
+and nothing else in the swarm:**
+
+| | qBittorrent's setting | what happened |
+|---|---|---|
+| it dials us | **require encryption** | downloaded 2 097 152 bytes; its own peer row reads `client='kachok 0.1' flags='d E'`, and `E` is libtorrent's *Encrypted traffic* |
+| we dial it | **require encryption** | `8/8 pieces (100%) … 1 encrypted`, file complete |
+| we dial it | **encryption disabled** | complete, and no `encrypted` on the line: the fall-back, against a real client rather than a fake |
+
+The count on the progress line is `PeerView.encrypted`, published per peer from the connection
+itself, so what is asserted is what the socket did and not what was asked for. On the public
+swarm the same build reads `1 encrypted` within a minute of starting, which is a real peer on the
+internet and not a test.
+
+**What the encrypted peers were worth, which is the measurement the acceptance asked for.** The
+same public torrent as B-114, on the same Windows machine, three minutes, upload capped at
+800 KiB/s, `--encryption preferred`:
+
+| at | peers held | of them encrypted |
+|---|---|---|
+| 30 s | 22 | 19 |
+| 90 s | 167 | **153** |
+| 150 s | 117 | 105 |
+
+Nine peers in ten on a public swarm talk to this client encrypted once it offers to. The run
+downloaded 3.09 GiB in 172 s — 18.4 MiB/s, against 19.7 for the plaintext client of B-114 in the
+same conditions on the same machine. One run each, and the difference is inside the spread the
+reference client showed between its own two runs, so what this says is "the copy through user
+space is not visibly expensive at this rate", not "it costs 1.3 MiB/s".
+
+**Two defects this exposed, both older than it, both fixed here.** An encrypted dial is two round
+trips and — against a peer that will not have it — a timeout and a second dial, so the window
+between "the session stopped" and "this dial finished" grew from milliseconds to seconds. What
+landed in it was a connection nobody closed:
+
+- `runPeer` lost the connection when the dial finished into a cancelled session: `withContext`
+  discards the value of a block that completed and throws instead, so the socket, its reader and
+  its writer existed with no owner. The reader is a virtual thread inside a blocking read, which
+  no cancellation reaches — the client printed `stopping` and never exited. It is held outside the
+  `withContext` now and closed on cancellation.
+- `serve` registered such a connection into the map `shutDown` had just emptied, and `shutDown`
+  left any queued `AcceptPeer` unread. Both are closed now, and `SessionTest` has the first case
+  as a test: a dialler that returns *after* the stop, and a connection that must come back closed.
+
+**Not covered, deliberately.** The window has no setting for this — it takes the default like
+everything else the settings screen does not draw; `--encryption` exists on `download` because the
+measurement needed a control. And obfuscated *tracker* announces remain a separate mechanism.

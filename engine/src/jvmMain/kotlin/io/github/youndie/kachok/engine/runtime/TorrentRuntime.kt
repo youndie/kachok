@@ -12,6 +12,7 @@ import io.github.youndie.kachok.engine.io.PeerListener
 import io.github.youndie.kachok.engine.io.SocketPeerConnection
 import io.github.youndie.kachok.engine.io.SocketPeerDialer
 import io.github.youndie.kachok.engine.metainfo.Metainfo
+import io.github.youndie.kachok.engine.peer.Encryption
 import io.github.youndie.kachok.engine.peer.PeerAddress
 import io.github.youndie.kachok.engine.resume.FileResumeStore
 import io.github.youndie.kachok.engine.session.Command
@@ -59,6 +60,13 @@ public class RuntimeOptions(
     public val highFiles: Set<Int> = emptySet(),
     /** Ask for pieces in order rather than rarest first. Slower, and a worse swarm member. */
     public val sequential: Boolean = false,
+    /**
+     * What every dial this torrent makes offers a peer (B-100).
+     *
+     * On the torrent and not on the set because it is about *dialling*, and a set's listener
+     * answers for every torrent at once — the two halves of the choice have different owners.
+     */
+    public val encryption: Encryption = Encryption.PREFERRED,
 ) {
     public companion object {
         public const val DEFAULT_MAX_PEERS: Int = 250
@@ -275,7 +283,16 @@ public class TorrentRuntime internal constructor(
                     metainfo = metainfo,
                     peerId = identity,
                     listenPort = port,
-                    dialer = SocketPeerDialer(scope, metainfo.infoHash, identity, pool, storage, reserved),
+                    dialer =
+                        SocketPeerDialer(
+                            scope,
+                            metainfo.infoHash,
+                            identity,
+                            pool,
+                            storage,
+                            reserved,
+                            options.encryption,
+                        ),
                     // Most public torrents announce over UDP; the scheme in the URL decides,
                     // tracker by tracker, and an announce list may mix them.
                     trackerClient =

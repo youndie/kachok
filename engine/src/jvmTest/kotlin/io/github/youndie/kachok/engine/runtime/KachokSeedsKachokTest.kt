@@ -171,6 +171,15 @@ class KachokSeedsKachokTest {
                     "what one side counted as served, the other counted as received",
                 )
                 assertTrue(s.connectedPeers <= 1 && l.connectedPeers <= 1, "two connections to one peer survived")
+                // **And every byte of it went through a keystream.** Both ends default to
+                // `PREFERRED` (B-100), so this download — tracker, dial, handshake, blocks — is
+                // the encrypted path end to end, and a regression to the clear shows up here
+                // rather than on somebody's private tracker.
+                assertTrue(
+                    s.peers.all { it.encrypted } && l.peers.all { it.encrypted },
+                    "the transfer was not encrypted: seeder ${s.peers.map { it.encrypted }}, " +
+                        "leecher ${l.peers.map { it.encrypted }}",
+                )
             } finally {
                 leecherSet.close()
                 seederSet.close()

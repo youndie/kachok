@@ -29,6 +29,16 @@ public class SeedingPeer(
     private val pieceLength: Int,
     /** Slows the seed down, so a test can interrupt a download that is genuinely in progress. */
     private val delayPerBlockMillis: Long = 0,
+    /**
+     * Serve this many blocks and then go quiet, keeping the connection open.
+     *
+     * For a test that has to act on a download *while it is running*: a delay per block only makes
+     * the race slower to lose, and a client that got faster — as it did when the encrypted dial
+     * stopped waiting out a deadline — loses it again
+     * ([B-113](../../../../../../../docs/backlog/B-113-shutdowntest-interrupts-a-download-that-has-already-finished.md)).
+     * A seed that stops serving is a state a real swarm has, and it is a fact rather than a wager.
+     */
+    private val freezeAfterBlocks: Int? = null,
     /** BEP 10's reserved bit, so a test can see what this client sends a peer that asks for it. */
     private val extensionProtocol: Boolean = false,
     /** BEP 6's, for the same reason. */
@@ -89,6 +99,15 @@ public class SeedingPeer(
     private fun serve(socket: SocketChannel) {
         val theirs = ByteBuffer.allocate(Handshake.SIZE)
         while (theirs.hasRemaining()) if (socket.read(theirs) < 0) return
+        // **A client with encryption switched off hangs up on what it cannot read**, and this fake
+        // is one: since B-100 kachok opens with an MSE public key by default and falls back to the
+        // clear when the peer will not answer it. A fake that read the key as a handshake and
+        // replied anyway made every dial wait out the handshake deadline before the fall-back —
+        // slow here, and not what a real plaintext client does there.
+        if (!theirs.array().copyOfRange(0, PROTOCOL_HEADER.size).contentEquals(PROTOCOL_HEADER)) {
+            socket.close()
+            return
+        }
         Handshake.decode(theirs.array())
 
         write(
@@ -134,6 +153,12 @@ public class SeedingPeer(
                 continue
             }
             if (message is Message.Request) {
+                if (freezeAfterBlocks != null && served.size >= freezeAfterBlocks) {
+                    // Not an answer and not a hang-up: the client keeps its connection, its
+                    // outstanding requests and everything it has already written to the disk,
+                    // which is the state a test about interrupting a download needs it in.
+                    continue
+                }
                 if (delayPerBlockMillis > 0) Thread.sleep(delayPerBlockMillis)
                 served += message
                 write(socket, PeerWire.encodePieceHeader(message.piece, message.begin, message.length))
@@ -212,6 +237,17 @@ public class SeedingPeer(
     }
 
     private companion object {
+        /** BEP 3's opener: the byte 19 and `BitTorrent protocol`. */
+
+        private val PROTOCOL_HEADER: ByteArray =
+
+            ByteArray(20).also {
+
+                it[0] = 19
+
+                "BitTorrent protocol".encodeToByteArray().copyInto(it, 1)
+            }
+
         const val BACKLOG = 16
 
         /** This seed's own id for `ut_metadata`, chosen to differ from the client's default. */

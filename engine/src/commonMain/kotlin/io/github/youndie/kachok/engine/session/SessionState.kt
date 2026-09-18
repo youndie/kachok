@@ -242,6 +242,8 @@ public class PeerView(
     public val peerInterested: Boolean,
     /** BEP 6 agreed by both sides. */
     public val fast: Boolean,
+    /** Whether this connection's bytes are encrypted, rather than merely obfuscated (B-100). */
+    public val encrypted: Boolean = false,
     /** BEP 10's handshake arrived, so this peer's extension ids are known. */
     public val extended: Boolean,
     /** Requests sent to this peer and not yet answered. */

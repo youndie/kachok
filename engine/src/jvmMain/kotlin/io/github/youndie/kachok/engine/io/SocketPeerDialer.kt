@@ -2,6 +2,7 @@ package io.github.youndie.kachok.engine.io
 
 import io.github.youndie.kachok.engine.InfoHash
 import io.github.youndie.kachok.engine.PeerId
+import io.github.youndie.kachok.engine.peer.Encryption
 import io.github.youndie.kachok.engine.peer.PeerAddress
 import io.github.youndie.kachok.engine.peer.PeerConnection
 import io.github.youndie.kachok.engine.peer.PeerDialer
@@ -23,7 +24,18 @@ public class SocketPeerDialer(
     /** What every connection this dials will serve from; the runtime's storage, or [NoBlocks] for a metadata fetch. */
     private val blocks: BlockSource,
     private val reserved: ByteArray = Handshake.reservedBits(),
+    /** What every dial offers: encrypted first with a fall-back, or one dialect only (B-100). */
+    private val encryption: Encryption = Encryption.PREFERRED,
 ) : PeerDialer {
     override suspend fun connect(address: PeerAddress): PeerConnection =
-        SocketPeerConnection.connect(scope, address, infoHash, peerId, pool, blocks, reserved)
+        SocketPeerConnection.connect(
+            scope,
+            address,
+            infoHash,
+            peerId,
+            pool,
+            blocks,
+            reserved,
+            encryption = encryption,
+        )
 }

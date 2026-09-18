@@ -18,8 +18,9 @@ screenshot suite compares against, degraded banner and all.*
 * **Finds peers four ways**: trackers over HTTP and UDP (BEP 15), the DHT (BEP 5), peer exchange
   (BEP 11) and local discovery — and asks a router to forward its port (UPnP, NAT-PMP).
 * **Speaks the extensions a modern swarm expects**: the fast extension (BEP 6), the extension
-  protocol (BEP 10), metadata from peers so a magnet becomes a torrent (BEP 9), and IPv6 (BEP 7)
-  where the tracker offers it.
+  protocol (BEP 10), metadata from peers so a magnet becomes a torrent (BEP 9), IPv6 (BEP 7) where
+  the tracker offers it, and encrypted connections (MSE/PE) — dialled first, fallen back from when
+  a peer will not have them, and accepted either way.
 * **Lets you choose what arrives and when**: files skipped or raised to the front of the queue,
   sequential download, upload and download limits, pause and re-check.
 * **Stays out of the way**: a tray icon, file associations for `.torrent`, a clipboard offer when
@@ -87,10 +88,6 @@ this project quotes, with where it was taken.
 * **µTP.** Every connection is TCP, and 65 % of dials on a public swarm time out because the peer
   is behind a NAT that only µTP would reach. Deferred with the reasoning in research D14, not
   forgotten.
-* **Encrypted connections.** Message Stream Encryption is built, hashed against the right prime
-  at last, and proven against a libtorrent client in both directions — and it is not on the live
-  connection path yet, so a real download is in the clear (B-100). The zero-copy upload path
-  cannot be RC4'd in the kernel, which is why that last step is its own piece of work.
 * **Version 2 torrents** (BEP 52), which is still an open question rather than a plan.
 * **Android, iOS, and the browser.** The engine is written to be lifted onto them — that is why
   its I/O is behind interfaces — but only the desktop is built.
