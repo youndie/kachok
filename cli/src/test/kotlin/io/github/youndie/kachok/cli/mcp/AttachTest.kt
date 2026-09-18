@@ -282,6 +282,49 @@ class AttachTest {
             }
         }
 
+    /**
+     * The answer to the last request outlives the pipe closing.
+     *
+     * Found against a real window rather than here: two frames from a file, stdin at EOF before
+     * either could be answered, and nothing on stdout at all. The relay dropped the socket the
+     * moment it ran out of input, while the client was still mid-call on its own threads. Every
+     * other case in this class waits for its reply before saying goodbye, which is the one thing an
+     * agent runtime does not promise to do — so none of them could have caught it.
+     */
+    @Test
+    fun theLastAnswerSurvivesTheAgentClosingItsPipe(): Unit =
+        windowRunning { _, _ ->
+            val toServer = PipedOutputStream()
+            val serverIn = PipedInputStream(toServer)
+            val frames = Frames()
+            val diagnostics = StringBuilder()
+            var exit = -1
+            val server =
+                thread(name = "kachok-mcp-goodbye") {
+                    exit =
+                        Mcp.run(
+                            McpOptions(directory = root, peerPort = null, dht = false),
+                            serverIn,
+                            frames,
+                            diagnostics,
+                            config,
+                        )
+                }
+            val initialize =
+                """{"jsonrpc":"2.0","id":1,"method":"initialize","params":{""" +
+                    """"protocolVersion":"2025-06-18","capabilities":{},""" +
+                    """"clientInfo":{"name":"t","version":"0"}}}"""
+            toServer.write(initialize.toByteArray())
+            toServer.write('\n'.code)
+            // Goodbye with the answer still owed, which is the whole test.
+            toServer.close()
+
+            val reply = frames.reply(1)
+            assertNotNull(reply["result"]?.jsonObject, "the answer went with the pipe: $reply")
+            server.join(JOIN_MILLIS)
+            assertEquals(Mcp.EXIT_OK, exit, "the server did not exit cleanly; it said: $diagnostics")
+        }
+
     private companion object {
         const val JOIN_MILLIS = 30_000L
     }

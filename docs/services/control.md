@@ -54,8 +54,9 @@ building its `TorrentSet` on the composition — answers `kachok/no-engine` and 
 different answer from *nobody is listening*, and the difference is the point: the caller can say
 which happened instead of guessing.
 
-A word this client does not know is answered by hanging up, which is what an older client does with
-a newer launch's vocabulary.
+A word this client does not know is answered by hanging up. An older one does not do the same with a
+newer launch's vocabulary — it has no vocabulary, and reads the word as a path; §8 has what that
+looks like.
 
 **Security.** The secret is 128 bits from `SecureRandom`, rewritten on every bind, in a file in the
 user's own configuration directory; the socket is bound on the loopback address and no other. The
@@ -142,3 +143,9 @@ answer as its default, so a test never writes into the developer's own.
   across an upgrade is the only place this happens, and restarting it is the whole fix.
 * **`agents` is cleared before the set is closed, not after.** An agent connecting in between is
   told there is no engine, which is true, rather than handed one that is being torn down.
+* **An agent's stdin reaching EOF half-closes the relay's socket; it does not close it.** Goodbye
+  and *"I am no longer owed anything"* are different statements, and an agent that closes its pipe
+  straight after a request is still owed that answer — the client is mid-call on its own threads and
+  would finish into a socket that is no longer there. Shutting down the outgoing direction alone is
+  the EOF the client needs to finish; it closes the other direction itself, and the wait for that is
+  bounded, because the wait is politeness rather than correctness.

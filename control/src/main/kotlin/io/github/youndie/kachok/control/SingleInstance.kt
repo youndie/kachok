@@ -388,13 +388,32 @@ public class McpRelay internal constructor(
                     outgoing.flush()
                 }
             }
+            // **Half-closed, and not closed.** Stdin reaching EOF is the agent saying goodbye, and
+            // an agent that says it right after a request is still owed the answer. Dropping the
+            // socket here loses it: the client is mid-call on its own threads and finishes into a
+            // socket that is no longer there. Shutting down this direction alone is the EOF it
+            // needs to finish what it owes, and it closes the other direction when it has.
+            //
+            // The first run against a real window is how this was found — two frames from a file,
+            // stdin at EOF before either could be answered, and nothing on stdout at all.
+            shutdownOutputQuietly()
         } catch (gone: IOException) {
             // The far end closed while a frame was being written. Nothing to say and nowhere to
-            // say it; the loop below just waits for the reader to finish.
-        } finally {
+            // say it.
             closeQuietly()
         }
-        answers.join()
+        // Bounded, because the wait is for politeness and not for correctness: a client that
+        // neither answers nor closes must not keep a process alive after its agent has gone.
+        answers.join(GOODBYE_MILLIS)
+        closeQuietly()
+    }
+
+    private fun shutdownOutputQuietly() {
+        try {
+            if (!socket.isClosed) socket.shutdownOutput()
+        } catch (ignored: IOException) {
+            // Already gone, and the reader on the other thread ends on its own.
+        }
     }
 
     private fun closeQuietly() {
@@ -407,5 +426,10 @@ public class McpRelay internal constructor(
 
     override fun close() {
         closeQuietly()
+    }
+
+    private companion object {
+        /** How long a departing agent's owed answers are waited for. */
+        const val GOODBYE_MILLIS = 10_000L
     }
 }
