@@ -85,6 +85,8 @@ public class FileState(
     /** Verified bytes of *this file*, which is not the pieces that touch it. */
     public val verifiedBytes: Long = 0,
     public val wanted: Boolean = true,
+    /** `skip`, `normal` or `high` — the engine's own words, lower-cased, so a page can show them without a table. */
+    public val priority: String = "normal",
 )
 
 @Serializable

@@ -59,6 +59,8 @@ internal class StoredTorrent(
     val paused: Boolean,
     val unwanted: Set<Int>,
     val sequential: Boolean,
+    /** Files fetched first, by index — the third tier of B-106, kept beside the other two decisions about this torrent. */
+    val high: Set<Int> = emptySet(),
     val problem: String? = null,
 )
 
@@ -99,13 +101,8 @@ private fun readEntry(file: Path): StoredTorrent {
     val name = properties.getProperty(NAME)?.takeIf { it.isNotBlank() } ?: shortHash(infoHash)
     val paused = properties.getProperty(PAUSED)?.toBooleanStrictOrNull() ?: false
     val sequential = properties.getProperty(SEQUENTIAL)?.toBooleanStrictOrNull() ?: false
-    val unwanted =
-        properties
-            .getProperty(UNWANTED)
-            .orEmpty()
-            .split(',')
-            .mapNotNull { it.trim().toIntOrNull() }
-            .toSet()
+    val unwanted = properties.indices(UNWANTED)
+    val high = properties.indices(HIGH)
 
     val copy = file.resolveSibling("$infoHash$TORRENT_SUFFIX")
     val metainfo =
@@ -127,8 +124,16 @@ private fun readEntry(file: Path): StoredTorrent {
             paused,
         )
     }
-    return StoredTorrent(infoHash, metainfo, name, directory, paused, unwanted, sequential)
+    return StoredTorrent(infoHash, metainfo, name, directory, paused, unwanted, sequential, high)
 }
+
+/** A comma-separated list of file indices, or the empty set for a key that is absent or blank. */
+private fun Properties.indices(key: String): Set<Int> =
+    getProperty(key)
+        .orEmpty()
+        .split(',')
+        .mapNotNull { it.trim().toIntOrNull() }
+        .toSet()
 
 private fun broken(
     infoHash: String,
@@ -136,7 +141,7 @@ private fun broken(
     problem: String,
     directory: String = "",
     paused: Boolean = false,
-) = StoredTorrent(infoHash, null, name, directory, paused, emptySet(), false, problem)
+) = StoredTorrent(infoHash, null, name, directory, paused, emptySet(), false, problem = problem)
 
 /** Enough of the hash to tell two rows apart, for an entry that never got as far as a name. */
 private fun shortHash(infoHash: String): String =
@@ -156,6 +161,7 @@ internal fun rememberTorrent(
     paused: Boolean = false,
     unwanted: Set<Int> = emptySet(),
     sequential: Boolean = false,
+    high: Set<Int> = emptySet(),
 ) {
     val infoHash = metainfo.infoHash.hex()
     try {
@@ -170,6 +176,7 @@ internal fun rememberTorrent(
                 setProperty(PAUSED, paused.toString())
                 setProperty(SEQUENTIAL, sequential.toString())
                 if (unwanted.isNotEmpty()) setProperty(UNWANTED, unwanted.sorted().joinToString(","))
+                if (high.isNotEmpty()) setProperty(HIGH, high.sorted().joinToString(","))
             }
         writeAtomically(directory.resolve("$infoHash$PROPERTIES_SUFFIX")) {
             properties.store(it, "kachok: ${metainfo.name}")
@@ -187,14 +194,30 @@ internal fun rememberPaused(
     directory: Path,
     infoHash: String,
     paused: Boolean,
-): Unit = rememberOne(directory, infoHash, PAUSED, paused)
+): Unit = rememberOne(directory, infoHash, PAUSED, paused.toString())
 
 /** And the order, which a person can change while the torrent runs (B-89). */
 internal fun rememberSequential(
     directory: Path,
     infoHash: String,
     sequential: Boolean,
-): Unit = rememberOne(directory, infoHash, SEQUENTIAL, sequential)
+): Unit = rememberOne(directory, infoHash, SEQUENTIAL, sequential.toString())
+
+/**
+ * And the file tiers, which a person changes one file at a time while the torrent runs (B-106).
+ *
+ * Both sets at once, because one click can move a file *between* them — high to skip — and two
+ * writes of one decision would be two chances to be interrupted between them.
+ */
+internal fun rememberPriorities(
+    directory: Path,
+    infoHash: String,
+    unwanted: Set<Int>,
+    high: Set<Int>,
+) {
+    rememberOne(directory, infoHash, UNWANTED, unwanted.sorted().joinToString(","))
+    rememberOne(directory, infoHash, HIGH, high.sorted().joinToString(","))
+}
 
 /**
  * One flag of an entry that already exists, rewritten in place.
@@ -207,14 +230,14 @@ private fun rememberOne(
     directory: Path,
     infoHash: String,
     key: String,
-    value: Boolean,
+    value: String,
 ) {
     val file = directory.resolve("$infoHash$PROPERTIES_SUFFIX")
     try {
         if (!Files.exists(file)) return
         val properties = Properties().apply { Files.newInputStream(file).use { load(it) } }
-        if (properties.getProperty(key) == value.toString()) return
-        properties.setProperty(key, value.toString())
+        if (properties.getProperty(key).orEmpty() == value) return
+        properties.setProperty(key, value)
         writeAtomically(file) { properties.store(it, "kachok") }
     } catch (unwritable: IOException) {
         System.err.println("kachok: cannot record $key for $infoHash: ${unwritable.message}")
@@ -258,4 +281,5 @@ private const val DIRECTORY = "directory"
 private const val PAUSED = "paused"
 private const val UNWANTED = "unwanted"
 private const val SEQUENTIAL = "sequential"
+private const val HIGH = "high"
 private const val ENDS = 4

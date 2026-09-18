@@ -20,8 +20,10 @@ public class SocketPeerDialer(
     private val infoHash: InfoHash,
     private val peerId: PeerId,
     private val pool: BufferPool,
+    /** What every connection this dials will serve from; the runtime's storage, or [NoBlocks] for a metadata fetch. */
+    private val blocks: BlockSource,
     private val reserved: ByteArray = Handshake.reservedBits(),
 ) : PeerDialer {
     override suspend fun connect(address: PeerAddress): PeerConnection =
-        SocketPeerConnection.connect(scope, address, infoHash, peerId, pool, reserved)
+        SocketPeerConnection.connect(scope, address, infoHash, peerId, pool, blocks, reserved)
 }

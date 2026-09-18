@@ -170,17 +170,28 @@ class SessionTest {
         override val address: PeerAddress,
         infoHash: io.github.youndie.kachok.engine.InfoHash,
         reserved: ByteArray = Handshake.reservedBits(),
+        /**
+         * Distinct per address by default, because since B-111 a session drops a second connection
+         * carrying a peer id it already holds — and every fake used to carry the same one.
+         */
+        peerId: PeerId = fakeIdFor(address),
     ) : PeerConnection {
         val incoming = Channel<PeerEvent>(Channel.UNLIMITED)
         val sent = mutableListOf<Message>()
         var closes = 0
 
-        override val handshake: Handshake =
-            Handshake(infoHash, PeerId("-FAKE01-000000000000".encodeToByteArray()), reserved)
+        override val handshake: Handshake = Handshake(infoHash, peerId, reserved)
 
         override val events: ReceiveChannel<PeerEvent> get() = incoming
 
+        /** Set to make every send fail the way a connection to a peer that stopped reading does. */
+        var sendFailsWith: Exception? = null
+
         override suspend fun send(message: Message) {
+            sendFailsWith?.let {
+                close()
+                throw it
+            }
             sent += message
         }
 
@@ -210,6 +221,8 @@ class SessionTest {
         private val refuse: Set<PeerAddress> = emptySet(),
         /** What the *peer* advertises. BEP 10's bit is the peer's, not ours. */
         private val reserved: ByteArray = Handshake.reservedBits(),
+        /** Which id the peer at an address offers; the default is distinct per address. */
+        private val peerIdFor: (PeerAddress) -> PeerId = ::fakeIdFor,
     ) : PeerDialer {
         val connections = LinkedHashMap<PeerAddress, FakeConnection>()
         val dialled = mutableListOf<PeerAddress>()
@@ -217,7 +230,7 @@ class SessionTest {
         override suspend fun connect(address: PeerAddress): PeerConnection {
             dialled += address
             if (address in refuse) throw TrackerException("refused")
-            return connections.getOrPut(address) { FakeConnection(address, infoHash, reserved) }
+            return connections.getOrPut(address) { FakeConnection(address, infoHash, reserved, peerIdFor(address)) }
         }
     }
 
@@ -1224,10 +1237,15 @@ class SessionTest {
         config: SessionConfig = SessionConfig(maxStartedPieces = 4, pipelineDepth = 2, maxPeers = 10),
         random: kotlin.random.Random = kotlin.random.Random(1),
         unwantedFiles: Set<Int> = emptySet(),
+        highFiles: Set<Int> = emptySet(),
         sequential: Boolean = false,
+        timeSource: kotlin.time.TimeSource = kotlin.time.TimeSource.Monotonic,
+        dht: io.github.youndie.kachok.engine.dht.Dht? = null,
     ) = Session(
         metainfo = metainfo,
         peerId = ourPeerId,
+        timeSource = timeSource,
+        dht = dht,
         listenPort = 6881,
         dialer = dialer,
         trackerClient = tracker,
@@ -1236,6 +1254,7 @@ class SessionTest {
         config = config,
         random = random,
         unwantedFiles = unwantedFiles,
+        highFiles = highFiles,
         sequential = sequential,
     ).also { sessions += it }
 
@@ -2717,4 +2736,473 @@ class SessionTest {
             )
         return MetainfoParser.parse(Bencode.encode(root))
     }
+
+    /**
+     * A file raised on a running session is asked for first, and the state says which tier it is in.
+     *
+     * The seam, as with the order (B-89): the picker's own tests know a pool can be raised and the
+     * panel's know the control asks; between them is a `Command.PrioritiseFile` branch that only
+     * this exercises ([B-106](../../../../../../../../docs/backlog/B-106-per-file-priority.md)).
+     * The request order is what a person sees as "that file moves first", so it is what is asserted,
+     * and the *state* is asserted because that is what the panel draws.
+     */
+    @Test
+    fun aFileRaisedOnARunningSessionIsAskedForFirst() =
+        runTest {
+            val metainfo = twoFileTorrent(pieces = 8)
+            val dialer = FakeDialer(metainfo.infoHash)
+            val session =
+                session(
+                    metainfo,
+                    dialer,
+                    FakeTracker(listOf(peerA)),
+                    FakeStorage(),
+                    AgreeableHasher(metainfo),
+                    config = SessionConfig(maxStartedPieces = 1, pipelineDepth = 1, maxPeers = 10),
+                )
+            session.restore(AgreeableHasher(metainfo))
+            val job = session.start(kotlinx.coroutines.CoroutineScope(coroutineContext + handler))
+            testScheduler.runCurrent()
+
+            session.send(Command.PrioritiseFile(1, FilePriority.HIGH))
+            testScheduler.runCurrent()
+            assertEquals(
+                listOf(FilePriority.NORMAL, FilePriority.HIGH),
+                session.state.value.files
+                    .map { it.priority },
+                "the tier did not reach the state, or took the other file with it",
+            )
+
+            val connection = dialer.connections.getValue(peerA)
+            connection.incoming.send(PeerEvent.Received(Message.Bitfield(allOf(metainfo.pieceCount))))
+            connection.incoming.send(PeerEvent.Received(Message.Unchoke))
+            testScheduler.runCurrent()
+
+            val first =
+                connection.sent
+                    .filterIsInstance<Message.Request>()
+                    .first()
+                    .piece
+                    .value
+            assertTrue(first >= metainfo.pieceCount / 2, "the first request ($first) was not for the raised file")
+
+            job.cancelAndJoin()
+        }
+
+    /** A file skipped on a running session leaves `left` and the file list, and does so at once. */
+    @Test
+    fun aFileSkippedOnARunningSessionStopsBeingOwed() =
+        runTest {
+            val metainfo = twoFileTorrent(pieces = 8)
+            val session =
+                session(
+                    metainfo,
+                    FakeDialer(metainfo.infoHash),
+                    FakeTracker(listOf(peerA)),
+                    FakeStorage(),
+                    AgreeableHasher(metainfo),
+                )
+            session.restore(AgreeableHasher(metainfo))
+            val job = session.start(kotlinx.coroutines.CoroutineScope(coroutineContext + handler))
+            testScheduler.runCurrent()
+            assertEquals(metainfo.totalLength, session.state.value.left)
+
+            session.send(Command.PrioritiseFile(0, FilePriority.SKIP))
+            testScheduler.runCurrent()
+
+            val state = session.state.value
+            assertEquals(metainfo.totalLength / 2, state.left, "`left` still counts the skipped file")
+            assertFalse(state.files[0].wanted, "the skipped file still reads as wanted")
+            assertEquals(FilePriority.SKIP, state.files[0].priority)
+
+            job.cancelAndJoin()
+        }
+
+    /** `-FAKE01-` and then the address, so two fakes are two peers unless a test says otherwise. */
+    private companion object {
+        fun fakeIdFor(address: PeerAddress): PeerId =
+            PeerId(
+                (
+                    "-FAKE01-" +
+                        address.host.replace(
+                            ".",
+                            "",
+                        ) + address.port
+                ).padEnd(20, '0').take(20).encodeToByteArray(),
+            )
+    }
+
+    /**
+     * B-111: a second connection from a peer this session already holds is closed, by peer id.
+     *
+     * The address differs — that is the whole case: the same client dialled off the tracker and
+     * dialling back off local discovery, and a picker that took the second as a new peer asked it
+     * for everything in endgame. Two of the same kind — here a peer arriving twice from two ports —
+     * keep the one already held. Counted under its own reason, so B-98's counters show it.
+     */
+    @Test
+    fun aSecondConnectionFromAPeerAlreadyHeldIsClosedAndCounted() =
+        runTest {
+            val metainfo = torrent(pieces = 4)
+            val session =
+                session(
+                    metainfo,
+                    FakeDialer(metainfo.infoHash),
+                    FakeTracker(emptyList()),
+                    FakeStorage(),
+                    AgreeableHasher(metainfo),
+                )
+            val job = session.start(kotlinx.coroutines.CoroutineScope(coroutineContext + handler))
+            testScheduler.runCurrent()
+            val first = FakeConnection(peerA, metainfo.infoHash)
+            session.send(Command.AcceptPeer(first))
+            testScheduler.runCurrent()
+            assertEquals(1, session.state.value.connectedPeers)
+
+            val again = FakeConnection(peerB, metainfo.infoHash, peerId = first.handshake.peerId)
+            session.send(Command.AcceptPeer(again))
+            testScheduler.runCurrent()
+
+            assertEquals(1, again.closes, "the duplicate was not closed")
+            assertEquals(0, first.closes, "the connection already held was closed instead of the newcomer")
+            assertEquals(1, session.state.value.connectedPeers)
+            assertEquals(
+                1,
+                session.state.value.disconnectReasons["duplicate peer"],
+                session.state.value.disconnectReasons
+                    .toString(),
+            )
+            job.cancelAndJoin()
+        }
+
+    /**
+     * When the two connections differ in who dialled, "keep the first seen" is the wrong rule: two
+     * clients that hear each other at once each see a different one first, close the other, and
+     * hold nothing. The rule both sides can agree on is that the connection dialled by the *lower*
+     * peer id stays — so here, where the peer's id sorts below ours, the one it dialled (accepted
+     * by us) wins over the one we dialled, even though ours was there first.
+     */
+    @Test
+    fun aTieBetweenDialledAndAcceptedGoesToTheLowerPeerIdsDial() =
+        runTest {
+            val metainfo = torrent(pieces = 4)
+            val dialer = FakeDialer(metainfo.infoHash)
+            val session =
+                session(metainfo, dialer, FakeTracker(listOf(peerA)), FakeStorage(), AgreeableHasher(metainfo))
+            val job = session.start(kotlinx.coroutines.CoroutineScope(coroutineContext + handler))
+            testScheduler.runCurrent()
+            val dialled = dialer.connections.getValue(peerA)
+            assertTrue(
+                dialled.handshake.peerId.bytes
+                    .first { it != '-'.code.toByte() } < 'K'.code.toByte(),
+            )
+
+            val accepted = FakeConnection(peerB, metainfo.infoHash, peerId = dialled.handshake.peerId)
+            session.send(Command.AcceptPeer(accepted))
+            testScheduler.runCurrent()
+
+            assertEquals(0, accepted.closes, "the accepted connection lost a tie the lower id's dial should win")
+            // Closed by the tie and again by its own teardown, like every link the session hangs up on.
+            assertTrue(dialled.closes >= 1, "the connection we dialled was kept over the lower id's own dial")
+            assertEquals(1, session.state.value.connectedPeers)
+            assertEquals(1, session.state.value.disconnectReasons["duplicate peer"])
+            job.cancelAndJoin()
+        }
+
+    /** The mirror image: the peer's id sorts above ours, so the connection *we* dialled is the one kept. */
+    @Test
+    fun aTieWithAHigherPeerIdKeepsOurOwnDial() =
+        runTest {
+            val metainfo = torrent(pieces = 4)
+            val higher = PeerId("-ZZ0001-000000000000".encodeToByteArray())
+            val dialer = FakeDialer(metainfo.infoHash) { higher }
+            val session =
+                session(metainfo, dialer, FakeTracker(listOf(peerA)), FakeStorage(), AgreeableHasher(metainfo))
+            val job = session.start(kotlinx.coroutines.CoroutineScope(coroutineContext + handler))
+            testScheduler.runCurrent()
+            val dialled = dialer.connections.getValue(peerA)
+
+            val accepted = FakeConnection(peerB, metainfo.infoHash, peerId = higher)
+            session.send(Command.AcceptPeer(accepted))
+            testScheduler.runCurrent()
+
+            assertEquals(1, accepted.closes, "the higher id's own dial was kept over ours")
+            assertEquals(0, dialled.closes)
+            assertEquals(1, session.state.value.connectedPeers)
+            assertEquals(1, session.state.value.disconnectReasons["duplicate peer"])
+            job.cancelAndJoin()
+        }
+
+    /**
+     * B-112's measurement: what came of each peer that wanted our pieces, counted as it leaves.
+     *
+     * One slot and two interested peers, so the pass at ten seconds unchokes exactly one — which
+     * one is the seeded random's choice, and the test reads it off the wire rather than guessing.
+     * The unchoked one asks and is `served`; the other is seen by the pass and passed over, and
+     * leaves twelve seconds after its interest: `left choked after a pass`. A third peer that
+     * leaves three seconds in was never reached by any pass: `left choked inside one pass`. A peer
+     * this client hangs up on itself is not counted at all — that is stop, not the choker.
+     */
+    @Test
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    fun whatCameOfEachInterestedPeerIsCountedWhenItLeaves() =
+        runTest {
+            val metainfo = torrent(pieces = 4)
+            val peerC = PeerAddress("10.0.0.3", 6881)
+            val dialer = FakeDialer(metainfo.infoHash)
+            val session =
+                session(
+                    metainfo,
+                    dialer,
+                    FakeTracker(listOf(peerA, peerB, peerC)),
+                    FakeStorage(),
+                    AgreeableHasher(metainfo),
+                    config = SessionConfig(maxStartedPieces = 4, pipelineDepth = 2, maxPeers = 10, maxUnchoked = 1),
+                    // The stay is measured on the session's clock, which here has to be the test's.
+                    timeSource = testScheduler.timeSource,
+                )
+            val job = session.start(kotlinx.coroutines.CoroutineScope(coroutineContext + handler))
+            testScheduler.runCurrent()
+            val a = dialer.connections.getValue(peerA)
+            val b = dialer.connections.getValue(peerB)
+            val c = dialer.connections.getValue(peerC)
+            // Something to serve, and a peer worth something, before anyone asks.
+            a.incoming.send(PeerEvent.BlockReceived(FakeBlock(PieceIndex(1), 0, PeerWire.BLOCK_SIZE)))
+            listOf(a, b, c).forEach { it.incoming.send(PeerEvent.Received(Message.Interested)) }
+            testScheduler.runCurrent()
+
+            testScheduler.advanceTimeBy(3_000)
+            c.incoming.close()
+            testScheduler.advanceTimeBy(8_000)
+            testScheduler.runCurrent()
+
+            val (given, passedOver) =
+                if (a.sent.any { it is Message.Unchoke }) a to b else b to a
+            assertTrue(passedOver.sent.none { it is Message.Unchoke }, "one slot, two unchokes")
+            given.incoming.send(PeerEvent.Received(Message.Request(PieceIndex(1), 0, PeerWire.BLOCK_SIZE)))
+            testScheduler.runCurrent()
+            assertEquals(1, given.servedBlocks.size)
+
+            testScheduler.advanceTimeBy(1_000)
+            given.incoming.close()
+            passedOver.incoming.close()
+            testScheduler.runCurrent()
+
+            assertEquals(
+                mapOf("served" to 1, "left choked after a pass" to 1, "left choked inside one pass" to 1),
+                session.state.value.interestOutcomes,
+            )
+            job.cancelAndJoin()
+        }
+
+    /**
+     * One DHT node that answers everything and holds nothing: every lookup costs one `get_peers`,
+     * so counting those is counting lookups.
+     */
+    private class LonelyDht(
+        private val holds: List<PeerAddress> = emptyList(),
+    ) : io.github.youndie.kachok.engine.dht.KrpcTransport {
+        val node =
+            io.github.youndie.kachok.engine.dht.DhtNode(
+                io.github.youndie.kachok.engine.dht
+                    .NodeId(ByteArray(20) { 0x0F }),
+                PeerAddress("10.0.0.9", 6881),
+            )
+        var lookups = 0
+        var announces = 0
+
+        override suspend fun query(
+            node: PeerAddress,
+            method: String,
+            arguments: io.github.youndie.kachok.engine.bencode.BDictionary,
+        ): io.github.youndie.kachok.engine.dht.KrpcMessage.Response {
+            val fields = LinkedHashMap<BString, io.github.youndie.kachok.engine.bencode.BValue>()
+            fields[BString("id")] = BString(this.node.id.bytes)
+            when (method) {
+                io.github.youndie.kachok.engine.dht.Krpc.FIND_NODE -> {
+                    fields[BString("nodes")] =
+                        BString(
+                            io.github.youndie.kachok.engine.dht.Krpc
+                                .encodeNodes(listOf(this.node)),
+                        )
+                }
+
+                io.github.youndie.kachok.engine.dht.Krpc.GET_PEERS -> {
+                    lookups++
+                    fields[BString("token")] = BString("t".encodeToByteArray())
+                    if (holds.isNotEmpty()) {
+                        fields[BString("values")] =
+                            io.github.youndie.kachok.engine.dht.Krpc
+                                .encodeValues(holds)
+                    } else {
+                        fields[BString("nodes")] =
+                            BString(
+                                io.github.youndie.kachok.engine.dht.Krpc
+                                    .encodeNodes(listOf(this.node)),
+                            )
+                    }
+                }
+
+                io.github.youndie.kachok.engine.dht.Krpc.ANNOUNCE_PEER -> {
+                    announces++
+                }
+            }
+            return io.github.youndie.kachok.engine.dht.KrpcMessage
+                .Response(byteArrayOf(1), BDictionary(fields))
+        }
+    }
+
+    private fun dhtConfig() =
+        SessionConfig(
+            maxStartedPieces = 4,
+            pipelineDepth = 2,
+            maxPeers = 10,
+            dhtBootstrap = listOf(PeerAddress("10.0.0.9", 6881)),
+        )
+
+    /**
+     * A lookup that leaves the client short of addresses is retaken in seconds, doubling, and not
+     * kept for fifteen minutes: on the public swarm the first one, taken while the bootstrap
+     * nodes were not answering, found nothing, and the tracker there hands out one peer.
+     */
+    @Test
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    fun aLookupThatFoundTooFewPeersIsRetakenSoonAndBacksOff() =
+        runTest {
+            val metainfo = torrent(pieces = 4)
+            val transport = LonelyDht()
+            val dht =
+                io.github.youndie.kachok.engine.dht.Dht(
+                    io.github.youndie.kachok.engine.dht
+                        .NodeId(ByteArray(20) { 0x01 }),
+                    transport,
+                )
+            val session =
+                session(
+                    metainfo,
+                    FakeDialer(metainfo.infoHash),
+                    FakeTracker(emptyList()),
+                    FakeStorage(),
+                    AgreeableHasher(metainfo),
+                    config = dhtConfig(),
+                    timeSource = testScheduler.timeSource,
+                    dht = dht,
+                )
+            val job = session.start(kotlinx.coroutines.CoroutineScope(coroutineContext + handler))
+            testScheduler.runCurrent()
+            assertEquals(1, transport.lookups, "the first lookup happens at start")
+
+            testScheduler.advanceTimeBy(31_000)
+            testScheduler.runCurrent()
+            assertEquals(2, transport.lookups, "a starving client looks again after thirty seconds")
+            testScheduler.advanceTimeBy(31_000)
+            testScheduler.runCurrent()
+            assertEquals(2, transport.lookups, "the second wait is a minute, not another thirty seconds")
+            testScheduler.advanceTimeBy(30_000)
+            testScheduler.runCurrent()
+            assertEquals(3, transport.lookups)
+            assertEquals(1, transport.announces, "looking again is not announcing again")
+            job.cancelAndJoin()
+        }
+
+    /** A client with more addresses than it can hold keeps the snapshot for the full interval. */
+    @Test
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    fun aLookupThatFoundEnoughPeersIsKeptForTheFullInterval() =
+        runTest {
+            val metainfo = torrent(pieces = 4)
+            val plenty = (1..12).map { PeerAddress("10.1.0.$it", 6881) }
+            val transport = LonelyDht(holds = plenty)
+            val dht =
+                io.github.youndie.kachok.engine.dht.Dht(
+                    io.github.youndie.kachok.engine.dht
+                        .NodeId(ByteArray(20) { 0x01 }),
+                    transport,
+                )
+            val session =
+                session(
+                    metainfo,
+                    FakeDialer(metainfo.infoHash, refuse = plenty.toSet()),
+                    FakeTracker(emptyList()),
+                    FakeStorage(),
+                    AgreeableHasher(metainfo),
+                    config = dhtConfig(),
+                    timeSource = testScheduler.timeSource,
+                    dht = dht,
+                )
+            val job = session.start(kotlinx.coroutines.CoroutineScope(coroutineContext + handler))
+            testScheduler.runCurrent()
+            assertEquals(1, transport.lookups)
+            assertEquals(12, session.state.value.knownPeers)
+
+            testScheduler.advanceTimeBy(14 * 60_000L)
+            testScheduler.runCurrent()
+            assertEquals(1, transport.lookups, "twelve known against ten wanted is not starving")
+            testScheduler.advanceTimeBy(2 * 60_000L)
+            testScheduler.runCurrent()
+            assertEquals(2, transport.lookups)
+            job.cancelAndJoin()
+        }
+
+    /**
+     * The session's side of the same guarantee: a send the connection refuses because the peer
+     * stopped reading ends that peer, counted under its own reason, and the timer that tried —
+     * here the keep-alive — goes on to the next tick rather than waiting on it.
+     */
+    @Test
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    fun aPeerThatStoppedReadingIsDroppedAndCountedAndTheTimerGoesOn() =
+        runTest {
+            val metainfo = torrent(pieces = 4)
+            val dialer = FakeDialer(metainfo.infoHash)
+            val session =
+                session(metainfo, dialer, FakeTracker(listOf(peerA, peerB)), FakeStorage(), AgreeableHasher(metainfo))
+            val job = session.start(kotlinx.coroutines.CoroutineScope(coroutineContext + handler))
+            testScheduler.runCurrent()
+            val stuck = dialer.connections.getValue(peerA)
+            val fine = dialer.connections.getValue(peerB)
+            stuck.sendFailsWith = java.io.IOException("$peerA stopped reading: 64 messages queued and none taken")
+
+            testScheduler.advanceTimeBy(125_000)
+            testScheduler.runCurrent()
+
+            assertEquals(
+                1,
+                session.state.value.disconnectReasons["not reading"],
+                session.state.value.disconnectReasons
+                    .toString(),
+            )
+            assertTrue(
+                fine.sent.any { it === Message.KeepAlive },
+                "the keep-alive never reached the peer after the stuck one",
+            )
+            assertEquals(1, session.state.value.connectedPeers)
+            job.cancelAndJoin()
+        }
+
+    /** And the cheapest case of the same rule: a peer offering this session's own id is this session. */
+    @Test
+    fun aConnectionOfferingOurOwnIdIsClosedAsOurselves() =
+        runTest {
+            val metainfo = torrent(pieces = 4)
+            val session =
+                session(
+                    metainfo,
+                    FakeDialer(metainfo.infoHash),
+                    FakeTracker(emptyList()),
+                    FakeStorage(),
+                    AgreeableHasher(metainfo),
+                )
+            val job = session.start(kotlinx.coroutines.CoroutineScope(coroutineContext + handler))
+            testScheduler.runCurrent()
+
+            val mirror = FakeConnection(peerB, metainfo.infoHash, peerId = ourPeerId)
+            session.send(Command.AcceptPeer(mirror))
+            testScheduler.runCurrent()
+
+            assertEquals(1, mirror.closes)
+            assertEquals(0, session.state.value.connectedPeers)
+            assertEquals(1, session.state.value.disconnectReasons["ourselves"])
+            job.cancelAndJoin()
+        }
 }

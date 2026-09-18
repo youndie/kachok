@@ -89,3 +89,10 @@ class ServeOptions(
      */
     val allowedOrigins: Set<String>,
 )
+
+/** `mcp`'s options ([B-108](../../../../../../../../docs/backlog/B-108-an-mcp-server-for-agents.md)). */
+class McpOptions(
+    val directory: Path,
+    val peerPort: Int?,
+    val dht: Boolean,
+)

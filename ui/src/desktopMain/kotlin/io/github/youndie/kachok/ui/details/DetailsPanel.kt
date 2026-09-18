@@ -47,6 +47,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
+import io.github.youndie.kachok.engine.session.FilePriority
 import io.github.youndie.kachok.ui.icons.Glyph
 import io.github.youndie.kachok.ui.icons.Icons
 import io.github.youndie.kachok.ui.list.RowCell
@@ -152,6 +153,13 @@ internal class FileRow(
      * ([B-81](../../../../../../../../docs/backlog/B-81-the-torrent-list-survives-a-restart.md)).
      */
     val path: String? = null,
+    /**
+     * Which pool the picker draws this file from, which the row's leading glyph both shows and
+     * changes ([B-106](../../../../../../../../docs/backlog/B-106-per-file-priority.md)).
+     */
+    val priority: FilePriority = FilePriority.NORMAL,
+    /** Its index in the metainfo, which is what a command about it has to name. */
+    val index: Int = 0,
 )
 
 /**
@@ -246,6 +254,14 @@ internal fun DetailsPanel(
      * ([B-89](../../../../../../../../docs/backlog/B-89-sequential-on-a-running-torrent.md)).
      */
     onSequential: (Boolean) -> Unit = {},
+    /**
+     * A file's tier was changed from its row.
+     *
+     * The tick that B-67 drew as an indicator is a control now: the leading glyph cycles
+     * normal → high → skip, and every step is a decision about *this* file of *this* torrent, sent
+     * as one ([B-106](../../../../../../../../docs/backlog/B-106-per-file-priority.md)).
+     */
+    onFilePriority: (FileRow, FilePriority) -> Unit = { _, _ -> },
     /** Where the drag has put the edge, clamped by the caller to [Details.minimumWidth]..[Details.maximumWidth]. */
     width: Dp = Details.width,
     onResize: (Dp) -> Unit = {},
@@ -279,7 +295,7 @@ internal fun DetailsPanel(
             when (state.tab) {
                 DetailsTab.Overview -> Overview(state, onCopy)
                 DetailsTab.Peers -> Peers(state.peers)
-                DetailsTab.Files -> Files(state, onOpenFile, onSequential)
+                DetailsTab.Files -> Files(state, onOpenFile, onSequential, onFilePriority)
                 DetailsTab.Trackers -> Trackers(state, onAnnounce)
             }
         }
@@ -638,6 +654,7 @@ private fun ColumnScope.Files(
     state: DetailsState,
     onOpenFile: (FileRow) -> String?,
     onSequential: (Boolean) -> Unit,
+    onFilePriority: (FileRow, FilePriority) -> Unit,
 ) {
     val scheme = MaterialTheme.colorScheme
     // Keyed on the torrent, so selecting another one does not leave a sentence about the last.
@@ -648,13 +665,12 @@ private fun ColumnScope.Files(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(7.dp),
         ) {
-            // No badge any more: the ticks in the add dialog are live, and the ones here are
-            // indicators of what that dialog decided rather than controls waiting on anything.
+            // No badge any more: the ticks in the add dialog are live, and since B-106 the glyph
+            // at the head of every row here is live too — it cycles the file's tier.
             Text(state.filesSummary, style = FIELD_LABEL, color = scheme.onSurfaceVariant)
             Spacer(Modifier.weight(1f))
-            // **A control and not an indicator**, which is what every other tick on this tab is:
-            // the file ticks report what the add dialog decided and cannot be changed on a running
-            // torrent, and the order can.
+            // **A control and not an indicator**, like the row glyphs since B-106: the order can be
+            // changed on a running torrent, and so can which file fills first.
             //
             // Drawn the way *Re-announce* is on the Trackers tab — the panel's own vocabulary for a
             // pressable thing in a tab head — rather than as a new one. **The label says what
@@ -684,7 +700,9 @@ private fun ColumnScope.Files(
             )
         }
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
-            state.files.forEach { file -> FileLine(file) { note = onOpenFile(file) } }
+            state.files.forEach { file ->
+                FileLine(file, onOpen = { note = onOpenFile(file) }, onPriority = { onFilePriority(file, it) })
+            }
         }
         // Only when there is something to say. A permanent line would be a row of the list that is
         // never a file, and the design does not draw one.
@@ -705,6 +723,7 @@ private fun ColumnScope.Files(
 private fun FileLine(
     file: FileRow,
     onOpen: () -> Unit,
+    onPriority: (FilePriority) -> Unit,
 ) {
     val scheme = MaterialTheme.colorScheme
     Row(
@@ -721,11 +740,35 @@ private fun FileLine(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        Glyph(
-            if (file.wanted) Icons.CHECK_BOX else Icons.CHECK_BOX_OUTLINE_BLANK,
-            size = FILE_TICK,
-            tint = if (file.wanted) scheme.primary else scheme.onSurfaceVariant,
-        )
+        // **Three states in one glyph, and a click walks them.** The tick and the blank are what
+        // B-67 drew and mean what they meant — fetched, not fetched — so a torrent with no raised
+        // file looks exactly as before; the bolt is the third state, fetched *first*. One glyph
+        // rather than a menu because the row is 24 dp high and already has three columns; what it
+        // is and what it will do next are in the semantics, where a test and a screen reader read
+        // them ([B-106](../../../../../../../../docs/backlog/B-106-per-file-priority.md)).
+        val next =
+            when (file.priority) {
+                FilePriority.NORMAL -> FilePriority.HIGH
+                FilePriority.HIGH -> FilePriority.SKIP
+                FilePriority.SKIP -> FilePriority.NORMAL
+            }
+        Box(
+            Modifier
+                .semantics {
+                    contentDescription = "priority of ${file.name}"
+                    stateDescription = file.priority.name.lowercase()
+                }.clickable { onPriority(next) },
+        ) {
+            Glyph(
+                when (file.priority) {
+                    FilePriority.HIGH -> Icons.BOLT
+                    FilePriority.NORMAL -> Icons.CHECK_BOX
+                    FilePriority.SKIP -> Icons.CHECK_BOX_OUTLINE_BLANK
+                },
+                size = FILE_TICK,
+                tint = if (file.wanted) scheme.primary else scheme.onSurfaceVariant,
+            )
+        }
         // `PathText` and not `TextOverflow.StartEllipsis`, which type-checks against Compose
         // Multiplatform 1.12 and truncates at the *end* anyway — checked twice against a golden
         // before `PathText` was written. Files in a torrent share a directory prefix, so the half

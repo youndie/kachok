@@ -1,5 +1,6 @@
 package io.github.youndie.kachok.cli
 
+import io.github.youndie.kachok.cli.serve.McpOptions
 import io.github.youndie.kachok.cli.serve.ServeOptions
 import java.nio.file.Path
 
@@ -34,6 +35,12 @@ class DownloadOptions(
     /** Bytes a second, across every peer. Zero means no limit, which is the default. */
     val uploadLimit: Long,
     val downloadLimit: Long,
+    /**
+     * Files to fetch before the others, by index — the `high` tier of
+     * [B-106](../../../../../../../docs/backlog/B-106-per-file-priority.md). The window changes it
+     * from the Files tab; the command line has no tab, so it is decided here.
+     */
+    val highFiles: Set<Int> = emptySet(),
     /**
      * BEP 5, and **on** unless `--no-dht` says otherwise.
      *
@@ -83,6 +90,8 @@ object Arguments {
   --seed              keep seeding after the download completes
   --up <KiB/s>        upload limit across all peers (default: no limit)
   --down <KiB/s>      download limit across all peers (default: no limit)
+  --high <n>          fetch this file (by its index in the torrent) before the
+                      others; repeatable
   --no-dht            stay out of the DHT (BEP 5), which is joined by default
 
 kachok serve [options]
@@ -98,7 +107,17 @@ kachok serve [options]
                       subject to the same-origin rule, so any site could
                       otherwise drive this client.
   --no-dht            stay out of the DHT (BEP 5), which is joined by default
-  --all-trackers      ask every tracker, not the first that answers (BEP 12)"""
+  --all-trackers      ask every tracker, not the first that answers (BEP 12)
+
+kachok mcp [options]
+
+  Runs the engine as a Model Context Protocol server on stdin/stdout, for an
+  agent runtime that launched this process and holds both ends of the pipe.
+  Nothing else is written to stdout; diagnostics go to stderr.
+
+  --dir <path>        where to write (default: the working directory)
+  --port <n>          peer listening port (default: the first free of 6881-6889)
+  --no-dht            stay out of the DHT (BEP 5), which is joined by default"""
 
     /**
      * `serve`'s options.
@@ -148,6 +167,35 @@ kachok serve [options]
         return ServeOptions(directory, port, peerPort, dht, origins)
     }
 
+    /** `mcp`'s options: `serve`'s without the socket, because the pipe is the transport. */
+    fun parseMcp(arguments: List<String>): McpOptions {
+        var directory = Path.of(".")
+        var peerPort: Int? = null
+        var dht = true
+        var index = 0
+        while (index < arguments.size) {
+            when (val argument = arguments[index]) {
+                "--dir" -> {
+                    directory = Path.of(value(arguments, ++index, argument))
+                }
+
+                "--port" -> {
+                    peerPort = number(value(arguments, ++index, argument), argument)
+                }
+
+                "--no-dht" -> {
+                    dht = false
+                }
+
+                else -> {
+                    throw UsageException("unknown option '$argument'")
+                }
+            }
+            index++
+        }
+        return McpOptions(directory, peerPort, dht)
+    }
+
     fun parseDownload(arguments: List<String>): DownloadOptions {
         if (arguments.isEmpty()) throw UsageException("download needs a .torrent file or a magnet link")
         var source: TorrentSource? = null
@@ -160,6 +208,7 @@ kachok serve [options]
         var download = 0L
         var dht = true
         var allTrackers = false
+        val high = mutableSetOf<Int>()
 
         var index = 0
         while (index < arguments.size) {
@@ -203,6 +252,10 @@ kachok serve [options]
                     download = number(value(arguments, ++index, argument), argument).toLong() * BYTES_PER_KIB
                 }
 
+                "--high" -> {
+                    high += number(value(arguments, ++index, argument), argument)
+                }
+
                 else -> {
                     if (argument.startsWith("--")) throw UsageException("unknown option '$argument'")
                     if (source != null) throw UsageException("more than one torrent given")
@@ -226,6 +279,7 @@ kachok serve [options]
             seedAfterCompletion = seed,
             uploadLimit = upload,
             downloadLimit = download,
+            highFiles = high,
             dht = dht,
             announceToAllTrackers = allTrackers,
         )

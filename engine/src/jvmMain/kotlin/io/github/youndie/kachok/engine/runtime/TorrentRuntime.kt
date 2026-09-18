@@ -4,6 +4,7 @@ import io.github.youndie.kachok.engine.PeerId
 import io.github.youndie.kachok.engine.dht.Dht
 import io.github.youndie.kachok.engine.dht.NodeId
 import io.github.youndie.kachok.engine.hash.MessageDigestPieceHasher
+import io.github.youndie.kachok.engine.io.BlockSource
 import io.github.youndie.kachok.engine.io.BufferPool
 import io.github.youndie.kachok.engine.io.DatagramKrpcTransport
 import io.github.youndie.kachok.engine.io.EngineDispatchers
@@ -14,6 +15,7 @@ import io.github.youndie.kachok.engine.metainfo.Metainfo
 import io.github.youndie.kachok.engine.peer.PeerAddress
 import io.github.youndie.kachok.engine.resume.FileResumeStore
 import io.github.youndie.kachok.engine.session.Command
+import io.github.youndie.kachok.engine.session.FilePriority
 import io.github.youndie.kachok.engine.session.Session
 import io.github.youndie.kachok.engine.session.SessionConfig
 import io.github.youndie.kachok.engine.session.SessionState
@@ -47,10 +49,12 @@ public class RuntimeOptions(
     /**
      * Files this client will not fetch, by their index in the metainfo.
      *
-     * Decided when the torrent is added and never after: changing it while a torrent runs needs the
-     * picker to give back pieces it has started, which is the item's own not-covered case.
+     * The opening picture; [TorrentRuntime.prioritise] moves one file at a time afterwards
+     * ([B-106](../../../../../../../../docs/backlog/B-106-per-file-priority.md)).
      */
     public val unwantedFiles: Set<Int> = emptySet(),
+    /** Files fetched before the others, by index. Same lifetime as [unwantedFiles]. */
+    public val highFiles: Set<Int> = emptySet(),
     /** Ask for pieces in order rather than rarest first. Slower, and a worse swarm member. */
     public val sequential: Boolean = false,
 ) {
@@ -93,6 +97,11 @@ public class TorrentRuntime internal constructor(
     public val reserved: ByteArray,
     /** The port the tracker was told about, which is the one the set actually bound. */
     public val listenPort: Int,
+    /**
+     * Where a connection to this torrent serves blocks from — the set needs it for the connections
+     * *it* accepts and routes here, which are half a swarm's ([B-110](../../../../../../../../docs/backlog/B-110-this-client-never-uploads-a-block.md)).
+     */
+    internal val blocks: BlockSource,
     /**
      * Where this torrent saves, which since B-81 is not always where the settings say.
      *
@@ -180,6 +189,17 @@ public class TorrentRuntime internal constructor(
     public suspend fun sequential(inOrder: Boolean): Unit = session.send(Command.Reconfigure(sequential = inOrder))
 
     /**
+     * One file to another tier, on the running torrent.
+     *
+     * Its own call for the same reason [sequential] is: a decision about one file of one torrent,
+     * never a setting ([B-106](../../../../../../../../docs/backlog/B-106-per-file-priority.md)).
+     */
+    public suspend fun prioritise(
+        file: Int,
+        priority: FilePriority,
+    ): Unit = session.send(Command.PrioritiseFile(file, priority))
+
+    /**
      * New values for the settings that can change under a running torrent.
      *
      * Everything else in [RuntimeOptions] is decided when the torrent is opened: the directory is
@@ -235,12 +255,16 @@ public class TorrentRuntime internal constructor(
             // session is told about — both extensions are two-sided, and a second place recording
             // "we advertised this" is a second place for it to be wrong.
             val reserved = Handshake.reservedBits(extensionProtocol = true, fastExtension = true)
+            // One storage for both directions: the session writes through it, and every connection
+            // — dialled here, or accepted by the set and routed to this runtime — serves from it.
+            // Until B-110 nothing gave the connections one, and this client never uploaded a block.
+            val storage = FileStorage(PieceLayout(metainfo), files, pool)
             val session =
                 Session(
                     metainfo = metainfo,
                     peerId = identity,
                     listenPort = port,
-                    dialer = SocketPeerDialer(scope, metainfo.infoHash, identity, pool, reserved),
+                    dialer = SocketPeerDialer(scope, metainfo.infoHash, identity, pool, storage, reserved),
                     // Most public torrents announce over UDP; the scheme in the URL decides,
                     // tracker by tracker, and an announce list may mix them.
                     trackerClient =
@@ -249,7 +273,7 @@ public class TorrentRuntime internal constructor(
                             udp = UdpTrackerClient(dispatchers.io),
                         ),
                     hasher = hasher,
-                    storage = FileStorage(PieceLayout(metainfo), files, pool),
+                    storage = storage,
                     resume =
                         FileResumeStore(
                             // The info hash in the name, not just the torrent's name. Two different
@@ -278,6 +302,7 @@ public class TorrentRuntime internal constructor(
                             downloadLimitBytesPerSecond = options.downloadLimitBytesPerSecond,
                         ),
                     unwantedFiles = options.unwantedFiles,
+                    highFiles = options.highFiles,
                     sequential = options.sequential,
                 )
             return TorrentRuntime(
@@ -290,6 +315,7 @@ public class TorrentRuntime internal constructor(
                 peerId = identity,
                 reserved = reserved,
                 listenPort = port,
+                blocks = storage,
             )
         }
 
@@ -304,6 +330,11 @@ public class TorrentRuntime internal constructor(
                 PeerAddress("router.bittorrent.com", 6881),
                 PeerAddress("dht.transmissionbt.com", 6881),
                 PeerAddress("router.utorrent.com", 6881),
+                // Two more, because on 2026-09-18 the first and the third stopped answering this
+                // address for an hour and the DHT went in through transmissionbt alone; libtorrent
+                // ships both of these as well.
+                PeerAddress("dht.libtorrent.org", 25401),
+                PeerAddress("dht.aelitis.com", 6881),
             )
 
         /**

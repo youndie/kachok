@@ -1163,6 +1163,18 @@ bound because the client has never reached it, and it gets a number here or an e
 keep it — with the run that produced it named beside it, the way every other default in this
 document is.
 
+**Amended 2026-09-17, at the point where the numbers above stop meaning what they said
+([B-110](../backlog/B-110-this-client-never-uploads-a-block.md)).** Every figure in this section —
+the 4 423 dials, the 303 handshakes, the 22 held, the peers-held medians of 12, 17, 23 and 30 —
+was taken by a client that **uploaded nothing to anybody**. No live connection had been given the
+storage to serve from, and a request it could not serve was dropped in silence; the tracker was
+told `uploaded=0` throughout. This used to be read as a client that meets fewer peers; it cannot be
+read that way, because a peer that never reciprocates is one every choker in the swarm ranks last
+and drops first, and "connections are made and not kept" is exactly what a swarm does to such a
+client. The working replacement is the measurement re-run with the client serving, which is
+recorded in B-110 with an `uploaded` column beside the old ones; what does *not* change is D13's
+method, which was sound, or B-105's finding, which was a real second cause.
+
 ### D14. µTP is deferred, and the number that would change that is not the obvious one
 
 *Decided 2026-09-17 by [B-101](../backlog/B-101-utp-transport.md).*
@@ -1188,6 +1200,45 @@ One cost is real, unmeasured, and imposed on somebody else: µTP's LEDBAT yields
 traffic, and a TCP-only client saturating an uplink makes its owner's other traffic worse in a way a
 µTP client's does not. It is not enough on its own to justify an XL piece of work whose literature is
 congestion control, and it should not be forgotten the next time this is weighed.
+
+### D16. The download rate against the reference client, and what was between them
+
+*Opened 2026-09-18 by [B-114](../backlog/B-114-a-peer-that-stops-reading-stops-the-whole-session.md).
+Status: measured; two defects fixed; the remaining gap named and left.*
+
+D13 measured how many peers this client meets; this measures what it does with them. Same
+public torrent, same box, same link, one client at a time, upload capped at 800 KiB/s on both,
+download uncapped, three minutes each, A/B interleaved. qBittorrent 5.2.1 read through its
+WebUI; kachok as `download`, on the build machine behind WSL 2's NAT and then on Windows beside
+the reference.
+
+| client | where | rate over 180 s |
+|---|---|---|
+| qBittorrent 5.2.1, twice | Windows | 20.9 and 18.1 MB/s |
+| kachok, twice | WSL | 0 — one peer for three minutes |
+| kachok, twice more, ten minutes later | WSL | 1.0 (capped) and 2.0 MiB/s |
+| kachok | Windows | 10.2 MiB/s, 12.3 in the steady stretch |
+| kachok, deeper pipeline, or a wider window | Windows | a minute at 20 MiB/s, then frozen |
+| kachok, after B-114 | Windows | 19.7 MiB/s, 23 in the steady stretch, no freeze |
+
+**Three things, in the order they were found.** The WSL zeros were the DHT: the first lookup
+found nothing while two bootstrap nodes were not answering, the tracker on this swarm gives one
+peer per announce, and the next lookup was fifteen minutes away — a starving client now looks
+again in thirty seconds. The Windows freezes were a peer that stopped reading: the connection's
+send queue *suspended* its caller when full, and the caller was the session's timer — a send
+never waits now, and a full queue is a closed peer. What is left between 12 MiB/s and 20 MB/s is
+what B-105 named: the started-pieces window at its cap of 256 with pieces taking four seconds
+each, which bounds the steady rate at about 14 MiB/s on a 256 KiB-piece torrent. It is not
+touched here; with nothing freezing, it is the next thing to measure. And the difference between
+7 connected peers on WSL and 158 on Windows with the same binary is the machine's reachability,
+not the client's — on this swarm the seeds dial.
+
+**A method note.** qBittorrent's numbers came from its own API and kachok's from its own progress
+line; neither is a neutral instrument, but each is the count the client acts on, and "frozen at
+24 % with 152 requests outstanding and `unchoked` never changing again" is not a reading that
+needs a second opinion. What did need one was the tracker: three hand-built announces from the
+same address, `numwant` unset, 50 and 200, one peer each — the same finding as D13's, repeated
+because a reading that decides an argument is worth taking twice.
 
 ### D15. MSE's prime is not RFC 2409's, and a real router was built to prove the mapping
 

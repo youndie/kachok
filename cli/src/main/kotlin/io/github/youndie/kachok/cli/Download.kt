@@ -150,6 +150,7 @@ class Download(
                         uploadLimitBytesPerSecond = options.uploadLimit,
                         downloadLimitBytesPerSecond = options.downloadLimit,
                         announceToAllTrackers = options.announceToAllTrackers,
+                        highFiles = options.highFiles,
                     ),
                 onResumeFailure = { err.appendLine("kachok: $it") },
             )
@@ -179,62 +180,83 @@ class Download(
             }
         Runtime.getRuntime().addShutdownHook(hook)
 
-        val finished =
-            try {
-                val settled =
-                    sessionScope.async {
-                        session.state.first { state -> state.isComplete || hopeless(state) }
+        // **The set is closed when the *process* is done with it, not when the download is.** It
+        // used to be closed in the `finally` right after the download settled — which is before
+        // the `--seed` branch below — so a seeding client had no listener to be reached on and no
+        // open files to serve from, and sat at "seeding" looking exactly like a seeder
+        // ([B-109](../../../../../../../docs/backlog/B-109-download-seed-closes-the-set-before-it-seeds.md)).
+        // One `finally` for every path, after the runtime has stopped: the set holds the port
+        // mapping, and an interrupt still has to give that back.
+        try {
+            val finished =
+                try {
+                    val settled =
+                        sessionScope.async {
+                            session.state.first { state -> state.isComplete || hopeless(state) }
+                        }
+                    select {
+                        settled.onAwait { it }
+                        interrupted.onAwait {
+                            settled.cancel()
+                            null
+                        }
                     }
-                select {
-                    settled.onAwait { it }
-                    interrupted.onAwait {
-                        settled.cancel()
-                        null
-                    }
+                } finally {
+                    renderer.cancel()
                 }
-            } finally {
-                renderer.cancel()
-                set.close()
+
+            if (finished == null) return stopInterrupted(pool, runtime, runningJob, stopped, hook)
+
+            if (!finished.isComplete) {
+                err.appendLine("kachok: ${finished.trackerError ?: finished.lastPeerError ?: "no peers"}")
+                runtime.stop()
+                stopped.complete(Unit)
+                dropHook(hook)
+                return EXIT_FAILED
             }
 
-        if (finished == null) {
+            out.appendLine(progress(finished))
+            out.appendLine("${metainfo.name}: complete")
             out.appendLine(
                 "buffer pool: ${pool.peakOutstanding} of ${pool.capacity} used at peak, " +
                     "${pool.allocated} allocated",
             )
-            out.appendLine("stopping")
+            if (options.seedAfterCompletion) {
+                // The hook stays armed: this is the one branch a person ends by hand, and it ends
+                // the way an interrupted download does — tracker told, peers closed, mapping given
+                // back — rather than by the JVM going away mid-announce.
+                out.appendLine("seeding; stop with Ctrl-C")
+                interrupted.await()
+                return stopInterrupted(pool, runtime, runningJob, stopped, hook)
+            }
             runtime.stop()
-            val clean = withTimeoutOrNull(SHUTDOWN_TIMEOUT) { runningJob.join() } != null
             stopped.complete(Unit)
             dropHook(hook)
-            if (!clean) err.appendLine("kachok: the session did not stop within $SHUTDOWN_TIMEOUT")
-            return if (clean) EXIT_OK else EXIT_FAILED
+            return EXIT_OK
+        } finally {
+            set.close()
         }
+    }
+
+    /** The interrupt path, shared by a download cut short and a seeder told to stop. */
+    private suspend fun stopInterrupted(
+        pool: io.github.youndie.kachok.engine.io.BufferPool,
+        runtime: io.github.youndie.kachok.engine.runtime.TorrentRuntime,
+        runningJob: Job,
+        stopped: CompletableDeferred<Unit>,
+        hook: Thread,
+    ): Int {
+        out.appendLine(
+            "buffer pool: ${pool.peakOutstanding} of ${pool.capacity} used at peak, " +
+                "${pool.allocated} allocated",
+        )
+        out.appendLine("stopping")
+        runtime.stop()
+        val clean = withTimeoutOrNull(SHUTDOWN_TIMEOUT) { runningJob.join() } != null
         stopped.complete(Unit)
         dropHook(hook)
-
-        return when {
-            finished.isComplete -> {
-                out.appendLine(progress(finished))
-                out.appendLine("${metainfo.name}: complete")
-                out.appendLine(
-                    "buffer pool: ${pool.peakOutstanding} of ${pool.capacity} used at peak, " +
-                        "${pool.allocated} allocated",
-                )
-                if (options.seedAfterCompletion) {
-                    out.appendLine("seeding; stop with Ctrl-C")
-                    session.state.first { false }
-                }
-                runtime.stop()
-                EXIT_OK
-            }
-
-            else -> {
-                err.appendLine("kachok: ${finished.trackerError ?: finished.lastPeerError ?: "no peers"}")
-                runtime.stop()
-                EXIT_FAILED
-            }
-        }
+        if (!clean) err.appendLine("kachok: the session did not stop within $SHUTDOWN_TIMEOUT")
+        return if (clean) EXIT_OK else EXIT_FAILED
     }
 
     /**
@@ -284,6 +306,13 @@ class Download(
             // B-98: what the client did to get those peers, not only how many it has. A run that
             // holds five peers after fifty dials and one that holds five after six are different
             // clients, and the progress line was the only place a headless run could say so.
+            // What was served, and how many of the connected peers want anything at all: a swarm
+            // where every reachable peer is a seed has nobody to serve, and that is a different
+            // reading of `up 0` from a client that cannot serve (B-110).
+            append(", up ").append(state.uploaded)
+            append(", ").append(state.peers.count { it.peerInterested }).append(" want ours")
+            // And how many of them could: a peer holding every piece wants nothing from anybody.
+            append(" of ").append(state.peers.count { it.pieces < state.pieceCount }).append(" leechers")
             append(", dials ")
                 .append(state.dialsHandshaked)
                 .append('/')
@@ -314,6 +343,16 @@ class Download(
                     )
                     append(')')
                 }
+            }
+            // B-112: of the peers that wanted our pieces, how many were ever given the chance.
+            if (state.interestOutcomes.isNotEmpty()) {
+                append(", interest (")
+                append(
+                    state.interestOutcomes.entries
+                        .sortedByDescending { it.value }
+                        .joinToString(", ") { "${it.key} ${it.value}" },
+                )
+                append(')')
             }
             if (state.hashFailures > 0) append(", ").append(state.hashFailures).append(" hash failures")
             state.trackerError?.let { append(", tracker: ").append(it) }

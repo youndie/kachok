@@ -7,7 +7,6 @@ import io.github.youndie.kachok.engine.hash.JvmBlock
 import io.github.youndie.kachok.engine.peer.PeerAddress
 import io.github.youndie.kachok.engine.peer.PeerConnection
 import io.github.youndie.kachok.engine.peer.PeerEvent
-import io.github.youndie.kachok.engine.storage.FileStorage
 import io.github.youndie.kachok.engine.wire.Handshake
 import io.github.youndie.kachok.engine.wire.Message
 import io.github.youndie.kachok.engine.wire.PeerWire
@@ -15,6 +14,7 @@ import io.github.youndie.kachok.engine.wire.WireException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.channels.ClosedSendChannelException
 import kotlinx.coroutines.channels.ReceiveChannel
 import kotlinx.coroutines.launch
 import java.io.EOFException
@@ -62,7 +62,8 @@ public class SocketPeerConnection private constructor(
     override val handshake: Handshake,
     private val socket: SocketChannel,
     private val pool: BufferPool,
-    private val blocks: FileStorage? = null,
+    /** Where the blocks this connection serves come from. Required: see [BlockSource] and B-110. */
+    private val blocks: BlockSource,
 ) : PeerConnection,
     AutoCloseable {
     /** Bytes this connection has served. The session sums these for the tracker announce. */
@@ -77,7 +78,29 @@ public class SocketPeerConnection private constructor(
     override val events: ReceiveChannel<PeerEvent> get() = incoming
 
     override suspend fun send(message: Message) {
-        outgoing.send(Outgoing.Frame(message))
+        enqueue(Outgoing.Frame(message))
+    }
+
+    /**
+     * Queues without ever waiting, and gives up on a peer that has stopped reading.
+     *
+     * **A queue that suspends its sender is a peer that can stop the session.** The writer is a
+     * blocking `socket.write`, so a peer that keeps the connection open and reads nothing fills
+     * the kernel's buffers, then this queue, and then the next `send` to it suspends whoever
+     * called — the timer's keep-alives, the `have` broadcast after every piece, the choke pass —
+     * and with the timer gone nothing expires a request, nothing dials, nothing unchokes: the
+     * download stands still with peers unchoked and requests outstanding for ever. Measured on
+     * the public swarm from a machine peers can reach: three runs, each frozen for the rest of
+     * its three minutes at 24–29 % after a burst at 20 MiB/s. B-19 met the same failure in the
+     * shape of a *closed* queue; this is the shape of a full one. Sixty-four unread messages is
+     * not a slow peer, it is a dead one, and it is closed here rather than waited for.
+     */
+    private fun enqueue(item: Outgoing) {
+        val result = outgoing.trySend(item)
+        if (result.isSuccess) return
+        if (result.isClosed) throw ClosedSendChannelException("connection to $address is closed")
+        close()
+        throw IOException("$address stopped reading: $OUTGOING_QUEUE messages queued and none taken")
     }
 
     /**
@@ -92,7 +115,7 @@ public class SocketPeerConnection private constructor(
         begin: Int,
         length: Int,
     ) {
-        outgoing.send(Outgoing.Block(piece, begin, length))
+        enqueue(Outgoing.Block(piece, begin, length))
     }
 
     /**
@@ -233,12 +256,11 @@ public class SocketPeerConnection private constructor(
                     }
 
                     is Outgoing.Block -> {
-                        val source = blocks ?: continue
                         val header = PeerWire.encodePieceHeader(item.piece, item.begin, item.length)
                         val bytes = ByteBuffer.wrap(header)
                         while (bytes.hasRemaining()) socket.write(bytes)
                         // And the block itself never enters this process.
-                        source.transferBlock(item.piece, item.begin, item.length, socket)
+                        blocks.transferBlock(item.piece, item.begin, item.length, socket)
                         uploaded += item.length.toLong()
                     }
                 }
@@ -373,6 +395,7 @@ public class SocketPeerConnection private constructor(
             infoHash: InfoHash,
             peerId: PeerId,
             pool: BufferPool,
+            blocks: BlockSource,
             reserved: ByteArray = Handshake.reservedBits(),
             connectTimeout: Duration = DEFAULT_CONNECT_TIMEOUT,
             handshakeTimeout: Duration = DEFAULT_HANDSHAKE_TIMEOUT,
@@ -400,7 +423,7 @@ public class SocketPeerConnection private constructor(
                 if (!handshake.infoHash.bytes.contentEquals(infoHash.bytes)) {
                     throw WireException("peer answered for another torrent: ${handshake.infoHash.bytes.toHex()}")
                 }
-                return SocketPeerConnection(address, handshake, socket, pool).also { it.start(scope) }
+                return SocketPeerConnection(address, handshake, socket, pool, blocks).also { it.start(scope) }
             } catch (failure: Throwable) {
                 socket.closeQuietly()
                 throw failure
@@ -420,6 +443,7 @@ public class SocketPeerConnection private constructor(
             infoHash: InfoHash,
             peerId: PeerId,
             pool: BufferPool,
+            blocks: BlockSource,
             reserved: ByteArray = Handshake.reservedBits(),
         ): SocketPeerConnection {
             try {
@@ -427,7 +451,7 @@ public class SocketPeerConnection private constructor(
                 if (!handshake.infoHash.bytes.contentEquals(infoHash.bytes)) {
                     throw WireException("peer asked for another torrent: ${handshake.infoHash.bytes.toHex()}")
                 }
-                return answer(scope, socket, handshake, infoHash, peerId, pool, reserved)
+                return answer(scope, socket, handshake, infoHash, peerId, pool, blocks, reserved)
             } catch (failure: Throwable) {
                 socket.closeQuietly()
                 throw failure
@@ -469,6 +493,7 @@ public class SocketPeerConnection private constructor(
             infoHash: InfoHash,
             peerId: PeerId,
             pool: BufferPool,
+            blocks: BlockSource,
             reserved: ByteArray = Handshake.reservedBits(),
         ): SocketPeerConnection {
             try {
@@ -477,7 +502,7 @@ public class SocketPeerConnection private constructor(
 
                 val remote = socket.remoteAddress as InetSocketAddress
                 val address = PeerAddress(remote.address.hostAddress, remote.port)
-                return SocketPeerConnection(address, handshake, socket, pool).also { it.start(scope) }
+                return SocketPeerConnection(address, handshake, socket, pool, blocks).also { it.start(scope) }
             } catch (failure: Throwable) {
                 socket.closeQuietly()
                 throw failure

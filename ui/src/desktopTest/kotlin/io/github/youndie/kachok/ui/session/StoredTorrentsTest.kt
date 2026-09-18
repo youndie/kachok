@@ -175,4 +175,33 @@ class StoredTorrentsTest {
     fun aDirectoryThatDoesNotExistIsAnEmptyList() {
         assertEquals(emptyList(), loadStoredTorrents(root.resolve("never-written")))
     }
+
+    /**
+     * The tier is the third per-torrent decision and lives with the other two.
+     *
+     * Written from the Files tab while the torrent runs, so — like the order (B-89) — it is
+     * recorded through a call that rewrites one entry in place. One click can move a file *between*
+     * the two sets, high to skip, so both are written by one call rather than two
+     * ([B-106](../../../../../../../../docs/backlog/B-106-per-file-priority.md)).
+     */
+    @Test
+    fun theTiersAreRecordedTogetherWithoutDisturbingAnythingElse() {
+        val metainfo = torrent("alpha.bin")
+        rememberTorrent(root, metainfo, saveTo = "/srv/one", paused = true, unwanted = setOf(2), high = setOf(0))
+
+        val stored = loadStoredTorrents(root).single()
+        assertEquals(setOf(0), stored.high, "the raised set did not survive a reload")
+        assertEquals(setOf(2), stored.unwanted)
+
+        // File 0 goes from high to skip in one click: it must leave one set and join the other.
+        rememberPriorities(root, metainfo.infoHash.hex(), unwanted = setOf(0, 2), high = emptySet())
+        val moved = loadStoredTorrents(root).single()
+        assertEquals(emptySet(), moved.high, "an emptied set was not cleared")
+        assertEquals(setOf(0, 2), moved.unwanted)
+        assertTrue(moved.paused, "recording the tiers lost the pause")
+        assertEquals("/srv/one", moved.directory)
+
+        rememberPriorities(root, "0".repeat(40), unwanted = setOf(1), high = setOf(1))
+        assertEquals(1, loadStoredTorrents(root).size, "a tier for a torrent that is not there invented one")
+    }
 }

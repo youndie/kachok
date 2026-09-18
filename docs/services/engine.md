@@ -65,6 +65,7 @@ What exists on `main` today:
 | `.../engine/io/SocketPeerConnection.kt` | one peer, one blocking `SocketChannel`, one virtual thread; `connect` and `accept`, blocks read straight into pool buffers |
 | `.../engine/io/PeerListener.kt` | the 6881–6889 probe and the accept loop |
 | `.../engine/io/SocketPeerDialer.kt` | the `PeerDialer` the session dials through |
+| `.../engine/io/BlockSource.kt` | where a connection serves blocks from — required, `FileStorage` for a torrent and `NoBlocks` for a metadata fetch (B-110) |
 | `.../engine/storage/PieceLayout.kt` | piece and block to file spans, by cumulative offsets |
 | `.../engine/storage/PieceHasher.kt` | the interface a piece is verified through, before it is written |
 | `.../engine/storage/BlockWriter.kt` | the single writer: blocks in, verified pieces out, buffers back to the pool |
@@ -256,12 +257,65 @@ them. Nothing is read from the environment by this module; that is [cli](cli.md)
   connection after the third message. It cost six iterations to find, because only a third party can
   see it; `MseHandshake.PRIME_HEX` now carries the right value and a known-answer test pins it
   ([B-100](../backlog/B-100-protocol-encryption.md)).
+* **Every connection names where it serves blocks from, and none has a default.** `SocketPeerConnection`
+  took a nullable storage for six milestones that nothing ever passed, and a request it could not
+  serve was dropped without a word — so this client uploaded nothing to anybody, on any surface,
+  while the choker, the budget and `transferTo` were each tested against a fake and passed. The
+  storage is a required `BlockSource` now: the runtime's `FileStorage` for a torrent, and `NoBlocks`
+  — which throws — for the one honest case, a metadata fetch that holds no pieces
+  ([B-110](../backlog/B-110-this-client-never-uploads-a-block.md)).
+* **`uploaded` is one accumulator, read off the connections.** The truthful count of an upload is
+  the connection's own, taken after `transferTo` returned; a connection that leaves adds its count
+  to the departed total, the live ones are summed on the tick, and the tracker is told the same
+  number. Before B-110 the state summed the live links at the moment a block was *queued* and the
+  tracker was told a field nothing incremented — both read zero, and both were right.
+* **One connection per peer id, and the tie is broken the same way on both machines.** Two clients
+  on one segment used to hold two connections to each other — the tracker sent one to dial, local
+  discovery sent the other to dial back — and, keyed by address, the picker saw two peers: endgame
+  asked the second for everything and a seeder served the file twice
+  ([B-111](../backlog/B-111-two-connections-to-the-same-peer.md)). A second handshake carrying a
+  peer id the session already holds is now closed at `serve` before it reaches the picker, counted
+  as `duplicate peer`; one carrying the session's *own* id is counted as `ourselves`. Which of the
+  two survives is not "the first seen": two clients that hear each other at once each see a
+  different one first, and "keep the first" leaves both with nothing and a redial after the wait.
+  The connection **dialled by the lower peer id** stays, whichever side is asking; two of the same
+  kind keep the one already held.
+* **What came of a peer's interest is counted, not guessed.** `interestOutcomes` in the state
+  says, for every interested peer that left on its own, whether it was served, unchoked and never
+  asked, or left choked inside or after one choke pass. Two 200-second public runs filled it with
+  one departure, an unchoked one — which is how [B-112](../backlog/B-112-a-peer-interested-for-seconds-is-never-unchoked.md)
+  was dropped rather than argued; the counter stays on the `download` summary line for the next
+  time somebody suspects the choker.
+* **A send to a peer never waits, and a full queue is a dead peer.** The connection's writer is
+  a blocking `socket.write` behind a queue of sixty-four; a peer that keeps the socket open and
+  reads nothing fills the kernel, then the queue, and `send` used to suspend the caller on the
+  sixty-fifth — the timer's keep-alives, the `have` broadcast, the choke pass — and with the timer
+  gone nothing expired, dialled or unchoked: a download frozen at 20 MiB/s with peers unchoked and
+  requests outstanding for ever, three runs out of three on a reachable machine
+  ([B-114](../backlog/B-114-a-peer-that-stops-reading-stops-the-whole-session.md)). `send` is
+  `trySend` now; a full queue closes the connection and throws, and the session counts the peer
+  under `not reading`. B-19 handled the closed queue; this is the full one.
+* **A DHT lookup that leaves the client short is retaken in seconds, not minutes.** The first
+  lookup on the public swarm, taken while two bootstrap nodes were not answering, found nothing,
+  and the tracker there hands out one peer per announce: one peer for the whole `dhtInterval`,
+  twice in a row. A lookup after which `known` is below `maxPeers` is followed by another after
+  `dhtStarvedInterval` (30 s), doubling up to `dhtInterval`; the announce keeps its own clock.
+  Five bootstrap nodes instead of three (B-114).
 * **A known address has three states and not two.** `connected` and `failed` do not cover an
   address inside a ten-second `connect`, and most of a public swarm's addresses are in exactly that
   state for exactly that long — 22 of 50 in B-19's measurement. Without the third set, `dialling`,
   a second caller dials the same address again, the later link wins `connected[address]`, and the
   earlier one leaks with its coroutine and its picker entry. Dials in flight are also subtracted
   from the room, or a per-tick loop launches a fresh `maxPeers` on top of the outstanding ones.
+* **A file's priority is a pool the picker empties first, not an order it follows.** Inside the
+  raised pool the rule is still rarest-first (or lowest-first under sequential), and only when a
+  peer can give nothing from that pool does the picker look at the rest. A "priority" that became an
+  order — lowest raised piece first — would be strict sequential with a smaller scope, and every
+  peer asking for the same pieces is the swarm harm B-65 measured and refused. The picker's
+  mutation test pins both halves: dropping the pool fails one test, ordering inside it fails
+  another ([B-106](../backlog/B-106-per-file-priority.md)). The same call, `prioritise`, changes
+  the skip set on a running picker — what is started finishes, what begins next follows the new
+  sets — which is the half B-67 left out, done the only honest way.
 * **`index in started` on a `Map<Int, _>` boxes the index.** The picker asks it once per piece per
   request, which is where half of the profile's `Integer` allocations came from; a `BooleanArray`
   beside the map answers the same question for nothing. Both mutations of `started` go through one

@@ -84,6 +84,13 @@ public class SessionState(
     public val disconnects: Long = 0,
     public val disconnectReasons: Map<String, Int> = emptyMap(),
     /**
+     * What came of each peer that said `interested`, counted when it left: `served`, `unchoked,
+     * never asked`, `left choked inside one pass`, `left choked after a pass`. The last two are the
+     * ones B-112 asks about — a peer the choke pass never reached, and one it reached and passed
+     * over. A peer never interested is not counted; it is most of a swarm.
+     */
+    public val interestOutcomes: Map<String, Int> = emptyMap(),
+    /**
      * Pieces the picker has open, and the mean milliseconds a piece stays open.
      *
      * **These two are the download window**: no more than [startedPieces] pieces are ever in
@@ -183,13 +190,33 @@ public class FileView(
     public val length: Long,
     public val verifiedBytes: Long,
     /**
-     * Whether this client is fetching it.
-     *
-     * Always true today; the setting that would make it false is
-     * [B-67](../../../../../../../../docs/backlog/B-67-per-file-selection.md).
+     * Whether this client is fetching it — `priority != SKIP`, kept as its own field because it
+     * is the question every reader of this asked before there were three answers
+     * ([B-67](../../../../../../../../docs/backlog/B-67-per-file-selection.md)).
      */
     public val wanted: Boolean = true,
+    /** Which pool the picker draws this file's pieces from; see [FilePriority]. */
+    public val priority: FilePriority = FilePriority.NORMAL,
 )
+
+/**
+ * How much a file matters, in three steps, which is one more than "wanted".
+ *
+ * **A tier reorders which pool the picker draws from; rarest-first still decides inside each.**
+ * That is the whole design ([B-106](../../../../../../../../docs/backlog/B-106-per-file-priority.md)):
+ * the picker's cost was measured rarest-first (research §1.2c) and a strict per-file order is
+ * strict sequential with a smaller scope — every peer asks for the same pieces and the client that
+ * does it finishes last, which is the argument B-65 already paid for. [HIGH] pieces are offered
+ * before the rest and the rarest of them first; [SKIP] is `unwantedFiles` under its real name.
+ *
+ * A piece that straddles two files takes the higher tier: one shared with a high file is high, one
+ * shared with a wanted file is fetched. The swarm serves pieces, not files.
+ */
+public enum class FilePriority {
+    SKIP,
+    NORMAL,
+    HIGH,
+}
 
 /**
  * One connected peer, as far as anything outside the engine is allowed to see it.
@@ -298,6 +325,21 @@ public sealed interface Command {
         public val sequential: Boolean? = null,
     ) : Command
 
+    /**
+     * One file moves to another tier, on a running torrent.
+     *
+     * Like [Reconfigure.sequential] it changes what is chosen *next* and leaves what is in flight
+     * alone. Raising a file is cheap — its pieces become candidates. Lowering one *to* [FilePriority.SKIP]
+     * while its pieces are in flight is the half [B-67](../../../../../../../../docs/backlog/B-67-per-file-selection.md)
+     * left out and this leaves out too: the pieces already started finish, and the rest are not
+     * asked for. `left` and the file list are republished so the caller sees the new shape at once.
+     */
+    public class PrioritiseFile(
+        /** The file's index in the metainfo. */
+        public val file: Int,
+        public val priority: FilePriority,
+    ) : Command
+
     /** Announce `stopped`, close the peers, flush, and finish. */
     public data object Stop : Command
 }
@@ -368,6 +410,17 @@ public class SessionConfig(
      * findable, rare enough that it is not a load on the network.
      */
     public val dhtInterval: Duration = 15.minutes,
+    /**
+     * How soon to look again while the client knows fewer addresses than it could hold.
+     *
+     * A lookup is a snapshot of a network that changes, and a first one taken while the bootstrap
+     * nodes were throttling this address is a snapshot of nothing: on the public swarm it left the
+     * client with the tracker's one peer for the whole of [dhtInterval], twice in a row. So a
+     * lookup that leaves `known` below `maxPeers` is followed by another after this long, doubling
+     * each time until it reaches [dhtInterval]; one that leaves the client with more addresses
+     * than it can use is kept for the full interval, as before.
+     */
+    public val dhtStarvedInterval: Duration = 30.seconds,
     /** Where to start from when the routing table is empty. Empty means the DHT is off. */
     public val dhtBootstrap: List<io.github.youndie.kachok.engine.peer.PeerAddress> = emptyList(),
     /**

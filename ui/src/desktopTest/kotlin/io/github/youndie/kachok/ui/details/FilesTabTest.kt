@@ -12,6 +12,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.v2.runComposeUiTest
+import io.github.youndie.kachok.engine.session.FilePriority
 import io.github.youndie.kachok.ui.main.designDetails
 import io.github.youndie.kachok.ui.theme.KachokTheme
 import kotlin.test.Test
@@ -203,4 +204,101 @@ class FilesTabTest {
             }
             onNodeWithText("No files yet — the metainfo has not arrived.").assertIsDisplayed()
         }
+
+    // B-106: the row's glyph is a control, and it walks the three tiers.
+
+    /** An ordinary file's glyph asks for *high*, and says which tier it is in before the click. */
+    @Test
+    fun theGlyphOfAnOrdinaryFileAsksToRaiseIt() =
+        runComposeUiTest {
+            val asked = mutableListOf<Pair<String, FilePriority>>()
+            setContent {
+                KachokTheme { DetailsPanel(details, onFilePriority = { row, tier -> asked += row.name to tier }) }
+            }
+            assertEquals("normal", stateOf("priority of SHA512SUMS.sign"))
+            onNodeWithContentDescription("priority of SHA512SUMS.sign").performClick()
+            assertEquals(listOf("SHA512SUMS.sign" to FilePriority.HIGH), asked)
+        }
+
+    /**
+     * The next two steps of the cycle, from rows built to be in those tiers.
+     *
+     * Rows and not the design fixture, because the fixture is B-67's picture and has no raised
+     * file — and it should not: the golden of the tab must not change for a torrent nobody has
+     * touched.
+     */
+    @Test
+    fun aRaisedFileAsksToBeSkippedAndASkippedOneToBeOrdinary() =
+        runComposeUiTest {
+            val asked = mutableListOf<Pair<String, FilePriority>>()
+            setContent {
+                KachokTheme {
+                    DetailsPanel(
+                        details.withFiles(
+                            listOf(
+                                FileRow(
+                                    "first.mkv",
+                                    "1.0 GiB",
+                                    "12%",
+                                    wanted = true,
+                                    priority = FilePriority.HIGH,
+                                    index = 0,
+                                ),
+                                FileRow(
+                                    "extras.nfo",
+                                    "1 KiB",
+                                    "skip",
+                                    wanted = false,
+                                    priority = FilePriority.SKIP,
+                                    index = 1,
+                                ),
+                            ),
+                        ),
+                        onFilePriority = { row, tier -> asked += row.name to tier },
+                    )
+                }
+            }
+            assertEquals("high", stateOf("priority of first.mkv"))
+            assertEquals("skip", stateOf("priority of extras.nfo"))
+            onNodeWithContentDescription("priority of first.mkv").performClick()
+            onNodeWithContentDescription("priority of extras.nfo").performClick()
+            assertEquals(listOf("first.mkv" to FilePriority.SKIP, "extras.nfo" to FilePriority.NORMAL), asked)
+        }
+
+    /** The glyph is its own control: pressing it does not double-click the row into opening. */
+    @Test
+    fun pressingTheGlyphOpensNothing() =
+        runComposeUiTest {
+            var opened = 0
+            setContent {
+                KachokTheme {
+                    DetailsPanel(details, onOpenFile = {
+                        opened++
+                        null
+                    })
+                }
+            }
+            onNodeWithContentDescription("priority of SHA512SUMS.sign").performClick()
+            assertEquals(0, opened)
+        }
+
+    private fun ComposeUiTest.stateOf(description: String): String? =
+        onNodeWithContentDescription(description)
+            .fetchSemanticsNode()
+            .config
+            .getOrNull(SemanticsProperties.StateDescription)
+
+    private fun DetailsState.withFiles(rows: List<FileRow>): DetailsState =
+        DetailsState(
+            name = name,
+            state = state,
+            stateLabel = stateLabel,
+            summary = summary,
+            sections = sections,
+            complaints = complaints,
+            sessionError = sessionError,
+            tab = DetailsTab.Files,
+            files = rows,
+            filesSummary = filesSummary,
+        )
 }

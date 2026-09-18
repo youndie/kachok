@@ -34,6 +34,32 @@ public fun unwantedPieces(
     return skipped
 }
 
+/**
+ * Every piece that holds at least one byte of one of these files.
+ *
+ * The straddling rule from the other side. [unwantedPieces] skips a piece only when *no* wanted
+ * file touches it; this marks a piece the moment *any* named file does — so a piece shared between
+ * a high-priority file and an ordinary one is high, and the higher tier wins on the boundary, which
+ * is what [B-106](../../../../../../../../docs/backlog/B-106-per-file-priority.md) asks for. The
+ * two are not each other's complement: the first is "nobody wants it", the second "somebody wants
+ * it first".
+ */
+public fun piecesOf(
+    metainfo: Metainfo,
+    files: Set<Int>,
+): Bitfield {
+    val touched = Bitfield(metainfo.pieceCount)
+    if (files.isEmpty()) return touched
+    val pieceLength = metainfo.pieceLength
+    metainfo.files.forEachIndexed { index, file ->
+        if (index !in files || file.length == 0L) return@forEachIndexed
+        val first = (file.offset / pieceLength).toInt()
+        val last = ((file.offset + file.length - 1) / pieceLength).toInt()
+        (first..last).forEach { if (it < touched.size) touched.set(it) }
+    }
+    return touched
+}
+
 /** The bytes of the files this client actually wants, which is what `left` counts down. */
 public fun wantedBytes(
     metainfo: Metainfo,

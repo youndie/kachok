@@ -93,4 +93,25 @@ class UnwantedPiecesTest {
         const val PIECE = 16
         const val HASH_BYTES = 20
     }
+
+    /**
+     * The straddle rule from the other side: a piece shared with a raised file is raised.
+     *
+     * [unwantedPieces] and [piecesOf] answer different questions and are not each other's
+     * complement — the first clears a piece if *anybody* wants it, the second sets one if the named
+     * file *touches* it — so the boundary piece is in both a skip-complement and a raise, which is
+     * the higher tier winning ([B-106](../../../../../../../../docs/backlog/B-106-per-file-priority.md)).
+     */
+    @Test
+    fun aRaisedFileRaisesEveryPieceItTouchesIncludingTheSharedOne() {
+        // The same shape the skip tests use: 40 + 24 bytes over 16-byte pieces, so file 1 begins
+        // inside piece 2 and that piece is shared.
+        val metainfo = torrent(40, 24)
+        val raised = piecesOf(metainfo, setOf(1))
+        assertFalse(raised[0], "piece 0 holds nothing of file 1")
+        assertFalse(raised[1])
+        assertTrue(raised[2], "the shared piece was not raised")
+        assertTrue(raised[3])
+        assertEquals(0, piecesOf(metainfo, emptySet()).cardinality, "nothing named, nothing raised")
+    }
 }

@@ -157,7 +157,7 @@ class PeerListenerTest {
             val bound = PeerListener.bind(range, host = "127.0.0.1").also { listener = it }
             bound.start(scope) { socket ->
                 accepted.send(
-                    SocketPeerConnection.accept(scope, socket, infoHash, peerId, BufferPool(4)),
+                    SocketPeerConnection.accept(scope, socket, infoHash, peerId, BufferPool(4), NoBlocks),
                 )
             }
 
@@ -193,7 +193,7 @@ class PeerListenerTest {
             val bound = PeerListener.bind(range, host = "127.0.0.1").also { listener = it }
             bound.start(scope) { socket ->
                 try {
-                    SocketPeerConnection.accept(scope, socket, infoHash, peerId, BufferPool(4))
+                    SocketPeerConnection.accept(scope, socket, infoHash, peerId, BufferPool(4), NoBlocks)
                 } catch (refused: WireException) {
                     refusals.send(refused)
                 }

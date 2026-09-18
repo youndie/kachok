@@ -18,6 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import io.github.youndie.kachok.engine.session.FilePriority
 import io.github.youndie.kachok.ui.add.AddTorrentDialog
 import io.github.youndie.kachok.ui.add.AddTorrentState
 import io.github.youndie.kachok.ui.add.ClipboardMagnetPrompt
@@ -56,7 +57,10 @@ internal class MainWindowState(
     val adding: AddTorrentState? = null,
     /** A magnet noticed on the clipboard when the window came back into focus. */
     val clipboardMagnet: String? = null,
-    /** The files hovering over the window right now. Empty means nothing is being dragged. */
+    /**
+     * The files hovering over the window right now, by name — or `DroppedFiles.UNNAMED_DROP` alone
+     * when the platform will not say the names before the drop. Empty means nothing is being dragged.
+     */
     val dropping: List<String> = emptyList(),
     /** Non-null while the settings screen is open, which is instead of the list rather than over it. */
     val settings: SettingsState? = null,
@@ -108,6 +112,8 @@ internal fun MainWindow(
     onOpenFile: (FileRow) -> String? = { null },
     /** The *Files* tab's order control, which is not the add dialog's tick of the same name. */
     onSequentialOrder: (Boolean) -> Unit = {},
+    /** A row's glyph in the *Files* tab moved that file to another tier (B-106). */
+    onFilePriority: (FileRow, FilePriority) -> Unit = { _, _ -> },
     onSequential: (Boolean) -> Unit = {},
     onResizeDetails: (Dp) -> Unit = {},
 ) {
@@ -184,6 +190,7 @@ internal fun MainWindow(
                             onAnnounce = onAnnounce,
                             onOpenFile = onOpenFile,
                             onSequential = onSequentialOrder,
+                            onFilePriority = onFilePriority,
                             width = state.detailsWidth,
                             onResize = onResizeDetails,
                         )
@@ -207,6 +214,7 @@ internal fun MainWindow(
                     onAnnounce = onAnnounce,
                     onOpenFile = onOpenFile,
                     onSequential = onSequentialOrder,
+                    onFilePriority = onFilePriority,
                     width = state.detailsWidth,
                     onResize = onResizeDetails,
                 )

@@ -466,4 +466,159 @@ class PiecePickerTest {
             "the rare piece was not preferred",
         )
     }
+
+    // B-106: a raised file is a pool the picker empties first, and rarest-first still rules inside it.
+
+    /** The raised pool is exhausted before the rarest ordinary piece is even considered. */
+    @Test
+    fun aRaisedPieceIsTakenBeforeARarerOrdinaryOne() {
+        val picker = PiecePicker(tenPieces, maxStartedPieces = 1, random = Random(1))
+        // Past the first-piece randomisation: the picker already has piece 0.
+        picker.restore(Bitfield(tenPieces.pieceCount).apply { set(0) })
+        picker.peerWith(a, *(0..9).toList().toIntArray())
+        picker.peerWith(b, *(0..9).filter { it != 7 }.toIntArray())
+        picker.peerWith(c, *(0..9).filter { it != 7 }.toIntArray())
+        picker.prioritise(Bitfield(tenPieces.pieceCount), Bitfield(tenPieces.pieceCount).apply { set(3) })
+
+        val order =
+            (0..1).map {
+                val request = picker.next(a, 1).single()
+                picker.blockReceived(a, request.piece, 0)
+                picker.pieceVerified(request.piece)
+                request.piece.value
+            }
+        assertEquals(listOf(3, 7), order, "the raised piece was not taken first, or the rarest did not follow it")
+    }
+
+    /**
+     * Inside the pool the rule is the rule: the rarest of the raised pieces, not the lowest.
+     *
+     * This is the mutation the item asks for. A tier that became an *order* — lowest raised piece
+     * first — is strict sequential with a smaller scope, and every peer asking for the same pieces
+     * is the swarm harm [B-65](../../../../../../../../docs/backlog/B-65-sequential-download.md)
+     * already paid for.
+     */
+    @Test
+    fun withinTheRaisedPoolTheRarestStillWins() {
+        val picker = PiecePicker(tenPieces, maxStartedPieces = 1, random = Random(1))
+        picker.restore(Bitfield(tenPieces.pieceCount).apply { set(0) })
+        picker.peerWith(a, *(0..9).toList().toIntArray())
+        picker.peerWith(b, *(0..9).filter { it != 7 }.toIntArray())
+        picker.peerWith(c, *(0..9).filter { it != 7 }.toIntArray())
+        picker.prioritise(
+            Bitfield(tenPieces.pieceCount),
+            Bitfield(tenPieces.pieceCount).apply {
+                set(2)
+                set(7)
+            },
+        )
+
+        val order =
+            (0..1).map {
+                val request = picker.next(a, 1).single()
+                picker.blockReceived(a, request.piece, 0)
+                picker.pieceVerified(request.piece)
+                request.piece.value
+            }
+        assertEquals(listOf(7, 2), order, "the pool was taken in index order rather than rarest first")
+    }
+
+    /** Under sequential order the pool is still first, and lowest-first inside it. */
+    @Test
+    fun sequentialTakesTheRaisedPoolInOrderAndThenTheRest() {
+        val picker = PiecePicker(tenPieces, maxStartedPieces = 1, random = Random(1), sequential = true)
+        picker.peerWith(a, *(0..9).toList().toIntArray())
+        picker.prioritise(
+            Bitfield(tenPieces.pieceCount),
+            Bitfield(tenPieces.pieceCount).apply {
+                set(6)
+                set(7)
+            },
+        )
+
+        val order =
+            (0..2).map {
+                val request = picker.next(a, 1).single()
+                picker.blockReceived(a, request.piece, 0)
+                picker.pieceVerified(request.piece)
+                request.piece.value
+            }
+        assertEquals(listOf(6, 7, 0), order)
+    }
+
+    /**
+     * Raised on a running picker, which is when anybody does it, and only the *next* choice moves.
+     *
+     * The piece already begun keeps its slot and its outstanding request; a `prioritise` that
+     * threw the way `skip` does would make the Files tab a control that works only before the
+     * download starts.
+     */
+    @Test
+    fun raisingAFileOnARunningPickerChangesOnlyWhatBeginsNext() {
+        val picker = PiecePicker(tenPieces, maxStartedPieces = 2, random = Random(1))
+        // Past the first-piece randomisation, so "the piece begun before" is piece 1 and not
+        // whichever the seed happened to draw — which could be the one about to be raised.
+        picker.restore(Bitfield(tenPieces.pieceCount).apply { set(0) })
+        picker.peerWith(a, *(0..9).toList().toIntArray())
+        val first = picker.next(a, 1).single().piece
+        assertEquals(1, first.value)
+
+        picker.prioritise(Bitfield(tenPieces.pieceCount), Bitfield(tenPieces.pieceCount).apply { set(5) })
+
+        val second = picker.next(a, 1).single().piece
+        assertEquals(5, second.value, "the raised piece was not the next one begun")
+        assertEquals(2, picker.startedPieces, "the piece in flight was dropped by the change")
+        picker.blockReceived(a, first, 0)
+        picker.pieceVerified(first)
+        assertTrue(picker.completed[first.value], "the piece begun before the change could not finish")
+    }
+
+    /** Skipped mid-run: the started piece finishes, and none of the rest of that file begins. */
+    @Test
+    fun skippingMidRunLetsTheStartedPieceFinishAndBeginsNoOther() {
+        val picker = PiecePicker(tenPieces, maxStartedPieces = 1, random = Random(1))
+        picker.restore(Bitfield(tenPieces.pieceCount).apply { set(0) })
+        picker.peerWith(a, *(0..9).toList().toIntArray())
+        val inFlight = picker.next(a, 1).single().piece
+        assertEquals(1, inFlight.value)
+
+        picker.prioritise(
+            Bitfield(tenPieces.pieceCount).apply { (1..3).forEach { set(it) } },
+            Bitfield(tenPieces.pieceCount),
+        )
+        picker.blockReceived(a, inFlight, 0)
+        picker.pieceVerified(inFlight)
+
+        assertEquals(
+            4,
+            picker
+                .next(a, 1)
+                .single()
+                .piece.value,
+            "a piece of the skipped file was begun after the skip",
+        )
+        assertFalse(picker.isComplete)
+    }
+
+    /** Un-skipped mid-run: the pieces come back as candidates, and the torrent is no longer complete. */
+    @Test
+    fun unskippingMidRunMakesThePiecesCandidatesAgain() {
+        val picker = PiecePicker(tenPieces, maxStartedPieces = 1, random = Random(1))
+        picker.skip(Bitfield(tenPieces.pieceCount).apply { (5..9).forEach { set(it) } })
+        picker.restore(Bitfield(tenPieces.pieceCount).apply { (0..4).forEach { set(it) } })
+        assertTrue(picker.isComplete, "everything wanted is on the disk")
+        picker.peerWith(a, *(0..9).toList().toIntArray())
+        assertTrue(picker.next(a, 1).isEmpty(), "a complete torrent asked for something")
+
+        picker.prioritise(Bitfield(tenPieces.pieceCount), Bitfield(tenPieces.pieceCount))
+
+        assertFalse(picker.isComplete, "un-skipping five files left the torrent complete")
+        assertEquals(
+            5,
+            picker
+                .next(a, 1)
+                .single()
+                .piece.value,
+        )
+    }
 }

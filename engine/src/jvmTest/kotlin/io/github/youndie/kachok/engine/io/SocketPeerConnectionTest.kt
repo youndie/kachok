@@ -62,6 +62,7 @@ class SocketPeerConnectionTest {
                     infoHash,
                     peerId,
                     BufferPool(capacity = 4),
+                    NoBlocks,
                     connectTimeout = 1.seconds,
                 )
             }
@@ -75,7 +76,14 @@ class SocketPeerConnectionTest {
             FakePeer(infoHash = otherHash).use { peer ->
                 val thrown =
                     assertFailsWith<WireException> {
-                        SocketPeerConnection.connect(scope, peer.address, infoHash, peerId, BufferPool(capacity = 4))
+                        SocketPeerConnection.connect(
+                            scope,
+                            peer.address,
+                            infoHash,
+                            peerId,
+                            BufferPool(capacity = 4),
+                            NoBlocks,
+                        )
                     }
                 assertContains(thrown.message ?: "", "another torrent")
             }
@@ -92,6 +100,7 @@ class SocketPeerConnectionTest {
                         infoHash,
                         peerId,
                         BufferPool(capacity = 4),
+                        NoBlocks,
                         Handshake.reservedBits(extensionProtocol = true),
                     )
                 withTimeout(TIMEOUT) {
@@ -118,7 +127,7 @@ class SocketPeerConnectionTest {
                     FakePeer.park(socket)
                 },
             ).use { peer ->
-                val connection = SocketPeerConnection.connect(scope, peer.address, infoHash, peerId, pool)
+                val connection = SocketPeerConnection.connect(scope, peer.address, infoHash, peerId, pool, NoBlocks)
                 val event = withTimeout(TIMEOUT) { connection.events.receive() }
                 val received = assertIs<PeerEvent.BlockReceived>(event)
                 val pooledBlock = received.block as PooledBlock
@@ -151,7 +160,15 @@ class SocketPeerConnectionTest {
                     FakePeer.park(socket)
                 },
             ).use { peer ->
-                val connection = SocketPeerConnection.connect(scope, peer.address, infoHash, peerId, BufferPool(4))
+                val connection =
+                    SocketPeerConnection.connect(
+                        scope,
+                        peer.address,
+                        infoHash,
+                        peerId,
+                        BufferPool(4),
+                        NoBlocks,
+                    )
                 withTimeout(TIMEOUT) {
                     assertTrue(assertIs<PeerEvent.Received>(connection.events.receive()).message === Message.Unchoke)
                     assertTrue(assertIs<PeerEvent.Received>(connection.events.receive()).message === Message.KeepAlive)
@@ -181,7 +198,15 @@ class SocketPeerConnectionTest {
                     FakePeer.park(socket)
                 },
             ).use { peer ->
-                val connection = SocketPeerConnection.connect(scope, peer.address, infoHash, peerId, BufferPool(4))
+                val connection =
+                    SocketPeerConnection.connect(
+                        scope,
+                        peer.address,
+                        infoHash,
+                        peerId,
+                        BufferPool(4),
+                        NoBlocks,
+                    )
                 connection.send(Message.Interested)
                 connection.send(Message.Request(PieceIndex(1), 0, PeerWire.BLOCK_SIZE))
                 withTimeout(TIMEOUT) {
@@ -195,11 +220,64 @@ class SocketPeerConnectionTest {
             }
         }
 
+    /**
+     * A peer that keeps the socket open and reads nothing must not be able to suspend whoever
+     * sends to it: the queue refuses, the connection is closed, and the caller gets an exception
+     * within a bounded time rather than a wait with no end.
+     */
+    @Test
+    fun aPeerThatStopsReadingIsClosedRatherThanWaitedFor(): Unit =
+        runBlocking {
+            FakePeer(infoHash = infoHash, afterHandshake = { socket -> FakePeer.park(socket) }).use { peer ->
+                val connection =
+                    SocketPeerConnection.connect(
+                        scope,
+                        peer.address,
+                        infoHash,
+                        peerId,
+                        BufferPool(4),
+                        NoBlocks,
+                    )
+                // A megabyte a message: the kernel's buffers take a few, the queue takes
+                // sixty-four, and the one after that has nowhere to go.
+                val heavy = Message.Bitfield(ByteArray(1 shl 20))
+                val refused =
+                    withTimeout(TIMEOUT) {
+                        var thrown: Exception? = null
+                        repeat(200) {
+                            try {
+                                connection.send(heavy)
+                            } catch (gone: java.io.IOException) {
+                                thrown = gone
+                                return@withTimeout thrown
+                            }
+                        }
+                        thrown
+                    }
+                assertTrue(refused != null, "two hundred unread megabytes were queued without complaint")
+                assertTrue("stopped reading" in refused.message.orEmpty(), refused.message)
+                // Closed by the connection itself: the event stream ends.
+                withTimeout(TIMEOUT) {
+                    for (event in connection.events) {
+                        // Drained until the channel closes; nothing in it matters here.
+                    }
+                }
+            }
+        }
+
     @Test
     fun aPeerHangingUpIsAnOrderlyClose(): Unit =
         runBlocking {
             FakePeer(infoHash = infoHash, afterHandshake = { it.close() }).use { peer ->
-                val connection = SocketPeerConnection.connect(scope, peer.address, infoHash, peerId, BufferPool(4))
+                val connection =
+                    SocketPeerConnection.connect(
+                        scope,
+                        peer.address,
+                        infoHash,
+                        peerId,
+                        BufferPool(4),
+                        NoBlocks,
+                    )
                 val event = withTimeout(TIMEOUT) { connection.events.receive() }
                 assertNull(assertIs<PeerEvent.Closed>(event).cause, "a peer hanging up is not a failure")
                 connection.close()
@@ -219,7 +297,7 @@ class SocketPeerConnectionTest {
                 val before = platformThreads()
                 val connections =
                     (1..CONNECTIONS).map {
-                        SocketPeerConnection.connect(scope, peer.address, infoHash, peerId, pool)
+                        SocketPeerConnection.connect(scope, peer.address, infoHash, peerId, pool, NoBlocks)
                     }
                 try {
                     val after = platformThreads()
@@ -273,6 +351,7 @@ class SocketPeerConnectionTest {
                         infoHash,
                         peerId,
                         BufferPool(capacity = 4),
+                        NoBlocks,
                         handshakeTimeout = 700.milliseconds,
                     )
                 }
@@ -304,6 +383,7 @@ class SocketPeerConnectionTest {
                             infoHash,
                             peerId,
                             BufferPool(capacity = 4),
+                            NoBlocks,
                             handshakeTimeout = 600.milliseconds,
                         )
                     }
@@ -340,7 +420,14 @@ class SocketPeerConnectionTest {
                 },
             ).use { peer ->
                 val connection =
-                    SocketPeerConnection.connect(scope, peer.address, infoHash, peerId, BufferPool(capacity = 4))
+                    SocketPeerConnection.connect(
+                        scope,
+                        peer.address,
+                        infoHash,
+                        peerId,
+                        BufferPool(capacity = 4),
+                        NoBlocks,
+                    )
                 val seen =
                     withTimeout(5.seconds) {
                         listOf(connection.events.receive(), connection.events.receive())

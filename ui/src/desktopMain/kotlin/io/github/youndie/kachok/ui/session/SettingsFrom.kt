@@ -124,6 +124,7 @@ internal data class Preferences(
     fun runtimeOptions(
         unwanted: Set<Int> = emptySet(),
         sequential: Boolean = false,
+        high: Set<Int> = emptySet(),
     ): RuntimeOptions =
         RuntimeOptions(
             directory =
@@ -135,6 +136,7 @@ internal data class Preferences(
             downloadLimitBytesPerSecond = (downloadLimitKibPerSecond ?: 0) * KIB,
             announceToAllTrackers = announceToAllTrackers,
             unwantedFiles = unwanted,
+            highFiles = high,
             sequential = sequential,
         )
 }

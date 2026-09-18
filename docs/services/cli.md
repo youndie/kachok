@@ -55,11 +55,51 @@ subject to the same-origin rule, so without it a page on any site somebody visit
 no default; a client that sends no `Origin` at all is not a page and is allowed. Anyone who can run
 a program as this user can drive this socket, and that is the decision, not an oversight.
 
+### `kachok mcp`: the engine on stdin/stdout, for an agent
+
+```
+kachok mcp [--dir <path>] [--port <n>] [--no-dht]
+```
+
+The third way in, and the one built for a program rather than a person
+([B-108](../backlog/B-108-an-mcp-server-for-agents.md)): a Model Context Protocol server on the
+pipe an agent runtime opened when it launched this process. **A third protocol adapter on the same
+engine, not a second backend** — every tool is one of the calls the WebSocket already makes on the
+same `TorrentSet`, and the one resource is byte-for-byte the socket's snapshot.
+
+* **Transport:** stdio, JSON-RPC 2.0, one message per line. Stdout carries frames and nothing
+  else; every human-readable line goes to stderr. The process runs until stdin closes, which is how
+  a client says goodbye, and then stops the engine the way `download` does.
+* **Why stdio and not the socket that exists:** the socket is guarded against pages and by nothing
+  against programs; a pipe is held only by the process that opened it, which is the right shape for
+  a tool an agent spawns and the shape every MCP client expects by default. No authentication, and
+  none needed: whoever launched the process already runs as this user.
+* **Tools**, task-shaped rather than one-for-one with the socket's requests, because an agent wants
+  "add this and wait", not a request type and a sequence number to poll:
+
+  | Tool | Does |
+  |---|---|
+  | `add_torrent` | a `.torrent` path or a magnet link → started; answers with the info hash every other tool takes |
+  | `list_torrents` | one line per torrent: hash, name, state, percentage, rates, peers |
+  | `torrent_status` | one torrent in detail, files with their tier included |
+  | `wait_for_completion` | **blocks** until done, failed, or `timeout_seconds` (default 600, at most 3600); says which |
+  | `pause_torrent`, `resume_torrent` | as the toolbar's |
+  | `remove_torrent` | off the list; `delete_data: true` deletes the files it wrote |
+  | `set_file_priority` | one file to `skip`, `normal` or `high` on a running torrent (B-106) |
+
+* **Resource:** `kachok://snapshot`, `application/json` — the `Snapshot` the socket sends once a
+  second, read on demand.
+* **Every refusal is a sentence**, with `isError` set: which torrent, which path, what was wrong.
+  The thing on the other end shows the words to a person and has nowhere to look up a code. A
+  method the server does not know is a JSON-RPC error frame, and a line that is not JSON is too;
+  neither is silence, because a client that hears nothing waits for ever.
+
 ### `kachok download`: the command line and the exit codes
 
 ```
 kachok download <file.torrent | magnet:?xt=urn:btih:…> [--dir <path>] [--port <n>]
-                [--peers <n>] [--pipeline <n>] [--seed] [--up <KiB/s>] [--down <KiB/s>] [--dht]
+                [--peers <n>] [--pipeline <n>] [--seed] [--up <KiB/s>] [--down <KiB/s>]
+                [--high <n>]… [--dht]
 ```
 
 | Exit | Meaning |

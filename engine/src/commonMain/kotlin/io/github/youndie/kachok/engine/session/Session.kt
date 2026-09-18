@@ -23,6 +23,7 @@ import io.github.youndie.kachok.engine.storage.BlockWriter
 import io.github.youndie.kachok.engine.storage.PieceHasher
 import io.github.youndie.kachok.engine.storage.PieceOutcome
 import io.github.youndie.kachok.engine.storage.Storage
+import io.github.youndie.kachok.engine.storage.piecesOf
 import io.github.youndie.kachok.engine.storage.unwantedPieces
 import io.github.youndie.kachok.engine.storage.verifiedBytesPerFile
 import io.github.youndie.kachok.engine.storage.wantedBytes
@@ -116,11 +117,37 @@ public class Session(
      * belongs to an unwanted file — and everything else follows: what is announced as `left`, what
      * counts as complete, and what the *Files* tab draws a tick against.
      */
-    private val unwantedFiles: Set<Int> = emptySet(),
-    /** Ask for pieces in order. Decided when the torrent is opened, like [unwantedFiles]. */
+    unwantedFiles: Set<Int> = emptySet(),
+    /**
+     * Files whose pieces are asked for before every other's, by index
+     * ([B-106](../../../../../../../../docs/backlog/B-106-per-file-priority.md)).
+     *
+     * Both this and [unwantedFiles] are the *opening* picture; [Command.PrioritiseFile] changes
+     * either while the torrent runs, which is why neither is a `val` inside.
+     */
+    highFiles: Set<Int> = emptySet(),
+    /** Ask for pieces in order. Decided when the torrent is opened; [Command.Reconfigure] changes it. */
     private val sequential: Boolean = false,
 ) {
     private val picker = PiecePicker(metainfo, config.maxStartedPieces, random, sequential)
+
+    /** Which files are not fetched, and which are fetched first. Sets, because a command moves one file at a time. */
+    private val skipped: MutableSet<Int> = unwantedFiles.toMutableSet()
+    private val raised: MutableSet<Int> = highFiles.toMutableSet()
+
+    private fun priorityOf(file: Int): FilePriority =
+        when (file) {
+            in skipped -> FilePriority.SKIP
+            in raised -> FilePriority.HIGH
+            else -> FilePriority.NORMAL
+        }
+
+    /** Hands the picker the two pools, derived from the file sets and the piece boundaries. */
+    private fun applyPriorities() {
+        if (skipped.isEmpty() && raised.isEmpty()) return
+        picker.prioritise(unwantedPieces(metainfo, skipped), piecesOf(metainfo, raised))
+    }
+
     private val choker = Choker(config.maxUnchoked, random = random)
     private val writer = BlockWriter(metainfo, hasher, storage)
     private val commands = Channel<Command>(Channel.BUFFERED)
@@ -168,6 +195,9 @@ public class Session(
     /** [SessionState.disconnects] and its tally. The mirror of the two above. */
     private var disconnects = 0L
     private val disconnectReasons = LinkedHashMap<String, Int>()
+
+    /** B-112: what came of each interested peer, counted at its teardown. */
+    private val interestOutcomes = HashMap<String, Int>()
 
     /**
      * Peers this client hung up on deliberately — for a pause or a re-check.
@@ -224,7 +254,20 @@ public class Session(
 
     /** Rotated every tick so that a limited uplink is shared rather than taken by whoever asked first. */
     private var uploadTurn = 0
-    private var uploadedBytes = 0L
+
+    /**
+     * Bytes served by connections that have since gone, plus what the resume record carried.
+     *
+     * **The truthful count of an upload is the connection's own**, taken after `transferTo`
+     * returned — and a connection that has left takes its counter with it. Until B-110 the state
+     * summed the *live* connections at the moment a block was queued (before the writer had sent
+     * it) and the tracker was told a field nothing ever incremented; both read zero for six
+     * milestones, and both were right about what this client served.
+     */
+    private var departedUploaded = 0L
+
+    private fun uploadedSoFar(): Long = departedUploaded + connected.values.sumOf { it.connection.uploaded }
+
     private var stopping = false
 
     /**
@@ -266,9 +309,9 @@ public class Session(
         record: ResumeRecord?,
         hasher: PieceHasher,
     ) {
-        // Before the restore, and every time: `skip` refuses a picker that has begun a piece, and
-        // `forget` has just emptied it, so a re-check re-applies the same set rather than losing it.
-        if (unwantedFiles.isNotEmpty()) picker.skip(unwantedPieces(metainfo, unwantedFiles))
+        // Before the restore, and every time: `forget` has just emptied the picker, so a re-check
+        // re-applies the same sets rather than losing them.
+        applyPriorities()
         val verified =
             StartupVerifier(metainfo, storage, hasher).verify(record) { checked, total ->
                 publish { it.copy(verifiedPieces = checked, verifyingOf = total) }
@@ -280,7 +323,8 @@ public class Session(
                 .sumOf { metainfo.pieceLengthAt(PieceIndex(it)).toLong() }
         // BEP 3's `left` is what this client still needs, and it does not need the files it is
         // skipping. With nothing skipped this is the torrent's own length, as before.
-        val wanted = wantedBytes(metainfo, unwantedFiles)
+        val wanted = wantedBytes(metainfo, skipped)
+        departedUploaded = record?.uploaded ?: 0
         publish {
             it.copy(
                 completedPieces = verified.cardinality,
@@ -383,6 +427,32 @@ public class Session(
 
                 Command.Recheck -> {
                     recheck(scope)
+                }
+
+                is Command.PrioritiseFile -> {
+                    if (command.file in metainfo.files.indices) {
+                        skipped -= command.file
+                        raised -= command.file
+                        when (command.priority) {
+                            FilePriority.SKIP -> skipped += command.file
+                            FilePriority.HIGH -> raised += command.file
+                            FilePriority.NORMAL -> Unit
+                        }
+                        // The picker may hold pieces in flight, and `prioritise` is the call that
+                        // allows that: what is started finishes, what begins next follows the new
+                        // sets. `left` follows the skip set the way it did at start-up, so a file
+                        // taken off the list stops being counted as owed.
+                        applyPriorities()
+                        publish {
+                            it.copy(
+                                left = (wantedBytes(metainfo, skipped) - it.downloaded).coerceAtLeast(0),
+                                isComplete = picker.isComplete,
+                                files = fileViews(),
+                            )
+                        }
+                        // A raised file is a reason to ask now, not on the next block that lands.
+                        connected.snapshot().forEach { requestMore(it) }
+                    }
                 }
 
                 is Command.Reconfigure -> {
@@ -615,6 +685,7 @@ public class Session(
     private suspend fun dhtLoop(scope: CoroutineScope) {
         val node = dht ?: return
         node.bootstrap(scope, config.dhtBootstrap)
+        var starvedWait = config.dhtStarvedInterval
         while (!stopping) {
             // Announcing to the DHT is saying "this client has it and will serve it", which a
             // paused one will not.
@@ -622,6 +693,7 @@ public class Session(
                 delay(config.dhtInterval)
                 continue
             }
+            var wait = config.dhtInterval
             tick("dht lookup") {
                 val found = node.lookup(scope, metainfo.infoHash)
                 if (found.peers.isNotEmpty()) {
@@ -632,11 +704,30 @@ public class Session(
                         connectMore(scope)
                     }
                 }
-                node.announce(scope, metainfo.infoHash, listenPort, found.tokens)
-                dhtAnnouncedAt = timeSource.markNow()
+                // The announce keeps its own clock: a starving client looks again in seconds, but
+                // saying "I have it" every thirty seconds to the same eight nodes is noise.
+                val announceDue = dhtAnnouncedAt?.let { it.elapsedNow() >= config.dhtInterval } ?: true
+                if (announceDue) {
+                    node.announce(scope, metainfo.infoHash, listenPort, found.tokens)
+                    dhtAnnouncedAt = timeSource.markNow()
+                }
                 publish { it.copy(dhtNodes = node.table.size) }
+                // **A lookup that left the client short of addresses is not kept for fifteen
+                // minutes.** The first lookup on the public swarm, taken while two of the three
+                // bootstrap nodes were not answering this address, found nothing — and the
+                // tracker there hands out one peer — so the client sat on one peer for the whole
+                // interval, twice in a row, while the reference client on the same box held
+                // seventy seeds. Fewer known addresses than connections it could hold is the sign
+                // of a snapshot worth retaking soon; the wait doubles so a swarm that really is
+                // this small is not asked every half minute for ever.
+                if (known.size < config.maxPeers) {
+                    wait = starvedWait
+                    starvedWait = (starvedWait * 2).coerceAtMost(config.dhtInterval)
+                } else {
+                    starvedWait = config.dhtStarvedInterval
+                }
             }
-            delay(config.dhtInterval)
+            delay(wait)
         }
     }
 
@@ -677,7 +768,7 @@ public class Session(
                 infoHash = metainfo.infoHash,
                 peerId = peerId,
                 port = listenPort,
-                uploaded = uploadedBytes,
+                uploaded = uploadedSoFar(),
                 downloaded = snapshot.downloaded,
                 left = snapshot.left,
                 event = event,
@@ -858,9 +949,32 @@ public class Session(
         return when {
             name == "WireException" -> "protocol error"
             name == "EOFException" -> "peer closed"
+            "stopped reading" in text -> "not reading"
             "reset" in text -> "reset"
             "abort" in text -> "aborted"
             else -> "other"
+        }
+    }
+
+    /**
+     * What came of a peer's interest in us, as one of four labels — or null for a peer that was
+     * never interested, which is most of a public swarm and says nothing about the choker.
+     *
+     * The question this answers is [B-112](../../../../../../../../docs/backlog/B-112-a-peer-interested-for-seconds-is-never-unchoked.md)'s:
+     * whether interested peers leave before the ten-second pass ever gets to them. "Served" and
+     * "unchoked, never asked" are the choker doing its job; the two "left choked" buckets are
+     * split at the choke interval because a peer gone inside it may never have been *seen* by a
+     * pass, and one gone after it was seen and passed over — different findings, one counter each.
+     */
+    private fun interestOutcomeOf(link: PeerLink): String? {
+        val interested = link.interestedAt ?: return null
+        if (link.servedAt != null) return "served"
+        if (link.unchokedAt != null) return "unchoked, never asked"
+        val stay = elapsedMillis() - interested
+        return if (stay < config.chokeInterval.inWholeMilliseconds) {
+            "left choked inside one pass"
+        } else {
+            "left choked after a pass"
         }
     }
 
@@ -903,6 +1017,50 @@ public class Session(
         dialled: Boolean,
     ) {
         val address = connection.address
+        // **One connection per peer, by peer id and not by address** — the address is exactly what
+        // differs: the same client reached through loopback and through the LAN, or dialled off
+        // the tracker and dialled back off local discovery, is one peer, and a picker that saw two
+        // asked the second for everything in endgame while a seeder served the file twice
+        // ([B-111](../../../../../../../../docs/backlog/B-111-two-connections-to-the-same-peer.md)).
+        // BEP 3 says to drop the second; the cheapest case of the same rule is a connection
+        // offering *our* id, which is a tracker or LSD handing back our own address.
+        val theirs = connection.handshake.peerId.bytes
+        val ourselves = theirs.contentEquals(peerId.bytes)
+        val held =
+            if (ourselves) {
+                null
+            } else {
+                connected.values.firstOrNull {
+                    it.connection.handshake.peerId.bytes
+                        .contentEquals(theirs)
+                }
+            }
+        // **Which of the two survives has to be the same answer on both machines**, or two clients
+        // that hear each other at once — LSD on one segment does exactly that — each keep the one
+        // they saw first, which is a different one, close the other, and have nothing; then
+        // redial after the wait and do it again. So the rule is not "first seen" but a tie-break
+        // both sides can compute from the two handshakes: the connection *dialled by the lower
+        // peer id* is the one that stays. Two of the same kind — a peer reconnecting from a fresh
+        // port before the old socket has been noticed dead — keep the one already held.
+        val keptIsDialled = peerId.bytes.compareUnsigned(theirs) < 0
+        val newcomerStays = held != null && dialled == keptIsDialled && held.dialled != dialled
+        if (ourselves || (held != null && !newcomerStays)) {
+            connection.close()
+            // The same wait a failed dial gets: whoever handed out this address will hand it out
+            // again, and a duplicate redialled every tick is a busy wait against a peer we hold.
+            failed[address] = timeSource.markNow()
+            disconnects++
+            val reason = if (ourselves) "ourselves" else "duplicate peer"
+            disconnectReasons[reason] = (disconnectReasons[reason] ?: 0) + 1
+            publish { it.copy(disconnects = disconnects, disconnectReasons = disconnectReasons.toMap()) }
+            return
+        }
+        if (held != null) {
+            // The one already held is the loser: closing it lands in its own coroutine's teardown,
+            // which counts it under the same reason so the two sides of the tie read alike.
+            held.duplicate = true
+            held.connection.close()
+        }
         val link = PeerLink(connection)
         // Which side dialled decides what BEP 11 may say about this peer: the address an accepted
         // connection came from is an ephemeral port, not one anybody can dial back.
@@ -964,7 +1122,7 @@ public class Session(
             // `next` returns nothing and the torrent asks for nothing, for ever. Found on Windows,
             // where the reconnect always wins the race; on Linux it wins sometimes.
             if (connected[address] === link) {
-                connected.remove(address)
+                connected.remove(address)?.let { departedUploaded += it.connection.uploaded }
                 picker.removePeer(address)
                 // The same wait as after a failed dial, and for a stronger reason: a peer that
                 // accepts and immediately hangs up would otherwise be redialled in a tight loop,
@@ -978,13 +1136,26 @@ public class Session(
                 // on for a pause or a re-check is its own bucket rather than a silence, because
                 // "we closed it" and "it went away" are the two answers B-105 has to tell apart.
                 disconnects++
-                val reason = if (ours) "closed by us" else disconnectReason(link)
+                val reason =
+                    when {
+                        ours -> "closed by us"
+                        link.duplicate -> "duplicate peer"
+                        else -> disconnectReason(link)
+                    }
                 disconnectReasons[reason] = (disconnectReasons[reason] ?: 0) + 1
+                // Only a peer that left on its own says anything about the choker; one this client
+                // hung up on at stop or pause was not given the chance to stay.
+                if (!ours) {
+                    interestOutcomeOf(link)?.let { outcome ->
+                        interestOutcomes[outcome] = (interestOutcomes[outcome] ?: 0) + 1
+                    }
+                }
                 publish {
                     it.copy(
                         connectedPeers = connected.size,
                         disconnects = disconnects,
                         disconnectReasons = disconnectReasons.toMap(),
+                        interestOutcomes = interestOutcomes.toMap(),
                     )
                 }
                 if (!stopping && !paused && scope.isActive) connectMore(scope)
@@ -1005,7 +1176,9 @@ public class Session(
             }
 
             is PeerEvent.BlockReceived -> {
-                link.outstanding--
+                // Not below zero: a block that was in flight when the peer choked us — and the
+                // choke zeroed the count — still arrives, and used to be counted as minus one.
+                link.outstanding = (link.outstanding - 1).coerceAtLeast(0)
                 val block = event.block
                 link.download.add(block.length.toLong(), elapsedMillis())
                 picker.blockReceived(address, block.piece, block.begin).forEach { other ->
@@ -1046,6 +1219,10 @@ public class Session(
                     // anyone on its own. The algorithm runs on the timer, not on the peer's word.
                     Message.Interested -> {
                         link.peerInterested = true
+                        if (link.interestedAt == null) link.interestedAt = elapsedMillis()
+                        // B-112's measurement: a peer that was unchoked before it asked — the
+                        // optimistic slot, or a leecher-to-leecher unchoke — counts from here.
+                        if (!link.choking && link.unchokedAt == null) link.unchokedAt = elapsedMillis()
                     }
 
                     Message.NotInterested -> {
@@ -1366,8 +1543,10 @@ public class Session(
         request: Message.Request,
     ) {
         link.connection.sendBlock(request.piece, request.begin, request.length)
-        link.upload.add(request.length.toLong(), elapsedMillis())
-        publish { it.copy(uploaded = connected.values.sumOf { peer -> peer.connection.uploaded }) }
+        val now = elapsedMillis()
+        if (link.servedAt == null) link.servedAt = now
+        link.upload.add(request.length.toLong(), now)
+        publish { it.copy(uploaded = uploadedSoFar()) }
     }
 
     /**
@@ -1429,6 +1608,7 @@ public class Session(
             val shouldChoke = link.connection.address !in decision.unchoked
             if (shouldChoke == link.choking) return@forEach
             link.choking = shouldChoke
+            if (!shouldChoke && link.interestedAt != null && link.unchokedAt == null) link.unchokedAt = now
             link.send(if (shouldChoke) Message.Choke else Message.Unchoke)
             if (shouldChoke) rejectWaiting(link) else drainWaitingUploads()
         }
@@ -1633,6 +1813,9 @@ public class Session(
         } catch (cancelled: kotlinx.coroutines.CancellationException) {
             throw cancelled
         } catch (gone: Exception) {
+            // Kept on the link so that its teardown can name the reason — "not reading" is the one
+            // the connection raises itself, having closed the peer for it.
+            if (endedBy == null) endedBy = gone
             publish {
                 it.copy(lastPeerError = "${connection.address}: ${gone.message ?: gone::class.simpleName}")
             }
@@ -1652,7 +1835,8 @@ public class Session(
                 path = file.path.joinToString("/"),
                 length = file.length,
                 verifiedBytes = verified[at],
-                wanted = at !in unwantedFiles,
+                wanted = at !in skipped,
+                priority = priorityOf(at),
             )
         }
     }
@@ -1666,6 +1850,9 @@ public class Session(
                 connectedPeers = links.size,
                 unchokedPeers = links.count { link -> !link.choked },
                 outstandingRequests = links.sumOf { link -> link.outstanding },
+                // On the tick and not only when a block is queued: the writer sends after the
+                // queueing, and the last blocks of a torrent would otherwise never be counted.
+                uploaded = uploadedSoFar(),
                 // Built here and nowhere else. This is the one field whose cost grows with the
                 // swarm, and the timer is the one place in the session that already runs at the
                 // rate a table is redrawn at.
@@ -1814,11 +2001,33 @@ public class Session(
         /** Whether this client dialled the peer, or the peer dialled it (BEP 11 cares). */
         var dialled: Boolean = false
 
+        /** Closed by this session because a second connection to the same peer won the tie (B-111). */
+        var duplicate: Boolean = false
+
+        /** When the peer first said `interested`, in session milliseconds, or null if it never did (B-112). */
+        var interestedAt: Long? = null
+
+        /** When this session first unchoked the peer after it was interested; null until then. */
+        var unchokedAt: Long? = null
+
+        /** When the first block went to this peer; null until then. */
+        var servedAt: Long? = null
+
         /** What this peer was last told about the swarm, so the next `ut_pex` can be a delta. */
         var lastPexSent: Set<PeerAddress> = emptySet()
     }
 
     private companion object {
+        /** Byte-wise, unsigned, the order a peer id has on the wire; both sides of a tie compute it. */
+        private fun ByteArray.compareUnsigned(other: ByteArray): Int {
+            val shared = minOf(size, other.size)
+            for (i in 0 until shared) {
+                val delta = (this[i].toInt() and 0xFF) - (other[i].toInt() and 0xFF)
+                if (delta != 0) return delta
+            }
+            return size - other.size
+        }
+
         const val DEFAULT_ANNOUNCE_SECONDS = 1800
         const val MIN_ANNOUNCE_SECONDS = 60
         const val MILLIS_PER_SECOND = 1000L
@@ -1859,6 +2068,7 @@ private fun SessionState.copy(
     dialFailures: Map<String, Int> = this.dialFailures,
     disconnects: Long = this.disconnects,
     disconnectReasons: Map<String, Int> = this.disconnectReasons,
+    interestOutcomes: Map<String, Int> = this.interestOutcomes,
     startedPieces: Int = this.startedPieces,
     meanPieceMillis: Long = this.meanPieceMillis,
     trackerError: String? = this.trackerError,
@@ -1898,6 +2108,7 @@ private fun SessionState.copy(
         dialFailures = dialFailures,
         disconnects = disconnects,
         disconnectReasons = disconnectReasons,
+        interestOutcomes = interestOutcomes,
         startedPieces = startedPieces,
         meanPieceMillis = meanPieceMillis,
         sessionError = sessionError,

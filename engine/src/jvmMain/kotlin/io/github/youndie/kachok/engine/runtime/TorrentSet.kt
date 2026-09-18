@@ -308,6 +308,7 @@ public class TorrentSet(
                     runtime.metainfo.infoHash,
                     runtime.peerId,
                     runtime.pool,
+                    runtime.blocks,
                     runtime.reserved,
                 )
             runtime.session.send(Command.AcceptPeer(connection))
