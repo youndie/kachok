@@ -119,8 +119,20 @@ class ShutdownTest {
     fun anInterruptedDownloadTellsTheTrackerAndLeavesAUsableRecord() {
         val placeholder = startTracker(1)
         val infoHash: InfoHash = MetainfoParser.parse(torrentBytes(placeholder)).infoHash
-        // A seed that serves slowly, so the signal arrives mid-download rather than after it.
-        val peer = SeedingPeer(infoHash, content, PeerWire.BLOCK_SIZE, delayPerBlockMillis = 15)
+        // **A seed that stops serving, rather than one that serves slowly.** The delay is kept
+        // because a download that finishes in one burst tells a test nothing, but what makes the
+        // signal land mid-download is the freeze: the client has 20 of 245 pieces, is asking for
+        // the rest, and is getting no answer — so there is provably something to interrupt,
+        // however fast the machine or the client
+        // ([B-113](../../../../../../../../docs/backlog/B-113-shutdowntest-interrupts-a-download-that-has-already-finished.md)).
+        val peer =
+            SeedingPeer(
+                infoHash,
+                content,
+                PeerWire.BLOCK_SIZE,
+                delayPerBlockMillis = 15,
+                freezeAfterBlocks = BLOCKS_BEFORE_THE_SIGNAL,
+            )
         seed = peer
         server?.stop(0)
         announces.clear()
