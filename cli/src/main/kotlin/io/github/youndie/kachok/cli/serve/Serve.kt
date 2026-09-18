@@ -95,4 +95,23 @@ class McpOptions(
     val directory: Path,
     val peerPort: Int?,
     val dht: Boolean,
+    /**
+     * Build an engine in this process even where a client is already running
+     * ([B-117](../../../../../../../../docs/backlog/B-117-one-client-for-the-window-and-the-agent.md)).
+     *
+     * The default is to attach to that client instead, which is what makes an agent and a person
+     * one client. This is the way back to a second engine, and it is asked for by name because
+     * every reason to want one — a test that must not touch the developer's own window, a
+     * download directory that has to be this one — is a reason somebody knows and the command
+     * cannot guess.
+     */
+    val standalone: Boolean = false,
+    /**
+     * The options named on this command line that the running client decides instead, in the
+     * spelling they were given.
+     *
+     * Kept so the relay can say which words it is ignoring. Empty in `--standalone`, where every
+     * one of them is obeyed.
+     */
+    val overridden: Set<String> = emptySet(),
 )

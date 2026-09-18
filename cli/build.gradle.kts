@@ -9,6 +9,9 @@ plugins {
 
 dependencies {
     implementation(projects.engine)
+    // The loopback socket a second launch talks to and the MCP server on it (B-117). Both
+    // surfaces need both halves, so neither lives in a surface any more.
+    implementation(projects.control)
     // The contract a browser client reads. Its own module because that client cannot depend on the
     // engine — a browser has no sockets, which is research Risk 4.
     implementation(projects.wire)

@@ -53,6 +53,9 @@ kotlin {
         val desktopMain by getting {
             dependencies {
                 implementation(projects.engine)
+                // The single-instance lock, and — since B-117 — the MCP server the window
+                // answers on it, so an agent and the person drive one engine.
+                implementation(projects.control)
                 implementation(wip.kotlinx.coroutines.core)
                 implementation(compose.runtime)
                 implementation(compose.foundation)

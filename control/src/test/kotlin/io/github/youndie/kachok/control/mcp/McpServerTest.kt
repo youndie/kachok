@@ -1,4 +1,4 @@
-package io.github.youndie.kachok.cli.mcp
+package io.github.youndie.kachok.control.mcp
 
 import io.github.youndie.kachok.engine.io.EngineDispatchers
 import io.github.youndie.kachok.engine.runtime.TorrentSet

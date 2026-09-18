@@ -7,6 +7,7 @@ tech_stack: [Kotlin 2.4 JVM, JDK 25, Gradle application plugin]
 owner: unassigned
 depends_on:
   - engine
+  - control
 publishes:
   - "a jlink run-time image + jars + launcher + AOT cache (phase 1 distribution; not built yet)"
 ---
@@ -58,7 +59,7 @@ a program as this user can drive this socket, and that is the decision, not an o
 ### `kachok mcp`: the engine on stdin/stdout, for an agent
 
 ```
-kachok mcp [--dir <path>] [--port <n>] [--no-dht]
+kachok mcp [--standalone] [--dir <path>] [--port <n>] [--no-dht]
 ```
 
 The third way in, and the one built for a program rather than a person
@@ -67,13 +68,28 @@ pipe an agent runtime opened when it launched this process. **A third protocol a
 engine, not a second backend** — every tool is one of the calls the WebSocket already makes on the
 same `TorrentSet`, and the one resource is byte-for-byte the socket's snapshot.
 
+**Which engine is underneath it depends on what is already running**
+([B-117](../backlog/B-117-one-client-for-the-window-and-the-agent.md)). Before asking for one of
+its own, this command asks the single-instance lock ([control](control.md) §2) whether a client is
+up on this machine — a window, usually. If one is, the frames are relayed into *that* process and
+its answers come back: the agent and the person hold one torrent list, and what the agent adds goes
+on downloading after the conversation ends, because the process holding it is the window's. If
+there is none, this process builds the engine and stops it when the pipe closes, which is the
+headless case and is what this command did everywhere before B-117.
+
 * **Transport:** stdio, JSON-RPC 2.0, one message per line. Stdout carries frames and nothing
   else; every human-readable line goes to stderr. The process runs until stdin closes, which is how
-  a client says goodbye, and then stops the engine the way `download` does.
+  a client says goodbye — and then stops the engine the way `download` does, or, attached, drops
+  the socket and leaves the client that owns it running.
 * **Why stdio and not the socket that exists:** the socket is guarded against pages and by nothing
   against programs; a pipe is held only by the process that opened it, which is the right shape for
   a tool an agent spawns and the shape every MCP client expects by default. No authentication, and
   none needed: whoever launched the process already runs as this user.
+* `--standalone` is the second path asked for by name, on a machine where a window is running. It
+  is how a test drives an engine that is not the developer's own.
+* `--dir`, `--port` and `--no-dht` are the engine's, and an attached session has no engine of its
+  own: they are **named on stderr as ignored**, and the server still starts. Refusing would make
+  the one line of configuration in an agent runtime work only on the days nobody opened the window.
 * **Tools**, task-shaped rather than one-for-one with the socket's requests, because an agent wants
   "add this and wait", not a request type and a sequence number to poll:
 
@@ -117,6 +133,8 @@ kachok download <file.torrent | magnet:?xt=urn:btih:…> [--dir <path>] [--port 
 | `cli/src/test/kotlin/io/github/youndie/kachok/cli/SwarmHost.kt` | the swarm that script points the container at |
 | `cli/src/main/kotlin/io/github/youndie/kachok/cli/Main.kt` | the entry point and the exit codes; takes its streams so a test can read them |
 | `.../cli/Arguments.kt` | the hand-written parser and the usage text |
+| `.../cli/mcp/Mcp.kt` | which engine `mcp` ends up on: the running client's, or one built here |
+| `cli/src/test/kotlin/io/github/youndie/kachok/cli/mcp/AttachTest.kt` | a window and an agent as two real things, and the torrent list they share |
 | `.../cli/Download.kt` | what makes this a command: the rendering, the exit codes, the shutdown hook. The wiring itself is the engine's `runtime/TorrentRuntime.kt`, which the desktop window builds too |
 | `cli/src/test/kotlin/io/github/youndie/kachok/cli/ShutdownTest.kt` | a real subprocess, a real `SIGINT`, and the record it leaves behind |
 | `cli/src/test/kotlin/io/github/youndie/kachok/cli/DownloadTest.kt` | the end-to-end download against a local tracker and a real seeding peer |

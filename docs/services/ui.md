@@ -7,6 +7,7 @@ tech_stack: [Kotlin 2.4 JVM, JDK 25, Compose Multiplatform 1.12, Material 3, vid
 owner: unassigned
 depends_on:
   - engine
+  - control
 publishes:
   - "a desktop window (phase 2; no installer yet)"
 ---
@@ -35,6 +36,15 @@ kachok-ui <file.torrent> [directory]
 There is no add-torrent dialog yet ([B-50](../backlog/B-50-add-torrent.md)), so the argument is the
 same one the CLI takes — which is what keeps the two surfaces comparable while they are being
 compared.
+
+**Except that the window does answer something, and it is not on the network.** Since
+[B-117](../backlog/B-117-one-client-for-the-window-and-the-agent.md) the single-instance socket this
+process already binds carries a second kind of caller: `kachok mcp`, spawned by an agent runtime,
+attaches to it and drives *this* window's engine rather than building one of its own. The window
+registers the sessions once it has a `TorrentSet` and clears them before it closes it; everything
+else about that surface — the tools, the frames, the refusals — is [control](control.md) §2 and
+[cli](cli.md) §2. What it means here is that a row can appear in this window because an agent was
+asked for it in a conversation, through the same `TorrentSet` a click goes through.
 
 ## 2a. Code anchors
 
@@ -80,6 +90,7 @@ The colour rule lives outside the composables (`RowColors.kt`) so that "is this 
 | Kind | Name | What for |
 |---|---|---|
 | Module | [engine](engine.md) | `TorrentRuntime`, `SessionState`, everything below the window |
+| Module | [control](control.md) | the single-instance lock, and the MCP sessions this window answers on it |
 | Module | `:swarm` (test only) | the tracker and seeding peer the end-to-end download runs against |
 | Library | Compose Multiplatform 1.12 + Material 3 | the toolkit and the eight roles the design names |
 | Library | viddik 0.4 | `viddikRecord` / `viddikVerify`, the goldens |

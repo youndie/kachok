@@ -1,5 +1,6 @@
 package io.github.youndie.kachok.ui.session
 
+import io.github.youndie.kachok.control.configDirectory
 import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.Path
@@ -21,31 +22,6 @@ import java.util.Properties
  * 6881 once would ask for 6882 for the rest of its life.
  */
 internal fun preferencesFile(): Path = configDirectory().resolve("settings.properties")
-
-/**
- * The platform's own place for what this client owns: the settings file and the torrent list.
- *
- * Not beside the downloads. The download directory is one of the settings, and a file that moves
- * when you change a setting is a file you lose.
- */
-internal fun configDirectory(): Path {
-    val home = System.getProperty("user.home").orEmpty()
-    val os = System.getProperty("os.name").orEmpty()
-    return when {
-        os.startsWith("Mac") -> {
-            Path.of(home, "Library", "Application Support", "kachok")
-        }
-
-        os.startsWith("Windows") -> {
-            System.getenv("APPDATA")?.let { Path.of(it, "kachok") } ?: Path.of(home, "kachok")
-        }
-
-        else -> {
-            System.getenv("XDG_CONFIG_HOME")?.takeIf { it.isNotBlank() }?.let { Path.of(it, "kachok") }
-                ?: Path.of(home, ".config", "kachok")
-        }
-    }
-}
 
 /**
  * What was saved, or [fallback] for every field that was not.
