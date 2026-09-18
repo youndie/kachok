@@ -2,6 +2,7 @@ package io.github.youndie.kachok.cli
 
 import io.github.youndie.kachok.cli.serve.McpOptions
 import io.github.youndie.kachok.cli.serve.ServeOptions
+import io.github.youndie.kachok.engine.peer.Encryption
 import java.nio.file.Path
 
 /** Where the torrent comes from: a file on this machine, or an identifier and a swarm. */
@@ -41,6 +42,17 @@ class DownloadOptions(
      * from the Files tab; the command line has no tab, so it is decided here.
      */
     val highFiles: Set<Int> = emptySet(),
+    /**
+     * What this client offers a peer, in both directions
+     * ([B-100](../../../../../../../docs/backlog/B-100-protocol-encryption.md)).
+     *
+     * `preferred` by default, which reaches a peer that insists on an encrypted handshake without
+     * losing one that cannot do it. The other two exist because a client that cannot be told is a
+     * client nobody can measure: `plaintext` is what this did before B-100 and is the control the
+     * acceptance run compares against, and `required` is for a network that shapes what it
+     * recognises.
+     */
+    val encryption: Encryption = Encryption.PREFERRED,
     /**
      * BEP 5, and **on** unless `--no-dht` says otherwise.
      *
@@ -93,6 +105,8 @@ object Arguments {
   --high <n>          fetch this file (by its index in the torrent) before the
                       others; repeatable
   --no-dht            stay out of the DHT (BEP 5), which is joined by default
+  --encryption <mode> plaintext, preferred (default) or required — what this
+                      client offers a peer and what it insists on (MSE/PE)
 
 kachok serve [options]
 
@@ -236,6 +250,7 @@ kachok mcp [options]
         var download = 0L
         var dht = true
         var allTrackers = false
+        var encryption = Encryption.PREFERRED
         val high = mutableSetOf<Int>()
 
         var index = 0
@@ -284,6 +299,10 @@ kachok mcp [options]
                     high += number(value(arguments, ++index, argument), argument)
                 }
 
+                "--encryption" -> {
+                    encryption = encryptionOf(value(arguments, ++index, argument))
+                }
+
                 else -> {
                     if (argument.startsWith("--")) throw UsageException("unknown option '$argument'")
                     if (source != null) throw UsageException("more than one torrent given")
@@ -310,8 +329,18 @@ kachok mcp [options]
             highFiles = high,
             dht = dht,
             announceToAllTrackers = allTrackers,
+            encryption = encryption,
         )
     }
+
+    /** One of three words, and the message names all three: a typo here is silent otherwise. */
+    private fun encryptionOf(value: String): Encryption =
+        when (value.lowercase()) {
+            "plaintext" -> Encryption.PLAINTEXT
+            "preferred" -> Encryption.PREFERRED
+            "required" -> Encryption.REQUIRED
+            else -> throw UsageException("--encryption takes plaintext, preferred or required, not '$value'")
+        }
 
     private fun value(
         arguments: List<String>,

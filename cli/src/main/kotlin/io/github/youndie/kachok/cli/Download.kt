@@ -136,7 +136,7 @@ class Download(
             TorrentSet(
                 dispatchers = dispatchers,
                 scope = sessionScope,
-                options = SetOptions(port = options.port, dht = options.dht),
+                options = SetOptions(port = options.port, dht = options.dht, encryption = options.encryption),
                 onBindFailure = { err.appendLine("kachok: cannot listen: $it") },
             )
         val runtime =
@@ -151,6 +151,7 @@ class Download(
                         downloadLimitBytesPerSecond = options.downloadLimit,
                         announceToAllTrackers = options.announceToAllTrackers,
                         highFiles = options.highFiles,
+                        encryption = options.encryption,
                     ),
                 onResumeFailure = { err.appendLine("kachok: $it") },
             )
@@ -344,6 +345,9 @@ class Download(
                     append(')')
                 }
             }
+            // B-100: how many of the peers this client holds are talking to it encrypted, which is
+            // the figure that says what the feature was worth on a real swarm.
+            state.peers.count { it.encrypted }.let { if (it > 0) append(", ").append(it).append(" encrypted") }
             // B-112: of the peers that wanted our pieces, how many were ever given the chance.
             if (state.interestOutcomes.isNotEmpty()) {
                 append(", interest (")
