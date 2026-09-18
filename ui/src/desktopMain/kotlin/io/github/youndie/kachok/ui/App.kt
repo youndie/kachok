@@ -619,31 +619,40 @@ internal fun Client(
             // that the client already has is not a second torrent; opening it again would be
             // refused by `add`, which throws — so a `.torrent` double-clicked while it is already
             // in the list re-selects nothing and breaks nothing.
-            val remembered = loadStoredTorrents(torrents)
-            broken = remembered.filter { it.metainfo == null }
-            remembered.forEach { stored ->
-                val metainfo = stored.metainfo ?: return@forEach
-                open(
-                    set,
-                    metainfo,
-                    chosenPreferences.withDirectory(stored.directory),
-                    scope,
-                    unwanted = stored.unwanted,
-                    sequential = stored.sequential,
-                    paused = stored.paused,
-                    high = stored.high,
-                )
-            }
-            initial?.let { path ->
-                val metainfo = MetainfoParser.parse(Files.readAllBytes(path))
-                if (set.torrents.none { it.metainfo.infoHash.hex() == metainfo.infoHash.hex() }) {
-                    open(set, metainfo, chosenPreferences, scope)
-                    rememberTorrent(torrents, metainfo, chosenPreferences.directory)
+            //
+            // **Started here and not awaited here, because opening a torrent reads the disk.**
+            // `open` checks what is already on the drive before a peer is dialled, and for the
+            // torrents somebody actually keeps that is minutes of reading and hashing. This effect
+            // runs on the composition's dispatcher — the AWT event thread — so awaiting it held the
+            // window: the title bar was drawn, nothing under it ever was, and no click was answered
+            // until the last torrent had been checked
+            // ([B-115](../../../../../../../docs/backlog/B-115-the-startup-check-runs-on-the-window-s-thread.md)).
+            // The sampling loop below starts at once now, and the rows appear as the torrents open,
+            // each showing its own check — which is what the verifier's progress was always for.
+            scope.launch {
+                val remembered = loadStoredTorrents(torrents)
+                broken = remembered.filter { it.metainfo == null }
+                remembered.forEach { stored ->
+                    val metainfo = stored.metainfo ?: return@forEach
+                    open(
+                        set,
+                        metainfo,
+                        chosenPreferences.withDirectory(stored.directory),
+                        scope,
+                        unwanted = stored.unwanted,
+                        sequential = stored.sequential,
+                        paused = stored.paused,
+                        high = stored.high,
+                    )
+                }
+                initial?.let { path ->
+                    val metainfo = MetainfoParser.parse(Files.readAllBytes(path))
+                    if (set.torrents.none { it.metainfo.infoHash.hex() == metainfo.infoHash.hex() }) {
+                        open(set, metainfo, chosenPreferences, scope)
+                        rememberTorrent(torrents, metainfo, chosenPreferences.directory)
+                    }
                 }
             }
-            // Its own coroutine rather than a `tryReceive` in the loop below: that loop sleeps a
-            // second between ticks, and a Pause that waited for it would be a button with a
-            // second's lag on it — which is what B-64 was, in the one place it still applied.
             scope.launch {
                 for (options in retuned) {
                     set.torrents.forEach { it.reconfigure(options) }

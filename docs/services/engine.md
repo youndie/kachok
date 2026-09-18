@@ -301,6 +301,15 @@ them. Nothing is read from the environment by this module; that is [cli](cli.md)
   twice in a row. A lookup after which `known` is below `maxPeers` is followed by another after
   `dhtStarvedInterval` (30 s), doubling up to `dhtInterval`; the announce keeps its own clock.
   Five bootstrap nodes instead of three (B-114).
+* **`restore()` does not run on the thread that asked for it.** The start-up check reads every
+  piece a resume record does not vouch for and hashes it, which for the torrents somebody actually
+  keeps is minutes of blocking I/O. It used to run in the caller's context, and the caller is the
+  desktop window's composition — the AWT event thread: the window drew its title bar, never drew
+  anything under it, and answered no clicks until the last torrent had been checked, with nothing
+  on stderr to say why ([B-115](../backlog/B-115-the-startup-check-runs-on-the-window-s-thread.md)).
+  `TorrentRuntime.restore` now wraps the whole check in the engine's own I/O dispatcher. The rule
+  it breaks otherwise is this repository's own: a suspend function that blocks is only suspend in
+  its signature.
 * **A known address has three states and not two.** `connected` and `failed` do not cover an
   address inside a ten-second `connect`, and most of a public swarm's addresses are in exactly that
   state for exactly that long — 22 of 50 in B-19's measurement. Without the third set, `dialling`,

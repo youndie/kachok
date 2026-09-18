@@ -227,6 +227,13 @@ toolbar ── Add torrent ──▶ file chooser ──▶ MetainfoParser ─�
 
 ## 7. Quirks
 
+* **Nothing the window's effects do may block the composition's thread.** A `LaunchedEffect` runs
+  on the composition's dispatcher, which on the desktop is the AWT event thread. The engine effect
+  used to await the start-up check of every remembered torrent there, so a person with large
+  torrents got a title bar, an empty rectangle under it, no clicks and nothing on stderr — which is
+  indistinguishable from a rendering fault and was reported as one
+  ([B-115](../backlog/B-115-the-startup-check-runs-on-the-window-s-thread.md)). Work that touches
+  the disk or the swarm belongs on the engine's scope; the window starts it and draws.
 * **A golden is a picture of one rasteriser's output**, so `viddikVerify` runs only on the machine
   that recorded it — and `make check` runs it there, so what is switched off is the duplicate
   rather than the gate.
