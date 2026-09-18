@@ -1,7 +1,7 @@
 ---
 id: B-113
 title: "`ShutdownTest` can interrupt a download that has already finished, and then finds no record"
-status: open
+status: done
 priority: P3
 size: S
 stage: m9-swarm
@@ -40,3 +40,18 @@ build, and either is enough to move a 15 ms budget.
   zero — which is the mutation that proves the freeze is what the test rests on.
 - Anchors: `cli/src/test/kotlin/io/github/youndie/kachok/cli/ShutdownTest.kt`,
   `swarm/src/main/kotlin/io/github/youndie/kachok/swarm/SeedingPeer.kt`.
+
+## Done 2026-09-18 — the seed freezes, and the race is gone
+
+`SeedingPeer` takes `freezeAfterBlocks`: it serves that many and then answers nothing, keeping the
+connection open — a state a real swarm has, and one the client cannot outrun. `ShutdownTest` sets
+it to the twenty blocks it already waited for, so when the signal arrives the client provably
+holds 20 of 245 pieces with sixteen requests outstanding. The delay per block stays, because a
+download that finishes in one burst tells the test nothing either.
+
+**Found again, harder, by [B-100](B-100-protocol-encryption.md)**: the encrypted dial changed the
+timing and the flake became the normal outcome — three runs out of three. Which is the argument
+for the freeze rather than a longer delay: a wager on speed is lost by any change that makes the
+client faster, and this one made it slower.
+
+The mutation is the freeze itself: removed, the test fails the way it did before.

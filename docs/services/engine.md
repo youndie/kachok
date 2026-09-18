@@ -310,6 +310,20 @@ them. Nothing is read from the environment by this module; that is [cli](cli.md)
   `TorrentRuntime.restore` now wraps the whole check in the engine's own I/O dispatcher. The rule
   it breaks otherwise is this repository's own: a suspend function that blocks is only suspend in
   its signature.
+* **An encrypted connection cannot use `transferTo`, and that is the whole cost of MSE.** The
+  zero-copy upload path moves a block from the page cache to the socket without it entering this
+  process, and there is nowhere in that path to apply RC4. So a connection that negotiated
+  encryption is handed an `EncryptingChannel` instead of the socket: its blocks are read into a
+  heap array, encrypted, and written. A plaintext connection is untouched and pays nothing
+  ([B-100](../backlog/B-100-protocol-encryption.md)). The keystream is a stream — one object per
+  direction, touched by the connection's single reader and its single writer and nothing else.
+* **A dial that finishes after the stop is a connection nobody owns.** `withContext` throws away
+  the value of a block that completed when the job is cancelled, so a dial that returned a live
+  socket into a stopping session left its reader parked in a blocking read that no cancellation
+  reaches: a client that said `stopping` and never exited. The connection is held outside the
+  `withContext` and closed on cancellation; `serve` closes anything that arrives while `stopping`,
+  and `shutDown` closes what is left in the command queue. Milliseconds wide while a dial was one
+  round trip, seconds wide once it was an encrypted handshake with a fall-back behind it (B-100).
 * **A known address has three states and not two.** `connected` and `failed` do not cover an
   address inside a ten-second `connect`, and most of a public swarm's addresses are in exactly that
   state for exactly that long — 22 of 50 in B-19's measurement. Without the third set, `dialling`,

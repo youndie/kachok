@@ -1201,6 +1201,15 @@ traffic, and a TCP-only client saturating an uplink makes its owner's other traf
 µTP client's does not. It is not enough on its own to justify an XL piece of work whose literature is
 congestion control, and it should not be forgotten the next time this is weighed.
 
+**Amended 2026-09-18: it is on the live connection path now.** The handshake this section is
+about was, for a stage, a proven exchange with nothing behind it — a real download went out in the
+clear. It no longer does: every connection can be encrypted, the dial offers it first and falls
+back, and qBittorrent 5.2.1 *configured to require encryption* both downloads from this client and
+serves it, with its own peer row reading `E` for encrypted traffic. The cost is where the
+implementation said it would be and nowhere else: an encrypted connection loses `transferTo` and
+copies each block through user space, which is why the choice is per connection rather than per
+client.
+
 ### D16. The download rate against the reference client, and what was between them
 
 *Opened 2026-09-18 by [B-114](../backlog/B-114-a-peer-that-stops-reading-stops-the-whole-session.md).
