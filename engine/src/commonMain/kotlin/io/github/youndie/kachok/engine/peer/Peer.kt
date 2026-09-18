@@ -99,6 +99,14 @@ public interface PeerConnection {
     /** Bytes served on this connection, for the tracker's `uploaded`. */
     public val uploaded: Long
 
+    /**
+     * Whether what goes over this connection is encrypted (MSE/PE, B-100).
+     *
+     * A default because most implementations of this interface are test fakes over a channel,
+     * where the question does not arise; the socket says what really happened.
+     */
+    public val encrypted: Boolean get() = false
+
     public fun close()
 }
 

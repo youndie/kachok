@@ -11,6 +11,7 @@ import io.github.youndie.kachok.engine.metainfo.Metainfo
 import io.github.youndie.kachok.engine.nat.LsdSocket
 import io.github.youndie.kachok.engine.nat.PortMapper
 import io.github.youndie.kachok.engine.nat.PortMapping
+import io.github.youndie.kachok.engine.peer.Encryption
 import io.github.youndie.kachok.engine.session.Command
 import io.github.youndie.kachok.engine.storage.FileSet
 import io.github.youndie.kachok.engine.tracker.TrackerProtocol
@@ -38,6 +39,14 @@ public class SetOptions(
      * whose tracker hands out one peer per announce leaves this client with one peer.
      */
     public val dht: Boolean = false,
+    /**
+     * What this process offers the peers that dial *it* (B-100).
+     *
+     * On the accepting side the choice is only ever "which dialects do we answer": the peer has
+     * already decided, and `PREFERRED` answers both. It is here and not on the torrent because
+     * one listener serves every torrent in the set.
+     */
+    public val encryption: Encryption = Encryption.PREFERRED,
 )
 
 /**
@@ -66,6 +75,25 @@ public class TorrentSet(
     options: SetOptions = SetOptions(),
     private val onBindFailure: (String) -> Unit = {},
 ) : AutoCloseable {
+    /** What this process answers a peer that dials it; see [SetOptions.encryption]. */
+    private val answeringWith: Encryption = options.encryption
+
+    /**
+     * Peers that dialled this process and were turned away before any session saw them.
+     *
+     * The session's own disconnect reasons (B-105) start after a handshake; these never got one,
+     * and until B-100 there was no way to tell "nobody dials us" from "everybody who dials us is
+     * refused". Read by the acceptance run and by anybody wondering the same thing.
+     */
+    @Volatile
+    public var refusedAccepts: Int = 0
+        private set
+
+    /** Why the last one was turned away, in its own words. */
+    @Volatile
+    public var lastRefusedAccept: String? = null
+        private set
+
     private val listener =
         try {
             PeerListener.bind(options.port?.let { it..it } ?: TrackerProtocol.PORT_RANGE)
@@ -287,13 +315,28 @@ public class TorrentSet(
         listener?.start(scope) { socket ->
             // Read first, route second: which torrent this peer wants is in its handshake, and
             // nothing before that says which session should answer.
-            val handshake =
+            val accepted =
                 try {
-                    SocketPeerConnection.readHandshake(socket)
-                } catch (refused: IOException) {
+                    SocketPeerConnection.readHandshake(
+                        socket,
+                        // Only the torrents this process holds: an encrypted dialler names its
+                        // torrent as a hash that can be recognised and not read, so the lookup is
+                        // a scan over what we have rather than a map.
+                        { byInfoHash.values.map { it.metainfo.infoHash } },
+                        encryption = answeringWith,
+                    )
+                } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                    throw cancelled
+                } catch (refused: Exception) {
+                    // A peer that opened in a dialect this client does not speak, asked for a
+                    // torrent it does not hold, or said nothing at all. `readHandshake` has closed
+                    // the socket, and there is no session to tell — so it is counted here, because
+                    // a listener that turns peers away silently is one nobody can measure (B-100).
+                    refusedAccepts++
+                    lastRefusedAccept = refused.message ?: refused::class.simpleName
                     return@start
                 }
-            val runtime = byInfoHash[handshake.infoHash.hex()]
+            val runtime = byInfoHash[accepted.handshake.infoHash.hex()]
             if (runtime == null) {
                 // A peer asking for a torrent this process does not have gets a closed socket
                 // rather than our handshake — answering would claim a torrent we cannot serve.
@@ -304,7 +347,7 @@ public class TorrentSet(
                 SocketPeerConnection.answer(
                     scope,
                     socket,
-                    handshake,
+                    accepted,
                     runtime.metainfo.infoHash,
                     runtime.peerId,
                     runtime.pool,

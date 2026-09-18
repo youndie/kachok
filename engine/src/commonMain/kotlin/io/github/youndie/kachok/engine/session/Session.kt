@@ -625,6 +625,13 @@ public class Session(
         announce(AnnounceEvent.STOPPED)
         connected.snapshot().forEach { it.connection.close() }
         connected.clear()
+        // And whatever is still in the queue: a peer the listener accepted a moment ago is a
+        // connection with a reader on it and no session left to hand it to, and the command loop
+        // is about to return without reading it.
+        while (true) {
+            val queued = commands.tryReceive().getOrNull() ?: break
+            if (queued is Command.AcceptPeer) queued.connection.close()
+        }
         writer.blocks.close()
         storage.flush()
         // Last, and the order is the whole of it: the record vouches for pieces that are hashed
@@ -887,21 +894,29 @@ public class Session(
         scope: CoroutineScope,
         address: PeerAddress,
     ) {
+        // **Held outside the dial, because a dial that finishes into a cancelled session loses
+        // its connection otherwise.** `withContext` discards the value of a block that completed
+        // and throws instead, so the socket, its reader and its writer were made and then nobody
+        // held them: a client that stopped mid-dial left a virtual thread inside a blocking read
+        // that no cancellation can reach, and did not exit. Rare while a dial was one round trip;
+        // routine once the dial was an encrypted handshake with a fall-back behind it (B-100).
+        var made: PeerConnection? = null
         val connection =
             try {
                 // Off the confined dispatcher: a dial blocks for up to the connect timeout, and
                 // under confinement that would stop every other peer, the timer and the tracker
                 // along with it.
                 if (blocking != null) {
-                    kotlinx.coroutines.withContext(blocking) { dialer.connect(address) }
+                    kotlinx.coroutines.withContext(blocking) { dialer.connect(address).also { made = it } }
                 } else {
-                    dialer.connect(address)
+                    dialer.connect(address).also { made = it }
                 }
             } catch (cancelled: kotlinx.coroutines.CancellationException) {
                 // A blanket `catch (Exception)` around a suspending call swallows cancellation as
                 // well, and a peer that cannot be cancelled outlives the session it belongs to.
                 // Rethrow it first, always.
                 dialling -= address
+                made?.close()
                 throw cancelled
             } catch (refused: Exception) {
                 dialling -= address
@@ -1956,6 +1971,7 @@ public class Session(
                 interested = interested,
                 peerInterested = peerInterested,
                 fast = fast,
+                encrypted = connection.encrypted,
                 extended = extensions != null,
                 outstanding = outstanding,
                 pieces = pieces,
