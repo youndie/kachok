@@ -63,7 +63,7 @@ which is also the order of work.
 | [B-87](docs/backlog/B-87-a-server-with-a-web-face.md) `[ ]` | Phase 3: a headless server with a web face, installable on a box that is always on | P3 | XL | B-80 |
 | [B-02](docs/backlog/B-02-ci-runs-build-and-docs-gates.md) `[ ]` | CI runs the build and the documentation gates on every push | infra | S | B-01 |
 
-## Closed (107)
+## Closed (108)
 
 **M0 — The build and its gates**
 
@@ -145,6 +145,7 @@ which is also the order of work.
 - [B-112](docs/backlog/B-112-a-peer-interested-for-seconds-is-never-unchoked.md) `[-]` - A peer interested for a few seconds is never unchoked: the choke pass is the only place an unchoke happens
 - [B-113](docs/backlog/B-113-shutdowntest-interrupts-a-download-that-has-already-finished.md) `[x]` - `ShutdownTest` can interrupt a download that has already finished, and then finds no record
 - [B-114](docs/backlog/B-114-a-peer-that-stops-reading-stops-the-whole-session.md) `[x]` - Against the reference client this one downloads at half the rate or not at all: a peer that stops reading stops the whole session, and a lookup that finds nothing is kept for fifteen minutes
+- [B-118](docs/backlog/B-118-a-peer-that-never-answers-is-dialled-for-ever.md) `[x]` - A peer that never answers is redialled every thirty seconds for the life of the torrent
 - [B-95](docs/backlog/B-95-the-dial-loop-only-runs-when-something-else-happens.md) `[x]` - The client stops dialling: there is no periodic top-up, and a dial in flight is dialled again
 - [B-96](docs/backlog/B-96-the-handshake-read-has-no-deadline.md) `[x]` - A peer that accepts the connection and then says nothing is never given up on
 - [B-97](docs/backlog/B-97-the-announce-never-says-how-many-peers-it-wants.md) `[x]` - The announce never says how many peers it wants, and only one tracker is ever asked

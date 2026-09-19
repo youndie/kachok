@@ -1210,6 +1210,26 @@ implementation said it would be and nowhere else: an encrypted connection loses 
 copies each block through user space, which is why the choice is per connection rather than per
 client.
 
+**Amended 2026-09-19 by [B-118](../backlog/B-118-a-peer-that-never-answers-is-dialled-for-ever.md),
+at the 65 %.** That figure was read here as a statement about reachability — how many of a swarm's
+addresses this client can open a socket to. It was also, and nobody noticed, a statement about a
+*schedule*: those addresses stay in `known` for the life of the session and the reconnect delay was
+a flat thirty seconds, so the same unreachable 65 % was rediscovered twice a minute for as long as
+the torrent was loaded. Verified on the author's Windows machine, three complete torrents seeding at
+0 B/s: 726 sockets held, 342 of them in `SYN_SENT`, and 1 586 520 of the host's 1 880 068 outgoing
+connection attempts failed over 14.8 hours of uptime — about 37 a second, sustained, against peers
+that had never once answered. `netstat -s` and `Get-NetTCPConnection`, cross-checked; the retransmit
+counter on the same host reports more segments resent than sent and was discarded as unusable.
+
+Two things follow that D14's µTP argument does not touch. The first is that the wait between
+dials to one address now doubles, which is B-118 and is a fix to the schedule, not to reachability —
+the 65 % is unchanged and so is every conclusion D14 draws from it. The second is that this is the
+measurement the last paragraph asked for, arriving from the other direction: the cost a TCP-only
+client imposes on its owner's network was assumed to be about saturating an uplink, and on a
+consumer router with a NAT table of one to four thousand entries it is about connection *count*
+instead. A client that holds 726 sockets while transferring nothing is the case LEDBAT would not
+have helped with either.
+
 ### D16. The download rate against the reference client, and what was between them
 
 *Opened 2026-09-18 by [B-114](../backlog/B-114-a-peer-that-stops-reading-stops-the-whole-session.md).

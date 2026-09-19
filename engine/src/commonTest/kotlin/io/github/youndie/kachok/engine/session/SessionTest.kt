@@ -3248,4 +3248,92 @@ class SessionTest {
             assertEquals(1, session.state.value.disconnectReasons["ourselves"])
             job.cancelAndJoin()
         }
+
+    /**
+     * B-118: an address that never answers is asked less and less often.
+     *
+     * The timer dials every tick, so with one flat `reconnectDelay` the schedule over an hour is
+     * one dial every thirty seconds — 120 of them against an address that has never completed a
+     * handshake. Doubling puts them at 0, 30, 90, 210, 450, 930 and 1890 seconds, and the eighth
+     * falls at 3690, past the hour. Seven is the assertion; what it is really pinning is that the
+     * count does not grow with the length of the run.
+     */
+    @Test
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    fun anAddressThatNeverAnswersIsDialledLessAndLessOften(): Unit =
+        runTest {
+            val metainfo = torrent(pieces = 4)
+            val dialer = FakeDialer(metainfo.infoHash, refuse = setOf(peerA))
+            val session =
+                session(
+                    metainfo,
+                    dialer,
+                    FakeTracker(listOf(peerA)),
+                    FakeStorage(),
+                    AgreeableHasher(metainfo),
+                    // The backoff is measured on the session's clock, which here has to be the test's.
+                    timeSource = testScheduler.timeSource,
+                )
+            val job = session.start(kotlinx.coroutines.CoroutineScope(coroutineContext + handler))
+            testScheduler.runCurrent()
+            assertEquals(listOf(peerA), dialer.dialled, "the first dial goes out at once")
+
+            testScheduler.advanceTimeBy(60 * 60 * 1_000L)
+            testScheduler.runCurrent()
+
+            assertEquals(7, dialer.dialled.size, "dialled at 0, 30, 90, 210, 450, 930 and 1890 seconds")
+            assertTrue(dialer.dialled.all { it == peerA }, "one address, and the tracker offers no other")
+            job.cancelAndJoin()
+        }
+
+    /**
+     * B-118, the other half: the backoff belongs to an address, and a handshake ends it.
+     *
+     * A peer behind a NAT that opens a port has been dark for as long as it takes; the moment it
+     * answers it is a live peer, and if it then hangs up it must be redialled on the flat delay
+     * rather than on the hours its silence had earned. The dialer here refuses until the address
+     * has served its third wait, so the peer arrives with a streak of three behind it — under
+     * which a redial would be due at 120 seconds rather than 30.
+     */
+    @Test
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    fun aPeerThatAnswersLosesTheBackoffItHadEarned(): Unit =
+        runTest {
+            val metainfo = torrent(pieces = 4)
+            val refuse = mutableSetOf(peerA)
+            val dialer = FakeDialer(metainfo.infoHash, refuse = refuse)
+            val session =
+                session(
+                    metainfo,
+                    dialer,
+                    FakeTracker(listOf(peerA)),
+                    FakeStorage(),
+                    AgreeableHasher(metainfo),
+                    timeSource = testScheduler.timeSource,
+                )
+            val job = session.start(kotlinx.coroutines.CoroutineScope(coroutineContext + handler))
+            testScheduler.runCurrent()
+
+            // Dials at 0, 30 and 90 seconds, all refused: the address now waits 240.
+            testScheduler.advanceTimeBy(100 * 1_000L)
+            testScheduler.runCurrent()
+            assertEquals(3, dialer.dialled.size, "three refusals before the peer opens its port")
+
+            refuse.clear()
+            testScheduler.advanceTimeBy(120 * 1_000L)
+            testScheduler.runCurrent()
+            assertEquals(1, session.state.value.connectedPeers, "the fourth dial, at 210 seconds, is answered")
+
+            val connection = dialer.connections.getValue(peerA)
+            connection.incoming.close()
+            testScheduler.runCurrent()
+            assertEquals(0, session.state.value.connectedPeers)
+            val afterHandshake = dialer.dialled.size
+
+            // Thirty seconds, not the two hundred and forty the streak would have asked for.
+            testScheduler.advanceTimeBy(31 * 1_000L)
+            testScheduler.runCurrent()
+            assertEquals(afterHandshake + 1, dialer.dialled.size, "the flat delay, because it answered once")
+            job.cancelAndJoin()
+        }
 }

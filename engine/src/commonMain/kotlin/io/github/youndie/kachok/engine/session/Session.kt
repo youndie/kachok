@@ -171,7 +171,51 @@ public class Session(
 
     private val connected = LinkedHashMap<PeerAddress, PeerLink>()
     private val known = LinkedHashSet<PeerAddress>()
-    private val failed = HashMap<PeerAddress, kotlin.time.TimeMark>()
+    private val failed = HashMap<PeerAddress, Failure>()
+
+    /**
+     * When an address last failed, and how many dials in a row have failed on it.
+     *
+     * [dialsInARow] is what separates a peer from an address. A peer that answered and later hung
+     * up is live and gets [SessionConfig.reconnectDelay] flat — it is worth asking again soon. An
+     * address that has never completed a handshake is, on a public swarm, most often a peer behind
+     * a NAT with nothing forwarded (research D14), and asking it again on the same schedule for the
+     * life of the torrent is the treadmill B-118 measured. So only a *dial* failure counts here,
+     * and a handshake clears the entry.
+     */
+    private class Failure(
+        val at: kotlin.time.TimeMark,
+        val dialsInARow: Int,
+    )
+
+    /**
+     * How long an address waits before [connectMore] will look at it again.
+     *
+     * Doubling rather than a fixed multiple of the failure count: the useful range spans three
+     * orders of magnitude — a peer that was there a second ago and one that has been dark since
+     * the torrent was added — and a linear step either crawls to the ceiling or overshoots the
+     * flickering peer. The shift is capped well below the width of an `Int` so that an address
+     * failing for a week cannot overflow it into a negative, which would dial it every tick.
+     */
+    private fun retryAfter(failure: Failure): kotlin.time.Duration {
+        val doublings = (failure.dialsInARow - 1).coerceIn(0, MAX_BACKOFF_DOUBLINGS)
+        return (config.reconnectDelay * (1 shl doublings)).coerceAtMost(config.maxReconnectDelay)
+    }
+
+    /** Records a failed dial, carrying the address's streak forward. */
+    private fun dialFailed(address: PeerAddress) {
+        failed[address] = Failure(timeSource.markNow(), (failed[address]?.dialsInARow ?: 0) + 1)
+    }
+
+    /**
+     * Records that a peer which *did* answer is gone.
+     *
+     * A streak of zero, which [retryAfter] reads as the flat delay: whatever ended this connection,
+     * the address is one a handshake has completed on, and it has earned the short wait.
+     */
+    private fun peerLeft(address: PeerAddress) {
+        failed[address] = Failure(timeSource.markNow(), 0)
+    }
 
     /**
      * Addresses whose dial has gone out and not yet come back.
@@ -867,6 +911,14 @@ public class Session(
      * Counting only [connected] would launch a fresh `maxPeers` dials every tick on top of the ones
      * already outstanding, which is a burst of hundreds of sockets against a swarm that has not
      * answered the first ones yet.
+     *
+     * **[retryAfter] is why the room does not simply refill with the same addresses.** Room exists
+     * for as long as the swarm holds more addresses than this client can reach, which on a public
+     * torrent is always; what the room is spent on is decided here. Until B-118 a failure bought
+     * one `reconnectDelay` however many times it had happened, so the addresses that never answer
+     * — 65 % of a public swarm's, research D14 — came back around every thirty seconds and took
+     * the budget with them. The wait now doubles per consecutive failed dial, which is what keeps
+     * a torrent that has been seeding overnight from dialling all night.
      */
     private fun connectMore(scope: CoroutineScope) {
         if (paused || stopping) return
@@ -876,7 +928,7 @@ public class Session(
             .asSequence()
             .filter { it !in connected && it !in dialling }
             .filter { address ->
-                failed[address]?.let { it.elapsedNow() >= config.reconnectDelay } ?: true
+                failed[address]?.let { it.at.elapsedNow() >= retryAfter(it) } ?: true
             }.take(room)
             .toList()
             .forEach { address ->
@@ -920,7 +972,7 @@ public class Session(
                 throw cancelled
             } catch (refused: Exception) {
                 dialling -= address
-                failed[address] = timeSource.markNow()
+                dialFailed(address)
                 val label = dialFailureLabel(refused)
                 dialFailures[label] = (dialFailures[label] ?: 0) + 1
                 // Kept and published: "no peers, no reason" is a state nobody can act on.
@@ -941,6 +993,11 @@ public class Session(
         // here, and it would remove somebody else's entry. That is the race the
         // `connected[address] === link` guard in [serve] exists for, one set over.
         dialling -= address
+        // The streak is broken by the handshake and not by the disconnection that follows it: an
+        // address that answers is reachable, whatever it does next, and it must not inherit the
+        // backoff earned by however many times it was dark before. [peerLeft] then gives it the
+        // flat wait when this connection ends.
+        failed -= address
         dialsHandshaked++
         publish { it.copy(dialsAttempted = dialsAttempted, dialsHandshaked = dialsHandshaked) }
         serve(scope, connection, dialled = true)
@@ -1063,7 +1120,8 @@ public class Session(
             connection.close()
             // The same wait a failed dial gets: whoever handed out this address will hand it out
             // again, and a duplicate redialled every tick is a busy wait against a peer we hold.
-            failed[address] = timeSource.markNow()
+            // The flat wait and not the backoff — this address just handshaked, twice.
+            peerLeft(address)
             disconnects++
             val reason = if (ourselves) "ourselves" else "duplicate peer"
             disconnectReasons[reason] = (disconnectReasons[reason] ?: 0) + 1
@@ -1145,7 +1203,7 @@ public class Session(
                 // this client hung up on for a pause or a re-check is not that, and must not be
                 // made to serve the delay.
                 val ours = closedByUs.remove(address)
-                if (!ours) failed[address] = timeSource.markNow()
+                if (!ours) peerLeft(address)
                 // Counted here and not at every `close()`: this is the one place that knows the
                 // connection was the registered one and is really over. A peer this client hung up
                 // on for a pause or a re-check is its own bucket rather than a silence, because
@@ -2047,6 +2105,16 @@ public class Session(
         const val DEFAULT_ANNOUNCE_SECONDS = 1800
         const val MIN_ANNOUNCE_SECONDS = 60
         const val MILLIS_PER_SECOND = 1000L
+
+        /**
+         * How far the reconnect backoff may double.
+         *
+         * Twenty is not a tuning knob — `SessionConfig.maxReconnectDelay` is. It is the guard that
+         * keeps `1 shl doublings` inside an `Int`: the ceiling is reached after seven doublings at
+         * the default delay, and this only has to stop an address that has failed for a week from
+         * shifting the sign bit into place and being dialled every tick.
+         */
+        const val MAX_BACKOFF_DOUBLINGS = 20
 
         /**
          * The ids this client asks peers to use. Ours to choose, and theirs to choose theirs —

@@ -434,8 +434,26 @@ public class SessionConfig(
      * which is the only case the default cannot serve.
      */
     public val announceToAllTrackers: Boolean = false,
-    /** Wait before dialling a peer that just failed. */
+    /** Wait before dialling a peer that just failed. The first wait; consecutive failures double it. */
     public val reconnectDelay: Duration = 30.seconds,
+    /**
+     * The ceiling [reconnectDelay] doubles towards for an address that never answers.
+     *
+     * **A flat delay is a treadmill, and B-118 measured it.** 65 % of dials on a public swarm end
+     * in `connect timed out` (research [D14]) and those addresses stay in `known` for the life of
+     * the torrent; with one wait for every failure the session spends its whole dial budget
+     * redialling them every `reconnectDelay`, for ever. Three seeding torrents on the author's
+     * machine held 726 sockets, 342 of them in `SYN_SENT`, and the host had failed 1.59 M of 1.88 M
+     * outgoing connections in 14.8 hours — 37 a second, sustained, against peers that have never
+     * once answered.
+     *
+     * Thirty minutes because a dead address must cost about as much as an announce does — the
+     * tracker's own interval is 30 minutes and it is the thing that would tell us about a peer
+     * that came back. Doubling from 30 s reaches it on the seventh consecutive failure, so a peer
+     * behind a NAT that flickers is still found quickly and one that has been dark for hours is
+     * asked twice an hour.
+     */
+    public val maxReconnectDelay: Duration = 30.minutes,
     /**
      * How long a request may go unanswered before the block is offered to somebody else.
      *
