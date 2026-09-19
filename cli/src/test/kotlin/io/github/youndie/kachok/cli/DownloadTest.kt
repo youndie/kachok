@@ -318,6 +318,23 @@ class DownloadTest {
         )
     }
 
+    /**
+     * The order is off unless asked for, and asking for it is one word.
+     *
+     * It reached the command line because it is the one engine setting whose *result* lives outside
+     * the process — a file a player can open while the middle is still arriving — and a window is
+     * not something a check can drive
+     * ([B-118](../../../../../../../docs/backlog/B-121-sequential-does-not-serve-a-player.md)).
+     */
+    @Test
+    fun theOrderIsOffUnlessTheCommandLineAsksForIt() {
+        assertTrue(
+            !Arguments.parseDownload(listOf("x.torrent")).sequential,
+            "rarest-first is the default and every measured number assumes it",
+        )
+        assertTrue(Arguments.parseDownload(listOf("x.torrent", "--sequential")).sequential)
+    }
+
     @Test
     fun rateLimitsAreGivenInKibibytesAndZeroIsTheDefault() {
         val plain = Arguments.parseDownload(listOf("x.torrent"))

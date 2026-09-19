@@ -63,7 +63,7 @@ which is also the order of work.
 | [B-87](docs/backlog/B-87-a-server-with-a-web-face.md) `[ ]` | Phase 3: a headless server with a web face, installable on a box that is always on | P3 | XL | B-80 |
 | [B-02](docs/backlog/B-02-ci-runs-build-and-docs-gates.md) `[ ]` | CI runs the build and the documentation gates on every push | infra | S | B-01 |
 
-## Closed (110)
+## Closed (112)
 
 **M0 — The build and its gates**
 
@@ -110,6 +110,7 @@ which is also the order of work.
 
 **M6 — Resume**
 
+- [B-122](docs/backlog/B-122-a-file-the-files-tab-calls-complete-is-not.md) `[x]` - The Files tab called a file 100% and the bytes were not there
 - [B-23](docs/backlog/B-23-atomic-resume-file.md) `[x]` - A resume record written atomically and rarely
 - [B-24](docs/backlog/B-24-startup-verification-of-existing-data.md) `[x]` - Re-hash what the resume file does not vouch for
 - [B-25](docs/backlog/B-25-graceful-shutdown.md) `[x]` - SIGINT: stop announces, close peers, flush, write resume, exit
@@ -158,6 +159,7 @@ which is also the order of work.
 - [B-104](docs/backlog/B-104-the-settings-screen-cannot-hold-another-row.md) `[x]` - The settings screen is exactly full: an eleventh row pushes the tenth somewhere nobody can reach it
 - [B-106](docs/backlog/B-106-per-file-priority.md) `[x]` - Per-file priority: which file of a torrent the picker fetches first
 - [B-115](docs/backlog/B-115-the-startup-check-runs-on-the-window-s-thread.md) `[x]` - The window draws its title bar and nothing else: the start-up check reads the disk on the AWT event thread
+- [B-121](docs/backlog/B-121-sequential-does-not-serve-a-player.md) `[x]` - Sequential downloads a file front to back, and a player needs its end too
 - [B-39](docs/backlog/B-39-compose-ui-desktop.md) `[x]` - Phase 2: a Compose Multiplatform desktop UI on the engine's StateFlow
 - [B-46](docs/backlog/B-46-ui-theme-and-calibration.md) `[x]` - The theme: colour roles, type, and the desktop calibration
 - [B-47](docs/backlog/B-47-torrent-row-and-states.md) `[x]` - The torrent row and its seven states

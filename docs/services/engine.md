@@ -307,6 +307,17 @@ them. Nothing is read from the environment by this module; that is [cli](cli.md)
   twice in a row. A lookup after which `known` is below `maxPeers` is followed by another after
   `dhtStarvedInterval` (30 s), doubling up to `dhtInterval`; the announce keeps its own clock.
   Five bootstrap nodes instead of three (B-114).
+* **The resume record is written after a `force()`, and the flush lives in the writing.** The record
+  says "these pieces are on the disk", which a piece that has been hashed and handed to the kernel
+  is not: `force()` runs on its own interval. `shutDown`, `pause` and `recheck` each flush for
+  reasons of their own and so happened to keep the order; the periodic save on the timer had no
+  reason of its own and kept nothing, leaving the invariant true at three call sites out of four.
+  A record like that survives a host going down and then tells the client — and the Files tab,
+  which reads the picker's bitfield — that a file is complete when its bytes are not there. The
+  flush now belongs to `saveResume`. The same item added the number whose absence cost the
+  diagnosis: a re-check used to learn which claimed pieces the disk could not show and then
+  overwrite the claim without saying so, and it now counts them into `claimedNotOnDisk`
+  ([B-119](../backlog/B-122-a-file-the-files-tab-calls-complete-is-not.md)).
 * **`restore()` does not run on the thread that asked for it.** The start-up check reads every
   piece a resume record does not vouch for and hashes it, which for the torrents somebody actually
   keeps is minutes of blocking I/O. It used to run in the caller's context, and the caller is the
@@ -345,6 +356,19 @@ them. Nothing is read from the environment by this module; that is [cli](cli.md)
   another ([B-106](../backlog/B-106-per-file-priority.md)). The same call, `prioritise`, changes
   the skip set on a running picker — what is started finishes, what begins next follows the new
   sets — which is the half B-67 left out, done the only honest way.
+* **Sequential is in order except for the two ends of every file, and that exception is the whole
+  point of it.** An MP4's `moov` atom, an AVI's `idx1` and an MKV's `Cues` sit at the *end* of the
+  file, and a player that cannot read the index will not start a frame — so strict lowest-first
+  delivered a file that played only once it was whole, which is the case the tick exists to avoid.
+  A **piece-length of bytes at each end** of every wanted file is offered before anything else,
+  ascending, and lowest-first decides the rest. A piece-length and not "the first and last piece",
+  which is what every other client does: a file ends wherever it ends inside a piece, and the
+  fixture's ended 19 KB into its last one while its `moov` was 52 KB, so with the last piece in hand
+  `ffprobe` still said `moov atom not found`. It is still not the rarest-first-with-a-window
+  compromise — that needs an N nobody here has a player to measure, while the reach is the picker's
+  own unit and the ends are the layout the torrent declares. Driven with a control: at 28 % of the
+  same torrent the sequential run's partial MP4 decodes and the rarest-first run's does not
+  ([B-118](../backlog/B-121-sequential-does-not-serve-a-player.md)).
 * **`index in started` on a `Map<Int, _>` boxes the index.** The picker asks it once per piece per
   request, which is where half of the profile's `Integer` allocations came from; a `BooleanArray`
   beside the map answers the same question for nothing. Both mutations of `started` go through one

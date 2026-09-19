@@ -39,12 +39,43 @@ class PiecePickerTest {
         return MetainfoParser.parse(source.encodeToByteArray())
     }
 
+    /**
+     * A torrent of several files, for the rules that are about the layout rather than the pieces.
+     *
+     * The files are given as name to length; the piece count follows from the total, as it does in
+     * a real torrent, so a file's two ends land where the arithmetic puts them and not where a test
+     * would like them.
+     */
+    private fun torrent(
+        files: List<Pair<String, Long>>,
+        pieceLength: Int,
+    ): Metainfo {
+        val total = files.sumOf { it.second }
+        val pieces = ((total + pieceLength - 1) / pieceLength).toInt()
+        val hashes = "A".repeat(pieces * 20)
+        val entries =
+            files.joinToString("") { (name, length) ->
+                "d6:lengthi${length}e4:pathl${name.length}:${name}ee"
+            }
+        val source =
+            "d4:infod5:filesl${entries}e4:name1:x12:piece lengthi${pieceLength}e" +
+                "6:pieces${pieces * 20}:$hashes" + "ee"
+        return MetainfoParser.parse(source.encodeToByteArray())
+    }
+
     /** A peer that has exactly these pieces. */
     private fun PiecePicker.peerWith(
         peer: PeerAddress,
         vararg pieces: Int,
+    ): Unit = peerWithIn(peer, tenPieces.pieceCount, *pieces)
+
+    /** The same, for a torrent that is not the ten-piece one. */
+    private fun PiecePicker.peerWithIn(
+        peer: PeerAddress,
+        pieceCount: Int,
+        vararg pieces: Int,
     ) {
-        val bitfield = Bitfield(tenPieces.pieceCount)
+        val bitfield = Bitfield(pieceCount)
         pieces.forEach { bitfield.set(it) }
         setBitfield(peer, bitfield.toBytes())
     }
@@ -328,14 +359,15 @@ class PiecePickerTest {
     }
 
     /**
-     * In order, and the order is the whole rule.
+     * In order, after the two ends of the file, and those two are the whole exception.
      *
-     * Not "rarest first with a window": that window exists to keep a player fed, and streaming is
-     * explicitly not part of this. Choosing how wide it should be with no player to measure against
-     * would be inventing a number.
+     * Not "rarest first with a window": that window exists to keep a player fed and needs an N
+     * nobody here has a player to measure. The ends need no N — an MP4's `moov` is at the end of
+     * the file, and a player that cannot read it will not start
+     * ([B-118](../../../../../../../../docs/backlog/B-121-sequential-does-not-serve-a-player.md)).
      */
     @Test
-    fun sequentialAsksForTheLowestPieceThePeerHas() {
+    fun sequentialAsksForTheEndsOfTheFileAndThenTheOrder() {
         val picker = PiecePicker(tenPieces, maxStartedPieces = 1, random = Random(1), sequential = true)
         picker.peerWith(a, *(0..9).toList().toIntArray())
 
@@ -346,7 +378,112 @@ class PiecePickerTest {
                 picker.pieceVerified(request.piece)
                 request.piece.value
             }
-        assertEquals(listOf(0, 1, 2, 3, 4), order)
+        assertEquals(listOf(0, 9, 1, 2, 3), order)
+    }
+
+    /**
+     * Both ends of every file, ascending, before any of the middles.
+     *
+     * Three files of four pieces each: the ends are 0 and 3, 4 and 7, 8 and 11, and the order they
+     * come in is the order a player wants them — a file's header, then its index, then the next
+     * file's. What is asserted after them is that the middle resumes where it always was.
+     */
+    @Test
+    fun sequentialTakesBothEndsOfEveryFileFirst() {
+        val block = PeerWire.BLOCK_SIZE.toLong()
+        val metainfo =
+            torrent(
+                files = listOf("one.mp4" to block * 4, "two.mp4" to block * 4, "three.mp4" to block * 4),
+                pieceLength = PeerWire.BLOCK_SIZE,
+            )
+        val picker = PiecePicker(metainfo, maxStartedPieces = 1, random = Random(1), sequential = true)
+        picker.peerWithIn(a, metainfo.pieceCount, *(0 until metainfo.pieceCount).toList().toIntArray())
+
+        val order =
+            (0..7).map {
+                val request = picker.next(a, 1).single()
+                picker.blockReceived(a, request.piece, 0)
+                picker.pieceVerified(request.piece)
+                request.piece.value
+            }
+        assertEquals(listOf(0, 3, 4, 7, 8, 11, 1, 2), order)
+    }
+
+    /**
+     * A file that does not end on a piece boundary gets the piece before its last one too.
+     *
+     * **This is the case a real download found and the first rule missed.** The file ended 19 KB
+     * into its last piece and its `moov` atom was 52 KB, so the atom started in the piece before:
+     * with only the piece holding the last byte, `ffprobe` on the partial file said `moov atom not
+     * found`. What is asked for is a piece-length of bytes at each end, which is one piece when the
+     * boundary is aligned and two when it is not
+     * ([B-118](../../../../../../../../docs/backlog/B-121-sequential-does-not-serve-a-player.md)).
+     */
+    @Test
+    fun theTailCoversAWholePieceLengthWhereverTheFileEnds() {
+        val block = PeerWire.BLOCK_SIZE.toLong()
+        val metainfo =
+            torrent(
+                // Three and a half pieces: the file ends halfway through piece 3, so a piece-length
+                // of tail reaches back into piece 2.
+                files = listOf("film.mp4" to block * 7 / 2, "notes.txt" to block / 2),
+                pieceLength = PeerWire.BLOCK_SIZE,
+            )
+        val picker = PiecePicker(metainfo, maxStartedPieces = 1, random = Random(1), sequential = true)
+        picker.peerWithIn(a, metainfo.pieceCount, *(0 until metainfo.pieceCount).toList().toIntArray())
+
+        val order =
+            (0..3).map {
+                val request = picker.next(a, 1).single()
+                picker.blockReceived(a, request.piece, 0)
+                picker.pieceVerified(request.piece)
+                request.piece.value
+            }
+        assertEquals(listOf(0, 2, 3, 1), order, "the piece the file's index started in was not asked for")
+    }
+
+    /** A file nobody wants gets no head start: skip decides before priority does. */
+    @Test
+    fun theEndsOfASkippedFileAreNotFetched() {
+        val block = PeerWire.BLOCK_SIZE.toLong()
+        val metainfo =
+            torrent(files = listOf("one.mp4" to block * 4, "two.mp4" to block * 4), pieceLength = PeerWire.BLOCK_SIZE)
+        val picker = PiecePicker(metainfo, maxStartedPieces = 1, random = Random(1), sequential = true)
+        picker.skip(Bitfield(metainfo.pieceCount).apply { (4..7).forEach { set(it) } })
+        picker.peerWithIn(a, metainfo.pieceCount, *(0 until metainfo.pieceCount).toList().toIntArray())
+
+        val order =
+            (0..3).map {
+                val request = picker.next(a, 1).single()
+                picker.blockReceived(a, request.piece, 0)
+                picker.pieceVerified(request.piece)
+                request.piece.value
+            }
+        assertEquals(listOf(0, 3, 1, 2), order)
+    }
+
+    /**
+     * And with the order off the ends are ordinary pieces.
+     *
+     * The default is rarest-first and every measured number assumes it, so a boundary piece that
+     * five peers have must lose to a middle piece that one peer has.
+     */
+    @Test
+    fun theEndsAreOnlyRaisedUnderSequential() {
+        val picker = PiecePicker(tenPieces, maxStartedPieces = 1, random = Random(1))
+        // Past the first-piece randomisation, so that rarity is what decides the next choice.
+        picker.restore(Bitfield(tenPieces.pieceCount).apply { set(2) })
+        picker.peerWith(a, *(0..9).toList().toIntArray())
+        picker.peerWith(b, *(0..9).filter { it != 5 }.toIntArray())
+
+        assertEquals(
+            5,
+            picker
+                .next(a, 1)
+                .single()
+                .piece.value,
+            "rarest-first took a boundary piece over the one piece only one peer has",
+        )
     }
 
     /**
@@ -382,7 +519,12 @@ class PiecePickerTest {
                     .piece.value
                     .also { piece -> picker.pieceVerified(PieceIndex(piece)) }
             }
-        assertEquals(next.sorted(), next, "the order did not change under the running picker")
+        // The two ends of the file go first, minus whichever of them is already on the disk, and
+        // what follows them is the order (B-121).
+        val ends = listOf(0, 9).filterNot { it in alreadyHad }
+        assertEquals(ends, next.take(ends.size), "the ends of the file were not asked for first")
+        val middle = next.drop(ends.size)
+        assertEquals(middle.sorted(), middle, "the order did not change under the running picker")
         assertTrue(
             next.none { it in alreadyHad },
             "a piece already verified was asked for again: had $alreadyHad, then asked for $next",
@@ -418,11 +560,13 @@ class PiecePickerTest {
         )
     }
 
-    /** A piece the peer has not got is skipped rather than waited for. */
+    /** A piece the peer has not got is skipped rather than waited for — an end of a file included. */
     @Test
     fun sequentialTakesTheLowestThatIsActuallyAvailable() {
         val picker = PiecePicker(tenPieces, maxStartedPieces = 1, random = Random(1), sequential = true)
-        picker.peerWith(a, 3, 4, 9)
+        // Piece 9 is the end of the file and would go first; this peer has not got it, which makes
+        // it exactly as useless as piece 0, which it has not got either.
+        picker.peerWith(a, 3, 4)
         assertEquals(
             3,
             picker
@@ -438,13 +582,16 @@ class PiecePickerTest {
         val picker = PiecePicker(tenPieces, maxStartedPieces = 1, random = Random(1), sequential = true)
         picker.skip(Bitfield(tenPieces.pieceCount).apply { (0..2).forEach { set(it) } })
         picker.peerWith(a, *(0..9).toList().toIntArray())
-        assertEquals(
-            3,
-            picker
-                .next(a, 1)
-                .single()
-                .piece.value,
-        )
+        // Piece 9 is the file's other end and is wanted; piece 0 is its first and is not, which is
+        // the skip being obeyed by the rule that would otherwise have taken it before anything.
+        val order =
+            (0..1).map {
+                val request = picker.next(a, 1).single()
+                picker.blockReceived(a, request.piece, 0)
+                picker.pieceVerified(request.piece)
+                request.piece.value
+            }
+        assertEquals(listOf(9, 3), order)
     }
 
     /** Rarest-first is untouched and stays the default: every measured number assumes it. */

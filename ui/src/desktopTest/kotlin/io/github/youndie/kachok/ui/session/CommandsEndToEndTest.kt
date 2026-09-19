@@ -319,14 +319,18 @@ class CommandsEndToEndTest {
         }
 
     /**
-     * Sequential order, seen from the disk.
+     * Sequential order, seen from the disk: a prefix, and the end of the file already there.
      *
      * The picker's own tests assert which piece it hands out; this asserts what that does to the
-     * file. Mid-download the file is a correct prefix followed by the zeros nobody has filled in —
-     * which is the whole point of the setting and the only part of it a person can see.
+     * file, which is the only part of the setting a person can see. Mid-download it is a correct
+     * prefix, the file's last piece-length correct as well, and zeros in between — the end being
+     * there is what lets a player read the index and start
+     * ([B-118](../../../../../../../../docs/backlog/B-121-sequential-does-not-serve-a-player.md)).
+     * This used to assert a clean prefix and nothing else, back when the order reached the index
+     * last and the file therefore did not open until it was whole.
      */
     @Test
-    fun sequentialFillsTheFileFromTheFront(): Unit =
+    fun sequentialFillsTheFileFromBothEnds(): Unit =
         runBlocking {
             val piece = 16 * 1024
             val content = LocalSwarm.content(size = piece * 8)
@@ -336,17 +340,23 @@ class CommandsEndToEndTest {
             ) { _, _, runtime, _ ->
                 runtime.waitUntil("a few pieces land") {
                     val done = runtime.state.value.completedPieces
-                    done in 2..5 || runtime.state.value.isComplete
+                    done in 3..5 || runtime.state.value.isComplete
                 }
                 val done = runtime.state.value.completedPieces
                 assertTrue(!runtime.state.value.isComplete, "it finished before a sample landed; slow the seed")
 
                 val onDisk = Files.readAllBytes(runtime.paths.single())
-                val verified = done * piece
                 assertContentEquals(
-                    content.copyOfRange(0, verified),
-                    onDisk.copyOfRange(0, verified),
-                    "the first $done pieces are not the torrent's first $done pieces",
+                    content.copyOfRange(content.size - piece, content.size),
+                    onDisk.copyOfRange(onDisk.size - piece, onDisk.size),
+                    "the end of the file is not on the disk, so a player would still have no index",
+                )
+                // The end is one of the $done, so the front is the rest of them.
+                val front = (done - 1) * piece
+                assertContentEquals(
+                    content.copyOfRange(0, front),
+                    onDisk.copyOfRange(0, front),
+                    "the pieces at the front are not the torrent's first ones",
                 )
                 // The frontier, not the prefix. The picker works on several pieces at once — that
                 // is what `maxStartedPieces` is — so blocks of the next few land while the piece
@@ -355,9 +365,9 @@ class CommandsEndToEndTest {
                 // *far* ahead, and this is where "far" is. Asserting a clean prefix passed on
                 // macOS and failed on Windows, which schedules the hashing differently.
                 val frontier = (done + SessionConfig().maxStartedPieces) * piece
-                if (frontier < onDisk.size) {
+                if (frontier < onDisk.size - piece) {
                     assertTrue(
-                        onDisk.copyOfRange(frontier, onDisk.size).all { it == 0.toByte() },
+                        onDisk.copyOfRange(frontier, onDisk.size - piece).all { it == 0.toByte() },
                         "a piece was fetched more than ${SessionConfig().maxStartedPieces} ahead of the front",
                     )
                 }
