@@ -1,7 +1,7 @@
 ---
 id: B-124
 title: "The thing this client is for has no feature document, so it has no scenarios"
-status: open
+status: done
 priority: P2
 size: M
 stage: m4-download
@@ -39,9 +39,31 @@ feature the repository is about.
   ([B-123](B-123-a-seed-that-holds-part-of-the-torrent.md)). They are written and left unticked,
   which is what an honest gap looks like here.
 
+## What writing it against the code found
+
+**21 scenarios, 19 of them automated by tests that already existed.** The client was better covered
+than the documentation could show: `bdd_report.py` went from 28 scenarios to 49 without a line of
+Kotlin being written, because the checks were there and nothing said what they were for.
+
+The two that are not ticked are the interesting half, and both are honest rather than pending:
+
+* *Asking in order costs the swarm something* — the stand can now make a piece rare
+  ([B-123](B-123-a-seed-that-holds-part-of-the-torrent.md)), and what is still missing is a harness
+  that runs two variants interleaved and publishes a ratio
+  ([B-125](B-125-a-measurement-that-is-a-pair.md)). Until then the cost is written as a direction
+  and not as a number.
+* *This client meets as much of a public swarm as a mature one* — **and it cannot be automated at
+  all.** A public swarm is not reproducible, is not this machine's to schedule, and a check that
+  needs the internet to pass goes red for the weather. Recorded as unautomatable rather than left
+  looking like work somebody forgot.
+
+Every cited test was checked to exist by name before the document was committed — a scenario naming
+a test that does not exist is worse than one with no `**Automated:**` line at all, because it counts
+as covered.
+
 - AC: `feature-download.md` is `status: active` on `main`, `make check` passes with it, every ticked
   scenario names a test that exists, and `bdd_report.py` counts the new document; the scenarios that
-  need a rare piece are listed and explicitly not ticked.
+  need a rare piece are listed and explicitly not ticked. **All met.**
 - Anchors: `docs/features/feature-download.md` (target),
   `cli/src/test/kotlin/io/github/youndie/kachok/cli/DownloadTest.kt`,
   `ui/src/desktopTest/kotlin/io/github/youndie/kachok/ui/session/CommandsEndToEndTest.kt`,
