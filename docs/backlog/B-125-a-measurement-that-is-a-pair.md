@@ -1,7 +1,7 @@
 ---
 id: B-125
 title: "A speed comparison needs a harness that cannot publish a lonely number"
-status: open
+status: done
 priority: P2
 size: M
 stage: m7-measure
@@ -42,11 +42,53 @@ underneath it so that the thing being compared can actually differ.
   stable stand and a stored series, and the first thing to find out is whether this stand is stable
   enough to carry one.
 
-- AC: `./gradlew :swarm:measure -Pscenario=picker-order` (or the equivalent this item settles on)
-  runs both variants interleaved and prints a ratio with its spread and the machine it was taken on;
-  the same scenario file runs as an assertion in `build` and cannot print a timing there; the first
-  real answer — what asking for both ends of a file first costs on a swarm where pieces are rare —
-  is written into the research beside the rarest-first numbers.
+## What the first two runs found
+
+`./gradlew :swarm:measure -Pscenario=picker-order -Pruns=4`, on the Linux build machine:
+
+```
+  rarest-first   1625ms 1612ms 1621ms  median 1621ms
+  sequential     1624ms 1613ms 1623ms  median 1623ms
+
+  no difference this stand can see: the ratio is somewhere in 0.99..1.01, which contains 1.00
+```
+
+**A null result is worth nothing on its own**, because a stand that cannot distinguish anything
+prints the same sentence as a stand on which two variants really are the same. So the catalogue
+carries a **positive control**: the same client against itself, held to half the rate the swarm will
+give it, where the answer is arithmetic.
+
+```
+  unlimited      1620ms 1611ms 1613ms  median 1613ms
+  half           3448ms 3449ms 3196ms  median 3448ms
+
+  half / unlimited = 2.14 (1.97..2.14)
+```
+
+The harness sees 2.14 where there is a difference and none between the orders, so the null is the
+stand's answer and not its silence.
+
+**And the stand's answer is narrower than the question.** Five seeds at 256 KiB/s is 1.25 MiB/s;
+2 MiB at that rate is 1.6 seconds, which is what both variants took to within milliseconds. The
+client was bound by the swarm's bandwidth, and no order beats a cap. What was measured is *asking in
+order costs nothing while the swarm's bandwidth is the bottleneck* — worth knowing, and not B-65's
+claim, which was about the peers this client trades with rather than about its own clock. That needs
+a stand with several leechers and no seed holding everything
+([B-126](B-126-a-stand-with-more-than-one-leecher.md)), and until it exists the swarm cost stays a
+direction with a written reason rather than a number.
+
+- AC: `./gradlew :swarm:measure -Pscenario=<name> -Pruns=N` runs both variants interleaved and
+  prints a ratio with its range and the machine it was taken on; the same scenarios run as
+  assertions in `build` and cannot print a timing there; the first real answer is written into the
+  research beside the rarest-first numbers (§1.2c4). **All met**, with the answer's scope stated
+  rather than glossed.
+  **Automated:** `swarm/src/test/.../measure/ScenariosTest.kt` —
+  `everyScenarioStillPosesItsQuestion`, `theStandsHavePiecesOfDifferentRarity`,
+  `aComparisonTooSmallToMeanAnythingIsRefused`, `aDifferenceInsideTheNoiseIsPrintedAsNoDifference`,
+  `aDifferenceLargerThanTheNoiseIsPrintedAsARatio`.
+- The structural guarantee the item asked for is the return type: `Measure.verify` returns nothing a
+  test could assert a duration against, and `Measure.compare` is reachable only from a task that is
+  not in `build`.
 - Anchors: `swarm/src/main/kotlin/io/github/youndie/kachok/swarm/` (target),
   `cli/src/test/kotlin/io/github/youndie/kachok/cli/CollectorBench.kt`,
   `docs/research/research-architecture.md`.

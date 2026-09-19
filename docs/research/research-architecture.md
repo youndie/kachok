@@ -270,6 +270,42 @@ accept.
 *Not measured: what happens at sixteen torrents, which is what the design's list draws. The two
 numbers above are linear in the count only if the peers are, and a real swarm decides that.*
 
+### 1.2c4 What asking in order costs, and the stand that cannot say
+
+The figure [B-65](../backlog/B-65-sequential-download.md) refused to invent, taken with the harness
+of [B-125](../backlog/B-125-a-measurement-that-is-a-pair.md): 128 pieces of 16 KiB, five seeds —
+one holding the torrent and four holding a fixed half each, so availability runs from one to five
+across the pieces — each seed limited to 256 KiB/s. Four rounds, interleaved, the first of each
+discarded, on the Linux build machine (20 cores, 2026-09-20).
+
+| | runs | median | ratio |
+|---|---|---|---|
+| rarest-first | 1625, 1612, 1621 ms | 1621 ms | — |
+| sequential | 1624, 1613, 1623 ms | 1623 ms | 0.99–1.01, **contains 1.00** |
+| *unlimited (control)* | 1620, 1611, 1613 ms | 1613 ms | — |
+| *half the swarm's rate (control)* | 3448, 3449, 3196 ms | 3448 ms | **2.14** (1.97–2.14) |
+
+**The null is believable because of the last two rows and for no other reason.** A stand that cannot
+distinguish anything reports "no difference" in exactly the same words as a stand on which two
+variants really are the same, so the catalogue carries a positive control — the same client against
+itself with its download limited to half of what the swarm will give it — whose answer is
+arithmetic. It says 2.14. The harness can see a difference of that size; it saw none between the
+orders.
+
+**What the null means is narrower than it looks, and this is the honest part.** Five seeds at
+256 KiB/s is 1.25 MiB/s, and 2 MiB at 1.25 MiB/s is 1.6 seconds — which is what *both* variants
+took, to within a few milliseconds. On this stand the client is bound by the swarm's bandwidth, and
+no order can beat a cap. So what was measured is: **asking in order costs nothing while the swarm's
+bandwidth is the bottleneck** — worth knowing, and not the claim B-65 made.
+
+B-65's claim was about the *other* peers — *"every peer asks for piece 0 first, nobody has anything
+rare to trade"* — and that is an externality: a cost this client imposes on a swarm, which cannot
+appear on a stand with one leecher and five seeds that hold everything they hold from the start.
+Measuring it needs several leechers trading with each other and no seed with the whole torrent
+([B-126](../backlog/B-126-a-stand-with-more-than-one-leecher.md)). Until that exists, the swarm cost
+of `sequential` remains a direction and not a number, and it is now written down *why* rather than
+merely that.
+
 ### 1.2c3 What the desktop stage did not decide
 
 Recorded because [B-40](../backlog/B-40-wasmjs-ui-is-a-client-of-the-headless-engine.md) is the one
