@@ -53,18 +53,36 @@ class SingleInstanceTest {
         assertEquals(Path.of("/srv/one.torrent").toAbsolutePath(), await(first.opened))
     }
 
-    /** Three double-clicks in a second are three torrents, not the last one. */
+    /**
+     * Three double-clicks in a second are three torrents, not the last one.
+     *
+     * **What is ordered here is one launch's own paths, and nothing across launches** (B-120).
+     * `handOverTo` writes its paths and closes, and since [SingleInstance] began answering each
+     * connection on its own thread — so that an MCP session cannot make the next launch wait — two
+     * connections are read by two threads that race. `kachok a.torrent b.torrent` must still open
+     * `a` first, because those two paths travel down one connection and one thread reads them in
+     * order; which of two *separate* launches lands first is not something either process can
+     * decide, and the test used to assert it anyway. It failed on CI as
+     * `[three, one, two]` — every path present, one still before two, and the third launch's
+     * single path in front.
+     *
+     * So each launch is awaited before the next one is made. That keeps the assertion on the
+     * property that exists and takes the race out of the test rather than out of the assertion.
+     */
     @Test
     fun everyPathHandedOverArrives() {
         val first = assertNotNull(claim())
-        assertNull(claim("/srv/one.torrent", "/srv/two.torrent"))
-        assertNull(claim("/srv/three.torrent"))
 
-        val arrived = listOf(await(first.opened), await(first.opened), await(first.opened))
+        assertNull(claim("/srv/one.torrent", "/srv/two.torrent"))
+        val fromSecondLaunch = listOf(await(first.opened), await(first.opened))
         assertEquals(
-            listOf("/srv/one.torrent", "/srv/two.torrent", "/srv/three.torrent").map { Path.of(it).toAbsolutePath() },
-            arrived,
+            listOf("/srv/one.torrent", "/srv/two.torrent").map { Path.of(it).toAbsolutePath() },
+            fromSecondLaunch,
+            "one launch's paths arrive in the order it was given them",
         )
+
+        assertNull(claim("/srv/three.torrent"))
+        assertEquals(Path.of("/srv/three.torrent").toAbsolutePath(), await(first.opened))
     }
 
     /**
