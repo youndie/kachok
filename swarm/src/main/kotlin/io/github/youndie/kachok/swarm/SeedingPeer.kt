@@ -20,8 +20,14 @@ import java.util.concurrent.ConcurrentLinkedQueue
  *
  * This is the other half of an end-to-end test: a client that downloads from a mock proves that
  * the mock agrees with the client, while a client that downloads from something speaking BEP 3 on
- * a real socket proves rather more. It is deliberately simple — no choking policy, no rate limit,
- * unchoke on sight — because what is under test is the downloader.
+ * a real socket proves rather more. It is deliberately simple — no choking policy, unchoke on
+ * sight — because what is under test is the downloader.
+ *
+ * It does have two knobs that are not simplicity but the opposite, and both exist so that a stand
+ * can pose a question this one cannot otherwise be asked: [holds], because on a swarm of seeds that
+ * all have everything no piece is rarer than any other and every picker makes the same requests in
+ * a different order, and [bytesPerSecond], because at loopback speed a download measures the kernel
+ * and the disk ([B-123](../../../../../../../docs/backlog/B-123-a-seed-that-holds-part-of-the-torrent.md)).
  */
 public class SeedingPeer(
     private val infoHash: InfoHash,
@@ -29,6 +35,25 @@ public class SeedingPeer(
     private val pieceLength: Int,
     /** Slows the seed down, so a test can interrupt a download that is genuinely in progress. */
     private val delayPerBlockMillis: Long = 0,
+    /**
+     * The pieces this seed has, or null for the seed that has the torrent.
+     *
+     * **Announced *and* enforced.** A seed that advertised a subset and served anything asked of it
+     * would let the client under test cheat the very rule the subset exists to create, and the
+     * cheating would look like a pass. A `request` for a piece outside this set is the connection
+     * closed, which BEP 3 allows a peer to do and a real one does.
+     */
+    private val holds: Set<Int>? = null,
+    /**
+     * Bytes a second **per connection**, or zero for as fast as the socket will go.
+     *
+     * Per connection because a client opens one connection to a peer, so this is the rate that peer
+     * gives that client — which is the quantity a stand wants to set. Applied by sleeping for the
+     * time a block should have taken after writing it, which makes the rate a floor on the download
+     * time and never a ceiling: nothing here can make a slow machine faster, so a test may assert
+     * "took at least this long" and never "took at most".
+     */
+    private val bytesPerSecond: Long = 0,
     /**
      * Serve this many blocks and then go quiet, keeping the connection open.
      *
@@ -62,8 +87,29 @@ public class SeedingPeer(
 
     public val port: Int = (server.localAddress as InetSocketAddress).port
 
+    /**
+     * This seed's own id, and it must be its own: **twenty bytes that name the peer, not the fake.**
+     *
+     * Every seed used to hand out the same `-SEED01-000000000000`, which nobody noticed while a
+     * stand had one of them. The first stand with five was a download that stalled at seven pieces
+     * of eight with one peer connected: the client saw five connections claiming one id and hung up
+     * on four of them as duplicates, which is
+     * [B-111](../../../../../../../docs/backlog/B-111-two-connections-to-the-same-peer.md) working exactly as
+     * written. The port is what makes an id unique here, because it is what makes the peer unique.
+     */
+    public val peerId: PeerId = PeerId("-SEED01-%012d".format(port).encodeToByteArray())
+
     /** Requests served, so a test can tell "it downloaded" from "it had it already". */
     public val served: ConcurrentLinkedQueue<Message.Request> = ConcurrentLinkedQueue()
+
+    /**
+     * Requests for pieces this seed does not hold, which it hung up on.
+     *
+     * Empty is the interesting value: a client that reads a `bitfield` asks for nothing outside it,
+     * so anything in here is either a client that ignored the announcement or a stand whose subsets
+     * do not mean what the test thinks they mean.
+     */
+    public val refused: ConcurrentLinkedQueue<Message.Request> = ConcurrentLinkedQueue()
 
     /** Extended messages received, in order: the first one is BEP 10's handshake or nothing is. */
     public val extended: ConcurrentLinkedQueue<Message.Extended> = ConcurrentLinkedQueue()
@@ -114,18 +160,22 @@ public class SeedingPeer(
             socket,
             Handshake(
                 infoHash,
-                PeerId("-SEED01-000000000000".encodeToByteArray()),
+                peerId,
                 Handshake.reservedBits(
                     extensionProtocol = extensionProtocol,
                     fastExtension = fastExtension,
                 ),
             ).encode(),
         )
-        // A seed has everything, and says so before anything else (BEP 3; BEP 6 lets it be one
-        // byte instead of a bitfield, and this fake keeps sending the bitfield on purpose — what
-        // is under test is what the *client* opens with).
+        // What this seed has, said before anything else (BEP 3; BEP 6 lets a complete peer send
+        // one byte instead of a bitfield, and this fake keeps sending the bitfield on purpose —
+        // what is under test is what the *client* opens with).
         val bitfield = ByteArray((pieces + 7) / 8)
-        (0 until pieces).forEach { bitfield[it / 8] = (bitfield[it / 8].toInt() or (0x80 ushr (it % 8))).toByte() }
+        (0 until pieces).forEach { index ->
+            if (has(index)) {
+                bitfield[index / 8] = (bitfield[index / 8].toInt() or (0x80 ushr (index % 8))).toByte()
+            }
+        }
         write(socket, PeerWire.encode(Message.Bitfield(bitfield)))
         write(socket, PeerWire.encode(Message.Unchoke))
 
@@ -153,6 +203,14 @@ public class SeedingPeer(
                 continue
             }
             if (message is Message.Request) {
+                if (!has(message.piece.value)) {
+                    // Hanging up rather than ignoring it: a peer that stays silent about a piece it
+                    // announced it had is a different fake — the frozen one below — and a test that
+                    // meant "this seed has not got it" would be given "this seed is slow".
+                    refused += message
+                    socket.close()
+                    return
+                }
                 if (freezeAfterBlocks != null && served.size >= freezeAfterBlocks) {
                     // Not an answer and not a hang-up: the client keeps its connection, its
                     // outstanding requests and everything it has already written to the disk,
@@ -163,6 +221,7 @@ public class SeedingPeer(
                 served += message
                 write(socket, PeerWire.encodePieceHeader(message.piece, message.begin, message.length))
                 write(socket, block(message.piece, message.begin, message.length))
+                pace(message.length)
             }
         }
     }
@@ -206,6 +265,22 @@ public class SeedingPeer(
     @Volatile
     private var clientMetadataId: Int = ExtensionHandshake.ID_UT_METADATA
 
+    /** Whether this seed holds this piece; a seed given no subset holds the torrent. */
+    private fun has(piece: Int): Boolean = holds?.contains(piece) ?: true
+
+    /**
+     * Sleeps for the time [bytes] should have taken at [bytesPerSecond], after sending them.
+     *
+     * After and not before, and the difference is a whole block: a rate applied before the write
+     * delays the first byte of the download by a block's worth of nothing, and a test that measures
+     * from its own `start` would count that as transfer time.
+     */
+    private fun pace(bytes: Int) {
+        if (bytesPerSecond <= 0) return
+        val millis = bytes.toLong() * MILLIS_PER_SECOND / bytesPerSecond
+        if (millis > 0) Thread.sleep(millis)
+    }
+
     private fun block(
         piece: PieceIndex,
         begin: Int,
@@ -237,6 +312,8 @@ public class SeedingPeer(
     }
 
     private companion object {
+        const val MILLIS_PER_SECOND = 1_000L
+
         /** BEP 3's opener: the byte 19 and `BitTorrent protocol`. */
 
         private val PROTOCOL_HEADER: ByteArray =
