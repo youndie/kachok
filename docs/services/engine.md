@@ -241,6 +241,12 @@ them. Nothing is read from the environment by this module; that is [cli](cli.md)
   them. Before [B-95](../backlog/B-95-the-dial-loop-only-runs-when-something-else-happens.md) a
   client that lost forty-five of its first fifty dials stayed on the five that answered until the
   next announce, half an hour later, with hundreds of untried addresses in `known`.
+* **What the timer dials is decided by a backoff, or it would dial the unreachable 65 % for ever.**
+  An address that fails waits `reconnectDelay`, and each consecutive failed dial doubles that wait
+  up to `maxReconnectDelay`; a handshake clears the streak, so a peer that answered and hung up
+  keeps the flat delay. Without it the top-up above is a treadmill — measured at 726 sockets, 342
+  of them in `SYN_SENT`, across three torrents that were complete and seeding at 0 B/s
+  ([B-118](../backlog/B-118-a-peer-that-never-answers-is-dialled-for-ever.md)).
 * **A blocking `SocketChannel` read cannot be given a deadline, and three of the four ways round
   that do not work.** `SO_TIMEOUT` does not reach channel operations; `withTimeout` cannot end a
   read on a virtual thread, which is not at a suspension point while it blocks; a selector would
