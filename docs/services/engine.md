@@ -314,7 +314,10 @@ them. Nothing is read from the environment by this module; that is [cli](cli.md)
   reason of its own and kept nothing, leaving the invariant true at three call sites out of four.
   A record like that survives a host going down and then tells the client — and the Files tab,
   which reads the picker's bitfield — that a file is complete when its bytes are not there. The
-  flush now belongs to `saveResume` ([B-119](../backlog/B-119-a-file-the-files-tab-calls-complete-is-not.md)).
+  flush now belongs to `saveResume`. The same item added the number whose absence cost the
+  diagnosis: a re-check used to learn which claimed pieces the disk could not show and then
+  overwrite the claim without saying so, and it now counts them into `claimedNotOnDisk`
+  ([B-119](../backlog/B-119-a-file-the-files-tab-calls-complete-is-not.md)).
 * **`restore()` does not run on the thread that asked for it.** The start-up check reads every
   piece a resume record does not vouch for and hashes it, which for the torrents somebody actually
   keeps is minutes of blocking I/O. It used to run in the caller's context, and the caller is the

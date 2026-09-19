@@ -1,7 +1,7 @@
 ---
 id: B-119
 title: "The Files tab called a file 100% and the bytes were not there"
-status: wip
+status: done
 priority: P1
 size: M
 stage: m6-resume
@@ -53,16 +53,37 @@ piece it does not have"*.
   is what the owner reports (*"возможно перезапускался kachok"*). Until a re-check has been run on
   that download the cause is **not** established, and the fix above is a broken invariant repaired,
   not a diagnosis.
-- **The experiment that separates the candidates**, on the download that showed it, before it is
-  deleted: press **Recheck**. The pass ignores the record and re-hashes every piece from the disk.
-  If the file drops to 95 %, the picker was believing a record the disk does not back, and this item
-  is about the record. If it stays at 100 % while a player and qBittorrent disagree, the picker is
-  right, the bytes are on the disk, and the defect is in what was written — which is a different
-  item and a much worse one.
+## The case that prompted it cannot be measured, and that is the second finding
+
+The one pass that separates the candidates is a **re-check**: it ignores the record and re-hashes
+every piece from the disk, so a file that drops to 95 % means the picker was believing a record the
+disk does not back, and a file that stays at 100 % while a player disagrees means the bytes
+themselves are wrong. It was never taken — the download finished first, and a re-check on a complete
+file says 100 % whatever went on an hour earlier. **The cause of the reported symptom is therefore
+unknown and stays unknown.** The invariant above was broken and is repaired; whether it is what the
+owner saw is not established, and page cache surviving an ordinary restart argues that it is not.
+
+**So the second half of this item is making the next one measurable.** A re-check used to throw away
+exactly the thing worth knowing: it learned which claimed pieces the disk could not show, and then
+overwrote the claim with the truth and said nothing. It now counts them — `claimedNotOnDisk` in
+`SessionState`, *Claimed, not on disk* in the details panel's INTEGRITY section, zero until a
+re-check has run. Non-zero means one thing and only one: this client told its owner, and the swarm,
+that it had pieces it had not.
+
+There is also a plainer reading of the report that needs no defect at all, and it cannot be ruled
+out either: sequential finished the first file honestly, the Files tab said 100 % about *that* one,
+and the file that would not play was the second — 95 %, missing its tail, which is
+[B-118](B-118-sequential-does-not-serve-a-player.md) and now fixed.
 
 - AC: the periodic resume save happens after a flush, asserted by a storage that records the order
-  it was called in; and the owner's re-check result is written into this item, deciding whether it
-  closes here or opens a second item about the write path.
+  it was called in; and a re-check says how many pieces this client claimed and could not show.
+  **Both met.** The third thing this item wanted — the owner's re-check result — is gone with the
+  download and is recorded above as not obtained.
+  **Automated:** `engine/src/commonTest/.../session/SessionTest.kt` —
+  `theRecordOnTheTimerIsWrittenAfterTheDiskIsForced`,
+  `aRecheckSaysHowManyPiecesThisClientClaimedAndCouldNotShow`.
 - Anchors: `engine/src/commonMain/kotlin/io/github/youndie/kachok/engine/session/Session.kt`,
   `engine/src/commonMain/kotlin/io/github/youndie/kachok/engine/resume/ResumeRecord.kt`,
+  `engine/src/commonMain/kotlin/io/github/youndie/kachok/engine/session/SessionState.kt`,
+  `ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/session/DetailsFrom.kt`,
   `engine/src/commonTest/kotlin/io/github/youndie/kachok/engine/session/SessionTest.kt`.

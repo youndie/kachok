@@ -573,6 +573,10 @@ public class Session(
         connected.snapshot().forEach { it.connection.close() }
         connected.clear()
         storage.flush()
+        // What this client believed a moment ago, kept across the pass that is about to disprove
+        // some of it. The re-check is the only thing that can tell "the picker was wrong" from
+        // "the bytes are wrong", and without this it threw the answer away as it found it (B-119).
+        val claimed = Bitfield.fromBytes(picker.completed.toBytes(), metainfo.pieceCount)
         // The picker refuses to be restored into while it is in use, and rightly: at start-up that
         // guard catches a check running after the first request went out. A re-check is the one
         // caller that legitimately empties it first — every peer is closed by the lines above, so
@@ -583,6 +587,8 @@ public class Session(
         } else {
             verify(record = null, hasher = hasher)
         }
+        val lost = (0 until metainfo.pieceCount).count { claimed[it] && !picker.completed[it] }
+        publish { it.copy(claimedNotOnDisk = lost) }
         // Recorded straight away: the pass just spent minutes learning what is on the disk, and
         // losing that to a crash would mean spending them again.
         saveResume()
@@ -2155,6 +2161,7 @@ private fun SessionState.copy(
     dhtNodes: Int = this.dhtNodes,
     extendedPeers: Int = this.extendedPeers,
     hashFailures: Int = this.hashFailures,
+    claimedNotOnDisk: Int = this.claimedNotOnDisk,
     verifiedPieces: Int = this.verifiedPieces,
     verifyingOf: Int = this.verifyingOf,
     dialsAttempted: Long = this.dialsAttempted,
@@ -2193,6 +2200,7 @@ private fun SessionState.copy(
         dhtNodes = dhtNodes,
         extendedPeers = extendedPeers,
         hashFailures = hashFailures,
+        claimedNotOnDisk = claimedNotOnDisk,
         verifiedPieces = verifiedPieces,
         verifyingOf = verifyingOf,
         trackerError = trackerError,

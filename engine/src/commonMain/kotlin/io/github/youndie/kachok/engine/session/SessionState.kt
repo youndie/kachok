@@ -44,6 +44,20 @@ public class SessionState(
     /** Seconds until the next DHT pass, or null when there is not going to be one. */
     public val dhtNextInSeconds: Long? = null,
     public val hashFailures: Int = 0,
+    /**
+     * Pieces this client claimed before the last re-check that the disk did not back.
+     *
+     * **A number that exists because its absence cost a diagnosis.** A file the Files tab called
+     * complete was not on the disk, and by the time anybody could ask why, the download had
+     * finished and the evidence with it: the one pass that can tell "the picker was wrong" from
+     * "the bytes are wrong" is a re-check, and it threw away what it disproved
+     * ([B-119](../../../../../../../../docs/backlog/B-119-a-file-the-files-tab-calls-complete-is-not.md)).
+     * Non-zero means exactly one thing — this client told its owner, and the swarm, that it had
+     * pieces it had not — and it is worth seeing whatever caused it.
+     *
+     * Zero until a re-check has run, because nothing else can know.
+     */
+    public val claimedNotOnDisk: Int = 0,
     /** Pieces checked so far by the start-up pass, and of how many. Equal when it is finished. */
     public val verifiedPieces: Int = 0,
     public val verifyingOf: Int = 0,

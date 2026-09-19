@@ -1743,6 +1743,51 @@ class SessionTest {
         }
 
     /**
+     * A re-check counts what this client claimed and the disk does not back.
+     *
+     * **The number exists because its absence cost a diagnosis.** A file the Files tab called
+     * complete was not there, and the only pass that can tell "the picker was wrong" from "the
+     * bytes are wrong" threw away what it disproved, so by the time anybody asked, the download had
+     * finished and the evidence with it
+     * ([B-119](../../../../../../../../docs/backlog/B-119-a-file-the-files-tab-calls-complete-is-not.md)).
+     * Here the picker believes both pieces — the start-up pass read them — and the disk loses them
+     * under it, which is what a record vouching for bytes that were never forced looks like from
+     * inside the session.
+     */
+    @Test
+    fun aRecheckSaysHowManyPiecesThisClientClaimedAndCouldNotShow() =
+        runTest {
+            val metainfo = torrent(pieces = 2)
+            val hasher = AgreeableHasher(metainfo)
+            val storage =
+                FakeStorage().apply {
+                    present += 0
+                    present += 1
+                }
+            val session =
+                session(metainfo, FakeDialer(metainfo.infoHash), FakeTracker(listOf(peerA)), storage, hasher)
+            session.restore(hasher)
+            assertEquals(metainfo.pieceCount, session.state.value.completedPieces, "the disk started sound")
+            assertEquals(0, session.state.value.claimedNotOnDisk, "nothing has been disproved yet")
+
+            val job = session.start(kotlinx.coroutines.CoroutineScope(coroutineContext + handler))
+            testScheduler.runCurrent()
+            // The bytes go away while the client goes on believing in them.
+            storage.present.clear()
+            session.send(Command.Recheck)
+            testScheduler.runCurrent()
+
+            assertEquals(0, session.state.value.completedPieces, "the re-check still believed the pieces")
+            assertEquals(
+                2,
+                session.state.value.claimedNotOnDisk,
+                "the client claimed two pieces it could not show and the re-check did not say so",
+            )
+
+            job.cancelAndJoin()
+        }
+
+    /**
      * A piece that went bad on the disk is found, and the torrent stops claiming it.
      *
      * The hasher is the corruption: it agrees while the torrent is being served and disagrees when
