@@ -91,23 +91,40 @@ public class BlockWriter(
         }
     }
 
+    /**
+     * **The buffers go back before the outcome goes out, and the order is load-bearing twice.**
+     *
+     * `results.send` suspends when nothing is reading the outcomes, and a send that suspends while
+     * still holding the piece's blocks holds `pieceLength / 16 KiB` buffers out of a capped pool
+     * for as long as it waits. The peers that would free the pool are the ones whose reader is
+     * blocked on acquiring from it, so the wait is against a queue only the outcome's own reader
+     * can drain. Releasing first makes the hold impossible to observe rather than merely short.
+     *
+     * The second reason is that an outcome is how the rest of the process learns the piece is
+     * done, and a reader that acts on it — a test asserting the pool came back, a session
+     * asking for the next piece — is entitled to find the buffers already returned. Publishing
+     * first made that a race with the writer's own `finally`, and the race lost roughly once in
+     * a hundred CI runs (B-119).
+     */
     private suspend fun complete(
         piece: PieceIndex,
         blocks: List<Block>,
     ) {
-        try {
-            val digest = hasher.hash(blocks)
-            if (metainfo.pieceHashMatches(piece, digest)) {
-                storage.write(piece, blocks)
-                results.send(PieceOutcome.Verified(piece))
-            } else {
-                // Verify, then write: a corrupt piece never reaches the disk and is never read
-                // back to be checked.
-                results.send(PieceOutcome.HashMismatch(piece))
+        val outcome =
+            try {
+                val digest = hasher.hash(blocks)
+                if (metainfo.pieceHashMatches(piece, digest)) {
+                    storage.write(piece, blocks)
+                    PieceOutcome.Verified(piece)
+                } else {
+                    // Verify, then write: a corrupt piece never reaches the disk and is never read
+                    // back to be checked.
+                    PieceOutcome.HashMismatch(piece)
+                }
+            } finally {
+                blocks.forEach { it.release() }
             }
-        } finally {
-            blocks.forEach { it.release() }
-        }
+        results.send(outcome)
     }
 
     private companion object {
