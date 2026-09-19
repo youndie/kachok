@@ -27,16 +27,17 @@ public class LocalSwarm private constructor(
     public val torrent: ByteArray,
     public val metainfo: Metainfo,
     private val tracker: HttpServer,
-    private val seed: SeedingPeer?,
+    /** Every seed the tracker names, in the order they were asked for. Usually one. */
+    public val peers: List<SeedingPeer>,
 ) : AutoCloseable {
     public val trackerUrl: String get() = "http://127.0.0.1:${tracker.address.port}/annc"
 
-    /** What the seed was asked for, so a test can tell "it downloaded" from "it had it already". */
-    public val served: Int get() = seed?.served?.size ?: 0
+    /** What the seeds were asked for, so a test can tell "it downloaded" from "it had it already". */
+    public val served: Int get() = peers.sumOf { it.served.size }
 
     override fun close() {
         tracker.stop(0)
-        seed?.close()
+        peers.forEach { it.close() }
     }
 
     public companion object {
@@ -81,26 +82,52 @@ public class LocalSwarm private constructor(
              * Must add up to `content.size`.
              */
             files: List<Pair<String, Int>>? = null,
+            /**
+             * One entry per seed, naming the pieces that seed holds; null for one seed with the
+             * torrent.
+             *
+             * **This is the only way to make a piece rare**, and rarity is what every question
+             * about the picker turns on: on a stand where every seed has everything, rarest-first
+             * and in-order ask for the same pieces in a different order and a figure taken from it
+             * measures nothing ([B-65](../../../../../../../docs/backlog/B-65-sequential-download.md)).
+             * The subsets are not checked for covering the torrent: a swarm that between them
+             * cannot serve every piece is a real state, and a test about a download that cannot
+             * finish needs it.
+             */
+            seeds: List<Set<Int>>? = null,
+            /**
+             * Bytes a second per seed, or zero for as fast as loopback goes.
+             *
+             * A timing taken at loopback speed is a timing of the kernel and the disk; a rate is
+             * what makes it a timing of the client. It is a floor and never a ceiling — see
+             * [SeedingPeer.bytesPerSecond].
+             */
+            bytesPerSecond: Long = 0,
         ): LocalSwarm {
             require(files == null || files.sumOf { it.second } == content.size) {
                 "the files must add up to the content: ${files?.sumOf { it.second }} of ${content.size}"
             }
             val torrentBytes = torrentBytes(content, pieceLength, placeholderTracker(), files)
             val metainfo = MetainfoParser.parse(torrentBytes)
-            val seed =
+            val holdings: List<Set<Int>?> = seeds ?: listOf(null)
+            val started =
                 if (failure != null) {
-                    null
+                    emptyList()
                 } else {
-                    SeedingPeer(
-                        infoHash = metainfo.infoHash,
-                        content = content,
-                        pieceLength = pieceLength,
-                        delayPerBlockMillis = delayPerBlockMillis,
-                        extensionProtocol = serveMetadata,
-                        metadata = if (serveMetadata) metainfo.infoBytes else null,
-                    )
+                    holdings.map { held ->
+                        SeedingPeer(
+                            infoHash = metainfo.infoHash,
+                            content = content,
+                            pieceLength = pieceLength,
+                            delayPerBlockMillis = delayPerBlockMillis,
+                            holds = held,
+                            bytesPerSecond = bytesPerSecond,
+                            extensionProtocol = serveMetadata,
+                            metadata = if (serveMetadata) metainfo.infoBytes else null,
+                        )
+                    }
                 }
-            val tracker = startTracker(seed?.port, failure)
+            val tracker = startTracker(started.map { it.port }, failure)
             val url = "http://127.0.0.1:${tracker.address.port}/annc"
             // Built twice on purpose: the info hash a peer is asked for has to be the one in the
             // torrent the client reads, and the announce URL is only known after the tracker binds.
@@ -108,7 +135,7 @@ public class LocalSwarm private constructor(
             // The announce URL is outside the `info` dictionary, so the info hash and the bytes the
             // seed serves are the same in both — which is the whole reason the hash is taken over
             // that dictionary and not over the file.
-            return LocalSwarm(content, finalTorrent, MetainfoParser.parse(finalTorrent), tracker, seed)
+            return LocalSwarm(content, finalTorrent, MetainfoParser.parse(finalTorrent), tracker, started)
         }
 
         /** The announce URL is not known until the tracker binds; the info hash must not depend on it. */
@@ -167,9 +194,9 @@ public class LocalSwarm private constructor(
             )
         }
 
-        /** A tracker that answers with one compact peer: the seed. Or with a refusal. */
+        /** A tracker that answers with a compact peer list: the seeds. Or with a refusal. */
         private fun startTracker(
-            peerPort: Int?,
+            peerPorts: List<Int>,
             failure: String?,
         ): HttpServer {
             val started = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
@@ -178,15 +205,18 @@ public class LocalSwarm private constructor(
                     if (failure != null) {
                         Bencode.encode(BDictionary(mapOf(BString("failure reason") to BString(failure))))
                     } else {
+                        // Six bytes a peer, end to end: BEP 23's compact list, which is what
+                        // every tracker worth the name answers with.
                         val packed =
-                            byteArrayOf(
-                                LOOPBACK_A,
-                                0,
-                                0,
-                                LOOPBACK_D,
-                                ((peerPort!! shr BYTE_BITS) and BYTE).toByte(),
-                                (peerPort and BYTE).toByte(),
-                            )
+                            ByteArray(peerPorts.size * COMPACT_PEER_SIZE).also { bytes ->
+                                peerPorts.forEachIndexed { index, port ->
+                                    val at = index * COMPACT_PEER_SIZE
+                                    bytes[at] = LOOPBACK_A
+                                    bytes[at + 3] = LOOPBACK_D
+                                    bytes[at + 4] = ((port shr BYTE_BITS) and BYTE).toByte()
+                                    bytes[at + 5] = (port and BYTE).toByte()
+                                }
+                            }
                         Bencode.encode(
                             BDictionary(
                                 mapOf(
@@ -209,6 +239,9 @@ public class LocalSwarm private constructor(
         private const val BYTE_BITS = 8
         private const val LOOPBACK_A: Byte = 127
         private const val LOOPBACK_D: Byte = 1
+
+        /** BEP 23: four bytes of address and two of port, per peer. */
+        private const val COMPACT_PEER_SIZE = 6
         private const val INTERVAL = 1800L
         private const val HTTP_OK = 200
     }

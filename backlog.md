@@ -48,13 +48,12 @@ which is also the order of work.
 
 <!-- BEGIN INDEX -->
 
-## Open (13)
+## Open (12)
 
 | Task | | Priority | Size | Blocked by |
 |---|---|---|---|---|
 | [B-107](docs/backlog/B-107-dropping-a-torrent-does-nothing-on-macos.md) `[~]` | Dropping a .torrent on the window does nothing on macOS | P2 | M | - |
 | [B-116](docs/backlog/B-116-a-torrent-whose-name-is-not-ascii-cannot-be-opened-on-windows.md) `[ ]` | A `.torrent` whose name is not ASCII cannot be opened on Windows: the launcher hands the path over as question marks | P2 | S | - |
-| [B-123](docs/backlog/B-123-a-seed-that-holds-part-of-the-torrent.md) `[ ]` | Every seed on the stand holds everything, so nothing on it can be rare | P2 | S | - |
 | [B-124](docs/backlog/B-124-the-download-has-no-feature-document.md) `[ ]` | The thing this client is for has no feature document, so it has no scenarios | P2 | M | - |
 | [B-125](docs/backlog/B-125-a-measurement-that-is-a-pair.md) `[ ]` | A speed comparison needs a harness that cannot publish a lonely number | P2 | M | B-123 |
 | [B-79](docs/backlog/B-79-the-windows-state-outlives-its-composition.md) `[ ]` | The window's state outlives its composition | P2 | L | - |
@@ -66,7 +65,7 @@ which is also the order of work.
 | [B-87](docs/backlog/B-87-a-server-with-a-web-face.md) `[ ]` | Phase 3: a headless server with a web face, installable on a box that is always on | P3 | XL | B-80 |
 | [B-02](docs/backlog/B-02-ci-runs-build-and-docs-gates.md) `[ ]` | CI runs the build and the documentation gates on every push | infra | S | B-01 |
 
-## Closed (112)
+## Closed (113)
 
 **M0 — The build and its gates**
 
@@ -120,6 +119,7 @@ which is also the order of work.
 
 **M7 — Measure and ship**
 
+- [B-123](docs/backlog/B-123-a-seed-that-holds-part-of-the-torrent.md) `[x]` - Every seed on the stand holds everything, so nothing on it can be rare
 - [B-26](docs/backlog/B-26-jfr-baseline-of-the-hot-path.md) `[x]` - A JFR baseline: allocations on the hot path, pinned threads, carrier count
 - [B-27](docs/backlog/B-27-measure-heap-and-collector.md) `[x]` - Measure the heap the engine needs, with G1 and with ZGC
 - [B-28](docs/backlog/B-28-aot-cache-in-the-distribution.md) `[x]` - Build the AOT cache with the launcher's flags and prove it maps
