@@ -55,6 +55,14 @@
 - **Never write bencode fixtures by hand.** Three of them have had wrong length prefixes. Build
   them with `Bencode.encode`, or generate them with an independent encoder when the parser itself
   is under test.
+- **A suite started as a background job can never pass a signal test.** A non-interactive shell
+  sets `SIGINT` to `SIG_IGN` for anything it starts with `&` — `nohup` included — and the
+  disposition survives `fork` and `exec`, so a JVM below it does not install its handler and its
+  shutdown hook never runs. The Gradle *daemon* carries it between builds, so one
+  `nohup ./gradlew … &` poisons every later run, foreground ones too. `ShutdownTest` then fails
+  five times in a row while the same commit passes elsewhere, and the dump has no hook thread.
+  Read it off the process — `grep SigIgn /proc/<pid>/status`, a trailing `3` is SIGHUP and SIGINT
+  — and clear it with `./gradlew --stop` before hunting for a defect that is not there.
 - **A test that acquires from a pool and then filters is a leak.** `blocksOf(…).take(2)` acquires
   four buffers and uses two. Ask for what you need.
 
