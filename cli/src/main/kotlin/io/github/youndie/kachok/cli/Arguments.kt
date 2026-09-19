@@ -45,7 +45,7 @@ class DownloadOptions(
     /**
      * Ask for pieces in order — both ends of each file first, then lowest-first
      * ([B-65](../../../../../../../docs/backlog/B-65-sequential-download.md),
-     * [B-118](../../../../../../../docs/backlog/B-118-sequential-does-not-serve-a-player.md)).
+     * [B-118](../../../../../../../docs/backlog/B-121-sequential-does-not-serve-a-player.md)).
      *
      * Off, like the window's tick and for the same reason: it is worse for the swarm and every
      * measured number in the research assumes rarest-first. It is on the command line because the

@@ -325,7 +325,7 @@ class CommandsEndToEndTest {
      * file, which is the only part of the setting a person can see. Mid-download it is a correct
      * prefix, the file's last piece-length correct as well, and zeros in between — the end being
      * there is what lets a player read the index and start
-     * ([B-118](../../../../../../../../docs/backlog/B-118-sequential-does-not-serve-a-player.md)).
+     * ([B-118](../../../../../../../../docs/backlog/B-121-sequential-does-not-serve-a-player.md)).
      * This used to assert a clean prefix and nothing else, back when the order reached the index
      * last and the file therefore did not open until it was whole.
      */

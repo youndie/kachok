@@ -51,7 +51,7 @@ public class SessionState(
      * complete was not on the disk, and by the time anybody could ask why, the download had
      * finished and the evidence with it: the one pass that can tell "the picker was wrong" from
      * "the bytes are wrong" is a re-check, and it threw away what it disproved
-     * ([B-119](../../../../../../../../docs/backlog/B-119-a-file-the-files-tab-calls-complete-is-not.md)).
+     * ([B-119](../../../../../../../../docs/backlog/B-122-a-file-the-files-tab-calls-complete-is-not.md)).
      * Non-zero means exactly one thing — this client told its owner, and the swarm, that it had
      * pieces it had not — and it is worth seeing whatever caused it.
      *

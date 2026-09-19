@@ -123,7 +123,7 @@ kachok download <file.torrent | magnet:?xt=urn:btih:…> [--dir <path>] [--port 
 so a player can read the header and the index, then lowest-first. It is worse for the swarm and off
 by default, and it is on the command line at all because it is the one engine setting whose result
 can only be seen from outside the process: a file that opens in a player while the middle is still
-arriving ([B-118](../backlog/B-118-sequential-does-not-serve-a-player.md)).
+arriving ([B-118](../backlog/B-121-sequential-does-not-serve-a-player.md)).
 
 `--encryption` is `preferred` by default: dial encrypted, dial again in the clear if the peer will
 not have it, and accept either ([B-100](../backlog/B-100-protocol-encryption.md)). `plaintext` is

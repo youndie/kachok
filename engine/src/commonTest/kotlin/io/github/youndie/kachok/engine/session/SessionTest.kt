@@ -1531,7 +1531,7 @@ class SessionTest {
      * record vouches for pieces that are on the disk. The save on the timer did not, so a record
      * could vouch for a piece whose bytes were still in the page cache — and after a host that went
      * down, the Files tab would call a file complete that was not
-     * ([B-119](../../../../../../../../docs/backlog/B-119-a-file-the-files-tab-calls-complete-is-not.md)).
+     * ([B-119](../../../../../../../../docs/backlog/B-122-a-file-the-files-tab-calls-complete-is-not.md)).
      *
      * The flush interval is a minute against the record's five seconds, so the flush this counts
      * cannot be the flush timer's: it is the one the save did itself.
@@ -1749,7 +1749,7 @@ class SessionTest {
      * complete was not there, and the only pass that can tell "the picker was wrong" from "the
      * bytes are wrong" threw away what it disproved, so by the time anybody asked, the download had
      * finished and the evidence with it
-     * ([B-119](../../../../../../../../docs/backlog/B-119-a-file-the-files-tab-calls-complete-is-not.md)).
+     * ([B-119](../../../../../../../../docs/backlog/B-122-a-file-the-files-tab-calls-complete-is-not.md)).
      * Here the picker believes both pieces — the start-up pass read them — and the disk loses them
      * under it, which is what a record vouching for bytes that were never forced looks like from
      * inside the session.

@@ -1,5 +1,5 @@
 ---
-id: B-118
+id: B-121
 title: "Sequential downloads a file front to back, and a player needs its end too"
 status: done
 priority: P2
@@ -9,7 +9,7 @@ epic: feature-ui
 blocked_by: []
 ---
 
-# B-118 — Sequential does not serve a player
+# B-121 — Sequential does not serve a player
 
 The reason anybody ticks *sequential* is to watch the file while it arrives, and this client's
 sequential order cannot do that for the container everybody actually has. An MP4 written by most

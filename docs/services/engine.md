@@ -317,7 +317,7 @@ them. Nothing is read from the environment by this module; that is [cli](cli.md)
   flush now belongs to `saveResume`. The same item added the number whose absence cost the
   diagnosis: a re-check used to learn which claimed pieces the disk could not show and then
   overwrite the claim without saying so, and it now counts them into `claimedNotOnDisk`
-  ([B-119](../backlog/B-119-a-file-the-files-tab-calls-complete-is-not.md)).
+  ([B-119](../backlog/B-122-a-file-the-files-tab-calls-complete-is-not.md)).
 * **`restore()` does not run on the thread that asked for it.** The start-up check reads every
   piece a resume record does not vouch for and hashes it, which for the torrents somebody actually
   keeps is minutes of blocking I/O. It used to run in the caller's context, and the caller is the
@@ -368,7 +368,7 @@ them. Nothing is read from the environment by this module; that is [cli](cli.md)
   compromise — that needs an N nobody here has a player to measure, while the reach is the picker's
   own unit and the ends are the layout the torrent declares. Driven with a control: at 28 % of the
   same torrent the sequential run's partial MP4 decodes and the rarest-first run's does not
-  ([B-118](../backlog/B-118-sequential-does-not-serve-a-player.md)).
+  ([B-118](../backlog/B-121-sequential-does-not-serve-a-player.md)).
 * **`index in started` on a `Map<Int, _>` boxes the index.** The picker asks it once per piece per
   request, which is where half of the profile's `Integer` allocations came from; a `BooleanArray`
   beside the map answers the same question for nothing. Both mutations of `started` go through one

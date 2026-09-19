@@ -324,7 +324,7 @@ class DownloadTest {
      * It reached the command line because it is the one engine setting whose *result* lives outside
      * the process — a file a player can open while the middle is still arriving — and a window is
      * not something a check can drive
-     * ([B-118](../../../../../../../docs/backlog/B-118-sequential-does-not-serve-a-player.md)).
+     * ([B-118](../../../../../../../docs/backlog/B-121-sequential-does-not-serve-a-player.md)).
      */
     @Test
     fun theOrderIsOffUnlessTheCommandLineAsksForIt() {

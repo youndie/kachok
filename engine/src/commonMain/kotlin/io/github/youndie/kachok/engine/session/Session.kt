@@ -575,7 +575,7 @@ public class Session(
         storage.flush()
         // What this client believed a moment ago, kept across the pass that is about to disprove
         // some of it. The re-check is the only thing that can tell "the picker was wrong" from
-        // "the bytes are wrong", and without this it threw the answer away as it found it (B-119).
+        // "the bytes are wrong", and without this it threw the answer away as it found it (B-122).
         val claimed = Bitfield.fromBytes(picker.completed.toBytes(), metainfo.pieceCount)
         // The picker refuses to be restored into while it is in use, and rightly: at start-up that
         // guard catches a check running after the first request went out. A re-check is the one
@@ -702,7 +702,7 @@ public class Session(
      * flush for their own reasons and happen to do it in the right order; the periodic save in
      * [timerLoop] had no reason of its own and so did it in no order at all, which left the
      * invariant true at three call sites out of four
-     * ([B-119](../../../../../../../../docs/backlog/B-119-a-file-the-files-tab-calls-complete-is-not.md)).
+     * ([B-119](../../../../../../../../docs/backlog/B-122-a-file-the-files-tab-calls-complete-is-not.md)).
      * A second `force()` straight after theirs has nothing dirty to write.
      */
     private suspend fun saveResume() {

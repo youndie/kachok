@@ -48,14 +48,12 @@ which is also the order of work.
 
 <!-- BEGIN INDEX -->
 
-## Open (12)
+## Open (10)
 
 | Task | | Priority | Size | Blocked by |
 |---|---|---|---|---|
-| [B-119](docs/backlog/B-119-a-file-the-files-tab-calls-complete-is-not.md) `[~]` | The Files tab called a file 100% and the bytes were not there | P1 | M | - |
 | [B-107](docs/backlog/B-107-dropping-a-torrent-does-nothing-on-macos.md) `[~]` | Dropping a .torrent on the window does nothing on macOS | P2 | M | - |
 | [B-116](docs/backlog/B-116-a-torrent-whose-name-is-not-ascii-cannot-be-opened-on-windows.md) `[ ]` | A `.torrent` whose name is not ASCII cannot be opened on Windows: the launcher hands the path over as question marks | P2 | S | - |
-| [B-118](docs/backlog/B-118-sequential-does-not-serve-a-player.md) `[ ]` | Sequential downloads a file front to back, and a player needs its end too | P2 | S | - |
 | [B-79](docs/backlog/B-79-the-windows-state-outlives-its-composition.md) `[ ]` | The window's state outlives its composition | P2 | L | - |
 | [B-80](docs/backlog/B-80-the-ui-moves-to-commonmain.md) `[ ]` | The UI moves to commonMain | P2 | L | B-79 |
 | [B-93](docs/backlog/B-93-opening-a-downloaded-executable.md) `[ ]` | Double-clicking a downloaded executable, and the warning Windows never gets to show | P2 | M | - |
@@ -65,7 +63,7 @@ which is also the order of work.
 | [B-87](docs/backlog/B-87-a-server-with-a-web-face.md) `[ ]` | Phase 3: a headless server with a web face, installable on a box that is always on | P3 | XL | B-80 |
 | [B-02](docs/backlog/B-02-ci-runs-build-and-docs-gates.md) `[ ]` | CI runs the build and the documentation gates on every push | infra | S | B-01 |
 
-## Closed (110)
+## Closed (112)
 
 **M0 — The build and its gates**
 
@@ -112,6 +110,7 @@ which is also the order of work.
 
 **M6 — Resume**
 
+- [B-122](docs/backlog/B-122-a-file-the-files-tab-calls-complete-is-not.md) `[x]` - The Files tab called a file 100% and the bytes were not there
 - [B-23](docs/backlog/B-23-atomic-resume-file.md) `[x]` - A resume record written atomically and rarely
 - [B-24](docs/backlog/B-24-startup-verification-of-existing-data.md) `[x]` - Re-hash what the resume file does not vouch for
 - [B-25](docs/backlog/B-25-graceful-shutdown.md) `[x]` - SIGINT: stop announces, close peers, flush, write resume, exit
@@ -160,6 +159,7 @@ which is also the order of work.
 - [B-104](docs/backlog/B-104-the-settings-screen-cannot-hold-another-row.md) `[x]` - The settings screen is exactly full: an eleventh row pushes the tenth somewhere nobody can reach it
 - [B-106](docs/backlog/B-106-per-file-priority.md) `[x]` - Per-file priority: which file of a torrent the picker fetches first
 - [B-115](docs/backlog/B-115-the-startup-check-runs-on-the-window-s-thread.md) `[x]` - The window draws its title bar and nothing else: the start-up check reads the disk on the AWT event thread
+- [B-121](docs/backlog/B-121-sequential-does-not-serve-a-player.md) `[x]` - Sequential downloads a file front to back, and a player needs its end too
 - [B-39](docs/backlog/B-39-compose-ui-desktop.md) `[x]` - Phase 2: a Compose Multiplatform desktop UI on the engine's StateFlow
 - [B-46](docs/backlog/B-46-ui-theme-and-calibration.md) `[x]` - The theme: colour roles, type, and the desktop calibration
 - [B-47](docs/backlog/B-47-torrent-row-and-states.md) `[x]` - The torrent row and its seven states

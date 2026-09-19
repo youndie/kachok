@@ -110,7 +110,7 @@ internal fun detailsOf(
                         ),
                         // Zero until a re-check has run, and after one it is the answer to the only
                         // question a person can ask about a file the client called complete and a
-                        // player could not open (B-119). Warning rather than error: the pieces are
+                        // player could not open (B-122). Warning rather than error: the pieces are
                         // being fetched again, and the client is now telling the truth.
                         DetailsField(
                             "Claimed, not on disk",

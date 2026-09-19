@@ -364,7 +364,7 @@ class PiecePickerTest {
      * Not "rarest first with a window": that window exists to keep a player fed and needs an N
      * nobody here has a player to measure. The ends need no N — an MP4's `moov` is at the end of
      * the file, and a player that cannot read it will not start
-     * ([B-118](../../../../../../../../docs/backlog/B-118-sequential-does-not-serve-a-player.md)).
+     * ([B-118](../../../../../../../../docs/backlog/B-121-sequential-does-not-serve-a-player.md)).
      */
     @Test
     fun sequentialAsksForTheEndsOfTheFileAndThenTheOrder() {
@@ -417,7 +417,7 @@ class PiecePickerTest {
      * with only the piece holding the last byte, `ffprobe` on the partial file said `moov atom not
      * found`. What is asked for is a piece-length of bytes at each end, which is one piece when the
      * boundary is aligned and two when it is not
-     * ([B-118](../../../../../../../../docs/backlog/B-118-sequential-does-not-serve-a-player.md)).
+     * ([B-118](../../../../../../../../docs/backlog/B-121-sequential-does-not-serve-a-player.md)).
      */
     @Test
     fun theTailCoversAWholePieceLengthWhereverTheFileEnds() {
@@ -520,7 +520,7 @@ class PiecePickerTest {
                     .also { piece -> picker.pieceVerified(PieceIndex(piece)) }
             }
         // The two ends of the file go first, minus whichever of them is already on the disk, and
-        // what follows them is the order (B-118).
+        // what follows them is the order (B-121).
         val ends = listOf(0, 9).filterNot { it in alreadyHad }
         assertEquals(ends, next.take(ends.size), "the ends of the file were not asked for first")
         val middle = next.drop(ends.size)

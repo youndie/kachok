@@ -1,5 +1,5 @@
 ---
-id: B-119
+id: B-122
 title: "The Files tab called a file 100% and the bytes were not there"
 status: done
 priority: P1
@@ -9,7 +9,7 @@ epic: feature-ui
 blocked_by: []
 ---
 
-# B-119 — A file the Files tab calls complete is not
+# B-122 — A file the Files tab calls complete is not
 
 Downloading a multi-file torrent with *sequential* on, the owner saw the first file at **100 %** in
 the Files tab, the client moving on to the second — and the file would not play. qBittorrent, given
@@ -73,7 +73,7 @@ that it had pieces it had not.
 There is also a plainer reading of the report that needs no defect at all, and it cannot be ruled
 out either: sequential finished the first file honestly, the Files tab said 100 % about *that* one,
 and the file that would not play was the second — 95 %, missing its tail, which is
-[B-118](B-118-sequential-does-not-serve-a-player.md) and now fixed.
+[B-118](B-121-sequential-does-not-serve-a-player.md) and now fixed.
 
 - AC: the periodic resume save happens after a flush, asserted by a storage that records the order
   it was called in; and a re-check says how many pieces this client claimed and could not show.

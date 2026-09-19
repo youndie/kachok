@@ -52,7 +52,7 @@ public class PiecePicker(
      * every file, which come first.** An MP4's `moov` atom, an AVI's `idx1` and an MKV's `Cues`
      * live at the *end* of the file, and a player that cannot read the index will not start: strict
      * lowest-first reaches it last, so the tick that exists for watching delivered a file that
-     * played only once it was whole ([B-118](../../../../../../../../docs/backlog/B-118-sequential-does-not-serve-a-player.md)).
+     * played only once it was whole ([B-118](../../../../../../../../docs/backlog/B-121-sequential-does-not-serve-a-player.md)).
      * The first and last piece of each wanted file are therefore offered before anything else, in
      * ascending order, and lowest-first decides the rest.
      *
@@ -527,7 +527,7 @@ public class PiecePicker(
         // In order, and the first candidate wins — there is nothing to compare and no first-piece
         // randomisation to get past, because "the lowest one" is the whole rule. The two ends of
         // each file go before the order rather than inside it: a player reads the header and the
-        // index before it can show a frame, and both of them sit at a file boundary (B-118).
+        // index before it can show a frame, and both of them sit at a file boundary (B-121).
         if (sequential) {
             for (index in boundaries) {
                 if (wanted(index, bitfield, within)) return index
@@ -674,7 +674,7 @@ public class PiecePicker(
          * between one byte and a whole piece of that file's tail. In the run that found this the
          * file ended 19 KB into its last piece and its `moov` atom was 52 KB, so the atom began in
          * the piece *before* — one tail piece, and `ffprobe` still said `moov atom not found`
-         * (B-118). Asking for a piece-length of bytes instead costs one piece where the boundary
+         * (B-121). Asking for a piece-length of bytes instead costs one piece where the boundary
          * happens to be aligned and two where it is not, and guarantees a whole piece of contiguous
          * tail whatever the alignment.
          *
