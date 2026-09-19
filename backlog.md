@@ -54,17 +54,17 @@ which is also the order of work.
 |---|---|---|---|---|
 | [B-107](docs/backlog/B-107-dropping-a-torrent-does-nothing-on-macos.md) `[~]` | Dropping a .torrent on the window does nothing on macOS | P2 | M | - |
 | [B-116](docs/backlog/B-116-a-torrent-whose-name-is-not-ascii-cannot-be-opened-on-windows.md) `[ ]` | A `.torrent` whose name is not ASCII cannot be opened on Windows: the launcher hands the path over as question marks | P2 | S | - |
-| [B-125](docs/backlog/B-125-a-measurement-that-is-a-pair.md) `[ ]` | A speed comparison needs a harness that cannot publish a lonely number | P2 | M | B-123 |
 | [B-79](docs/backlog/B-79-the-windows-state-outlives-its-composition.md) `[ ]` | The window's state outlives its composition | P2 | L | - |
 | [B-80](docs/backlog/B-80-the-ui-moves-to-commonmain.md) `[ ]` | The UI moves to commonMain | P2 | L | B-79 |
 | [B-93](docs/backlog/B-93-opening-a-downloaded-executable.md) `[ ]` | Double-clicking a downloaded executable, and the warning Windows never gets to show | P2 | M | - |
+| [B-126](docs/backlog/B-126-a-stand-with-more-than-one-leecher.md) `[ ]` | The swarm cost of a picker cannot appear on a stand with one leecher | P3 | L | - |
 | [B-37](docs/backlog/B-37-v2-and-hybrid-torrents.md) `[?]` | v2 and hybrid torrents (BEP 52): SHA-256 piece layers | P3 | L | B-04 |
 | [B-40](docs/backlog/B-40-wasmjs-ui-is-a-client-of-the-headless-engine.md) `[ ]` | The browser build of the UI is a client of the headless engine | P3 | L | B-80 |
 | [B-41](docs/backlog/B-41-android-and-ios-targets.md) `[ ]` | Phase 3: Android and iOS targets on the engine | P3 | XL | B-39 |
 | [B-87](docs/backlog/B-87-a-server-with-a-web-face.md) `[ ]` | Phase 3: a headless server with a web face, installable on a box that is always on | P3 | XL | B-80 |
 | [B-02](docs/backlog/B-02-ci-runs-build-and-docs-gates.md) `[ ]` | CI runs the build and the documentation gates on every push | infra | S | B-01 |
 
-## Closed (114)
+## Closed (115)
 
 **M0 — The build and its gates**
 
@@ -120,6 +120,7 @@ which is also the order of work.
 **M7 — Measure and ship**
 
 - [B-123](docs/backlog/B-123-a-seed-that-holds-part-of-the-torrent.md) `[x]` - Every seed on the stand holds everything, so nothing on it can be rare
+- [B-125](docs/backlog/B-125-a-measurement-that-is-a-pair.md) `[x]` - A speed comparison needs a harness that cannot publish a lonely number
 - [B-26](docs/backlog/B-26-jfr-baseline-of-the-hot-path.md) `[x]` - A JFR baseline: allocations on the hot path, pinned threads, carrier count
 - [B-27](docs/backlog/B-27-measure-heap-and-collector.md) `[x]` - Measure the heap the engine needs, with G1 and with ZGC
 - [B-28](docs/backlog/B-28-aot-cache-in-the-distribution.md) `[x]` - Build the AOT cache with the launcher's flags and prove it maps
