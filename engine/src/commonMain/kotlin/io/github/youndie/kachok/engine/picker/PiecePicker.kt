@@ -48,11 +48,18 @@ public class PiecePicker(
     /**
      * Ask for the lowest missing piece rather than the rarest one.
      *
-     * **Strict order, bounded by [maxStartedPieces] and nothing else.** The usual compromise is
-     * rarest-first with a sequential window of N pieces ahead of what has been played; that window
-     * exists to serve a player, and streaming is explicitly not part of this. Choosing an N with no
-     * player to measure it against would be inventing a number, so the order is the order the
-     * design's own checkbox promises and the concurrency stays the picker's existing bound.
+     * **Strict order, bounded by [maxStartedPieces] and nothing else — except for the two ends of
+     * every file, which come first.** An MP4's `moov` atom, an AVI's `idx1` and an MKV's `Cues`
+     * live at the *end* of the file, and a player that cannot read the index will not start: strict
+     * lowest-first reaches it last, so the tick that exists for watching delivered a file that
+     * played only once it was whole ([B-118](../../../../../../../../docs/backlog/B-118-sequential-does-not-serve-a-player.md)).
+     * The first and last piece of each wanted file are therefore offered before anything else, in
+     * ascending order, and lowest-first decides the rest.
+     *
+     * It is still not a window: the usual compromise is rarest-first with a sequential window of N
+     * pieces ahead of what has been played, and choosing an N with no player to measure it against
+     * would be inventing a number. [boundaries] invents nothing — it is the file layout the torrent
+     * already declares.
      *
      * Off by default: the picker's cost was measured rarest-first, and every number in the research
      * assumes it.
@@ -79,6 +86,17 @@ public class PiecePicker(
      * candidate list this scan used to build.
      */
     private val isStarted = BooleanArray(metainfo.pieceCount)
+
+    /**
+     * The first and last piece of every non-empty file, ascending, deduplicated.
+     *
+     * Computed once because the file layout cannot change, and held as an `IntArray` because it is
+     * scanned before the main loop on every [sequential] decision. In a torrent of many small files
+     * the two ends of a file are usually the same piece as its neighbour's, so this is far shorter
+     * than twice the file count; in one of a few large files it is two pieces each, which is the
+     * price of being able to play them.
+     */
+    private val boundaries: IntArray = boundaryPieces(metainfo)
 
     /** When the caller says it is. The picker has no clock of its own and wants none. */
     private var now: Long = 0L
@@ -506,13 +524,15 @@ public class PiecePicker(
         within: Bitfield?,
     ): Int? {
         // In order, and the first candidate wins — there is nothing to compare and no first-piece
-        // randomisation to get past, because "the lowest one" is the whole rule.
+        // randomisation to get past, because "the lowest one" is the whole rule. The two ends of
+        // each file go before the order rather than inside it: a player reads the header and the
+        // index before it can show a frame, and both of them sit at a file boundary (B-118).
         if (sequential) {
+            for (index in boundaries) {
+                if (wanted(index, bitfield, within)) return index
+            }
             for (index in 0 until metainfo.pieceCount) {
-                if (!bitfield[index] || have[index] || isStarted[index]) continue
-                if (unwanted?.get(index) == true) continue
-                if (within != null && !within[index]) continue
-                return index
+                if (wanted(index, bitfield, within)) return index
             }
             return null
         }
@@ -521,9 +541,7 @@ public class PiecePicker(
         var rarest = Int.MAX_VALUE
         var seen = 0
         for (index in 0 until metainfo.pieceCount) {
-            if (!bitfield[index] || have[index] || isStarted[index]) continue
-            if (unwanted?.get(index) == true) continue
-            if (within != null && !within[index]) continue
+            if (!wanted(index, bitfield, within)) continue
             seen++
             if (chooseAtRandom) {
                 if (random.nextInt(seen) == 0) best = index
@@ -536,6 +554,20 @@ public class PiecePicker(
             }
         }
         return if (best < 0) null else best
+    }
+
+    /**
+     * Whether this peer could be asked for this piece right now: it has it, this client has not,
+     * nothing has begun it, nobody has skipped it, and it is inside the pool being drawn from.
+     */
+    private fun wanted(
+        index: Int,
+        bitfield: Bitfield,
+        within: Bitfield?,
+    ): Boolean {
+        if (!bitfield[index] || have[index] || isStarted[index]) return false
+        if (unwanted?.get(index) == true) return false
+        return within == null || within[index]
     }
 
     /** Which blocks of one started piece have been asked of whom. */
@@ -632,5 +664,26 @@ public class PiecePicker(
          * placeholder until [B-26] measures it.
          */
         public const val DEFAULT_MAX_STARTED: Int = 8
+
+        /**
+         * The pieces holding the first and last byte of each file, once, in order.
+         *
+         * A zero-length file holds no byte and has no boundary; two files inside one piece give
+         * that piece once, which is what the `Bitfield` is for.
+         */
+        private fun boundaryPieces(metainfo: Metainfo): IntArray {
+            val marked = Bitfield(metainfo.pieceCount)
+            metainfo.files.forEach { file ->
+                if (file.length <= 0) return@forEach
+                marked.set((file.offset / metainfo.pieceLength).toInt())
+                marked.set(((file.offset + file.length - 1) / metainfo.pieceLength).toInt())
+            }
+            val pieces = IntArray(marked.cardinality)
+            var at = 0
+            for (index in 0 until metainfo.pieceCount) {
+                if (marked[index]) pieces[at++] = index
+            }
+            return pieces
+        }
     }
 }

@@ -1506,6 +1506,82 @@ class SessionTest {
             assertTrue(job.isCancelled || job.isCompleted)
         }
 
+    /**
+     * A resume store that says how many times the disk had been forced when it was written.
+     *
+     * The record's whole claim is "these pieces are on the disk", and the only way to assert a
+     * claim about *order* is to read the other side's counter at the moment the call arrives.
+     */
+    private class OrderedResumeStore(
+        private val flushes: () -> Int,
+    ) : io.github.youndie.kachok.engine.resume.ResumeStore {
+        val flushesWhenSaved = mutableListOf<Int>()
+
+        override suspend fun load(): io.github.youndie.kachok.engine.resume.ResumeRecord? = null
+
+        override suspend fun save(record: io.github.youndie.kachok.engine.resume.ResumeRecord) {
+            flushesWhenSaved += flushes()
+        }
+    }
+
+    /**
+     * The periodic record is written after a flush, like the other three.
+     *
+     * `shutDown`, `pause` and `recheck` flush and then save, and say in as many words why: the
+     * record vouches for pieces that are on the disk. The save on the timer did not, so a record
+     * could vouch for a piece whose bytes were still in the page cache — and after a host that went
+     * down, the Files tab would call a file complete that was not
+     * ([B-119](../../../../../../../../docs/backlog/B-119-a-file-the-files-tab-calls-complete-is-not.md)).
+     *
+     * The flush interval is a minute against the record's five seconds, so the flush this counts
+     * cannot be the flush timer's: it is the one the save did itself.
+     */
+    @Test
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    fun theRecordOnTheTimerIsWrittenAfterTheDiskIsForced() =
+        runTest {
+            val metainfo = torrent(pieces = 4)
+            val dialer = FakeDialer(metainfo.infoHash)
+            val storage = FakeStorage()
+            val store = OrderedResumeStore { storage.flushes }
+            val session =
+                Session(
+                    metainfo = metainfo,
+                    peerId = ourPeerId,
+                    listenPort = 6881,
+                    dialer = dialer,
+                    trackerClient = FakeTracker(listOf(peerA)),
+                    hasher = AgreeableHasher(metainfo),
+                    storage = storage,
+                    resume = store,
+                    config =
+                        SessionConfig(
+                            maxStartedPieces = 4,
+                            pipelineDepth = 2,
+                            maxPeers = 10,
+                            tick = 1.seconds,
+                            flushInterval = 60.seconds,
+                            resumeInterval = 5.seconds,
+                        ),
+                ).also { sessions += it }
+
+            val job = session.start(kotlinx.coroutines.CoroutineScope(coroutineContext + handler))
+            testScheduler.runCurrent()
+            val connection = dialer.connections.getValue(peerA)
+            connection.incoming.send(PeerEvent.BlockReceived(FakeBlock(PieceIndex(2), 0, PeerWire.BLOCK_SIZE)))
+            testScheduler.runCurrent()
+
+            testScheduler.advanceTimeBy(5_500)
+            testScheduler.runCurrent()
+
+            assertEquals(1, store.flushesWhenSaved.size, "one record, on the interval")
+            assertTrue(
+                store.flushesWhenSaved.first() >= 1,
+                "the record was written before the disk was forced: it vouches for bytes that may not be there",
+            )
+            job.cancelAndJoin()
+        }
+
     @Test
     fun stoppingTellsTheTrackerAndClosesEveryPeer() =
         runTest {

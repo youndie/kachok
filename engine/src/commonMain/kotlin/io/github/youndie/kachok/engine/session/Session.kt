@@ -684,14 +684,24 @@ public class Session(
     }
 
     /**
-     * Records what is verified, never what is merely written.
+     * Records what is verified, never what is merely written — and forces the disk to make that
+     * true before it writes a word.
      *
-     * `force()` runs on a timer, so a crash can lose what the page cache still held; a record that
-     * vouched for a written piece would send this client back to a swarm claiming a piece it does
-     * not have. Under-claiming costs a re-hash and nothing else.
+     * `force()` runs on its own timer, so "hashed and handed to the kernel" is not the same claim
+     * as "on the disk", and a record that vouched for the first would send this client back to a
+     * swarm claiming a piece it does not have — and tell its owner a file is finished when the
+     * bytes are not there. Under-claiming costs a re-hash and nothing else.
+     *
+     * **The flush belongs here and not at the call sites.** `shutDown`, `pause` and `recheck` each
+     * flush for their own reasons and happen to do it in the right order; the periodic save in
+     * [timerLoop] had no reason of its own and so did it in no order at all, which left the
+     * invariant true at three call sites out of four
+     * ([B-119](../../../../../../../../docs/backlog/B-119-a-file-the-files-tab-calls-complete-is-not.md)).
+     * A second `force()` straight after theirs has nothing dirty to write.
      */
     private suspend fun saveResume() {
         val store = resume ?: return
+        storage.flush()
         val snapshot = mutableState.value
         store.save(
             ResumeRecord(
