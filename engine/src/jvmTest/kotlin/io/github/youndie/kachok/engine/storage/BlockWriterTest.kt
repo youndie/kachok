@@ -7,6 +7,7 @@ import io.github.youndie.kachok.engine.io.BufferPool
 import io.github.youndie.kachok.engine.io.EngineDispatchers
 import io.github.youndie.kachok.engine.metainfo.MetainfoParser
 import io.github.youndie.kachok.engine.peer.Block
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
@@ -252,6 +253,61 @@ class BlockWriterTest {
             assertEquals(1, sink.calls.size)
             assertEquals(0, pool.outstanding, "the duplicate's buffer came back too")
             writer.blocks.close()
+        }
+
+    /**
+     * B-119: an outcome is never published before the piece's buffers are back in the pool.
+     *
+     * The assertion above is the same one, and for a year it was a race the writer usually won:
+     * `complete` sent the outcome and released the blocks in the `finally` afterwards, so a reader
+     * that woke on the outcome could see the buffers still out. It lost on CI about once in a
+     * hundred runs — long enough for the failure to look like an unrelated commit's fault when it
+     * finally happened.
+     *
+     * A hundred pieces rather than one, because that is what turns "usually" into a number. The
+     * reader is on a different dispatcher and is already waiting when each piece completes, which
+     * is the arrangement that loses most often: the hand-off resumes the receiver while the sender
+     * is still on its way to the `finally`. Against the old ordering this fails within a few
+     * pieces; the ordering it pins costs nothing when it holds.
+     */
+    @Test
+    fun theOutcomeIsNotPublishedBeforeTheBuffersAreBack(): Unit =
+        runBlocking {
+            val info = metainfo()
+            val pool = BufferPool(capacity = 8)
+            val sink = CountingSink()
+            val writer =
+                BlockWriter(info, MessageDigestPieceHasher(dispatchers.io), FileStorage(PieceLayout(info), sink))
+            val loop = launch(dispatchers.io) { writer.run() }
+
+            // One piece in flight at a time. `pool.outstanding` counts the whole pool, so a
+            // producer running ahead would have buffers out for the *next* piece and the reading
+            // would say nothing about this one. The reader hands back what it saw and the
+            // producer waits for it, which also leaves the reader parked in `receive` before
+            // every piece — the arrangement the old ordering lost to.
+            val observed = Channel<Int>(Channel.RENDEZVOUS)
+            val rounds = 100
+            val reader =
+                launch(dispatchers.io) {
+                    repeat(rounds) {
+                        writer.outcomes.receive()
+                        observed.send(pool.outstanding)
+                    }
+                }
+
+            val stillOut = mutableListOf<Int>()
+            repeat(rounds) {
+                blocksOf(piece = 0, pieceLength = 512, blockSize = 256, pool = pool)
+                    .forEach { writer.blocks.send(it) }
+                val out = withTimeout(TIMEOUT) { observed.receive() }
+                if (out != 0) stillOut += out
+            }
+            reader.join()
+
+            assertEquals(emptyList(), stillOut, "an outcome arrived with buffers still out on loan")
+            writer.blocks.close()
+            loop.join()
+            assertEquals(0, pool.outstanding)
         }
 
     @Test
