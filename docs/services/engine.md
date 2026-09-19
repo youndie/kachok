@@ -357,10 +357,15 @@ them. Nothing is read from the environment by this module; that is [cli](cli.md)
   point of it.** An MP4's `moov` atom, an AVI's `idx1` and an MKV's `Cues` sit at the *end* of the
   file, and a player that cannot read the index will not start a frame — so strict lowest-first
   delivered a file that played only once it was whole, which is the case the tick exists to avoid.
-  The first and last piece of every wanted file are offered before anything else, ascending, and
-  lowest-first decides the rest. It is still not the rarest-first-with-a-window compromise: that
-  needs an N nobody here has a player to measure, and a file boundary is a number the torrent
-  already declares ([B-118](../backlog/B-118-sequential-does-not-serve-a-player.md)).
+  A **piece-length of bytes at each end** of every wanted file is offered before anything else,
+  ascending, and lowest-first decides the rest. A piece-length and not "the first and last piece",
+  which is what every other client does: a file ends wherever it ends inside a piece, and the
+  fixture's ended 19 KB into its last one while its `moov` was 52 KB, so with the last piece in hand
+  `ffprobe` still said `moov atom not found`. It is still not the rarest-first-with-a-window
+  compromise — that needs an N nobody here has a player to measure, while the reach is the picker's
+  own unit and the ends are the layout the torrent declares. Driven with a control: at 28 % of the
+  same torrent the sequential run's partial MP4 decodes and the rarest-first run's does not
+  ([B-118](../backlog/B-118-sequential-does-not-serve-a-player.md)).
 * **`index in started` on a `Map<Int, _>` boxes the index.** The picker asks it once per piece per
   request, which is where half of the profile's `Integer` allocations came from; a `BooleanArray`
   beside the map answers the same question for nothing. Both mutations of `started` go through one

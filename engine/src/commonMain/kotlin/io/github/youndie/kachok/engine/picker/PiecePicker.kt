@@ -88,12 +88,13 @@ public class PiecePicker(
     private val isStarted = BooleanArray(metainfo.pieceCount)
 
     /**
-     * The first and last piece of every non-empty file, ascending, deduplicated.
+     * The pieces holding a piece-length of bytes at each end of every non-empty file, ascending,
+     * deduplicated.
      *
      * Computed once because the file layout cannot change, and held as an `IntArray` because it is
      * scanned before the main loop on every [sequential] decision. In a torrent of many small files
-     * the two ends of a file are usually the same piece as its neighbour's, so this is far shorter
-     * than twice the file count; in one of a few large files it is two pieces each, which is the
+     * the ends of a file are the same pieces as its neighbour's, so this is far shorter than four
+     * times the file count; in one of a few large files it is two to four pieces each, which is the
      * price of being able to play them.
      */
     private val boundaries: IntArray = boundaryPieces(metainfo)
@@ -666,17 +667,32 @@ public class PiecePicker(
         public const val DEFAULT_MAX_STARTED: Int = 8
 
         /**
-         * The pieces holding the first and last byte of each file, once, in order.
+         * The pieces covering a piece-length of bytes at each end of each file, once, in order.
          *
-         * A zero-length file holds no byte and has no boundary; two files inside one piece give
-         * that piece once, which is what the `Bitfield` is for.
+         * **A piece-length of bytes and not one piece, and the difference was measured.** A file
+         * ends wherever it ends inside a piece, so "the piece holding the last byte" delivers
+         * between one byte and a whole piece of that file's tail. In the run that found this the
+         * file ended 19 KB into its last piece and its `moov` atom was 52 KB, so the atom began in
+         * the piece *before* — one tail piece, and `ffprobe` still said `moov atom not found`
+         * (B-118). Asking for a piece-length of bytes instead costs one piece where the boundary
+         * happens to be aligned and two where it is not, and guarantees a whole piece of contiguous
+         * tail whatever the alignment.
+         *
+         * It does not guarantee an index *larger* than a piece: nothing short of parsing the
+         * container can, and a picker that parsed MP4 would be a picker that knows what a file is
+         * for. What it buys is the common case, at a bounded cost.
+         *
+         * A zero-length file holds no byte and has no ends; two files inside one piece give that
+         * piece once, which is what the `Bitfield` is for.
          */
         private fun boundaryPieces(metainfo: Metainfo): IntArray {
             val marked = Bitfield(metainfo.pieceCount)
+            val reach = metainfo.pieceLength.toLong()
             metainfo.files.forEach { file ->
                 if (file.length <= 0) return@forEach
-                marked.set((file.offset / metainfo.pieceLength).toInt())
-                marked.set(((file.offset + file.length - 1) / metainfo.pieceLength).toInt())
+                val last = file.offset + file.length - 1
+                marked.mark(file.offset, minOf(file.offset + reach - 1, last), metainfo.pieceLength)
+                marked.mark(maxOf(last - reach + 1, file.offset), last, metainfo.pieceLength)
             }
             val pieces = IntArray(marked.cardinality)
             var at = 0
@@ -684,6 +700,17 @@ public class PiecePicker(
                 if (marked[index]) pieces[at++] = index
             }
             return pieces
+        }
+
+        /** Sets every piece the byte range [from]..[to] touches. */
+        private fun Bitfield.mark(
+            from: Long,
+            to: Long,
+            pieceLength: Int,
+        ) {
+            for (piece in (from / pieceLength).toInt()..(to / pieceLength).toInt()) {
+                if (piece < size) set(piece)
+            }
         }
     }
 }

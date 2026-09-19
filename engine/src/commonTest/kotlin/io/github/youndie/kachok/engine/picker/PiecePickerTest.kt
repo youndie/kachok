@@ -409,6 +409,39 @@ class PiecePickerTest {
         assertEquals(listOf(0, 3, 4, 7, 8, 11, 1, 2), order)
     }
 
+    /**
+     * A file that does not end on a piece boundary gets the piece before its last one too.
+     *
+     * **This is the case a real download found and the first rule missed.** The file ended 19 KB
+     * into its last piece and its `moov` atom was 52 KB, so the atom started in the piece before:
+     * with only the piece holding the last byte, `ffprobe` on the partial file said `moov atom not
+     * found`. What is asked for is a piece-length of bytes at each end, which is one piece when the
+     * boundary is aligned and two when it is not
+     * ([B-118](../../../../../../../../docs/backlog/B-118-sequential-does-not-serve-a-player.md)).
+     */
+    @Test
+    fun theTailCoversAWholePieceLengthWhereverTheFileEnds() {
+        val block = PeerWire.BLOCK_SIZE.toLong()
+        val metainfo =
+            torrent(
+                // Three and a half pieces: the file ends halfway through piece 3, so a piece-length
+                // of tail reaches back into piece 2.
+                files = listOf("film.mp4" to block * 7 / 2, "notes.txt" to block / 2),
+                pieceLength = PeerWire.BLOCK_SIZE,
+            )
+        val picker = PiecePicker(metainfo, maxStartedPieces = 1, random = Random(1), sequential = true)
+        picker.peerWithIn(a, metainfo.pieceCount, *(0 until metainfo.pieceCount).toList().toIntArray())
+
+        val order =
+            (0..3).map {
+                val request = picker.next(a, 1).single()
+                picker.blockReceived(a, request.piece, 0)
+                picker.pieceVerified(request.piece)
+                request.piece.value
+            }
+        assertEquals(listOf(0, 2, 3, 1), order, "the piece the file's index started in was not asked for")
+    }
+
     /** A file nobody wants gets no head start: skip decides before priority does. */
     @Test
     fun theEndsOfASkippedFileAreNotFetched() {

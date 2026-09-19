@@ -43,6 +43,18 @@ class DownloadOptions(
      */
     val highFiles: Set<Int> = emptySet(),
     /**
+     * Ask for pieces in order — both ends of each file first, then lowest-first
+     * ([B-65](../../../../../../../docs/backlog/B-65-sequential-download.md),
+     * [B-118](../../../../../../../docs/backlog/B-118-sequential-does-not-serve-a-player.md)).
+     *
+     * Off, like the window's tick and for the same reason: it is worse for the swarm and every
+     * measured number in the research assumes rarest-first. It is on the command line because the
+     * order is the one engine setting whose *result* can only be seen from outside the process —
+     * a file opened in a player while the middle is still arriving — and the window is not a thing
+     * a check can drive.
+     */
+    val sequential: Boolean = false,
+    /**
      * What this client offers a peer, in both directions
      * ([B-100](../../../../../../../docs/backlog/B-100-protocol-encryption.md)).
      *
@@ -104,6 +116,9 @@ object Arguments {
   --down <KiB/s>      download limit across all peers (default: no limit)
   --high <n>          fetch this file (by its index in the torrent) before the
                       others; repeatable
+  --sequential        ask for pieces in order: both ends of each file first, so
+                      a player can read the header and the index, then
+                      lowest-first. Worse for the swarm; on for watching.
   --no-dht            stay out of the DHT (BEP 5), which is joined by default
   --encryption <mode> plaintext, preferred (default) or required — what this
                       client offers a peer and what it insists on (MSE/PE)
@@ -251,6 +266,7 @@ kachok mcp [options]
         var dht = true
         var allTrackers = false
         var encryption = Encryption.PREFERRED
+        var sequential = false
         val high = mutableSetOf<Int>()
 
         var index = 0
@@ -299,6 +315,10 @@ kachok mcp [options]
                     high += number(value(arguments, ++index, argument), argument)
                 }
 
+                "--sequential" -> {
+                    sequential = true
+                }
+
                 "--encryption" -> {
                     encryption = encryptionOf(value(arguments, ++index, argument))
                 }
@@ -327,6 +347,7 @@ kachok mcp [options]
             uploadLimit = upload,
             downloadLimit = download,
             highFiles = high,
+            sequential = sequential,
             dht = dht,
             announceToAllTrackers = allTrackers,
             encryption = encryption,
