@@ -1,7 +1,7 @@
 ---
 id: B-129
 title: "Four clients recorded taking 40.9 MiB of a 40.0 MiB torrent"
-status: open
+status: done
 priority: P2
 size: S
 stage: m9-swarm
@@ -33,8 +33,30 @@ counter derived from `downloaded` is wrong by however often it happens.
   bytes that are already correct; the reason to care is the counter, the pool buffers it holds, and
   that a `have` may be announced twice.
 
+## Confirmed, and it was the writer's `pending` map
+
+The hypothesis in the paragraph above was right, and the block that proves it is in the session
+rather than in the writer: every arriving block went to `writer.blocks` unconditionally, including
+one for a piece already verified.
+
+**The session drops it, not the writer**, and the item's own question — which of the two knows
+enough — answers itself at the moment the late block arrives. The writer knows which pieces *it*
+finished. The session knows which pieces are still *wanted*, and those are not the same list: a
+re-check empties the picker and every piece becomes wanted again, while the writer's memory of what
+it once finished would still be sitting there dropping the blocks of a download that has to happen
+again. A guard in the writer would have been a stall with no symptom.
+
+Counted rather than only fixed: `duplicateBlocks` in the state, *Duplicate blocks* in the details
+panel beside the hash failures. A few of them are the endgame working — the same block asked of
+several peers on purpose — and a number that climbs with the swarm is bandwidth this client is
+paying for twice.
+
 - AC: four clients on the `swarm-order` stand record taking exactly one copy each, and a test drives
   a late duplicate block into a completed piece and shows it is dropped rather than re-verified.
+  **Both met**: the stand now reports `40.0 MiB of 40.0 MiB taken`, against 40.9 before, and the
+  mutation that disables the drop fails one test and only one.
+  **Automated:** `engine/src/commonTest/.../session/SessionTest.kt` —
+  `aBlockForAPieceAlreadyVerifiedIsDroppedRatherThanWrittenAgain`.
 - Anchors: `engine/src/commonMain/kotlin/io/github/youndie/kachok/engine/storage/BlockWriter.kt`,
   `engine/src/commonMain/kotlin/io/github/youndie/kachok/engine/session/Session.kt`,
   `engine/src/commonTest/kotlin/io/github/youndie/kachok/engine/storage/BlockWriterTest.kt`.

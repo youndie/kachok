@@ -410,9 +410,12 @@ the tie rather than taking the lowest index did not make one client's own downlo
 
 *One caveat carried from the experiment: in the runs with heavy trading the clients between them
 recorded taking 40.9 MiB of a 40.0 MiB torrent — about 2 % more than exists. A counter that rises
-per verified piece can only do that if a piece was verified twice, which is
-[B-129](../backlog/B-129-a-piece-can-be-verified-twice.md). It does not affect the ratios above,
-which are of the same denominator in both arms.*
+per verified piece can only do that if a piece was verified twice, and it was:
+[B-129](../backlog/B-129-a-piece-can-be-verified-twice.md) found every arriving block going to the
+writer even for a piece already had, which the writer then gathered into a fresh entry and verified
+— and wrote — a second time. **Fixed**, and the same stand now reports `40.0 MiB of 40.0 MiB taken`.
+The ratios above are unaffected: the denominator was inflated identically in both arms, and the
+2 % was real bandwidth spent, which is why it is counted rather than merely dropped.*
 
 ### 1.2c3 What the desktop stage did not decide
 
