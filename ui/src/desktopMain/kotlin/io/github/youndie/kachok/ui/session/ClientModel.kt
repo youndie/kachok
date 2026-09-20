@@ -58,31 +58,6 @@ import kotlin.coroutines.coroutineContext
  * click, tested without a holder, a dispatcher or a lifetime, and most of this module's tests rest
  * on that. Making them methods would have bought nothing and cost it.
  */
-/**
- * The holder a window starts from: the settings file read, the system asked about autostart.
- *
- * One function so that the window's default and the application that outlives the window build the
- * same thing. The two reads are here rather than inside [ClientModel] because a holder a test can
- * build is a holder that touches neither.
- */
-internal fun clientModelFor(
-    directory: Path,
-    settingsFile: Path,
-    directoryOverrides: Boolean,
-): ClientModel {
-    val here = directory.toAbsolutePath().toString()
-    val autostart = autostartFor()
-    val stored = loadPreferences(settingsFile, Preferences(directory = here))
-    return ClientModel(
-        initialPreferences =
-            (if (directoryOverrides) stored.withDirectory(here) else stored)
-                // The system is the authority on this one. The file is where the *rest* of the
-                // settings live, and it is also where this one is written, but an entry somebody
-                // removed by hand means the checkbox is off however the file reads.
-                .copy(autostart = autostart.isEnabled()),
-        autostartProblem = autostart.refusal,
-    )
-}
 
 internal class ClientModel(
     /** What the settings file said when the window opened, which is this run's starting point. */
@@ -497,4 +472,30 @@ internal class ClientModel(
             onStopped()
         }
     }
+}
+
+/**
+ * The holder a window starts from: the settings file read, the system asked about autostart.
+ *
+ * One function so that the window's default and the application that outlives the window build the
+ * same thing. The two reads are here rather than inside [ClientModel] because a holder a test can
+ * build is a holder that touches neither.
+ */
+internal fun clientModelFor(
+    directory: Path,
+    settingsFile: Path,
+    directoryOverrides: Boolean,
+): ClientModel {
+    val here = directory.toAbsolutePath().toString()
+    val autostart = autostartFor()
+    val stored = loadPreferences(settingsFile, Preferences(directory = here))
+    return ClientModel(
+        initialPreferences =
+            (if (directoryOverrides) stored.withDirectory(here) else stored)
+                // The system is the authority on this one. The file is where the *rest* of the
+                // settings live, and it is also where this one is written, but an entry somebody
+                // removed by hand means the checkbox is off however the file reads.
+                .copy(autostart = autostart.isEnabled()),
+        autostartProblem = autostart.refusal,
+    )
 }

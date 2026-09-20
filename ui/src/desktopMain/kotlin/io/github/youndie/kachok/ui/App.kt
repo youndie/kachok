@@ -65,6 +65,7 @@ import io.github.youndie.kachok.ui.main.SortOrder
 import io.github.youndie.kachok.ui.main.ToolbarCommand
 import io.github.youndie.kachok.ui.remove.RemoveState
 import io.github.youndie.kachok.ui.session.AUTOSTART_FLAG
+import io.github.youndie.kachok.ui.session.ClientModel
 import io.github.youndie.kachok.ui.session.Figures
 import io.github.youndie.kachok.ui.session.Lifecycle
 import io.github.youndie.kachok.ui.session.Preferences
@@ -74,10 +75,9 @@ import io.github.youndie.kachok.ui.session.StoredTorrent
 import io.github.youndie.kachok.ui.session.addFrom
 import io.github.youndie.kachok.ui.session.autostartFor
 import io.github.youndie.kachok.ui.session.brokenRow
-import io.github.youndie.kachok.ui.session.ClientModel
 import io.github.youndie.kachok.ui.session.chooseDirectory
-import io.github.youndie.kachok.ui.session.clientModelFor
 import io.github.youndie.kachok.ui.session.clicked
+import io.github.youndie.kachok.ui.session.clientModelFor
 import io.github.youndie.kachok.ui.session.detailsOf
 import io.github.youndie.kachok.ui.session.forgetTorrent
 import io.github.youndie.kachok.ui.session.inOrder

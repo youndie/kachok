@@ -1,7 +1,7 @@
 ---
 id: B-79
 title: "The window's state outlives its composition"
-status: open
+status: done
 priority: P2
 size: L
 stage: phase-3-mobile
@@ -54,8 +54,32 @@ it this session meant making `refusedIfOccupied`, `deleteQuietly`, `shortcutFor`
 `internal` one at a time; everything still inside the composable — the command channel, the
 selection, the settings effect, the shortcut effect — is reachable only by running a download.
 
+## What it took, and the half that nearly got away
+
+The state moved as `MutableState` objects rather than as plain fields, and that is what kept the
+change reviewable: `var selected by model.selected` reads and writes exactly as
+`var selected by remember { mutableStateOf(…) }` did, so six hundred lines that use those names did
+not have to be re-read to be moved. Two classes the holder now names — `EngineSnapshot` and
+`TorrentCommand` — and five helpers the loop calls went from `private` to `internal`, which is the
+item's own "present-day argument" arriving on schedule.
+
+**Lifting the loop's body out of the composable changes nothing on its own, and that was nearly the
+whole of the mistake.** The body moved and the `LaunchedEffect` stayed, so the engine was still
+cancelled when the window left the composition — the refactor would have passed review, passed the
+suite, and moved no lifetime at all. What survives a composition is a scope that is not the
+composition's, so the holder owns one and the window only *starts* it.
+
+That raises the question the item did not ask: who closes it. **Whoever builds the holder.** A
+window that made its own — every test of the window, and a desktop that has no use for the seam yet
+— takes it down when it goes, or the module's tests would each leak an engine; a window handed one
+by the application that outlives it leaves the engine running. The mutation that makes the window
+close every holder fails `theEngineOutlivesTheWindowAndIsNotRebuilt` and nothing else.
+
 - AC: the selected row, the open panel, the filter, the sort and the running `TorrentSet` survive
   the composition being thrown away and rebuilt; `Client` holds no engine state of its own; the
-  mapping functions are untouched and their tests do not change.
+  mapping functions are untouched and their tests do not change. **All met** — and the last clause
+  is asserted by the suite rather than by inspection: the 209 tests of this module were not edited.
+  **Automated:** `ui/src/desktopTest/.../session/ClientModelTest.kt` —
+  `whatThePersonDecidedOutlivesTheWindow`, `theEngineOutlivesTheWindowAndIsNotRebuilt`.
 - Anchors: `ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/App.kt`,
   `ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/session/`.
