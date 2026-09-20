@@ -96,7 +96,8 @@ public class LocalSwarm private constructor(
              */
             seeds: List<Set<Int>>? = null,
             /**
-             * Bytes a second per seed, or zero for as fast as loopback goes.
+             * Bytes a second per seed — **across all of its connections**, like an uplink — or
+             * zero for as fast as loopback goes.
              *
              * A timing taken at loopback speed is a timing of the kernel and the disk; a rate is
              * what makes it a timing of the client. It is a floor and never a ceiling — see
@@ -137,6 +138,16 @@ public class LocalSwarm private constructor(
             // that dictionary and not over the file.
             return LocalSwarm(content, finalTorrent, MetainfoParser.parse(finalTorrent), tracker, started)
         }
+
+        /** One query parameter, by name. The two this tracker reads are plain ASCII. */
+        private fun parameter(
+            query: String,
+            name: String,
+        ): String? =
+            query
+                .split("&")
+                .firstOrNull { it.startsWith("$name=") }
+                ?.substringAfter("=")
 
         /** The announce URL is not known until the tracker binds; the info hash must not depend on it. */
         private fun placeholderTracker(): String = "http://127.0.0.1:1/annc"
@@ -194,22 +205,42 @@ public class LocalSwarm private constructor(
             )
         }
 
-        /** A tracker that answers with a compact peer list: the seeds. Or with a refusal. */
+        /**
+         * A tracker that answers with a compact peer list, and **remembers who asked**.
+         *
+         * The seeds are named to everybody, as before; what is new is that a client announcing
+         * itself is registered and named to the *next* client that asks. Without that a stand can
+         * only ever be one downloader against a wall of seeds — and the cost a picker imposes on a
+         * swarm is a cost to the peers it trades with, so a stand where nobody trades cannot show it
+         * ([B-126](../../../../../../../docs/backlog/B-126-a-stand-with-more-than-one-leecher.md)).
+         *
+         * A peer is remembered by its port, which on loopback is what makes it a peer, and is
+         * forgotten when it announces `stopped`. Nobody is ever told about themselves.
+         */
         private fun startTracker(
             peerPorts: List<Int>,
             failure: String?,
         ): HttpServer {
             val started = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
+            val announced =
+                java.util.concurrent.ConcurrentHashMap
+                    .newKeySet<Int>()
             started.createContext("/annc") { exchange: HttpExchange ->
+                val query = exchange.requestURI.rawQuery.orEmpty()
+                val asker = parameter(query, "port")?.toIntOrNull()
+                if (asker != null) {
+                    if (parameter(query, "event") == "stopped") announced -= asker else announced += asker
+                }
                 val body =
                     if (failure != null) {
                         Bencode.encode(BDictionary(mapOf(BString("failure reason") to BString(failure))))
                     } else {
                         // Six bytes a peer, end to end: BEP 23's compact list, which is what
                         // every tracker worth the name answers with.
+                        val everyone = (peerPorts + announced.sorted()).filter { it != asker }
                         val packed =
-                            ByteArray(peerPorts.size * COMPACT_PEER_SIZE).also { bytes ->
-                                peerPorts.forEachIndexed { index, port ->
+                            ByteArray(everyone.size * COMPACT_PEER_SIZE).also { bytes ->
+                                everyone.forEachIndexed { index, port ->
                                     val at = index * COMPACT_PEER_SIZE
                                     bytes[at] = LOOPBACK_A
                                     bytes[at + 3] = LOOPBACK_D
