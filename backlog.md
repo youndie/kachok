@@ -48,21 +48,20 @@ which is also the order of work.
 
 <!-- BEGIN INDEX -->
 
-## Open (9)
+## Open (8)
 
 | Task | | Priority | Size | Blocked by |
 |---|---|---|---|---|
 | [B-107](docs/backlog/B-107-dropping-a-torrent-does-nothing-on-macos.md) `[~]` | Dropping a .torrent on the window does nothing on macOS | P2 | M | - |
 | [B-116](docs/backlog/B-116-a-torrent-whose-name-is-not-ascii-cannot-be-opened-on-windows.md) `[~]` | A `.torrent` whose name is not ASCII cannot be opened on Windows: the launcher hands the path over as question marks | P2 | S | - |
 | [B-80](docs/backlog/B-80-the-ui-moves-to-commonmain.md) `[~]` | The UI moves to commonMain | P2 | L | B-79 |
-| [B-131](docs/backlog/B-131-the-window-has-no-minimum-size.md) `[ ]` | The window has no minimum size, and the interface scale moved where it breaks | P3 | S | - |
 | [B-37](docs/backlog/B-37-v2-and-hybrid-torrents.md) `[?]` | v2 and hybrid torrents (BEP 52): SHA-256 piece layers | P3 | L | B-04 |
 | [B-40](docs/backlog/B-40-wasmjs-ui-is-a-client-of-the-headless-engine.md) `[ ]` | The browser build of the UI is a client of the headless engine | P3 | L | B-80 |
 | [B-41](docs/backlog/B-41-android-and-ios-targets.md) `[ ]` | Phase 3: Android and iOS targets on the engine | P3 | XL | B-39 |
 | [B-87](docs/backlog/B-87-a-server-with-a-web-face.md) `[ ]` | Phase 3: a headless server with a web face, installable on a box that is always on | P3 | XL | B-80 |
 | [B-02](docs/backlog/B-02-ci-runs-build-and-docs-gates.md) `[ ]` | CI runs the build and the documentation gates on every push | infra | S | B-01 |
 
-## Closed (122)
+## Closed (123)
 
 **M0 — The build and its gates**
 
@@ -167,6 +166,7 @@ which is also the order of work.
 - [B-115](docs/backlog/B-115-the-startup-check-runs-on-the-window-s-thread.md) `[x]` - The window draws its title bar and nothing else: the start-up check reads the disk on the AWT event thread
 - [B-121](docs/backlog/B-121-sequential-does-not-serve-a-player.md) `[x]` - Sequential downloads a file front to back, and a player needs its end too
 - [B-130](docs/backlog/B-130-the-interface-is-too-small.md) `[x]` - The whole interface wants to be 10–20 % larger
+- [B-131](docs/backlog/B-131-the-window-has-no-minimum-size.md) `[x]` - The window has no minimum size, and the interface scale moved where it breaks
 - [B-39](docs/backlog/B-39-compose-ui-desktop.md) `[x]` - Phase 2: a Compose Multiplatform desktop UI on the engine's StateFlow
 - [B-46](docs/backlog/B-46-ui-theme-and-calibration.md) `[x]` - The theme: colour roles, type, and the desktop calibration
 - [B-47](docs/backlog/B-47-torrent-row-and-states.md) `[x]` - The torrent row and its seven states

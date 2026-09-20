@@ -1,7 +1,7 @@
 ---
 id: B-131
 title: "The window has no minimum size, and the interface scale moved where it breaks"
-status: open
+status: done
 priority: P3
 size: S
 stage: phase-2-ui
@@ -34,7 +34,37 @@ fixture telling the truth about a window that size** — the same artboard in de
   still a comfortable window on this owner's display and the contents now fill more of it, which is
   what was wanted.
 
+## The decision, taken here rather than asked for
+
+**The design's own narrow layout is the floor: 600 x 420 design units.** It is the smallest
+arrangement this window has ever been claimed to work in — the narrow artboard is drawn at exactly
+that — and a floor taken from anywhere else would be a number somebody invented. In the units AWT
+measures a window in, that is the artboard **times the interface scale**: 720 x 504.
+
+Set on the window itself, because AWT is the only thing that will enforce it: a person dragging the
+frame is not passing through any composable.
+
+## What writing the test found: this repository was shipping 1.15, not 1.20
+
+`theFloorIsTheNarrowArtboardAtTheInterfaceScale` failed on its first run — *expected 690 but was
+720* — because `INTERFACE_SCALE` on `main` was **1.15**, while
+[B-130](B-130-the-interface-is-too-small.md), its commit and its pull request all say the owner
+chose 1.20.
+
+The mistake is mine and it is worth naming exactly: B-130 rendered candidates by rewriting the
+constant in a loop, and the last pass of that loop left the file at 1.15. The goldens were then
+re-recorded against it, so everything was *self-consistent* and wrong — which is precisely the shape
+of error a golden cannot catch, because it is a photograph of whatever it was shown.
+
+Fixed here: the constant is 1.20, the goldens are re-recorded, and the two numbers can no longer
+drift apart without a test saying so.
+
 - AC: the window cannot be resized to a size where the toolbar clips; the narrow golden is recorded
   at the smallest size the window allows, so that the fixture and the floor are the same number.
+  **Both met**, and the second is now asserted rather than arranged: `MinimumWindowTest` reads the
+  golden's own pixels and compares them with the floor.
+  **Automated:** `ui/src/desktopTest/.../MinimumWindowTest.kt` —
+  `theFloorIsTheNarrowArtboardAtTheInterfaceScale`,
+  `theNarrowGoldenIsRecordedAtTheSmallestWindowAllowed`.
 - Anchors: `ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/App.kt`,
   `ui/src/desktopTest/kotlin/io/github/youndie/kachok/ui/main/MainWindowSheet.kt`.

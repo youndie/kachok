@@ -113,6 +113,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import java.awt.Desktop
+import java.awt.Dimension
 import java.awt.FileDialog
 import java.awt.Frame
 import java.awt.Toolkit
@@ -350,6 +351,12 @@ private fun run(args: Array<String>) {
                     )?.let { shortcut = Shortcut(it) } != null
                 },
             ) {
+                // **A floor, so the layout cannot be resized into the state that has no answer.**
+                // Set on the window itself because that is the only thing AWT will enforce: a
+                // person dragging the frame is not passing through any composable (B-131).
+                LaunchedEffect(window) {
+                    window.minimumSize = Dimension(MINIMUM_WINDOW_WIDTH, MINIMUM_WINDOW_HEIGHT)
+                }
                 Column(Modifier.fillMaxSize()) {
                     // The line under the title bar belongs to the content: the bar is a `Surface`
                     // with no border of its own, and every other bar in this window has one.
@@ -1263,3 +1270,27 @@ internal val KACHOK_TITLE_BAR: TitleBarStyle =
 private val WINDOW_WIDTH = 1200.dp
 
 private val WINDOW_HEIGHT = 760.dp
+
+/**
+ * The smallest window this client will let a person make, in the units AWT measures a window in.
+ *
+ * **The design's own narrow layout is the floor**: 600 x 420 design units is the size the narrow
+ * artboard is drawn at, and it is the smallest arrangement this window has ever been claimed to
+ * work in. Below it the toolbar's rightmost controls are clipped and the status bar's last group is
+ * cut off — which was reachable before the interface was scaled and is reachable 20 % sooner after
+ * it, because everything inside is drawn larger while the window is measured in the system's units
+ * ([B-131](../../../../../../../docs/backlog/B-131-the-window-has-no-minimum-size.md)).
+ *
+ * So these are the artboard **times the scale**, and `theFloorIsTheNarrowArtboardAtTheInterfaceScale`
+ * is what keeps the two from drifting apart. AWT's units are this window's `dp` at the system's own
+ * density — `DpSize(1200.dp, …)` becomes a 1200-unit window — so no density is read here; what has
+ * to be converted is the interface scale, and that is a multiplication.
+ */
+internal const val MINIMUM_WINDOW_WIDTH: Int = 720
+
+internal const val MINIMUM_WINDOW_HEIGHT: Int = 504
+
+/** The narrow artboard, in design units: what [MINIMUM_WINDOW_WIDTH] is derived from. */
+internal const val NARROW_ARTBOARD_WIDTH: Int = 600
+
+internal const val NARROW_ARTBOARD_HEIGHT: Int = 420
