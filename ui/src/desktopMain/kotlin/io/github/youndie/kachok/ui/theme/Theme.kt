@@ -5,6 +5,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Shapes
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 
 /**
@@ -29,9 +31,29 @@ internal val KachokShapes: Shapes =
         extraLarge = RoundedCornerShape(6.dp),
     )
 
+/**
+ * How much larger than the design everything is drawn.
+ *
+ * **One number, at the one seam that scales everything.** Compose resolves every `dp` and every
+ * `sp` through `LocalDensity`, so a density multiplied here moves the type, the paddings, the row
+ * heights, the icons and the corner radii together — and none of the 230 hard-coded `dp` literals
+ * in this module has to be found, let alone rounded by hand
+ * ([B-130](../../../../../../../../docs/backlog/B-130-the-interface-is-too-small.md)).
+ *
+ * A constant and not a setting, for now: the ask was that it is too small today, and an *Interface
+ * scale* control is a stored preference, a live re-layout and its own item. It would use this seam.
+ */
+internal const val INTERFACE_SCALE: Float = 1.15f
+
 @Composable
 internal fun KachokTheme(content: @Composable () -> Unit) {
-    CompositionLocalProvider(LocalWarningColors provides KachokWarning) {
+    val density = LocalDensity.current
+    CompositionLocalProvider(
+        LocalWarningColors provides KachokWarning,
+        // The font scale is the person's own accessibility setting and is multiplied, not replaced:
+        // somebody who asked their system for larger text asked for larger text *here* too.
+        LocalDensity provides Density(density.density * INTERFACE_SCALE, density.fontScale),
+    ) {
         MaterialTheme(
             colorScheme = KachokDarkColors,
             typography = KachokTypography,
