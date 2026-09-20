@@ -98,6 +98,7 @@ import io.github.youndie.kachok.ui.session.scaleTrayMenu
 import io.github.youndie.kachok.ui.session.settingsOf
 import io.github.youndie.kachok.ui.session.torrentsDirectory
 import io.github.youndie.kachok.ui.session.trayTooltip
+import io.github.youndie.kachok.ui.session.wideArguments
 import io.github.youndie.kachok.ui.session.windowOf
 import io.github.youndie.kachok.ui.settings.SettingChange
 import io.github.youndie.kachok.ui.settings.SettingKey
@@ -145,7 +146,11 @@ public fun main(args: Array<String>) {
     // does was the one that threw. Everything up to `application {}` runs inside this, and the file
     // it writes sits beside the settings, where the person who hit it can find it.
     startupFailuresAreReadable {
-        run(args)
+        // **Before anything reads an argument**, because on Windows the ones this function was
+        // handed may not be the ones the person typed: a name the machine's code page cannot spell
+        // arrives as `?` and `Path.of` refuses it, which is a client that does not start at all
+        // ([B-116](../../../../../../../docs/backlog/B-116-a-torrent-whose-name-is-not-ascii-cannot-be-opened-on-windows.md)).
+        run(wideArguments(args))
     }
 }
 
