@@ -104,6 +104,9 @@ internal fun detailsOf(
                             grouped(state.hashFailures),
                             if (state.hashFailures > 0) FieldTone.Warning else FieldTone.Plain,
                         ),
+                        // A few are the endgame working — the same block asked of several peers on
+                        // purpose — and a number that climbs is bandwidth paid for twice (B-129).
+                        DetailsField("Duplicate blocks", grouped(state.duplicateBlocks)),
                         DetailsField(
                             "Verified on start-up",
                             "${grouped(state.verifiedPieces)} / ${grouped(state.verifyingOf)}",

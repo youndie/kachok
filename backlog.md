@@ -48,13 +48,12 @@ which is also the order of work.
 
 <!-- BEGIN INDEX -->
 
-## Open (11)
+## Open (10)
 
 | Task | | Priority | Size | Blocked by |
 |---|---|---|---|---|
 | [B-107](docs/backlog/B-107-dropping-a-torrent-does-nothing-on-macos.md) `[~]` | Dropping a .torrent on the window does nothing on macOS | P2 | M | - |
 | [B-116](docs/backlog/B-116-a-torrent-whose-name-is-not-ascii-cannot-be-opened-on-windows.md) `[ ]` | A `.torrent` whose name is not ASCII cannot be opened on Windows: the launcher hands the path over as question marks | P2 | S | - |
-| [B-129](docs/backlog/B-129-a-piece-can-be-verified-twice.md) `[ ]` | Four clients recorded taking 40.9 MiB of a 40.0 MiB torrent | P2 | S | - |
 | [B-79](docs/backlog/B-79-the-windows-state-outlives-its-composition.md) `[ ]` | The window's state outlives its composition | P2 | L | - |
 | [B-80](docs/backlog/B-80-the-ui-moves-to-commonmain.md) `[ ]` | The UI moves to commonMain | P2 | L | B-79 |
 | [B-93](docs/backlog/B-93-opening-a-downloaded-executable.md) `[ ]` | Double-clicking a downloaded executable, and the warning Windows never gets to show | P2 | M | - |
@@ -64,7 +63,7 @@ which is also the order of work.
 | [B-87](docs/backlog/B-87-a-server-with-a-web-face.md) `[ ]` | Phase 3: a headless server with a web face, installable on a box that is always on | P3 | XL | B-80 |
 | [B-02](docs/backlog/B-02-ci-runs-build-and-docs-gates.md) `[ ]` | CI runs the build and the documentation gates on every push | infra | S | B-01 |
 
-## Closed (118)
+## Closed (119)
 
 **M0 — The build and its gates**
 
@@ -155,6 +154,7 @@ which is also the order of work.
 - [B-118](docs/backlog/B-118-a-peer-that-never-answers-is-dialled-for-ever.md) `[x]` - A peer that never answers is redialled every thirty seconds for the life of the torrent
 - [B-127](docs/backlog/B-127-trading-barely-starts-before-a-download-ends.md) `[x]` - Four clients on one seed trade 2% of the data, because almost nothing is ever unchoked
 - [B-128](docs/backlog/B-128-ties-among-equally-rare-pieces.md) `[x]` - Rarest-first breaks ties by index, which keeps every client of a swarm in lock step
+- [B-129](docs/backlog/B-129-a-piece-can-be-verified-twice.md) `[x]` - Four clients recorded taking 40.9 MiB of a 40.0 MiB torrent
 - [B-95](docs/backlog/B-95-the-dial-loop-only-runs-when-something-else-happens.md) `[x]` - The client stops dialling: there is no periodic top-up, and a dial in flight is dialled again
 - [B-96](docs/backlog/B-96-the-handshake-read-has-no-deadline.md) `[x]` - A peer that accepts the connection and then says nothing is never given up on
 - [B-97](docs/backlog/B-97-the-announce-never-says-how-many-peers-it-wants.md) `[x]` - The announce never says how many peers it wants, and only one tracker is ever asked

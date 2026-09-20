@@ -1296,6 +1296,63 @@ class SessionTest {
             job.cancelAndJoin()
         }
 
+    /**
+     * A block for a piece this client already has is dropped, not written again.
+     *
+     * **Found by a counter that could not be right.** Four clients on the B-126 stand recorded
+     * taking 40.9 MiB of a 40.0 MiB torrent between them, and `downloaded` rises in one place — a
+     * verified piece — so a piece had been verified twice. Every arriving block used to go to the
+     * writer unconditionally, and the writer gathers by piece index and *removes* the entry when it
+     * completes one: blocks that arrive afterwards start a fresh entry, which fills up and completes
+     * the same piece a second time. Endgame asks several peers for the same block on purpose, so
+     * this is ordinary rather than rare, and it gets commoner the more peers a client trades with
+     * ([B-129](../../../../../../../../docs/backlog/B-129-a-piece-can-be-verified-twice.md)).
+     *
+     * **The session drops it and not the writer**, because of what each of them knows when the late
+     * block arrives: the writer knows which pieces *it* finished, and the session knows which pieces
+     * are still wanted — which is not the same list after a re-check throws the picker's away.
+     */
+    @Test
+    fun aBlockForAPieceAlreadyVerifiedIsDroppedRatherThanWrittenAgain() =
+        runTest {
+            val metainfo = torrent(pieces = 4)
+            val dialer = FakeDialer(metainfo.infoHash)
+            val storage = FakeStorage()
+            val session =
+                session(metainfo, dialer, FakeTracker(listOf(peerA)), storage, AgreeableHasher(metainfo))
+
+            val job = session.start(kotlinx.coroutines.CoroutineScope(coroutineContext + handler))
+            testScheduler.runCurrent()
+
+            val connection = dialer.connections.getValue(peerA)
+            connection.incoming.send(PeerEvent.BlockReceived(FakeBlock(PieceIndex(1), 0, PeerWire.BLOCK_SIZE)))
+            testScheduler.runCurrent()
+            assertEquals(1, session.state.value.completedPieces)
+            assertEquals(PeerWire.BLOCK_SIZE.toLong(), session.state.value.downloaded)
+
+            // The same block again: a second peer answering an endgame request, or a request this
+            // client cancelled and the peer had already begun to send.
+            val late = FakeBlock(PieceIndex(1), 0, PeerWire.BLOCK_SIZE)
+            connection.incoming.send(PeerEvent.BlockReceived(late))
+            testScheduler.runCurrent()
+
+            assertEquals(
+                listOf(1),
+                storage.written.map { it.value },
+                "the piece was written to the disk a second time",
+            )
+            assertEquals(
+                PeerWire.BLOCK_SIZE.toLong(),
+                session.state.value.downloaded,
+                "a block this client already had was counted as downloaded again",
+            )
+            assertEquals(1, session.state.value.completedPieces, "the same piece was completed twice")
+            assertTrue(late.released, "the dropped block was not returned to the pool")
+            assertEquals(1, session.state.value.duplicateBlocks, "the drop was not counted")
+
+            job.cancelAndJoin()
+        }
+
     @Test
     fun aVerifiedPieceIsAnnouncedToEveryPeerAndCountedOnce() =
         runTest {
