@@ -33,6 +33,29 @@ class DroppedFilesTest {
         }
     }
 
+    /**
+     * A transferable that advertises the flavour and answers whatever the platform feels like —
+     * `null` included, which the JDK's own signature says is impossible and macOS does anyway.
+     *
+     * **A proxy and not a class**, because a Kotlin `override fun getTransferData(): Any` cannot
+     * return null: the compiler inserts the check and the double then throws before the code under
+     * test is reached — which it did, and which would have made this test pass for the wrong
+     * reason. A `Proxy` returns whatever the handler says, exactly as a Java method compiled
+     * without a Kotlin null check does.
+     */
+    private fun answering(answer: () -> Any?): Transferable =
+        java.lang.reflect.Proxy.newProxyInstance(
+            Transferable::class.java.classLoader,
+            arrayOf(Transferable::class.java),
+        ) { _, method, args ->
+            when (method.name) {
+                "getTransferDataFlavors" -> arrayOf(DataFlavor.javaFileListFlavor)
+                "isDataFlavorSupported" -> args?.firstOrNull() == DataFlavor.javaFileListFlavor
+                "getTransferData" -> answer()
+                else -> null
+            }
+        } as Transferable
+
     private val torrent = File("/drops/debian-13.1.0-amd64-DVD-1.iso.torrent")
     private val iso = File("/drops/debian-13.1.0-amd64-DVD-1.iso")
 
@@ -55,6 +78,37 @@ class DroppedFilesTest {
         assertTrue(DroppedFiles.offered(hovering))
         assertEquals(emptyList(), DroppedFiles.paths(hovering))
         assertEquals(listOf(UNNAMED_DROP), DroppedFiles.hovering(hovering))
+    }
+
+    /**
+     * **The answer macOS actually gives, and the one that kept this bug alive through its own fix.**
+     *
+     * Iteration 1 read `SunDropTargetContextPeer` and caught `InvalidDnDOperationException`, which
+     * is what the JDK documents for a drag that is still hovering. Driven against Finder on 2026-09-20
+     * the platform returned **null** instead, and the unchecked cast raised `NullPointerException` —
+     * *"null cannot be cast to non-null type kotlin.collections.List<java.io.File>"*, thrown out of
+     * `onEntered`, so Compose never called `acceptDrag`, so there was no overlay and no drop. The
+     * symptom the item was filed for, unchanged by the fix that was supposed to end it
+     * ([B-107](../../../../../../../../docs/backlog/B-107-dropping-a-torrent-does-nothing-on-macos.md)).
+     */
+    @Test
+    fun aFlavourAdvertisedThatAnswersNullIsAnUnnamedFileNotACrash() {
+        val hovering = answering { null }
+
+        assertTrue(DroppedFiles.offered(hovering))
+        assertEquals(emptyList(), DroppedFiles.paths(hovering))
+        assertEquals(listOf(UNNAMED_DROP), DroppedFiles.hovering(hovering))
+    }
+
+    /** And anything else it might answer is no files rather than a class cast at the drop. */
+    @Test
+    fun aFlavourAdvertisedThatAnswersSomethingElseIsNoFiles() {
+        assertEquals(emptyList(), DroppedFiles.paths(answering { "/drops/not-a-list.torrent" }))
+        assertEquals(
+            listOf(torrent.toPath()),
+            DroppedFiles.paths(answering { listOf("a string", torrent) }),
+            "a list with something else in it hid the file that was really there",
+        )
     }
 
     @Test

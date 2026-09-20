@@ -31,14 +31,29 @@ internal object DroppedFiles {
      * The files the drag is carrying, or empty: for a drag of something else, for a transferable
      * whose flavour is not what it advertised — a browser tab, say — and for the hover-time case
      * where the flavour is there and the data is not yet.
+     *
+     * **A flavour it advertises can answer `null`, and macOS does.** The JDK's own contract for a
+     * drag still hovering is `InvalidDnDOperationException` — *"No drop current"* — and that is what
+     * this caught after reading it in `SunDropTargetContextPeer`. Driven against Finder, the real
+     * answer is a **`null` return**: `getTransferData` comes back empty-handed and the unchecked
+     * cast raised `NullPointerException`, which is none of the three caught below, so `onEntered`
+     * threw, Compose never called `acceptDrag`, and the window showed no overlay and took no drop —
+     * the reported symptom, unchanged by the fix that was supposed to end it
+     * ([B-107](../../../../../../../../docs/backlog/B-107-dropping-a-torrent-does-nothing-on-macos.md)).
+     *
+     * So the cast is safe now and what is not a list of files is no files, however the platform
+     * says so.
      */
-    @Suppress("UNCHECKED_CAST")
     fun paths(transferable: Transferable): List<Path> =
         try {
             if (!offered(transferable)) {
                 emptyList()
             } else {
-                (transferable.getTransferData(DataFlavor.javaFileListFlavor) as List<java.io.File>)
+                // `as?`, and then `filterIsInstance`: a null, a value of another type, and a list
+                // with something else in it are all "no files here" and none of them is a crash.
+                (transferable.getTransferData(DataFlavor.javaFileListFlavor) as? List<*>)
+                    .orEmpty()
+                    .filterIsInstance<java.io.File>()
                     .map { it.toPath() }
             }
         } catch (unsupported: UnsupportedFlavorException) {
