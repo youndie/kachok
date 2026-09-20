@@ -63,6 +63,11 @@
   five times in a row while the same commit passes elsewhere, and the dump has no hook thread.
   Read it off the process — `grep SigIgn /proc/<pid>/status`, a trailing `3` is SIGHUP and SIGINT
   — and clear it with `./gradlew --stop` before hunting for a defect that is not there.
+  **Then look for what it left behind.** The client the test could not interrupt does not go away
+  with the test: one was found still running a day and seventeen hours later, 107 MB resident, with
+  `SigIgn: 0000000000000003` on it and six `/tmp/kachok-shutdown*` directories beside it. It ignores
+  `SIGTERM` for the same reason it ignored `SIGINT`, so it takes a `SIGKILL` — by pid, never by
+  `pkill -f`, which matches its own command line.
 - **A test that acquires from a pool and then filters is a leak.** `blocksOf(…).take(2)` acquires
   four buffers and uses two. Ask for what you need.
 
