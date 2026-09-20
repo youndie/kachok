@@ -35,6 +35,28 @@ public class Stand(
     public val size: Int get() = pieces * pieceLength
 
     /**
+     * The same stand, [factor] times as long to download.
+     *
+     * More pieces and not more clients or less bandwidth, because what has to change is **how long
+     * the clients are in the swarm together** and nothing else: a stand with more clients is a
+     * different swarm, and one with a slower seed is the same forty seconds spent waiting harder.
+     * The seeds keep the whole torrent, which is what they had.
+     */
+    public fun times(factor: Int): Stand {
+        require(factor >= 1) { "a stand cannot be shorter than itself" }
+        val grown = pieces * factor
+        return Stand(
+            pieces = grown,
+            pieceLength = pieceLength,
+            // A seed that held everything holds everything; one that held a subset holds the same
+            // fraction of the longer torrent, so rarity survives the scaling.
+            seeds = seeds.map { held -> (0 until grown).filterTo(mutableSetOf()) { (it % pieces) in held } },
+            bytesPerSecond = bytesPerSecond,
+            leechers = leechers,
+        )
+    }
+
+    /**
      * The same stand, small enough for `build`.
      *
      * **A scenario is sized for the question, and the question can need time.** `swarm-order` has

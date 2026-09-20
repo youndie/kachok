@@ -1,7 +1,7 @@
 ---
 id: B-127
 title: "Four clients on one seed trade 2% of the data, because almost nothing is ever unchoked"
-status: open
+status: done
 priority: P3
 size: M
 stage: m9-swarm
@@ -37,9 +37,54 @@ contributed anything at all — and on this evidence it has not.
 - Not covered: super-seeding, and any change to the choker itself. Both are decisions that need this
   number before they need anything else.
 
+## The answer, and the hypothesis this item was written on is wrong
+
+Same stand, three durations — which on this stand means three torrent sizes, because the only way to
+keep four clients in a swarm for longer is to give them more to download. Two runs each:
+
+| torrent | in the swarm | gave / took | from the seed |
+|---|---|---|---|
+| 10 MiB | 39.3 s | 1.9 % | 39.2 of 40.0 MiB |
+| 30 MiB | 119.2 s | 0.6 % | 119.2 of 120.0 MiB |
+| 60 MiB | 239.2 s | 0.3 % | 239.2 of 240.0 MiB |
+
+**The share falls as the swarm lasts longer and the absolute never moves: 0.8 MiB traded, every
+time.** Trading is not slow to start here. It happens once, at the beginning, and then stops — so
+the choker, which this item suspected, is innocent, and duration was the wrong variable.
+
+**The cause is the tie-break.** Rarest-first compares with `availableFrom < rarest`, strictly less,
+so among equally rare pieces the lowest index wins. On a fresh swarm around one seed every piece
+nobody holds has availability 1, so every client resolves every tie identically and asks for the
+same piece next. Four clients that always want the same piece stay in lock step, and a swarm in lock
+step has nothing to trade.
+
+An experimental build differing in that one line — a reservoir sample among the equally rare, the
+technique the picker already uses for the first piece — on the same stand, the same machine:
+
+| torrent | tie-break | in the swarm | gave / took |
+|---|---|---|---|
+| 10 MiB | lowest index | 39.3, 39.2 s | 1.9 % |
+| 10 MiB | random among the rarest | **13.1, 12.6 s** | **68.8 %, 68.6 %** |
+| 30 MiB | lowest index | 119.2, 119.2 s | 0.6 % |
+| 30 MiB | random among the rarest | **34.2, 33.4 s** | **71.7 %, 72.2 %** |
+
+- **The statement this item owes, with its evidence: a short-lived client is not a free rider
+  because it is short-lived.** This client is a free rider at *every* duration, because its picker
+  keeps it in step with its peers — and it stops being one the moment the tie is broken at random,
+  giving seventy per cent of what it takes and finishing the whole swarm three times faster.
+- The change is not folded in here. A measurement and a change to the download path of every torrent
+  are two things to review, and the measurement is what makes the change arguable:
+  [B-128](B-128-ties-among-equally-rare-pieces.md).
+- Found on the way: in the high-trading runs the four clients recorded taking 40.9 MiB of a 40.0 MiB
+  torrent, which a counter that rises per verified piece can only do if a piece was verified twice —
+  [B-129](B-129-a-piece-can-be-verified-twice.md).
+
 - AC: the ratio of what a client gives to what it takes, against how long it stays, measured on the
   four-client stand at a minimum of three durations, written into the research; and a statement —
-  with its evidence — of whether a short-lived client is a free rider by construction.
+  with its evidence — of whether a short-lived client is a free rider by construction. **Both met**,
+  and the answer is the opposite of what the item assumed.
+  **Automated:** `swarm/src/test/.../measure/ScenariosTest.kt` — `aScaledStandIsTheSameSwarmForLonger`,
+  `theContributionOfASwarmOfOneIsRefused`, `theContributionCurveMeasuresWhatTheSwarmGaveItself`.
 - Anchors: `engine/src/commonMain/kotlin/io/github/youndie/kachok/engine/session/Session.kt`,
   `swarm/src/main/kotlin/io/github/youndie/kachok/swarm/measure/Scenario.kt`,
   `docs/research/research-architecture.md`.
