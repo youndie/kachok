@@ -1269,11 +1269,26 @@ public class Session(
                 // choke zeroed the count — still arrives, and used to be counted as minus one.
                 link.outstanding = (link.outstanding - 1).coerceAtLeast(0)
                 val block = event.block
+                // Counted before anything else: these bytes came off the wire whatever becomes of
+                // them, and the rate this peer is giving us is what the choker ranks it by.
                 link.download.add(block.length.toLong(), elapsedMillis())
-                picker.blockReceived(address, block.piece, block.begin).forEach { other ->
-                    connected[other]?.send(Message.Cancel(block.piece, block.begin, block.length))
+                if (picker.completed[block.piece.value]) {
+                    // **A block for a piece this client already has, and it must not reach the
+                    // writer.** The writer gathers by piece index and removes the entry when the
+                    // piece completes, so blocks arriving after that start a fresh entry which
+                    // fills up and verifies — and writes — the same piece a second time. Endgame
+                    // asks several peers for the same block on purpose, so this is ordinary
+                    // (B-129). The session drops it rather than the writer because of what each
+                    // knows here: the writer knows what *it* finished, and this knows what is still
+                    // wanted, which a re-check changes under both of them.
+                    block.release()
+                    publish { it.copy(duplicateBlocks = it.duplicateBlocks + 1) }
+                } else {
+                    picker.blockReceived(address, block.piece, block.begin).forEach { other ->
+                        connected[other]?.send(Message.Cancel(block.piece, block.begin, block.length))
+                    }
+                    writer.blocks.send(block)
                 }
-                writer.blocks.send(block)
                 requestMore(link)
             }
 
@@ -2161,6 +2176,7 @@ private fun SessionState.copy(
     dhtNodes: Int = this.dhtNodes,
     extendedPeers: Int = this.extendedPeers,
     hashFailures: Int = this.hashFailures,
+    duplicateBlocks: Int = this.duplicateBlocks,
     claimedNotOnDisk: Int = this.claimedNotOnDisk,
     verifiedPieces: Int = this.verifiedPieces,
     verifyingOf: Int = this.verifyingOf,
@@ -2200,6 +2216,7 @@ private fun SessionState.copy(
         dhtNodes = dhtNodes,
         extendedPeers = extendedPeers,
         hashFailures = hashFailures,
+        duplicateBlocks = duplicateBlocks,
         claimedNotOnDisk = claimedNotOnDisk,
         verifiedPieces = verifiedPieces,
         verifyingOf = verifyingOf,

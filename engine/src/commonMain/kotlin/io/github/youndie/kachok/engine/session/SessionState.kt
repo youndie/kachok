@@ -45,6 +45,16 @@ public class SessionState(
     public val dhtNextInSeconds: Long? = null,
     public val hashFailures: Int = 0,
     /**
+     * Blocks that arrived for a piece this client already had, and were dropped.
+     *
+     * **Not an error and not nothing**, which is what it has in common with [hashFailures]: endgame
+     * asks several peers for the same block on purpose, so a few of these are the endgame working.
+     * A number that climbs with the swarm is the bandwidth this client is paying for twice, and a
+     * number that climbs without one is a peer sending what nobody asked for
+     * ([B-129](../../../../../../../../docs/backlog/B-129-a-piece-can-be-verified-twice.md)).
+     */
+    public val duplicateBlocks: Int = 0,
+    /**
      * Pieces this client claimed before the last re-check that the disk did not back.
      *
      * **A number that exists because its absence cost a diagnosis.** A file the Files tab called
