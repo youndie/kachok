@@ -306,6 +306,44 @@ Measuring it needs several leechers trading with each other and no seed with the
 of `sequential` remains a direction and not a number, and it is now written down *why* rather than
 merely that.
 
+### 1.2c5 What asking in order costs the swarm, measured on a swarm
+
+[§1.2c4](#12c4-what-asking-in-order-costs-and-the-stand-that-cannot-say) could not answer
+[B-65](../backlog/B-65-sequential-download.md)'s claim because it had one downloader, and the claim
+is about the peers a client trades with. The stand of
+[B-126](../backlog/B-126-a-stand-with-more-than-one-leecher.md) has four: 10 MiB in 64 KiB pieces,
+**one** seed whose uplink is 1 MiB/s shared across all of its connections, four clients that start
+together and can find each other through the tracker. Four rounds, interleaved, the first of each
+discarded, Linux build machine, 2026-09-20.
+
+| | makespan | blocks from the seed |
+|---|---|---|
+| rarest-first | 39 250, 39 250, 39 256 ms | 2 512, 2 513, 2 512 |
+| sequential | 39 997, 39 993, 40 003 ms | **2 560, 2 560, 2 560** |
+| | ratio **1.02** (1.02–1.02) | four whole copies is 2 560 |
+
+**2 560 is exactly four copies of the torrent.** Four clients asking in order took every single block
+from the seed and gave each other nothing, in every run, without exception. Rarest-first traded 48
+blocks — 1.9 % — and that is the whole of the difference: 48 blocks is 768 KiB, which at the seed's
+1 MiB/s is 0.75 s, and the makespans differ by 0.747 s. The mechanism and the number agree to three
+figures, which is the part worth trusting.
+
+So B-65's sentence is confirmed in direction and mechanism: *every peer asks for piece 0 first,
+nobody has anything rare to trade*. What it is not is large, and the reason belongs to the stand
+rather than to the picker: **connections start choked, the choke pass runs every ten seconds and the
+optimistic slot rotates every thirty**, so a forty-second swarm gets about four passes and trading
+barely begins for either order. The 2 % is a floor measured in a swarm that had almost no time to
+trade at all; what a swarm of hours does is not in these numbers.
+
+**Two defects in the stand had to be found before any of this meant anything, and both were found by
+looking at where the bytes came from rather than at the clock.** The seed's rate was per connection,
+so "one seed at one client's worth of bandwidth" gave each of four clients that bandwidth in full and
+nobody needed to trade; and the first stand ran for four seconds, which is shorter than the choker's
+pass, so nothing was ever unchoked. Each version reported a confident ratio of 1.00. A comparison
+that cannot say where the bytes came from cannot tell a null result from a stand that asked nothing,
+which is why the report now prints the seed's own count beside every median and refuses to publish a
+ratio when both sides took everything from the seed.
+
 ### 1.2c3 What the desktop stage did not decide
 
 Recorded because [B-40](../backlog/B-40-wasmjs-ui-is-a-client-of-the-headless-engine.md) is the one

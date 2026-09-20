@@ -20,9 +20,18 @@ class ScenariosTest {
         Scenarios.all.values.forEach { scenario -> Measure.verify(scenario) }
     }
 
-    /** And the stand is one in which rarity exists, or the question is not the one it claims. */
+    /**
+     * Rarity has to be possible on every stand, and there are two ways to get it.
+     *
+     * **Statically**, by giving the seeds different subsets — which is what a stand of seeds and one
+     * downloader has to do, because nothing about it changes while it runs. **Dynamically**, by
+     * having more than one client: four leechers against one seed hold different pieces from the
+     * first second onwards, which is what a swarm in its first minute *is*. A stand with neither is
+     * one where every piece is equally available for the whole run and no picker can differ from
+     * another on it — a comparison that will confidently report nothing.
+     */
     @Test
-    fun theStandsHavePiecesOfDifferentRarity() {
+    fun everyStandCanMakeAPieceRare() {
         Scenarios.all.values.forEach { scenario ->
             val availability =
                 (0 until scenario.stand.pieces).map { piece ->
@@ -33,8 +42,9 @@ class ScenariosTest {
                 "${scenario.name}: a piece no seed holds makes the download impossible, not rare",
             )
             assertTrue(
-                availability.toSet().size > 1,
-                "${scenario.name}: every piece is equally available, so the pickers cannot differ",
+                availability.toSet().size > 1 || scenario.stand.leechers > 1,
+                "${scenario.name}: one downloader and seeds that all hold the same pieces is a stand " +
+                    "on which availability never varies, so no two pickers can differ on it",
             )
         }
     }
@@ -51,6 +61,54 @@ class ScenariosTest {
             runCatching { Measure.compare(Scenarios.pickerOrder, repetitions = 1) }
                 .exceptionOrNull()
         assertTrue(failure is IllegalArgumentException, "one round was accepted as a comparison")
+    }
+
+    /**
+     * A run in which nobody traded is called out rather than reported as a ratio.
+     *
+     * The first `swarm-order` stand was four seconds long — shorter than the choker's ten-second
+     * pass, so no peer was ever unchoked by any other, every client took its whole copy from the
+     * seed, and both variants "finished at the same time" because both were waiting on the same
+     * uplink. It reported a confident 1.00. The number was real and the question was not asked
+     * ([B-126](../../../../../../../../docs/backlog/B-126-a-stand-with-more-than-one-leecher.md)).
+     */
+    @Test
+    fun aRunInWhichNobodyTradedIsNotReportedAsAComparison() {
+        val everything = 2560
+        val report =
+            Report(
+                scenario = Scenarios.swarmOrder,
+                control = listOf(4000L, 4001L, 3999L),
+                variant = listOf(4000L, 4002L, 3998L),
+                controlFromSeed = listOf(everything, everything, everything),
+                variantFromSeed = listOf(everything, everything, everything),
+                everythingFromTheSeed = everything,
+            )
+        assertTrue(report.tradedNothing, "four clients that took four whole copies did trade, apparently")
+        assertTrue(
+            report.format("a machine").contains("This stand posed no question"),
+            "a stand with no trading in it published a ratio as though it had measured one",
+        )
+    }
+
+    /** And one where a side did trade is not called vacuous just because the other did not. */
+    @Test
+    fun aSideThatTradedIsTheAnswerRatherThanAFault() {
+        val everything = 2560
+        val report =
+            Report(
+                scenario = Scenarios.swarmOrder,
+                control = listOf(39250L, 39250L, 39256L),
+                variant = listOf(39997L, 39993L, 40003L),
+                controlFromSeed = listOf(2512, 2513, 2512),
+                variantFromSeed = listOf(everything, everything, everything),
+                everythingFromTheSeed = everything,
+            )
+        assertTrue(
+            !report.tradedNothing,
+            "one order trading and the other not is the result B-65 predicted, not a broken stand",
+        )
+        assertTrue(report.format("a machine").contains("sequential / rarest-first = 1.02"))
     }
 
     /** A ratio whose range spans 1.0 is not published as a percentage. */

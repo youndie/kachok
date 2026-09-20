@@ -45,13 +45,20 @@ public class SeedingPeer(
      */
     private val holds: Set<Int>? = null,
     /**
-     * Bytes a second **per connection**, or zero for as fast as the socket will go.
+     * Bytes a second **across every connection this seed has**, or zero for as fast as the socket
+     * will go.
      *
-     * Per connection because a client opens one connection to a peer, so this is the rate that peer
-     * gives that client — which is the quantity a stand wants to set. Applied by sleeping for the
-     * time a block should have taken after writing it, which makes the rate a floor on the download
-     * time and never a ceiling: nothing here can make a slow machine faster, so a test may assert
-     * "took at least this long" and never "took at most".
+     * **Shared and not per connection, and the difference is a whole scenario.** It was per
+     * connection first, and a stand of one seed at "one client's worth of bandwidth" and four
+     * clients then gave each of them that bandwidth in full: nobody had to trade with anybody, the
+     * four downloads finished in the time one of them would have taken, and the comparison reported
+     * no difference because there was no swarm in it
+     * ([B-126](../../../../../../../docs/backlog/B-126-a-stand-with-more-than-one-leecher.md)). A
+     * real seed has an uplink, not an uplink per peer.
+     *
+     * Applied by sleeping until this seed's shared budget allows the block that was just sent, which
+     * makes the rate a floor on the download time and never a ceiling: nothing here can make a slow
+     * machine faster, so a test may assert "took at least this long" and never "took at most".
      */
     private val bytesPerSecond: Long = 0,
     /**
@@ -269,17 +276,37 @@ public class SeedingPeer(
     private fun has(piece: Int): Boolean = holds?.contains(piece) ?: true
 
     /**
-     * Sleeps for the time [bytes] should have taken at [bytesPerSecond], after sending them.
+     * Holds this connection until the seed's shared budget has paid for [bytes], after sending them.
      *
      * After and not before, and the difference is a whole block: a rate applied before the write
      * delays the first byte of the download by a block's worth of nothing, and a test that measures
      * from its own `start` would count that as transfer time.
+     *
+     * The budget is one instant — when this seed is next free to have sent something — advanced
+     * under a lock by what each block costs. Two connections sending at once therefore queue behind
+     * each other exactly as they would behind one uplink, and neither of them sleeps while holding
+     * the lock.
      */
     private fun pace(bytes: Int) {
         if (bytesPerSecond <= 0) return
-        val millis = bytes.toLong() * MILLIS_PER_SECOND / bytesPerSecond
-        if (millis > 0) Thread.sleep(millis)
+        val cost = bytes.toLong() * NANOS_PER_SECOND / bytesPerSecond
+        val until =
+            synchronized(budget) {
+                val now = System.nanoTime()
+                // A seed that has been idle does not bank the time it was idle for.
+                val from = if (freeAt - now > 0) freeAt else now
+                freeAt = from + cost
+                freeAt
+            }
+        val wait = until - System.nanoTime()
+        if (wait > 0) Thread.sleep(wait / NANOS_PER_MILLI, (wait % NANOS_PER_MILLI).toInt())
     }
+
+    /** The lock over [freeAt]; the sleep itself happens outside it. */
+    private val budget = Any()
+
+    /** `System.nanoTime` at which this seed will next be free to have sent a block. */
+    private var freeAt: Long = System.nanoTime()
 
     private fun block(
         piece: PieceIndex,
@@ -312,7 +339,8 @@ public class SeedingPeer(
     }
 
     private companion object {
-        const val MILLIS_PER_SECOND = 1_000L
+        const val NANOS_PER_SECOND = 1_000_000_000L
+        const val NANOS_PER_MILLI = 1_000_000L
 
         /** BEP 3's opener: the byte 19 and `BitTorrent protocol`. */
 

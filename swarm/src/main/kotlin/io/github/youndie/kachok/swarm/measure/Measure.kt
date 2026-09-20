@@ -33,8 +33,9 @@ public object Measure {
      * measurement long before anybody runs one, and this is what notices.
      */
     public fun verify(scenario: Scenario) {
+        val stand = scenario.stand.scaledDown()
         listOf(scenario.control, scenario.variant).forEach { variant ->
-            val outcome = runOnce(scenario.stand, variant)
+            val outcome = runOnce(stand, variant)
             check(outcome.bytesMatch) { "${scenario.name}/${variant.name}: the file is not the torrent's content" }
             check(outcome.servedBlocks > 0) {
                 "${scenario.name}/${variant.name}: nothing came off the wire, so this measures the disk"
@@ -63,6 +64,8 @@ public object Measure {
         }
         val control = mutableListOf<Long>()
         val variant = mutableListOf<Long>()
+        val controlFromSeed = mutableListOf<Int>()
+        val variantFromSeed = mutableListOf<Int>()
         repeat(repetitions) { round ->
             // Both, in the same round, before either is repeated.
             val first = runOnce(scenario.stand, scenario.control)
@@ -70,19 +73,47 @@ public object Measure {
             if (round > 0) {
                 control += first.millis
                 variant += second.millis
+                controlFromSeed += first.servedBlocks
+                variantFromSeed += second.servedBlocks
             }
         }
-        return Report(scenario, control, variant)
+        return Report(
+            scenario,
+            control,
+            variant,
+            controlFromSeed,
+            variantFromSeed,
+            everythingFromTheSeed = everythingFromTheSeed(scenario.stand),
+        )
     }
 
-    /** One download, from a stand built for it and torn down after it. */
+    /**
+     * Every client's whole copy in blocks: what the seed serves when nobody trades.
+     *
+     * Zero for a stand with one client, where the number would mean nothing — one downloader takes
+     * its copy from the swarm however the swarm is arranged.
+     */
+    private fun everythingFromTheSeed(stand: Stand): Int =
+        if (stand.leechers < 2) {
+            0
+        } else {
+            stand.leechers * stand.pieces * ((stand.pieceLength + BLOCK - 1) / BLOCK)
+        }
+
+    /**
+     * One run of a stand — all of its clients at once — built for it and torn down after it.
+     *
+     * **The result is the makespan: when the *last* client finished.** With one client that is its
+     * own download time, which is what a stand of seeds measures. With four it is the swarm's time,
+     * and the difference matters because a picker that serves its own client at the swarm's expense
+     * is precisely a picker whose own clock looks fine (B-126).
+     */
     private fun runOnce(
         stand: Stand,
         variant: Variant,
     ): Outcome =
         runBlocking {
             val content = LocalSwarm.content(size = stand.size)
-            val directory = Files.createTempDirectory("kachok-measure")
             val local =
                 LocalSwarm.start(
                     content = content,
@@ -92,39 +123,54 @@ public object Measure {
                 )
             val dispatchers = EngineDispatchers()
             val job = SupervisorJob()
-            val scope = CoroutineScope(coroutineContext + dispatchers.io + job)
-            val set = TorrentSet(dispatchers, scope)
+            // One scope a client, under one job: closing a set must not take its neighbours' peers
+            // with it, and cancelling the job at the end must take all of them.
+            val clients =
+                (0 until stand.leechers).map {
+                    val directory = Files.createTempDirectory("kachok-measure")
+                    val scope = CoroutineScope(coroutineContext + dispatchers.io + SupervisorJob(job))
+                    Client(directory, scope, TorrentSet(dispatchers, scope))
+                }
             try {
-                val runtime = set.add(local.metainfo, variant.options(directory))
-                runtime.restore()
+                val runtimes =
+                    clients.map { client ->
+                        client.set.add(local.metainfo, variant.options(client.directory)).also { it.restore() }
+                    }
                 // The clock starts at the first dial and not at `start`, because everything before
-                // it — building the set, reading an empty directory — is the same for both variants
+                // it — building the sets, reading empty directories — is the same for both variants
                 // and is not what anybody is asking about.
                 val started = TimeSource.Monotonic.markNow()
-                runtime.start(scope)
+                runtimes.forEachIndexed { index, runtime -> runtime.start(clients[index].scope) }
                 val deadline = started + TIMEOUT
-                while (!runtime.state.value.isComplete) {
+                while (runtimes.any { !it.state.value.isComplete }) {
                     check(!deadline.hasPassedNow()) {
-                        "${variant.name} stalled at ${runtime.state.value.completedPieces} of " +
-                            "${stand.pieces} pieces with ${runtime.state.value.connectedPeers} peers"
+                        "${variant.name} stalled at " +
+                            runtimes.joinToString(", ") { "${it.state.value.completedPieces}/${stand.pieces}" } +
+                            " pieces with " +
+                            runtimes.joinToString(", ") { "${it.state.value.connectedPeers}" } + " peers"
                     }
                     delay(SAMPLE)
                 }
-                val took = started.elapsedNow().inWholeMilliseconds
                 Outcome(
-                    millis = took,
-                    bytesMatch = Files.readAllBytes(runtime.paths.single()).contentEquals(content),
+                    millis = started.elapsedNow().inWholeMilliseconds,
+                    bytesMatch = runtimes.all { Files.readAllBytes(it.paths.single()).contentEquals(content) },
                     servedBlocks = local.served,
                 )
             } finally {
-                set.close()
+                clients.forEach { it.set.close() }
                 job.cancelAndJoin()
                 dispatchers.close()
                 local.close()
                 @OptIn(kotlin.io.path.ExperimentalPathApi::class)
-                directory.deleteRecursively()
+                clients.forEach { it.directory.deleteRecursively() }
             }
         }
+
+    private class Client(
+        val directory: Path,
+        val scope: CoroutineScope,
+        val set: TorrentSet,
+    )
 
     private class Outcome(
         val millis: Long,
@@ -139,4 +185,6 @@ public object Measure {
      * Four rounds, three kept. Fewer is a coin toss with a decimal point.
      */
     private const val MINIMUM_RUNS = 4
+
+    private const val BLOCK = 16 * 1024
 }
