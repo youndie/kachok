@@ -30,9 +30,10 @@ public class BlockRequest(
  * 1. **Strict priority for started pieces.** A piece in flight holds `pieceLength / 16 KiB` pooled
  *    buffers, so finishing one frees memory as much as it makes progress. BEP 3 asks for this and
  *    the buffer pool insists on it.
- * 2. **Rarest first.** A piece only one peer has is the piece the swarm is about to lose. Ties go
- *    to the lowest index, except for the very first piece of a torrent, which is chosen at random:
- *    every client starting at piece 0 makes piece 0 the only piece anyone has.
+ * 2. **Rarest first, and ties are drawn rather than resolved.** A piece only one peer has is the
+ *    piece the swarm is about to lose. Among pieces of equal rarity the choice is random — and so
+ *    is the very first piece of a torrent, for the reason that turned out to be the same one: every
+ *    client that resolves a tie the same way asks for the same piece as every other.
  * 3. **Endgame.** When every block is either had or already asked for, ask several peers for the
  *    stragglers and cancel the losers. Without it a download ends at the speed of its slowest peer.
  *
@@ -504,9 +505,18 @@ public class PiecePicker(
      * are unchanged: rarest first, ties to the lowest index, and the very first piece of a torrent
      * chosen at random.
      *
-     * The random case is a reservoir sample rather than a second pass: keeping the *n*-th
+     * The random cases are reservoir samples rather than second passes: keeping the *n*-th
      * candidate with probability 1/n leaves every candidate equally likely, which is what the
      * list-and-index version did with a list.
+     *
+     * **Ties are drawn, and that is not a detail.** They used to go to the lowest index, which on a
+     * fresh swarm is every tie there is: a piece nobody has yet has availability 1, so *all* of them
+     * are equally rare and every client resolved the tie identically and asked for the same piece.
+     * Four clients that always want the same piece next stay in lock step, and a swarm in lock step
+     * has nothing to trade — measured, on four clients and one seed, as **1.9 %** of the data moving
+     * between them against **69 %** with the tie drawn, and a swarm that finished three times slower
+     * for it ([B-128](../../../../../../../../docs/backlog/B-128-ties-among-equally-rare-pieces.md),
+     * research §1.2c6). The first-piece rule was this same argument, applied to one tie out of many.
      */
     private fun rarestUnstarted(bitfield: Bitfield): Int? {
         // Two passes and not one scoring: the raised pool first, and the rest only when it has
@@ -541,6 +551,7 @@ public class PiecePicker(
         var best = -1
         var rarest = Int.MAX_VALUE
         var seen = 0
+        var tied = 0
         for (index in 0 until metainfo.pieceCount) {
             if (!wanted(index, bitfield, within)) continue
             seen++
@@ -552,6 +563,12 @@ public class PiecePicker(
             if (availableFrom < rarest) {
                 rarest = availableFrom
                 best = index
+                tied = 1
+            } else if (availableFrom == rarest) {
+                // The tie is drawn, not resolved by position: the same reservoir sample as the
+                // first-piece rule above, keeping the n-th candidate with probability 1/n.
+                tied++
+                if (random.nextInt(tied) == 0) best = index
             }
         }
         return if (best < 0) null else best

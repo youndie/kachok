@@ -594,6 +594,67 @@ class PiecePickerTest {
         assertEquals(listOf(9, 3), order)
     }
 
+    /**
+     * A tie between equally rare pieces is **drawn**, and this is the test that pins it.
+     *
+     * It used to go to the lowest index, and on a fresh swarm that is every tie there is: a piece
+     * nobody holds yet has availability 1, so all of them are equally rare, every client resolves
+     * the tie identically, and four clients end up asking for the same piece as each other for the
+     * whole download. A swarm in lock step has nothing to trade — measured at **1.9 %** of the data
+     * moving between four clients against **69 %** with the tie drawn, and three times the makespan
+     * for it ([B-128](../../../../../../../../docs/backlog/B-128-ties-among-equally-rare-pieces.md),
+     * research §1.2c6).
+     *
+     * Asserted across seeds rather than within one: what matters is that the answer depends on the
+     * draw at all. Put the lowest index back and every seed gives the same piece, and this fails.
+     */
+    @Test
+    fun aTieBetweenEquallyRarePiecesIsDrawnRatherThanTakenInOrder() {
+        val drawn =
+            (1..8).map { seed ->
+                val picker = PiecePicker(tenPieces, maxStartedPieces = 1, random = Random(seed))
+                // Past the first-piece rule, so what is under test is the tie and not that.
+                picker.restore(Bitfield(tenPieces.pieceCount).apply { set(0) })
+                picker.peerWith(a, *(0..9).toList().toIntArray())
+                picker
+                    .next(a, 1)
+                    .single()
+                    .piece.value
+            }
+
+        assertTrue(
+            drawn.toSet().size > 1,
+            "every seed asked for the same piece, so the tie is being resolved by position: $drawn",
+        )
+    }
+
+    /**
+     * And the draw is only ever among the *rarest*: rarity still decides, the draw only breaks it.
+     *
+     * The mutation this catches is the one that would make the change harmful — drawing among all
+     * candidates instead of among the equally rare, which is not rarest-first at all.
+     */
+    @Test
+    fun theDrawIsOnlyEverAmongTheRarest() {
+        (1..8).forEach { seed ->
+            val picker = PiecePicker(tenPieces, maxStartedPieces = 1, random = Random(seed))
+            picker.restore(Bitfield(tenPieces.pieceCount).apply { set(0) })
+            // Everybody has everything except piece 7, which one peer has: it is the only rare one.
+            picker.peerWith(a, *(0..9).toList().toIntArray())
+            picker.peerWith(b, *(0..9).filter { it != 7 }.toIntArray())
+            picker.peerWith(c, *(0..9).filter { it != 7 }.toIntArray())
+
+            assertEquals(
+                7,
+                picker
+                    .next(a, 1)
+                    .single()
+                    .piece.value,
+                "seed $seed drew a piece three peers have over the one only one peer has",
+            )
+        }
+    }
+
     /** Rarest-first is untouched and stays the default: every measured number assumes it. */
     @Test
     fun theDefaultIsStillRarestFirst() {
@@ -703,17 +764,17 @@ class PiecePickerTest {
     @Test
     fun raisingAFileOnARunningPickerChangesOnlyWhatBeginsNext() {
         val picker = PiecePicker(tenPieces, maxStartedPieces = 2, random = Random(1))
-        // Past the first-piece randomisation, so "the piece begun before" is piece 1 and not
-        // whichever the seed happened to draw — which could be the one about to be raised.
         picker.restore(Bitfield(tenPieces.pieceCount).apply { set(0) })
         picker.peerWith(a, *(0..9).toList().toIntArray())
         val first = picker.next(a, 1).single().piece
-        assertEquals(1, first.value)
+        // Whichever it drew, and the test raises a different one: with every candidate equally rare
+        // the tie is drawn, so naming the piece here would be naming the seed's first answer.
+        val raised = (1..9).first { it != first.value }
 
-        picker.prioritise(Bitfield(tenPieces.pieceCount), Bitfield(tenPieces.pieceCount).apply { set(5) })
+        picker.prioritise(Bitfield(tenPieces.pieceCount), Bitfield(tenPieces.pieceCount).apply { set(raised) })
 
         val second = picker.next(a, 1).single().piece
-        assertEquals(5, second.value, "the raised piece was not the next one begun")
+        assertEquals(raised, second.value, "the raised piece was not the next one begun")
         assertEquals(2, picker.startedPieces, "the piece in flight was dropped by the change")
         picker.blockReceived(a, first, 0)
         picker.pieceVerified(first)
@@ -727,23 +788,20 @@ class PiecePickerTest {
         picker.restore(Bitfield(tenPieces.pieceCount).apply { set(0) })
         picker.peerWith(a, *(0..9).toList().toIntArray())
         val inFlight = picker.next(a, 1).single().piece
-        assertEquals(1, inFlight.value)
+        // The skipped set is built around whatever was drawn, which makes this a stronger test than
+        // the one that named piece 1: the piece in flight is *certainly* one of the skipped now.
+        val skipped = (setOf(inFlight.value) + (1..9).filter { it != inFlight.value }.take(2)).toSet()
 
         picker.prioritise(
-            Bitfield(tenPieces.pieceCount).apply { (1..3).forEach { set(it) } },
+            Bitfield(tenPieces.pieceCount).apply { skipped.forEach { set(it) } },
             Bitfield(tenPieces.pieceCount),
         )
         picker.blockReceived(a, inFlight, 0)
         picker.pieceVerified(inFlight)
+        assertTrue(picker.completed[inFlight.value], "the piece in flight could not finish after the skip")
 
-        assertEquals(
-            4,
-            picker
-                .next(a, 1)
-                .single()
-                .piece.value,
-            "a piece of the skipped file was begun after the skip",
-        )
+        val next = picker.next(a, 1).single().piece.value
+        assertFalse(next in skipped, "a piece of the skipped file was begun after the skip")
         assertFalse(picker.isComplete)
     }
 
@@ -760,12 +818,7 @@ class PiecePickerTest {
         picker.prioritise(Bitfield(tenPieces.pieceCount), Bitfield(tenPieces.pieceCount))
 
         assertFalse(picker.isComplete, "un-skipping five files left the torrent complete")
-        assertEquals(
-            5,
-            picker
-                .next(a, 1)
-                .single()
-                .piece.value,
-        )
+        val next = picker.next(a, 1).single().piece.value
+        assertTrue(next in 5..9, "the piece asked for after un-skipping was not one of the un-skipped: $next")
     }
 }
