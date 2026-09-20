@@ -67,7 +67,18 @@ ICNS_SIZES = (16, 32, 64, 128, 256, 512, 1024)
 GROUND = (0x0B, 0x10, 0x0F)
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-COLORS_KT = ROOT / "ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/theme/Colors.kt"
+# **Found rather than spelled.** This used to name `ui/src/desktopMain/...`, and the day the screens
+# moved to `commonMain` the gate failed on a missing file rather than on a wrong icon — loudly,
+# which is the good version of what a guard with a coordinate written inside it does (B-80). The
+# theme's colours are one file whatever source set holds them.
+def _colours_kt() -> Path:
+    found = sorted(ROOT.glob("ui/src/*/kotlin/io/github/youndie/kachok/ui/theme/Colors.kt"))
+    if len(found) != 1:
+        raise SystemExit(f"expected one theme/Colors.kt under ui/src, found {[str(f) for f in found]}")
+    return found[0]
+
+
+COLORS_KT = _colours_kt()
 OUT = ROOT / "ui/src/desktopMain/resources/icon"
 
 

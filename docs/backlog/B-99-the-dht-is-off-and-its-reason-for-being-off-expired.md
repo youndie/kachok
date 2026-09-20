@@ -55,7 +55,7 @@ one, which is why this is a question and not an open item.
   condition that has already been met.
 - Anchors: `cli/src/main/kotlin/io/github/youndie/kachok/cli/Arguments.kt`,
   `engine/src/jvmMain/kotlin/io/github/youndie/kachok/engine/runtime/TorrentRuntime.kt`,
-  `ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/session/SettingsFrom.kt`,
+  `ui/src/commonMain/kotlin/io/github/youndie/kachok/ui/session/SettingsFrom.kt`,
   `docs/research/research-architecture.md`.
 
 **Answered by the owner 2026-09-17: on.** And by then it was not a close question — run 4 of

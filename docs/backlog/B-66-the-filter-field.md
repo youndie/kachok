@@ -52,5 +52,5 @@ is built and filtered, so `copy(selected = …)` replaces threading an index thr
   `anEmptyClientIsStillTheDesignsEmptyState`, `WiringTest.theFilterFieldLeavesTheWindow`. Checked by
   hand: `seed` kept a row whose name does not contain it, `ubuntu` emptied the table while the
   status bar went on counting, and *Clear the filter* brought it back.
-- Anchors: `ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/main/Toolbar.kt`,
+- Anchors: `ui/src/commonMain/kotlin/io/github/youndie/kachok/ui/main/Toolbar.kt`,
   `ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/App.kt`.

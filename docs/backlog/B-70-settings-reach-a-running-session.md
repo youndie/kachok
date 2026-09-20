@@ -63,4 +63,4 @@ dialling.
   it to 509, and typing 60 into the field brought it back to about 100 KiB/s within a few seconds —
   all without the torrent stopping.
 - Anchors: `engine/src/commonMain/kotlin/io/github/youndie/kachok/engine/session/Session.kt`,
-  `ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/session/SettingsFrom.kt`.
+  `ui/src/commonMain/kotlin/io/github/youndie/kachok/ui/session/SettingsFrom.kt`.

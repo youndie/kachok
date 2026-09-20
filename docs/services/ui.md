@@ -211,6 +211,14 @@ it a different torrent for every `.torrent` whose keys are not sorted, and those
   `EngineSnapshot` holds one second's worth of session state and nothing else. The window state used
   to be rebuilt inside the sampling loop, which made every click up to a second late
   ([B-64](../backlog/B-64-a-click-waited-for-the-tick.md)).
+* **The screens are common; the platform is not.** 32 files and 6 132 lines live in `commonMain` —
+  every composable, every mapping function, the theme — and eleven in `desktopMain`. Two of them are
+  `expect`/`actual` pairs and the rest are the desktop's own: a tray menu AWT draws itself, a launch
+  agent and a `Run` key, the Windows command line, the single-instance lock. **The two seams were
+  found by tooling and not by reading**: the compiler named the font loader, and this repository's
+  lint named `java.awt.Cursor`, which compiled fine with one target and would have failed on the
+  second ([B-80](../backlog/B-80-the-ui-moves-to-commonmain.md)). The holder stays on the desktop
+  until the engine has another target: the UI cannot be more common than the engine it drives.
 * **The window's state and its engine are not the window's.** Both live on a `ClientModel`, held one
   level above the window, and the composable reads them through `by model.selected` — the same text
   the `remember` was. Lifting the sampling loop's *body* out of the composable would have moved

@@ -56,7 +56,7 @@ whose association was easiest to get right.
 - AC: a `.torrent` double-clicked in a file manager opens this client's add dialog on Windows, macOS
   and Linux; doing it twice does not produce two clients fighting over one port.
 - Anchors: [`ui/build.gradle.kts`](../../ui/build.gradle.kts),
-  [`ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/session/SingleInstance.kt`](../../ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/session/SingleInstance.kt),
+  [`control/src/main/kotlin/io/github/youndie/kachok/control/SingleInstance.kt`](../../control/src/main/kotlin/io/github/youndie/kachok/control/SingleInstance.kt),
   [`ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/App.kt`](../../ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/App.kt).
 
 ## Done

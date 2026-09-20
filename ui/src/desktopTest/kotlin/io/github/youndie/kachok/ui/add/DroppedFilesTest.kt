@@ -54,7 +54,7 @@ class DroppedFilesTest {
         val hovering = Files { throw InvalidDnDOperationException("No drop current") }
         assertTrue(DroppedFiles.offered(hovering))
         assertEquals(emptyList(), DroppedFiles.paths(hovering))
-        assertEquals(listOf(DroppedFiles.UNNAMED_DROP), DroppedFiles.hovering(hovering))
+        assertEquals(listOf(UNNAMED_DROP), DroppedFiles.hovering(hovering))
     }
 
     @Test

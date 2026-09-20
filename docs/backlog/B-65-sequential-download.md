@@ -61,4 +61,4 @@ passed on the command line opens without a dialog.
   `ui/src/desktopTest/.../add/AddTorrentTest.kt` — `theSequentialTickLeavesTheDialog` and the badge
   count; `.../session/SettingsFromTest.kt` — `thePerTorrentChoicesReachTheEnginesOptions`.
 - Anchors: `engine/src/commonMain/kotlin/io/github/youndie/kachok/engine/picker/PiecePicker.kt`,
-  `ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/add/AddTorrent.kt`.
+  `ui/src/commonMain/kotlin/io/github/youndie/kachok/ui/add/AddTorrent.kt`.

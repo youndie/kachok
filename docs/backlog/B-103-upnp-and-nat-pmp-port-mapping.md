@@ -56,7 +56,7 @@ different objection and should be recorded as that one if it is the one that sta
   the timeout and the status says *not mapped* rather than nothing.
 - Anchors: `engine/src/jvmMain/kotlin/io/github/youndie/kachok/engine/io/PeerListener.kt`,
   `engine/src/jvmMain/kotlin/io/github/youndie/kachok/engine/runtime/TorrentSet.kt`,
-  `ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/main/StatusBar.kt`.
+  `ui/src/commonMain/kotlin/io/github/youndie/kachok/ui/main/StatusBar.kt`.
 
 ## Iteration 1 — 2026-09-17: the protocol, before any socket
 

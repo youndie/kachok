@@ -59,4 +59,4 @@ knowing which data and where.
   `remove_dialog.png`. Checked by hand as well: removing with the box unticked left
   `~/Downloads/payload.bin` where it was.
 - Anchors: `engine/src/jvmMain/kotlin/io/github/youndie/kachok/engine/runtime/TorrentSet.kt`,
-  `ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/main/Toolbar.kt`.
+  `ui/src/commonMain/kotlin/io/github/youndie/kachok/ui/main/Toolbar.kt`.

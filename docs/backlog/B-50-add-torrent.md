@@ -49,4 +49,4 @@ blocked_by: [B-48]
   `add_refused.png` and `add_gestures.png`. `MainWindowTest` asserts the three screens are reachable
   from the window rather than only from a golden.
 - Anchors: `ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/add/`,
-  `ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/session/AddFrom.kt`.
+  `ui/src/commonMain/kotlin/io/github/youndie/kachok/ui/session/AddFrom.kt`.

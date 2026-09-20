@@ -47,7 +47,7 @@ row is already gone today — [B-75](B-75-the-window-below-800dp.md) sized the w
   passes with a row added — and at the artboard size with ten it is pixel-identical to today's
   golden, so the fix costs nothing where nothing was wrong. A window shorter than the artboard
   reaches the last row by scrolling.
-- Anchors: `ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/settings/Settings.kt`,
+- Anchors: `ui/src/commonMain/kotlin/io/github/youndie/kachok/ui/settings/Settings.kt`,
   `ui/src/desktopTest/kotlin/io/github/youndie/kachok/ui/main/WiringTest.kt`,
   `ui/src/desktopTest/snapshots/settings_screen.png`.
 
