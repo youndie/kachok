@@ -1,7 +1,8 @@
 package io.github.youndie.kachok.swarm.measure
 
 /**
- * `./gradlew :swarm:measure -Pscenario=picker-order -Pruns=4`.
+ * `./gradlew :swarm:measure -Pscenario=picker-order -Pruns=4`, or
+ * `./gradlew :swarm:measure -Pscenario=swarm-order -Pscales=1,3,6` for the contribution curve.
  *
  * **Not part of `build`, and the reason is the one `CollectorBench` already gives:** it takes
  * minutes, it measures this machine as much as this code, and a number produced on a shared CI
@@ -17,6 +18,17 @@ public object MeasureMain {
             Scenarios.all[name] ?: error(
                 "no scenario called '$name'; this repository asks: ${Scenarios.all.keys.joinToString(", ")}",
             )
+
+        val scales = argument(args, "--scales")?.split(",")?.mapNotNull { it.trim().toIntOrNull() }
+        if (scales != null) {
+            // The other question this stand can be asked: not "which variant" but "does a client
+            // contribute at all, and after how long" (B-127). A curve, so no control and no ratio.
+            println("measuring what ${scenario.name}'s clients give each other, at ${scales.joinToString(", ")}x")
+            val contribution = Measure.contribution(scenario, scales)
+            println()
+            print(contribution.format(machine()))
+            return
+        }
 
         println("measuring ${scenario.name} — $runs rounds, interleaved, the first of each discarded")
         val report = Measure.compare(scenario, runs)

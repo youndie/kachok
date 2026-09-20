@@ -88,6 +88,43 @@ public object Measure {
     }
 
     /**
+     * What a swarm of clients gave each other, over how long they were in it.
+     *
+     * **Not a comparison, and it deliberately does not use [compare].** The question is not "which
+     * of two variants is faster" but "does this client contribute anything, and after how long" —
+     * a curve rather than a pair, taken at several sizes of the same stand, because the only way to
+     * keep four clients in a swarm for longer is to give them more to download
+     * ([B-127](../../../../../../../../docs/backlog/B-127-trading-barely-starts-before-a-download-ends.md)).
+     *
+     * Two runs at each size, both printed. A single run of anything is not a measurement, and with
+     * two the reader can see for themselves whether the second says what the first did.
+     */
+    public fun contribution(
+        scenario: Scenario,
+        scales: List<Int>,
+        runsEach: Int = 2,
+    ): Contribution {
+        require(scenario.stand.leechers > 1) {
+            "a swarm of one client gives nothing to anybody by construction; this measures a swarm"
+        }
+        val points =
+            scales.flatMap { scale ->
+                val stand = scenario.stand.times(scale)
+                (0 until runsEach).map {
+                    val outcome = runOnce(stand, scenario.control)
+                    ContributionPoint(
+                        bytes = stand.size.toLong(),
+                        millis = outcome.millis,
+                        gave = outcome.gave,
+                        took = outcome.took,
+                        fromSeed = outcome.servedBlocks.toLong() * BLOCK,
+                    )
+                }
+            }
+        return Contribution(scenario, points)
+    }
+
+    /**
      * Every client's whole copy in blocks: what the seed serves when nobody trades.
      *
      * Zero for a stand with one client, where the number would mean nothing — one downloader takes
@@ -155,6 +192,10 @@ public object Measure {
                     millis = started.elapsedNow().inWholeMilliseconds,
                     bytesMatch = runtimes.all { Files.readAllBytes(it.paths.single()).contentEquals(content) },
                     servedBlocks = local.served,
+                    // Read once the last client is done and before anything is closed: what each
+                    // of them gave the others, against what it took.
+                    gave = runtimes.map { it.state.value.uploaded },
+                    took = runtimes.map { it.state.value.downloaded },
                 )
             } finally {
                 clients.forEach { it.set.close() }
@@ -176,6 +217,8 @@ public object Measure {
         val millis: Long,
         val bytesMatch: Boolean,
         val servedBlocks: Int,
+        val gave: List<Long> = emptyList(),
+        val took: List<Long> = emptyList(),
     )
 
     private val TIMEOUT = 5.minutes

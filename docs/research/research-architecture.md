@@ -344,6 +344,59 @@ that cannot say where the bytes came from cannot tell a null result from a stand
 which is why the report now prints the seed's own count beside every median and refuses to publish a
 ratio when both sides took everything from the seed.
 
+### 1.2c6 Why four clients give each other nothing, and it is not the choker
+
+[B-126](../backlog/B-126-a-stand-with-more-than-one-leecher.md) left a number lying beside its
+result: even the better picker moved only 1.9 % of the data between the four clients. The obvious
+suspect was time — connections start choked, the choke pass is ten seconds, the optimistic slot
+thirty — so [B-127](../backlog/B-127-trading-barely-starts-before-a-download-ends.md) took the same
+stand at three durations, which is the same swarm given more to download.
+
+| torrent | in the swarm | gave / took | from the seed |
+|---|---|---|---|
+| 10 MiB | 39.3 s | 1.9 % | 39.2 of 40.0 MiB |
+| 30 MiB | 119.2 s | 0.6 % | 119.2 of 120.0 MiB |
+| 60 MiB | 239.2 s | 0.3 % | 239.2 of 240.0 MiB |
+
+Two runs at each size, agreeing to the tenth of a percent. **The share falls as the swarm lasts
+longer, and the absolute does not move: 0.8 MiB traded, every time.** Trading does not start slowly
+here — it happens once, at the very beginning, and then stops. Time was the wrong variable, and the
+hypothesis the item was written on is refuted by its own measurement.
+
+**The cause is one line in the picker, and it is the tie-break.** Rarest-first breaks ties by taking
+the lowest index — `if (availableFrom < rarest)`, strictly less. On a fresh swarm around one seed
+every piece nobody has yet has availability 1, so *every* client resolves the tie the same way and
+asks the seed for the same piece. Four clients that always want the same piece next stay in lock
+step, and a swarm in lock step has nothing to trade: each of them can only wait for the seed.
+
+An experimental build differing in that line alone — a reservoir sample among the equally rare,
+which is the technique already used for the first piece of a torrent — on the same stand, the same
+machine, the same afternoon:
+
+| torrent | | in the swarm | gave / took |
+|---|---|---|---|
+| 10 MiB | lowest index | 39.3, 39.2 s | 1.9 % |
+| 10 MiB | **random among the rarest** | **13.1, 12.6 s** | **68.8 %, 68.6 %** |
+| 30 MiB | lowest index | 119.2, 119.2 s | 0.6 % |
+| 30 MiB | **random among the rarest** | **34.2, 33.4 s** | **71.7 %, 72.2 %** |
+
+The clients give each other seventy per cent of the data instead of two, and the swarm finishes
+**three times faster**. The seed stops being asked for four copies and is asked for a little over
+one.
+
+So the answer to the question B-127 asked — *is a short-lived client a free rider?* — is that
+duration has nothing to do with it. **This client is a free rider at every duration**, because its
+picker keeps it in step with its peers, and it stops being one the moment the tie is broken at
+random. The fix and its acceptance are [B-128](../backlog/B-128-ties-among-equally-rare-pieces.md);
+it is not folded in here, because a measurement and a change to the download path of every torrent
+are two things to review, and the measurement is what makes the change arguable.
+
+*One caveat carried from the experiment: in the runs with heavy trading the clients between them
+recorded taking 40.9 MiB of a 40.0 MiB torrent — about 2 % more than exists. A counter that rises
+per verified piece can only do that if a piece was verified twice, which is
+[B-129](../backlog/B-129-a-piece-can-be-verified-twice.md). It does not affect the ratios above,
+which are of the same denominator in both arms.*
+
 ### 1.2c3 What the desktop stage did not decide
 
 Recorded because [B-40](../backlog/B-40-wasmjs-ui-is-a-client-of-the-headless-engine.md) is the one

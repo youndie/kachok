@@ -26,7 +26,11 @@ tasks.register<JavaExec>("measure") {
         listOfNotNull(
             (project.findProperty("scenario") as String?)?.let { listOf("--scenario", it) },
             (project.findProperty("runs") as String?)?.let { listOf("--runs", it) },
+            (project.findProperty("scales") as String?)?.let { listOf("--scales", it) },
         ).flatten()
+    // A sixfold stand holds sixty mebibytes of payload in the seed and four clients' worth of
+    // buffers beside it; the default heap is not the measurement's to be limited by.
+    maxHeapSize = "2g"
 }
 
 dependencies {
