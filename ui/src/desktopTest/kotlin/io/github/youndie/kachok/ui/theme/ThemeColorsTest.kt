@@ -61,9 +61,14 @@ class ThemeColorsTest {
     fun theSheetIsTheSizeItsFixtureAsksFor() {
         // A golden of the wrong size is a fixture that changed without anyone looking at it, and
         // every pixel assertion above would still pass on the part that survived.
+        //
+        // **440 x 560 until the interface was scaled**, and this guard is the reason that change was
+        // not made quietly: an artboard is a size in *design* units, so drawing everything 1.2 times
+        // larger means the same artboard needs 1.2 times the pixels
+        // ([B-130](../../../../../../../../docs/backlog/B-130-the-interface-is-too-small.md)).
         val image = ImageIO.read(golden)
-        assertEquals(440, image.width)
-        assertEquals(560, image.height)
+        assertEquals(528, image.width)
+        assertEquals(672, image.height)
     }
 
     private companion object {

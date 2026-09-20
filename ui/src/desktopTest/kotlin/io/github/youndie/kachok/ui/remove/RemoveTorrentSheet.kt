@@ -19,7 +19,7 @@ import io.github.youndie.viddik.annotations.ViddikScreenshot
  * The difference between them is the whole point of the dialog, and it is a difference in wording
  * and colour — exactly the kind a golden catches and a unit test describes badly.
  */
-@ViddikScreenshot(name = "dialog", group = "remove", width = 480, height = 560)
+@ViddikScreenshot(name = "dialog", group = "remove", width = 576, height = 672)
 @Composable
 internal fun RemoveTorrentSheet() {
     val state =

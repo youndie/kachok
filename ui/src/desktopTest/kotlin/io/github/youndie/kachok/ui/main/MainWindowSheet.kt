@@ -31,7 +31,7 @@ import io.github.youndie.viddik.annotations.ViddikScreenshot
  * underneath it. `TitleBarStyle.MacOs` because the reference is a macOS window; the host's own
  * style is what the application uses.
  */
-@ViddikScreenshot(name = "window", group = "main", width = 1200, height = 760)
+@ViddikScreenshot(name = "window", group = "main", width = 1440, height = 912)
 @Composable
 internal fun MainWindowSheet() {
     KachokTheme {
@@ -70,7 +70,7 @@ internal fun MainWindowSheet() {
  * actually say about them, which is nothing yet and why. See the deviation recorded in
  * [B-49](../../../../../../../../docs/backlog/B-49-details-panel.md).
  */
-@ViddikScreenshot(name = "planned-tabs", group = "details", width = 1023, height = 440)
+@ViddikScreenshot(name = "planned-tabs", group = "details", width = 1228, height = 528)
 @Composable
 internal fun DetailsTabsSheet() {
     KachokTheme {
@@ -93,7 +93,7 @@ internal fun DetailsTabsSheet() {
  * over it. The alternative was a horizontal scrollbar, which keeps every column and makes the
  * window useless at exactly the width where it appears.
  */
-@ViddikScreenshot(name = "narrow", group = "main", width = 600, height = 420)
+@ViddikScreenshot(name = "narrow", group = "main", width = 720, height = 504)
 @Composable
 internal fun NarrowWindowSheet() {
     KachokTheme {
@@ -115,7 +115,7 @@ internal fun NarrowWindowSheet() {
  * — where every visible character is the same for every torrent on the machine. Neither fault shows
  * at `~/Downloads/iso`, which is why the window had to be run to find them.
  */
-@ViddikScreenshot(name = "long-path", group = "details", width = 341, height = 250)
+@ViddikScreenshot(name = "long-path", group = "details", width = 409, height = 300)
 @Composable
 internal fun DetailsLongPathSheet() {
     KachokTheme {

@@ -21,7 +21,7 @@ import io.github.youndie.viddik.annotations.ViddikScreenshot
  * picture stopped one section short — a golden that cannot see the last row is a golden that cannot
  * notice it changing.
  */
-@ViddikScreenshot(name = "screen", group = "settings", width = 620, height = 760)
+@ViddikScreenshot(name = "screen", group = "settings", width = 744, height = 912)
 @Composable
 internal fun SettingsSheet() {
     KachokTheme {
@@ -39,7 +39,7 @@ internal fun SettingsSheet() {
  * The whole chrome is still there — a toolbar with somewhere to start and a status bar saying the
  * port is listening — because an empty client is idle rather than broken.
  */
-@ViddikScreenshot(name = "empty", group = "main", width = 1200, height = 562)
+@ViddikScreenshot(name = "empty", group = "main", width = 1440, height = 674)
 @Composable
 internal fun EmptyWindowSheet() {
     KachokTheme {

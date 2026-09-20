@@ -33,6 +33,6 @@ private fun Sheet() {
 
 // 859 is the design's list panel, measured between the window edge and the details divider; 203 is
 // seven rows of 28 with the hairline each one draws under itself.
-@ViddikScreenshot(name = "seven-states", group = "list", width = 859, height = 203)
+@ViddikScreenshot(name = "seven-states", group = "list", width = 1031, height = 244)
 @Composable
 internal fun RowStatesSheet(): Unit = Sheet()

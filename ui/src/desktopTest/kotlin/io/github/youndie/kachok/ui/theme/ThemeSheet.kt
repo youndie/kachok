@@ -135,6 +135,6 @@ private fun Sheet() {
     }
 }
 
-@ViddikScreenshot(name = "roles-and-type", group = "theme", width = 440, height = 560)
+@ViddikScreenshot(name = "roles-and-type", group = "theme", width = 528, height = 672)
 @Composable
 internal fun ThemeSheet(): Unit = Sheet()
