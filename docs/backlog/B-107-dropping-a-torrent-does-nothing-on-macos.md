@@ -1,7 +1,7 @@
 ---
 id: B-107
 title: "Dropping a .torrent on the window does nothing on macOS"
-status: wip
+status: done
 priority: P2
 size: M
 stage: phase-2-ui
@@ -103,3 +103,50 @@ owner drags a `.torrent` from Finder over the window, sees the overlay, lets go,
 has not been exercised, and a fix for a mechanism read off source is a hypothesis until it is. The
 same drag on Windows afterwards. Both take a person at the machine; the next iteration is that
 drag, and nothing else.
+
+## Iteration 2 — 2026-09-20: the drag, and the answer the JDK does not document
+
+**Driven on the owner's Mac**, with the window run on a `user.home` of its own so the acceptance
+could not touch the real torrent list, the real settings or the single-instance lock, and with a
+fixture whose tracker is `.invalid`.
+
+**The first drag reproduced the bug on the build that was supposed to have fixed it.** No overlay,
+no dialog, nothing — and this time the process left a stack trace:
+
+```
+java.lang.NullPointerException: null cannot be cast to non-null type kotlin.collections.List<java.io.File>
+	at DroppedFiles.paths(DroppedFiles.kt:41)
+	at DroppedFiles.hovering(DroppedFiles.kt:57)
+	at Client.onEntered(App.kt:771)
+```
+
+Iteration 1 read `SunDropTargetContextPeer`, found `InvalidDnDOperationException` — *"No drop
+current"* — and caught it. **macOS returns `null` instead.** The unchecked cast then raised
+`NullPointerException`, which is none of the three exceptions caught, so `onEntered` threw exactly
+as before, Compose never called `acceptDrag`, and the window neither drew an overlay nor took the
+drop. The mechanism *class* read off the source was right — the data is not readable while the drag
+hovers — and the way the platform says so was wrong, which no amount of further reading would have
+settled.
+
+**The fix is the cast.** `as? List<*>` then `filterIsInstance<File>()`: a null, a value of another
+type, and a list with something else in it are all "no files here" and none of them is a throw.
+
+**The same drag on the fixed build**, in one sequence: the window tinted, drew its dashed border and
+read **"Drop to add a torrent"** while the file hovered — the unnamed-file case the item designed,
+because macOS will not give the name until the drop — and on release the **Add torrent** dialog
+opened for `drop-acceptance.torrent`, naming its 64.0 KiB, 4 pieces of 16.0 KiB, one file, and its
+info hash.
+
+**A note on the test that nearly passed for the wrong reason.** The double for "the platform answers
+null" was first written as a Kotlin class overriding `getTransferData(): Any`; Kotlin inserts a null
+check on the return, so the double threw before the code under test was reached. It is a
+`java.lang.reflect.Proxy` now, which returns what the handler says, exactly as a Java method
+compiled without a Kotlin null check does.
+
+- AC: on macOS, the owner drags a `.torrent` from Finder over the window and sees the overlay, lets
+  go, and sees the add dialog for that file. **Met, and driven.** Windows is owed the same drag and
+  is [B-116](B-116-a-torrent-whose-name-is-not-ascii-cannot-be-opened-on-windows.md)'s neighbour on
+  that machine; the prediction this fix makes there is that it was never a macOS bug at all.
+  **Automated:** `ui/src/desktopTest/.../add/DroppedFilesTest.kt` —
+  `aFlavourAdvertisedThatAnswersNullIsAnUnnamedFileNotACrash`,
+  `aFlavourAdvertisedThatAnswersSomethingElseIsNoFiles`, and the four the first iteration wrote.
