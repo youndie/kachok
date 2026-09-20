@@ -391,6 +391,23 @@ random. The fix and its acceptance are [B-128](../backlog/B-128-ties-among-equal
 it is not folded in here, because a measurement and a change to the download path of every torrent
 are two things to review, and the measurement is what makes the change arguable.
 
+**Taken again after the change shipped** ([B-128](../backlog/B-128-ties-among-equally-rare-pieces.md)),
+on the build this repository now has rather than on a patched one, with stderr captured in full:
+
+| torrent | in the swarm | gave / took | from the seed |
+|---|---|---|---|
+| 10 MiB | 12.8, 12.6 s | 68.0 %, 68.8 % | 12.8, 12.6 of ~41 MiB |
+| 30 MiB | 34.0, 34.2 s | 71.8 %, 71.5 % | 34.1, 34.3 of ~121 MiB |
+
+The shipped build reproduces the experimental one, which is the only reason the experiment above is
+worth quoting: a number taken from a patch that never became the product measures the patch.
+
+**And it costs a single downloader nothing.** The `picker-order` stand of §1.2c4 — one client, five
+seeds, rarest-first against in-order — re-run after the change: rarest-first 1 624 ms median against
+1 625 ms for in-order, *no difference this stand can see*, against 1 621 and 1 623 ms before it. The
+stand is bandwidth-bound, so what this says is narrow and is exactly what it needs to say: drawing
+the tie rather than taking the lowest index did not make one client's own download slower.
+
 *One caveat carried from the experiment: in the runs with heavy trading the clients between them
 recorded taking 40.9 MiB of a 40.0 MiB torrent — about 2 % more than exists. A counter that rises
 per verified piece can only do that if a piece was verified twice, which is

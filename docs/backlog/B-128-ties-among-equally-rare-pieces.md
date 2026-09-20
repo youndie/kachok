@@ -1,7 +1,7 @@
 ---
 id: B-128
 title: "Rarest-first breaks ties by index, which keeps every client of a swarm in lock step"
-status: open
+status: done
 priority: P1
 size: S
 stage: m9-swarm
@@ -45,11 +45,38 @@ The swarm finishes three times faster and the seed is asked for one copy instead
   [B-106](B-106-per-file-priority.md), where the same tie-break question arises and the same answer
   probably applies. Worth a look once this one is in.
 
+## Taken again on the shipped build
+
+Not on the patch the finding was made with — a number from a patch that never became the product
+measures the patch — and with stderr captured in full, because the first capture had a truncated
+trace in it that turned out to belong to the Gradle client and not to any run.
+
+| torrent | in the swarm | gave / took |
+|---|---|---|
+| 10 MiB | 12.8, 12.6 s | **68.0 %, 68.8 %** |
+| 30 MiB | 34.0, 34.2 s | **71.8 %, 71.5 %** |
+
+Against 39.3 s and 1.9 % before. And the `picker-order` stand of
+[B-125](B-125-a-measurement-that-is-a-pair.md), one client against five seeds, re-run: 1 624 ms
+median for rarest-first against 1 625 ms for in-order — *no difference this stand can see*, against
+1 621 and 1 623 ms before the change. **The draw costs a single downloader nothing** on a stand
+where the swarm's bandwidth is the bottleneck, which is the narrow thing that needed saying.
+
+Three tests named the piece the old tie-break happened to give, and each now says what it meant: the
+raised piece is whichever was *not* drawn, the skipped set is built around the piece in flight — so
+that test is now certain to exercise the case it claims — and un-skipping asks for one of the
+un-skipped. That is the change paying for itself twice: those three were passing for a reason that
+had nothing to do with their subject.
+
 - AC: on the `swarm-order` stand the four clients give each other more than half of what they take,
-  and the `picker-order` comparison of [B-125](B-125-a-measurement-that-is-a-pair.md) is re-run to
-  show what the change costs a single downloader — if anything; the picker's unit tests still pin
-  rarest-first, strict priority and endgame, and one of them pins the new rule by failing when the
-  tie-break goes back to the lowest index.
+  and the `picker-order` comparison is re-run to show what the change costs a single downloader; the
+  picker's unit tests still pin rarest-first, strict priority and endgame, and one of them pins the
+  new rule by failing when the tie-break goes back to the lowest index. **All met** — the mutation
+  back to `availableFrom < rarest` alone fails `aTieBetweenEquallyRarePiecesIsDrawnRatherThanTakenInOrder`
+  and nothing else.
+  **Automated:** `engine/src/commonTest/.../picker/PiecePickerTest.kt` —
+  `aTieBetweenEquallyRarePiecesIsDrawnRatherThanTakenInOrder`, `theDrawIsOnlyEverAmongTheRarest`,
+  `theRarestPieceIsTakenFirst`, `theFirstPieceOfATorrentIsChosenAtRandom`.
 - Anchors: `engine/src/commonMain/kotlin/io/github/youndie/kachok/engine/picker/PiecePicker.kt`,
   `engine/src/commonTest/kotlin/io/github/youndie/kachok/engine/picker/PiecePickerTest.kt`,
   `docs/research/research-architecture.md`.
