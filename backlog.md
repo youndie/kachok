@@ -53,7 +53,7 @@ which is also the order of work.
 | Task | | Priority | Size | Blocked by |
 |---|---|---|---|---|
 | [B-107](docs/backlog/B-107-dropping-a-torrent-does-nothing-on-macos.md) `[~]` | Dropping a .torrent on the window does nothing on macOS | P2 | M | - |
-| [B-116](docs/backlog/B-116-a-torrent-whose-name-is-not-ascii-cannot-be-opened-on-windows.md) `[ ]` | A `.torrent` whose name is not ASCII cannot be opened on Windows: the launcher hands the path over as question marks | P2 | S | - |
+| [B-116](docs/backlog/B-116-a-torrent-whose-name-is-not-ascii-cannot-be-opened-on-windows.md) `[~]` | A `.torrent` whose name is not ASCII cannot be opened on Windows: the launcher hands the path over as question marks | P2 | S | - |
 | [B-130](docs/backlog/B-130-the-interface-is-too-small.md) `[ ]` | The whole interface wants to be 10–20 % larger | P2 | M | - |
 | [B-80](docs/backlog/B-80-the-ui-moves-to-commonmain.md) `[ ]` | The UI moves to commonMain | P2 | L | B-79 |
 | [B-37](docs/backlog/B-37-v2-and-hybrid-torrents.md) `[?]` | v2 and hybrid torrents (BEP 52): SHA-256 piece layers | P3 | L | B-04 |
