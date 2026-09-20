@@ -12,7 +12,7 @@ blocked_by: []
 # B-130 — The interface is drawn too small
 
 Reported by the owner about the running window: **everything should be 10–20 % larger.** The type
-scale is 10 to 19 sp ([Type.kt](../../ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/theme/Type.kt)
+scale is 10 to 19 sp ([Type.kt](../../ui/src/commonMain/kotlin/io/github/youndie/kachok/ui/theme/Type.kt)
 — column heads at 10 sp, body at 12.5 sp, the headline at 19 sp), and there are **230 hard-coded
 `N.dp` literals** in `ui/src/desktopMain`, so this is not a number that lives anywhere.
 
@@ -75,6 +75,6 @@ there is no minimum size to stop them — [B-131](B-131-the-window-has-no-minimu
   what turned "the scale broke the settings screen" into "the artboards are in pixels".
 - `INTERFACE_SCALE` in `theme/Theme.kt` is that one value; an *Interface scale* setting would write
   to it and is still its own item.
-- Anchors: `ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/theme/Theme.kt`,
-  `ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/theme/Type.kt`,
+- Anchors: `ui/src/commonMain/kotlin/io/github/youndie/kachok/ui/theme/Theme.kt`,
+  `ui/src/commonMain/kotlin/io/github/youndie/kachok/ui/theme/Type.kt`,
   `ui/src/desktopTest/snapshots/`.

@@ -84,4 +84,4 @@ already verified is asked for again ·
 `ui/src/desktopTest/.../session/StoredTorrentsTest.kt` — it is written down without disturbing the
 pause, the folder or the file selection, and writes nothing for a torrent this client does not have.
 - Anchors: [`engine/src/commonMain/kotlin/io/github/youndie/kachok/engine/session/`](../../engine/src/commonMain/kotlin/io/github/youndie/kachok/engine/session),
-  [`ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/details/DetailsPanel.kt`](../../ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/details/DetailsPanel.kt).
+  [`ui/src/commonMain/kotlin/io/github/youndie/kachok/ui/details/DetailsPanel.kt`](../../ui/src/commonMain/kotlin/io/github/youndie/kachok/ui/details/DetailsPanel.kt).

@@ -19,7 +19,7 @@ Where that number can come from is short, which is what makes this worth chasing
 guessing. The row prints
 `verifiedBytes * 100 / length` with integer division, so it floors: 99.6 % prints as `99%`, and the
 `complete` flag beside it is `verifiedBytes >= length` in bytes, deliberately not the rounded
-percentage ([DetailsFrom.kt](../../ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/session/DetailsFrom.kt)).
+percentage ([DetailsFrom.kt](../../ui/src/commonMain/kotlin/io/github/youndie/kachok/ui/session/DetailsFrom.kt)).
 `verifiedBytes` is
 [`verifiedBytesPerFile`](../../engine/src/commonMain/kotlin/io/github/youndie/kachok/engine/storage/FileProgress.kt)
 over `picker.completed`, clamped to the file's byte range so a straddling piece credits each file
@@ -85,5 +85,5 @@ and the file that would not play was the second — 95 %, missing its tail, whic
 - Anchors: `engine/src/commonMain/kotlin/io/github/youndie/kachok/engine/session/Session.kt`,
   `engine/src/commonMain/kotlin/io/github/youndie/kachok/engine/resume/ResumeRecord.kt`,
   `engine/src/commonMain/kotlin/io/github/youndie/kachok/engine/session/SessionState.kt`,
-  `ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/session/DetailsFrom.kt`,
+  `ui/src/commonMain/kotlin/io/github/youndie/kachok/ui/session/DetailsFrom.kt`,
   `engine/src/commonTest/kotlin/io/github/youndie/kachok/engine/session/SessionTest.kt`.

@@ -60,7 +60,7 @@ across all nine files", and the file they wanted tonight finishes when it finish
   `engine/src/commonMain/kotlin/io/github/youndie/kachok/engine/session/SessionState.kt`,
   `engine/src/commonMain/kotlin/io/github/youndie/kachok/engine/storage/UnwantedPieces.kt`,
   `engine/src/jvmMain/kotlin/io/github/youndie/kachok/engine/runtime/TorrentRuntime.kt`,
-  `ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/details/DetailsPanel.kt`,
+  `ui/src/commonMain/kotlin/io/github/youndie/kachok/ui/details/DetailsPanel.kt`,
   `ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/session/StoredTorrents.kt`,
   `ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/App.kt`,
   `cli/src/main/kotlin/io/github/youndie/kachok/cli/Arguments.kt`.

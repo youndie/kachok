@@ -43,7 +43,7 @@ with the operating system and coming up with an empty list is starting for no re
 - AC: a checkbox in Settings turns it on and off; turning it on and rebooting starts the client;
   turning it off removes the entry, and the client leaves nothing behind when it is uninstalled.
 - Anchors: [`ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/session/Autostart.kt`](../../ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/session/Autostart.kt),
-  [`ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/session/SettingsFrom.kt`](../../ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/session/SettingsFrom.kt),
+  [`ui/src/commonMain/kotlin/io/github/youndie/kachok/ui/session/SettingsFrom.kt`](../../ui/src/commonMain/kotlin/io/github/youndie/kachok/ui/session/SettingsFrom.kt),
   [`ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/App.kt`](../../ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/App.kt).
 
 ## Done

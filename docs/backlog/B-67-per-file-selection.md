@@ -73,4 +73,4 @@ needs the picker to give back pieces it has started.
   *Files* tab against a running torrent.
 - Anchors: `engine/src/commonMain/kotlin/io/github/youndie/kachok/engine/picker/PiecePicker.kt`,
   `engine/src/commonMain/kotlin/io/github/youndie/kachok/engine/storage/PieceLayout.kt`,
-  `ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/details/DetailsPanel.kt`.
+  `ui/src/commonMain/kotlin/io/github/youndie/kachok/ui/details/DetailsPanel.kt`.
