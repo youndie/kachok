@@ -48,6 +48,36 @@ Five files reach for the JVM, and they are the whole of the problem:
   before that item can begin. Also not covered: `viddik`, whose goldens are recorded on one
   rasteriser and would need an answer of their own for a second platform.
 
+## The survey, re-taken 2026-09-20 — the surface has more than doubled
+
+The table above was written when five files reached for the JVM. Today it is **twelve of the
+forty-one**, and the difference is not drift: every one of the new ones arrived with an item that
+had a reason.
+
+| File | What it reaches for | Arrived with |
+|---|---|---|
+| `App.kt` | `FileDialog`, `Toolkit.systemClipboard`, `DataFlavor`, `Runtime.totalMemory` | the shell |
+| `Preflight.kt` | `java.net.http`, `Files` | B-78, the only way to ask the shipped image anything |
+| `session/ChooseDirectory.kt` | `FileDialog`, `JFileChooser`, `apple.awt.*` | already two implementations behind one function |
+| `session/StoredPreferences.kt` | `Properties`, `Files`, `ATOMIC_MOVE` | where the settings file lives |
+| `session/StoredTorrents.kt` | `Files`, `Path` | B-81, the list that survives a restart |
+| `session/Autostart.kt` | a launch agent, a `Run` key | B-83, starting with the computer |
+| `session/OpenFile.kt` | `java.awt.Desktop` | B-85, opening a file from the Files tab |
+| `session/TrayMenuScale.kt` | AWT's own font scaling | B-91, a tray menu AWT draws itself |
+| `session/WideArguments.kt` | `java.lang.foreign`, `Kernel32`, `Shell32` | B-116, the command line Windows really passed |
+| `session/ClientModel.kt` | `Path`, the engine's dispatchers | B-79, the holder this move needed |
+| `add/DroppedFiles.kt` | `Transferable`, `DataFlavor` | B-107, a `.torrent` dropped on the window |
+| `details/DetailsPanel.kt` | `java.awt.Cursor` | the resize cursor, one line |
+
+**And most of the new ones are not `expect`s.** A tray menu's font scaling, a Windows command line,
+a launch agent and a `Run` key are desktop concerns that have no meaning on a phone: they do not
+need a second implementation, they need to stay in `desktopMain` and not be called from common code.
+The item's question — *how many `expect`s there are* — therefore has a smaller answer than this
+table looks like, and a sharper one: **choosing a directory, choosing a file, the clipboard, where
+preferences and the torrent list are stored, opening a file, and the resize cursor.** Six.
+
+The rest is the shell, and the shell is what B-41 replaces on each platform rather than abstracts.
+
 ## What has to happen first
 
 [B-79](B-79-the-windows-state-outlives-its-composition.md) is the cut this move needs. Separating
