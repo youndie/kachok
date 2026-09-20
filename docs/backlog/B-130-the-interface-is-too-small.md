@@ -1,7 +1,7 @@
 ---
 id: B-130
 title: "The whole interface wants to be 10–20 % larger"
-status: open
+status: done
 priority: P2
 size: M
 stage: phase-2-ui
@@ -41,8 +41,40 @@ scale is 10 to 19 sp ([Type.kt](../../ui/src/desktopMain/kotlin/io/github/youndi
   minimum did not is a window that can be resized into a broken layout — check it in the run and
   make it a line here if it shows.
 
+## Taken at 1.20, chosen by looking
+
+The main window was rendered at 1.00, 1.10, 1.15 and 1.20 in the same 1200 × 760 frame — the window
+does not grow, its contents do, which is how a person will meet this — and the owner picked **1.20**,
+the top of the range they asked for.
+
+## What reading the goldens found, which is why the item insisted on it
+
+**Four of the twelve came out broken, and none of the breakage was in the product.** At 1.20 the
+settings screen's *Save to* label wrapped one character to a line with the default text overlapping
+it, and the narrow window clipped its toolbar. Both looked like the scale breaking the layout.
+
+They are artboards. A `@ViddikScreenshot` names a size in **pixels**, so drawing everything 1.2
+times larger leaves the same fixture with 1/1.2 of the *design units* it had — the settings sheet
+went from 620 to 516 dp of width, which is narrower than that screen has ever been asked to be. The
+app is not narrower: the settings screen is drawn *instead of the list*, in the window's own width,
+and the window at 1200 × 760 renders cleanly at 1.20 with every column, the banner and all four
+groups of the status bar.
+
+So the twelve fixtures were scaled by the same 1.2, and every golden then showed the composition it
+showed before, larger. One test had to be told: `theSheetIsTheSizeItsFixtureAsksFor` asserts the
+theme sheet's golden is exactly its fixture's size, and it is the reason the change could not be
+made quietly.
+
+**What the narrow fixture was telling the truth about is now its own item.** A person can still
+resize the real window down to where the toolbar clips; the scale moved that point 20 % out and
+there is no minimum size to stop them — [B-131](B-131-the-window-has-no-minimum-size.md).
+
 - AC: the owner opens the window, agrees the size, and the goldens are re-recorded and read; the
   scale is one value in one place, so that the setting this becomes later has somewhere to write to.
+  **All met** — the size was agreed from renders rather than described, and reading the goldens is
+  what turned "the scale broke the settings screen" into "the artboards are in pixels".
+- `INTERFACE_SCALE` in `theme/Theme.kt` is that one value; an *Interface scale* setting would write
+  to it and is still its own item.
 - Anchors: `ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/theme/Theme.kt`,
   `ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/theme/Type.kt`,
   `ui/src/desktopTest/snapshots/`.

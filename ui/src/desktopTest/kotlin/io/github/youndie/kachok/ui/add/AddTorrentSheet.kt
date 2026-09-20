@@ -18,7 +18,7 @@ import io.github.youndie.kachok.ui.theme.KachokTheme
 import io.github.youndie.viddik.annotations.ViddikScreenshot
 
 /** The dialog for a `.torrent`, which is the case that can say everything. */
-@ViddikScreenshot(name = "dialog", group = "add", width = 560, height = 580)
+@ViddikScreenshot(name = "dialog", group = "add", width = 672, height = 696)
 @Composable
 internal fun AddTorrentSheet() {
     KachokTheme {
@@ -38,7 +38,7 @@ internal fun AddTorrentSheet() {
  * same golden would hide that the dialog is *shorter* — no file list at all — which is the visible
  * half of "a magnet carries none of the torrent".
  */
-@ViddikScreenshot(name = "magnet", group = "add", width = 560, height = 380)
+@ViddikScreenshot(name = "magnet", group = "add", width = 672, height = 456)
 @Composable
 internal fun AddMagnetSheet() {
     KachokTheme {
@@ -52,7 +52,7 @@ internal fun AddMagnetSheet() {
 }
 
 /** The two ways in that are not a dialog: a drag over the window, and a link already copied. */
-@ViddikScreenshot(name = "gestures", group = "add", width = 760, height = 360)
+@ViddikScreenshot(name = "gestures", group = "add", width = 912, height = 432)
 @Composable
 internal fun AddGesturesSheet() {
     KachokTheme {
