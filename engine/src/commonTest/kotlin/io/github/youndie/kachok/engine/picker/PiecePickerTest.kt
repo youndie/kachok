@@ -800,7 +800,11 @@ class PiecePickerTest {
         picker.pieceVerified(inFlight)
         assertTrue(picker.completed[inFlight.value], "the piece in flight could not finish after the skip")
 
-        val next = picker.next(a, 1).single().piece.value
+        val next =
+            picker
+                .next(a, 1)
+                .single()
+                .piece.value
         assertFalse(next in skipped, "a piece of the skipped file was begun after the skip")
         assertFalse(picker.isComplete)
     }
@@ -818,7 +822,11 @@ class PiecePickerTest {
         picker.prioritise(Bitfield(tenPieces.pieceCount), Bitfield(tenPieces.pieceCount))
 
         assertFalse(picker.isComplete, "un-skipping five files left the torrent complete")
-        val next = picker.next(a, 1).single().piece.value
+        val next =
+            picker
+                .next(a, 1)
+                .single()
+                .piece.value
         assertTrue(next in 5..9, "the piece asked for after un-skipping was not one of the un-skipped: $next")
     }
 }
