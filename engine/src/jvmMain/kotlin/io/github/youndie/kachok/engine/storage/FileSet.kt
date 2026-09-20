@@ -1,6 +1,7 @@
 package io.github.youndie.kachok.engine.storage
 
 import io.github.youndie.kachok.engine.metainfo.Metainfo
+import java.io.IOException
 import java.io.RandomAccessFile
 import java.nio.ByteBuffer
 import java.nio.channels.FileChannel
@@ -8,6 +9,7 @@ import java.nio.channels.WritableByteChannel
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardOpenOption
+import java.nio.file.attribute.UserDefinedFileAttributeView
 
 /**
  * The torrent's files on disk, open and ready to be written at any position.
@@ -106,6 +108,13 @@ public class FileSet private constructor(
     }
 
     public companion object {
+        /** `ZoneId=3` is the internet zone, which is where a swarm is. */
+        internal const val MARK_OF_THE_WEB: String = "[ZoneTransfer]\r\nZoneId=3\r\n"
+
+        internal const val ZONE_IDENTIFIER: String = "Zone.Identifier"
+
+        private val WINDOWS: Boolean = System.getProperty("os.name").orEmpty().startsWith("Windows")
+
         private val OPTIONS =
             setOf(
                 StandardOpenOption.CREATE,
@@ -140,13 +149,79 @@ public class FileSet private constructor(
         public fun open(
             root: Path,
             metainfo: Metainfo,
+        ): FileSet = open(root, metainfo, mark = { markDownloaded(it) })
+
+        /**
+         * The same, with the mark as a seam.
+         *
+         * Only so that *which files are marked* can be asserted where the mark itself cannot be: on
+         * Linux and macOS `markDownloaded` is deliberately a no-op, so a test there would pass over
+         * a version that marked nothing, everything, or the wrong ones.
+         */
+        internal fun open(
+            root: Path,
+            metainfo: Metainfo,
+            mark: (Path) -> Unit,
         ): FileSet {
             val paths = pathsIn(root, metainfo)
             paths.forEach { Files.createDirectories(it.parent) }
 
-            paths.forEachIndexed { index, path -> size(path, metainfo.files[index].length) }
+            paths.forEachIndexed { index, path ->
+                // Before the file exists, because that is the only moment this client can tell a
+                // file it is creating from one it is resuming into.
+                val fresh = Files.notExists(path)
+                size(path, metainfo.files[index].length)
+                if (fresh) mark(path)
+            }
             val channels = paths.map { FileChannel.open(it, OPTIONS) }
             return FileSet(channels, paths)
+        }
+
+        /**
+         * Marks a file as having come from the internet, the way every browser does.
+         *
+         * **A file this client writes carries no Mark-of-the-Web unless it is put there**, and that
+         * is what makes Windows ask its "unknown publisher" question before running a binary. A
+         * torrent client that writes an executable without it and then opens it on a double-click
+         * has removed a warning the operating system would otherwise have given — about a binary
+         * that came from strangers, which is what a swarm is
+         * ([B-93](../../../../../../../../docs/backlog/B-93-opening-a-downloaded-executable.md)).
+         *
+         * **Everything, not executables.** Browsers mark every download; doing it only for `.exe`
+         * is a list of extensions that will be wrong, and the mark is what makes the rest of the
+         * system — SmartScreen, Office's protected view, the shell's own prompt — treat the file as
+         * what it is.
+         *
+         * Windows only: the stream is an NTFS alternate data stream, which is exactly what
+         * `UserDefinedFileAttributeView` writes there. On Linux and macOS the same view is an
+         * extended attribute and `Zone.Identifier` would mean nothing to anything — macOS has its
+         * own idea, `com.apple.quarantine`, and it is not this item's.
+         *
+         * Failing to mark is not failing to download: a filesystem without alternate data streams —
+         * FAT32 on a memory stick, a network share — cannot carry it, and a client that refused to
+         * write a torrent there would be worse than one that writes it unmarked.
+         */
+        internal fun markDownloaded(
+            path: Path,
+            onWindows: Boolean = WINDOWS,
+            write: (Path, String) -> Unit = ::writeZoneIdentifier,
+        ) {
+            if (!onWindows) return
+            write(path, MARK_OF_THE_WEB)
+        }
+
+        private fun writeZoneIdentifier(
+            path: Path,
+            mark: String,
+        ) {
+            val view = Files.getFileAttributeView(path, UserDefinedFileAttributeView::class.java) ?: return
+            try {
+                view.write(ZONE_IDENTIFIER, ByteBuffer.wrap(mark.toByteArray(Charsets.US_ASCII)))
+            } catch (unsupported: IOException) {
+                // A filesystem that has no streams to write. The download is the point; the mark is
+                // what the download deserves where it can be had.
+                System.err.println("kachok: cannot mark $path as downloaded: ${unsupported.message}")
+            }
         }
 
         /**
