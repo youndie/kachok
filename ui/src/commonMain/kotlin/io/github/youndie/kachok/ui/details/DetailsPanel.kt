@@ -61,7 +61,6 @@ import io.github.youndie.kachok.ui.theme.RowName
 import io.github.youndie.kachok.ui.theme.RowStateLabel
 import io.github.youndie.kachok.ui.theme.warningColors
 import kotlinx.coroutines.delay
-import java.awt.Cursor
 import kotlin.time.Duration.Companion.milliseconds
 
 /**
@@ -278,7 +277,7 @@ internal fun DetailsPanel(
                 .width(HAIRLINE)
                 .fillMaxHeight()
                 .background(scheme.outlineVariant)
-                .pointerHoverIcon(PointerIcon(Cursor(Cursor.E_RESIZE_CURSOR)))
+                .pointerHoverIcon(horizontalResizeCursor)
                 .draggable(
                     orientation = Orientation.Horizontal,
                     state =

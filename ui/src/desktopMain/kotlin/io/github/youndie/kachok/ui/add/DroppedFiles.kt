@@ -24,12 +24,6 @@ import java.nio.file.Path
  * either way.
  */
 internal object DroppedFiles {
-    /**
-     * Stands in for a file whose name the platform will not give before the drop, in the overlay's
-     * list. An empty string, so nothing on disk can be mistaken for it.
-     */
-    const val UNNAMED_DROP: String = ""
-
     /** Whether the drag carries files at all; readable before the drop, unlike the files. */
     fun offered(transferable: Transferable): Boolean = transferable.isDataFlavorSupported(DataFlavor.javaFileListFlavor)
 

@@ -50,6 +50,21 @@ kotlin {
     jvm("desktop")
 
     sourceSets {
+        // **The screens, their mapping functions and the theme are common**, which is what B-41
+        // needs to be true before it can begin: a target added later gets `actual`s rather than a
+        // rewrite, the way the engine has always been written
+        // ([B-80](../docs/backlog/B-80-the-ui-moves-to-commonmain.md)).
+        val commonMain by getting {
+            dependencies {
+                implementation(projects.engine)
+                implementation(wip.kotlinx.coroutines.core)
+                implementation(compose.runtime)
+                implementation(compose.foundation)
+                implementation(compose.material3)
+                implementation(compose.ui)
+                implementation(compose.components.resources)
+            }
+        }
         val desktopMain by getting {
             dependencies {
                 implementation(projects.engine)

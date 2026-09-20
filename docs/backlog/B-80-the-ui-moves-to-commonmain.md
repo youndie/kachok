@@ -1,7 +1,7 @@
 ---
 id: B-80
 title: "The UI moves to commonMain"
-status: open
+status: wip
 priority: P2
 size: L
 stage: phase-3-mobile
@@ -85,8 +85,45 @@ the state and the engine's lifetime from the file chooser, the clipboard, the dr
 heap reading is what leaves the rest of `App.kt` platform-free; done in the other order, the biggest
 file moves last and drags four platform concerns with it.
 
+## Iteration 1, 2026-09-20 — the screens are common; two seams, both found by tooling
+
+**32 files and 6 132 lines now live in `commonMain`** against 11 files and 3 013 lines left in
+`desktopMain`. The diff is 33 files for 22 insertions and 15 deletions: almost pure `git mv`, which
+is what makes a move of this size reviewable at all. `./gradlew build` is green and `viddikVerify`
+passes against the **unchanged** goldens — the third clause of the AC, and the one that says the
+move changed nothing a person can see.
+
+**Two `expect`s, and neither was in the item's table, because neither is a `java.*` import.**
+
+* `variableFont` — the three families are loaded through `androidx.compose.ui.text.platform.Font`,
+  which exists on the desktop and nowhere else. **The compiler found it** the moment the type scale
+  moved.
+* `horizontalResizeCursor` — `java.awt.Cursor`, one line, for the handle that widens the details
+  panel. It compiled perfectly well in `commonMain` and **this repository's own lint caught it**:
+  *"java. code in commonMain — it cannot compile for every target this module declares, and the
+  target that finds out is whichever one compiles last."* A phone needs no cursor at all, which is
+  what its `actual` will say.
+
+A third thing moved without needing a seam: `UNNAMED_DROP`, the marker for a file whose name the
+platform will not give before the drop. The screen that draws it is common; the AWT that produces it
+is not.
+
+## What the AC cannot mean any more, and why
+
+* **The state holder cannot be common yet, and nothing in the UI can change that.** `ClientModel`
+  drives a `TorrentSet`, and the engine's runtime is in *its* `jvmMain` — the engine is a
+  multiplatform module with a single `jvm()` target. **The UI cannot be more common than the engine
+  it drives**, so this clause of the AC is [B-41](B-41-android-and-ios-targets.md)'s to meet, not
+  this item's.
+* **"`desktopMain` holds only `actual`s and the entry point" is the wrong shape**, as the survey
+  above already argued: a tray menu AWT draws itself, a launch agent, a `Run` key and a Windows
+  command line are not implementations of a common idea. They are the desktop's own, and on another
+  platform they are absent rather than different.
+
 - AC: `ui/src/commonMain` holds the composables, the mapping functions and the state holder;
   `desktopMain` holds only `actual`s and the entry point; `./gradlew build` and the goldens are
-  unchanged on desktop.
+  unchanged on desktop. **Two of three met.** The composables and the mapping functions are common
+  and the build and goldens are untouched; the holder waits on the engine having a target to be
+  common *for*, and the second clause is restated above rather than met.
 - Anchors: `ui/build.gradle.kts`, `ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/`,
   `engine/build.gradle.kts` (the comment that says why the engine was written this way).

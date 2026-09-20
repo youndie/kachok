@@ -411,7 +411,7 @@ private fun PlannedBadge() {
  * The whole window is the target, not a strip of it: a person dragging a file has no reason to aim,
  * and a small target is a gesture that fails silently. It names what it would add, because a drop
  * of the wrong two files is a mistake that is cheap to prevent and expensive to undo — when the
- * platform will say the names before the drop, which macOS will not ([DroppedFiles]); then it says
+ * platform will say the names before the drop, which macOS will not ([UNNAMED_DROP]); then it says
  * only that a drop would add a torrent, rather than staying invisible until it is too late.
  */
 @Composable
@@ -419,7 +419,7 @@ internal fun DropOverlay(
     names: List<String>,
     modifier: Modifier = Modifier,
 ) {
-    val named = names.filter { it != DroppedFiles.UNNAMED_DROP }
+    val named = names.filter { it != UNNAMED_DROP }
     val scheme = MaterialTheme.colorScheme
     val primary = scheme.primary
     Box(

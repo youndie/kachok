@@ -6,13 +6,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontVariation
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.platform.Font
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.sp
+import io.github.youndie.kachok.ui.theme.variableFont
 
 /**
  * The design's glyphs, drawn the way the design draws them: Material Symbols Rounded at weight 400,
@@ -61,10 +60,10 @@ public object Icons {
 
 internal val MaterialSymbols: FontFamily =
     FontFamily(
-        Font(
+        variableFont(
             resource = "fonts/MaterialSymbolsRounded.ttf",
             weight = FontWeight.Normal,
-            variationSettings =
+            settings =
                 FontVariation.Settings(
                     FontVariation.weight(400),
                     // FILL 0 and optical size 20, which is what the inventory specifies.
