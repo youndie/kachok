@@ -318,6 +318,17 @@ them. Nothing is read from the environment by this module; that is [cli](cli.md)
   diagnosis: a re-check used to learn which claimed pieces the disk could not show and then
   overwrite the claim without saying so, and it now counts them into `claimedNotOnDisk`
   ([B-119](../backlog/B-122-a-file-the-files-tab-calls-complete-is-not.md)).
+* **A file this client writes says where it came from, on Windows.** Every browser puts a
+  `Zone.Identifier` alternate data stream on a download, and that is what makes Windows ask its
+  "unknown publisher" question before running a binary — so a torrent client that writes an
+  executable without it and then opens it on a double-click has taken away a warning the operating
+  system would otherwise have given, about a file that came from strangers. `FileSet` marks every
+  file it *creates*, not every file it opens: a resumed download's files already carry it. Windows
+  only — the same `UserDefinedFileAttributeView` is an extended attribute elsewhere and
+  `Zone.Identifier` would mean nothing to anything, macOS having its own idea in
+  `com.apple.quarantine` — and a filesystem that cannot carry a stream is reported rather than
+  refused, because the download is the point
+  ([B-93](../backlog/B-93-opening-a-downloaded-executable.md)).
 * **`restore()` does not run on the thread that asked for it.** The start-up check reads every
   piece a resume record does not vouch for and hashes it, which for the torrents somebody actually
   keeps is minutes of blocking I/O. It used to run in the caller's context, and the caller is the

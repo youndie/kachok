@@ -1,7 +1,7 @@
 ---
 id: B-93
 title: "Double-clicking a downloaded executable, and the warning Windows never gets to show"
-status: open
+status: done
 priority: P2
 size: M
 stage: phase-2-ui
@@ -49,7 +49,53 @@ on the grounds that handing a player a truncated file is worse than saying no
 ([B-85](B-85-open-a-file-from-the-files-tab.md)). The same tab handing an operating system an
 unmarked executable is the larger version of the same question.
 
+## The decision, taken by the owner on 2026-09-20
+
+**Mark everything this client downloads, the way a browser does, and then open it.** Not a list of
+extensions, which the item already said would be wrong; not a refusal, which takes away something a
+person asked for; and not the status quo, which would have left this client as the one place on the
+machine where a binary from strangers runs with nothing asked.
+
+Two facts were established before the question was put, so that the three options could be compared
+rather than argued:
+
+* The mark can be written on that machine **without a desktop session** — an NTFS alternate data
+  stream is an ordinary write, which is what made this answerable at all when the reported symptom
+  is not.
+* `UserDefinedFileAttributeView`, which is the JDK's portable name for exactly that stream, writes
+  and reads it on the **JDK this client ships** (Temurin 25.0.1 on the owner's box).
+
+## Driven on Windows, with this build
+
+The engine jar from this branch, a two-file torrent, `FileSet.open` into an empty directory, on the
+Windows machine:
+
+```
+one.bin: marked=true [ZoneTransfer] | ZoneId=3
+two.bin: marked=true [ZoneTransfer] | ZoneId=3
+(first file deleted, reopening)
+one.bin: marked=true
+two.bin: marked=true
+```
+
+Every file this client creates carries the internet zone; reopening the set — which is what resuming
+is — marks the one it had to create again and leaves the other alone.
+
+**What this does not do, and the report that opened the item is still open on it.** The mark makes
+Windows *ask* when an executable runs. Whether `Desktop.open` launches an `.exe` on that machine at
+all was not reproduced here and still cannot be: `java.awt.Desktop` needs a desktop session and the
+only way this project can reach that box is an ssh session, which is headless. If it turns out it
+never launches, the answer above is still the right one — it is about what a file carries, not about
+what opens it.
+
 - AC: what a double-click on an executable does is one written-down decision rather than whatever
   `Desktop.open` happens to do; if it runs, the file carries the mark that makes Windows ask first.
+  **Both met.**
+  **Automated:** `engine/src/jvmTest/.../storage/MarkOfTheWebTest.kt` — `theMarkIsTheOneABrowserWrites`,
+  `nothingIsMarkedWhereTheMarkMeansNothing`, `everyFileIsMarkedWhenItIsCreatedAndNotWhenItIsResumed`.
+  The stream itself is an NTFS one and this suite runs on Linux, so what the tests hold is *which*
+  files are marked and with what; that the write lands is the Windows run above.
+- `OpenFile.kt` is unchanged, and that is the decision too: the tab goes on handing the file to the
+  system, and the system now has what it needs to ask.
 - Anchors: [`ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/session/OpenFile.kt`](../../ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/session/OpenFile.kt),
   [`engine/src/jvmMain/kotlin/io/github/youndie/kachok/engine/storage/FileSet.kt`](../../engine/src/jvmMain/kotlin/io/github/youndie/kachok/engine/storage/FileSet.kt).
