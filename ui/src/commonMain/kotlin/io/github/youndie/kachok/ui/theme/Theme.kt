@@ -43,7 +43,7 @@ internal val KachokShapes: Shapes =
  * A constant and not a setting, for now: the ask was that it is too small today, and an *Interface
  * scale* control is a stored preference, a live re-layout and its own item. It would use this seam.
  */
-internal const val INTERFACE_SCALE: Float = 1.15f
+internal const val INTERFACE_SCALE: Float = 1.20f
 
 @Composable
 internal fun KachokTheme(content: @Composable () -> Unit) {

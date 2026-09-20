@@ -75,6 +75,13 @@ there is no minimum size to stop them — [B-131](B-131-the-window-has-no-minimu
   what turned "the scale broke the settings screen" into "the artboards are in pixels".
 - `INTERFACE_SCALE` in `theme/Theme.kt` is that one value; an *Interface scale* setting would write
   to it and is still its own item.
+
+**Correction, same day.** What this item merged was **1.15**, not the 1.20 it says above: the
+candidates were rendered by rewriting the constant in a loop and the last pass left it there, after
+which the goldens were re-recorded against it. Everything was self-consistent and wrong, which is
+the one error a golden cannot catch — it photographs whatever it is shown. Found by the test
+[B-131](B-131-the-window-has-no-minimum-size.md) wrote to tie its floor to this scale, and fixed
+there.
 - Anchors: `ui/src/commonMain/kotlin/io/github/youndie/kachok/ui/theme/Theme.kt`,
   `ui/src/commonMain/kotlin/io/github/youndie/kachok/ui/theme/Type.kt`,
   `ui/src/desktopTest/snapshots/`.
