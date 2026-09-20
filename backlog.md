@@ -48,14 +48,13 @@ which is also the order of work.
 
 <!-- BEGIN INDEX -->
 
-## Open (11)
+## Open (10)
 
 | Task | | Priority | Size | Blocked by |
 |---|---|---|---|---|
 | [B-107](docs/backlog/B-107-dropping-a-torrent-does-nothing-on-macos.md) `[~]` | Dropping a .torrent on the window does nothing on macOS | P2 | M | - |
 | [B-116](docs/backlog/B-116-a-torrent-whose-name-is-not-ascii-cannot-be-opened-on-windows.md) `[ ]` | A `.torrent` whose name is not ASCII cannot be opened on Windows: the launcher hands the path over as question marks | P2 | S | - |
 | [B-130](docs/backlog/B-130-the-interface-is-too-small.md) `[ ]` | The whole interface wants to be 10–20 % larger | P2 | M | - |
-| [B-79](docs/backlog/B-79-the-windows-state-outlives-its-composition.md) `[ ]` | The window's state outlives its composition | P2 | L | - |
 | [B-80](docs/backlog/B-80-the-ui-moves-to-commonmain.md) `[ ]` | The UI moves to commonMain | P2 | L | B-79 |
 | [B-93](docs/backlog/B-93-opening-a-downloaded-executable.md) `[ ]` | Double-clicking a downloaded executable, and the warning Windows never gets to show | P2 | M | - |
 | [B-37](docs/backlog/B-37-v2-and-hybrid-torrents.md) `[?]` | v2 and hybrid torrents (BEP 52): SHA-256 piece layers | P3 | L | B-04 |
@@ -64,7 +63,7 @@ which is also the order of work.
 | [B-87](docs/backlog/B-87-a-server-with-a-web-face.md) `[ ]` | Phase 3: a headless server with a web face, installable on a box that is always on | P3 | XL | B-80 |
 | [B-02](docs/backlog/B-02-ci-runs-build-and-docs-gates.md) `[ ]` | CI runs the build and the documentation gates on every push | infra | S | B-01 |
 
-## Closed (119)
+## Closed (120)
 
 **M0 — The build and its gates**
 
@@ -214,6 +213,10 @@ which is also the order of work.
 - [B-91](docs/backlog/B-91-the-tray-menu-is-not-hdpi.md) `[x]` - The tray's right-click menu is not scaled on a HiDPI display
 - [B-92](docs/backlog/B-92-the-window-samples-three-times-a-second.md) `[x]` - The window samples three times a second, off the thread that draws it
 - [B-94](docs/backlog/B-94-a-degraded-session-cannot-recover.md) `[x]` - A degraded session cannot recover, and the DHT table was the thing degrading it
+
+**Phase 3 — Mobile**
+
+- [B-79](docs/backlog/B-79-the-windows-state-outlives-its-composition.md) `[x]` - The window's state outlives its composition
 
 **Phase 3 — Server**
 

@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -64,6 +65,7 @@ import io.github.youndie.kachok.ui.main.SortOrder
 import io.github.youndie.kachok.ui.main.ToolbarCommand
 import io.github.youndie.kachok.ui.remove.RemoveState
 import io.github.youndie.kachok.ui.session.AUTOSTART_FLAG
+import io.github.youndie.kachok.ui.session.ClientModel
 import io.github.youndie.kachok.ui.session.Figures
 import io.github.youndie.kachok.ui.session.Lifecycle
 import io.github.youndie.kachok.ui.session.Preferences
@@ -75,6 +77,7 @@ import io.github.youndie.kachok.ui.session.autostartFor
 import io.github.youndie.kachok.ui.session.brokenRow
 import io.github.youndie.kachok.ui.session.chooseDirectory
 import io.github.youndie.kachok.ui.session.clicked
+import io.github.youndie.kachok.ui.session.clientModelFor
 import io.github.youndie.kachok.ui.session.detailsOf
 import io.github.youndie.kachok.ui.session.forgetTorrent
 import io.github.youndie.kachok.ui.session.inOrder
@@ -230,6 +233,13 @@ private fun run(args: Array<String>) {
         // — and a client that closes into a tray that does not exist is one somebody has to kill
         // from a terminal. So it is read once, here, and everything below asks it rather than
         // assuming: with no tray the close button does what it always did (B-88).
+        // **The window's state and its engine, built one level above the window.**
+        //
+        // `application` outlives every window inside it, so a holder remembered here survives one
+        // being thrown away and rebuilt — which is the whole of B-79 and is what makes the torrents
+        // something other than a property of a composition. On this desktop nothing throws the
+        // window away today; on Android a rotation does, and this is the seam that will hold then.
+        val model = remember { clientModelFor(directory, preferencesFile(), directoryOverrides = given.size > 1) }
         val hasTray = remember { isTraySupported }
         // *Quit* from the tray means stop for real, so the close path below must not send the
         // window back into the tray it was just quit from.
@@ -347,6 +357,7 @@ private fun run(args: Array<String>) {
                     Client(
                         torrent,
                         directory,
+                        model = model,
                         opened = instance.opened,
                         agents = { instance.agents = it },
                         stopping = closing,
@@ -414,7 +425,7 @@ internal class Pending(
  * where the name will be — because a magnet's fetch takes as long as the swarm takes and a window
  * that showed nothing for a minute would look broken rather than busy.
  */
-private class Fetching(
+internal class Fetching(
     val link: MagnetLink,
     val started: Boolean = false,
 )
@@ -493,6 +504,20 @@ internal fun Client(
      * argument; with it always on, the stored directory could never take effect.
      */
     directoryOverrides: Boolean = false,
+    /**
+     * Everything this window is, held where a window is not
+     * ([B-79](../../../../../../../docs/backlog/B-79-the-windows-state-outlives-its-composition.md)).
+     *
+     * A parameter with a default rather than a `remember` in the body, and the default is what the
+     * body used to do: read the settings file, ask the system about autostart, and start from
+     * there. A caller that has a holder — the application, which outlives this window — passes one
+     * and its torrents and its selection survive the composition being thrown away; a caller that
+     * does not, which is every test of the window's own behaviour, gets the lifetime it had before.
+     */
+    model: ClientModel =
+        remember {
+            clientModelFor(directory, settingsFile, directoryOverrides).also { it.ownedByTheWindow = true }
+        },
 ) {
     // **What the engine says, sampled once a second — and nothing else.**
     //
@@ -501,52 +526,43 @@ internal fun Client(
     // It used to be: the whole window state was rebuilt inside the sampling loop, so every click
     // waited up to a second to appear and opening settings looked broken
     // ([B-64](../../../../../../../docs/backlog/B-64-a-click-waited-for-the-tick.md)).
-    var engine by remember { mutableStateOf<EngineSnapshot?>(null) }
+    var engine by model.engine
 
-    var panelOpen by remember { mutableStateOf(true) }
-    var tab by remember { mutableStateOf(DetailsTab.Overview) }
-    var pending by remember { mutableStateOf<Pending?>(null) }
+    var panelOpen by model.panelOpen
+    var tab by model.tab
+    var pending by model.pending
     // The torrent that is selected, by info hash — not the row it is in. Sorting reorders the rows
     // under the selection, and an index would leave the highlight on a different torrent than the
     // one the person clicked.
-    var selected by remember { mutableStateOf<String?>(null) }
-    var removing by remember { mutableStateOf<RemoveState?>(null) }
-    var filter by remember { mutableStateOf("") }
-    var dropping by remember { mutableStateOf<List<String>>(emptyList()) }
-    var clipboardMagnet by remember { mutableStateOf<String?>(null) }
+    var selected by model.selected
+    var removing by model.removing
+    var filter by model.filter
+    var dropping by model.dropping
+    var clipboardMagnet by model.clipboardMagnet
     // The last magnet this window offered, so returning to it ten times does not offer the same one
     // ten times. Cleared by dismissing, which is a person saying no to *this* link.
-    var offeredMagnet by remember { mutableStateOf<String?>(null) }
+    var offeredMagnet by model.offeredMagnet
 
     // Remembered torrents the client could not open. Not a session and not a magnet, so it is not
     // in `EngineSnapshot`; it is decided once, when the list is read, and never changes after.
-    var broken by remember { mutableStateOf<List<StoredTorrent>>(emptyList()) }
+    var broken by model.broken
     // Asked of the system rather than of the file: somebody can remove a launch agent or a Run key
     // without this client, and a checkbox that reports the settings file would then be wrong in the
     // one direction that matters — claiming the client starts with the computer when it does not.
     val autostart = remember { autostartFor() }
-    var autostartProblem by remember { mutableStateOf(autostart.refusal) }
+    var autostartProblem by model.autostartProblem
     // Where the last torrent actually went, back from the engine loop to the composition that owns
     // the preferences. Conflated: only the most recent one is the answer.
-    val saved = remember { Channel<String>(Channel.CONFLATED) }
-    var pendingDrop by remember { mutableStateOf<Path?>(null) }
-    var settingsOpen by remember { mutableStateOf(false) }
+    val saved = model.saved
+    var pendingDrop by model.pendingDrop
+    var settingsOpen by model.settingsOpen
     // What the settings screen has been told. Held for the session and not written anywhere: there
     // is no settings file yet, and inventing one is a decision about where it lives.
     // Read once, at the start, and not on every recomposition: the file is the previous run's
     // answer, and this run's answer is the state below it.
-    var preferences by
-        remember {
-            val here = directory.toAbsolutePath().toString()
-            val stored = loadPreferences(settingsFile, Preferences(directory = here))
-            mutableStateOf(
-                (if (directoryOverrides) stored.withDirectory(here) else stored)
-                    // The system is the authority on this one. The file is where the *rest* of the
-                    // settings live, and it is also where this one is written, but an entry
-                    // somebody removed by hand means the checkbox is off however the file reads.
-                    .copy(autostart = autostart.isEnabled()),
-            )
-        }
+    // Read when the holder was built, not on every recomposition: the file is the previous run's
+    // answer, and this run's answer is the state it seeded.
+    var preferences by model.preferences
 
     // Written back after half a second of quiet. `LaunchedEffect` cancels the previous one when the
     // key changes, so typing `1200` into a rate limit is one write and not four — and the delay is
@@ -600,287 +616,35 @@ internal fun Client(
             Shortcut.Kind.PasteMagnet -> pending = magnetFromClipboard(preferences.addFrom)
         }
     }
-    var sort by remember { mutableStateOf(SortOrder()) }
+    var sort by model.sort
     // Read through a state, not captured: the effect is launched once and these change later, so
     // a plain read inside it would be the value from before the click.
     val askedToStop by rememberUpdatedState(stopping)
     val chosenPreferences by rememberUpdatedState(preferences)
     // The dialog runs on the composition and the engine on its own dispatcher; a channel is the
     // seam, so a click never blocks a frame on a torrent being opened and hashed.
-    val accepted = remember { Channel<Pending>(Channel.UNLIMITED) }
-    val dhtWanted = remember { Channel<Boolean>(Channel.CONFLATED) }
+    val accepted = model.accepted
+    val dhtWanted = model.dhtWanted
     // Conflated: a person dragging a number through 1, 12, 120, 1200 is one final answer, and the
     // three on the way are worth nothing to a running session.
-    val retuned = remember { Channel<RuntimeOptions>(Channel.CONFLATED) }
-    val commanded = remember { Channel<TorrentCommand>(Channel.UNLIMITED) }
+    val retuned = model.retuned
+    val commanded = model.commanded
 
-    LaunchedEffect(initial, directory) {
-        val dispatchers = EngineDispatchers()
-        val scope = CoroutineScope(coroutineContext + dispatchers.io + SupervisorJob())
-        // The DHT is asked for *here* rather than through `dhtWanted`, because a setting restored
-        // from the file was never toggled: the first version of this shipped a window whose status
-        // bar said "DHT off" beside a settings screen whose toggle was on.
-        val set =
-            TorrentSet(
-                dispatchers = dispatchers,
-                scope = scope,
-                options = SetOptions(dht = chosenPreferences.dht),
-            )
-        // **An agent drives this engine, not one of its own** (B-117). Registered here and not in
-        // `main`, because the set is built on this effect: a socket that answered before there was
-        // one would hand an agent a client whose torrent list is empty and whose `add_torrent` has
-        // nowhere to go. One server per connected agent, each writing back down its own socket.
-        agents?.invoke(
-            SingleInstance.McpSessions { write ->
-                McpServer(set, scope, Path.of(chosenPreferences.directory), dispatchers, write)
-            },
-        )
-        try {
-            // **The remembered list first, the command line second.** A torrent named in `argv[0]`
-            // that the client already has is not a second torrent; opening it again would be
-            // refused by `add`, which throws — so a `.torrent` double-clicked while it is already
-            // in the list re-selects nothing and breaks nothing.
-            //
-            // **Started here and not awaited here, because opening a torrent reads the disk.**
-            // `open` checks what is already on the drive before a peer is dialled, and for the
-            // torrents somebody actually keeps that is minutes of reading and hashing. This effect
-            // runs on the composition's dispatcher — the AWT event thread — so awaiting it held the
-            // window: the title bar was drawn, nothing under it ever was, and no click was answered
-            // until the last torrent had been checked
-            // ([B-115](../../../../../../../docs/backlog/B-115-the-startup-check-runs-on-the-window-s-thread.md)).
-            // The sampling loop below starts at once now, and the rows appear as the torrents open,
-            // each showing its own check — which is what the verifier's progress was always for.
-            scope.launch {
-                val remembered = loadStoredTorrents(torrents)
-                broken = remembered.filter { it.metainfo == null }
-                remembered.forEach { stored ->
-                    val metainfo = stored.metainfo ?: return@forEach
-                    open(
-                        set,
-                        metainfo,
-                        chosenPreferences.withDirectory(stored.directory),
-                        scope,
-                        unwanted = stored.unwanted,
-                        sequential = stored.sequential,
-                        paused = stored.paused,
-                        high = stored.high,
-                    )
-                }
-                initial?.let { path ->
-                    val metainfo = MetainfoParser.parse(Files.readAllBytes(path))
-                    if (set.torrents.none { it.metainfo.infoHash.hex() == metainfo.infoHash.hex() }) {
-                        open(set, metainfo, chosenPreferences, scope)
-                        rememberTorrent(torrents, metainfo, chosenPreferences.directory)
-                    }
-                }
-            }
-            scope.launch {
-                for (options in retuned) {
-                    set.torrents.forEach { it.reconfigure(options) }
-                }
-            }
-            scope.launch {
-                for (command in commanded) {
-                    val runtime =
-                        set.torrents.firstOrNull { it.metainfo.infoHash.hex() == command.infoHash }
-                            ?: continue
-                    when (command.kind) {
-                        TorrentCommand.Kind.Pause -> {
-                            runtime.pause()
-                            rememberPaused(torrents, command.infoHash, paused = true)
-                        }
-
-                        TorrentCommand.Kind.Resume -> {
-                            runtime.resume()
-                            rememberPaused(torrents, command.infoHash, paused = false)
-                        }
-
-                        TorrentCommand.Kind.Recheck -> {
-                            runtime.recheck()
-                        }
-
-                        TorrentCommand.Kind.Sequential -> {
-                            runtime.sequential(command.on)
-                            // Written down as well as sent: the order is a decision about this
-                            // torrent, and one that does not survive a restart is one somebody has
-                            // to take again every time (B-89).
-                            rememberSequential(torrents, command.infoHash, command.on)
-                        }
-
-                        TorrentCommand.Kind.Priority -> {
-                            runtime.prioritise(command.file, command.priority)
-                            // Written down as well as sent, like the order: the sets are derived
-                            // from what the engine last reported *with this click applied*, rather
-                            // than awaited from the next sample, so a window closed a second after
-                            // the click still remembers it.
-                            val files = runtime.state.value.files
-                            val tierOf = { at: Int -> if (at == command.file) command.priority else files[at].priority }
-                            rememberPriorities(
-                                torrents,
-                                command.infoHash,
-                                unwanted = files.indices.filter { tierOf(it) == FilePriority.SKIP }.toSet(),
-                                high = files.indices.filter { tierOf(it) == FilePriority.HIGH }.toSet(),
-                            )
-                        }
-
-                        TorrentCommand.Kind.Announce -> {
-                            runtime.announce()
-                        }
-
-                        TorrentCommand.Kind.Remove -> {
-                            set.remove(runtime)
-                            forgetTorrent(torrents, command.infoHash)
-                        }
-
-                        TorrentCommand.Kind.RemoveWithData -> {
-                            // The paths are read *before* the remove: `remove` closes the files,
-                            // and a `FileSet` that has been closed is not somewhere to ask what it
-                            // was writing.
-                            val paths = runtime.paths
-                            set.remove(runtime)
-                            forgetTorrent(torrents, command.infoHash)
-                            deleteQuietly(paths)
-                        }
-                    }
-                }
-            }
-            val fetching = mutableListOf<Fetching>()
-            var asked = false
-            var stopTicks = 0
-            while (true) {
-                dhtWanted.tryReceive().getOrNull()?.let { set.useDht(it) }
-                while (true) {
-                    val next = accepted.tryReceive().getOrNull() ?: break
-                    // Where *this* torrent goes was decided in its own dialog; everything else
-                    // about it comes from the settings.
-                    next.metainfo?.let {
-                        open(
-                            set,
-                            it,
-                            chosenPreferences.withDirectory(next.shown.saveTo),
-                            scope,
-                            unwanted = next.unwanted(),
-                            sequential = next.shown.sequential,
-                        )
-                        // Written after the session opened, not before: `add` refuses a torrent
-                        // whose files another one owns, and a list that remembered the refusal
-                        // would reopen the collision on every start.
-                        rememberTorrent(
-                            torrents,
-                            it,
-                            saveTo = next.shown.saveTo,
-                            unwanted = next.unwanted(),
-                            sequential = next.shown.sequential,
-                        )
-                        // So the next add dialog opens where this one ended. The *setting* is left
-                        // alone: browsing elsewhere once is not a person changing their default.
-                        saved.trySend(next.shown.saveTo)
-                    }
-                    next.magnet?.let { fetching += Fetching(it) }
-                }
-                // A fetch runs on the engine's scope and puts its torrent through the same door a
-                // file goes through, so there is one place a session is opened and not two.
-                fetching.filter { !it.started }.forEach { waiting ->
-                    fetching[fetching.indexOf(waiting)] = Fetching(waiting.link, started = true)
-                    scope.launch {
-                        val metainfo =
-                            try {
-                                fetchMetainfo(waiting.link, scope, dispatchers, set.listenPort)
-                            } catch (unavailable: IllegalArgumentException) {
-                                // The swarm had nothing to say. The row goes; a magnet nobody can
-                                // answer is not a torrent, and there is no session to mark broken.
-                                System.err.println("kachok: ${unavailable.message}")
-                                null
-                            }
-                        fetching.removeAll { it.link === waiting.link }
-                        metainfo?.let {
-                            accepted.trySend(
-                                Pending(
-                                    it,
-                                    null,
-                                    addFrom(waiting.link, chosenPreferences.directory, chosenPreferences.directory),
-                                ),
-                            )
-                        }
-                    }
-                }
-                if (askedToStop && !asked) {
-                    asked = true
-                    set.torrents.forEach { it.stop() }
-                }
-                val running = set.torrents
-                // **Built off the composition's thread.** This runs in a `LaunchedEffect`, which is
-                // the UI thread, and everything below reads a state flow per torrent and walks
-                // every file of every one of them. At a second a tick that was invisible; at 300 ms
-                // it is the difference between a click that lands and a click that waits for the
-                // sampler to finish. Only the assignment happens back here, and snapshot state is
-                // safe to write from anywhere anyway.
-                engine =
-                    withContext(dispatchers.io) {
-                        // Once per torrent, not twice. `paths` walks the `FileSet` and builds a list on
-                        // every call, and two maps below wanted it — which is a hundred strings per
-                        // torrent per tick, thrown away.
-                        val paths = running.associateWith { runtime -> runtime.paths.map { it.toString() } }
-                        EngineSnapshot(
-                            samples =
-                                running.map { runtime ->
-                                    val state = runtime.state.value
-                                    Sample(state, ratesOf(state))
-                                },
-                            fetching = fetching.map { it.link },
-                            pieceLengths =
-                                running.associate {
-                                    it.metainfo.infoHash.hex() to it.metainfo.pieceLength.toLong()
-                                },
-                            // Every file a running torrent owns, so the add dialog can refuse *before*
-                            // the button rather than throwing out of `add` after it.
-                            occupied =
-                                paths
-                                    .flatMap { (runtime, files) -> files.map { it to runtime.metainfo.name } }
-                                    .toMap(),
-                            // Asked of the torrent rather than computed from the settings: the layout
-                            // of a multi-file torrent is the `FileSet`'s decision, and a second
-                            // implementation of it here would be a second chance to open the wrong
-                            // file.
-                            filePaths =
-                                paths.entries.associate { (runtime, files) ->
-                                    runtime.metainfo.infoHash.hex() to
-                                        files
-                                },
-                            directories =
-                                running.associate { it.metainfo.infoHash.hex() to it.directory.toString() },
-                            listenPort = set.listenPort,
-                            mappedExternalPort = set.mappedExternalPort,
-                            dhtNodes =
-                                if (set.dhtEnabled) {
-                                    running
-                                        .firstOrNull()
-                                        ?.state
-                                        ?.value
-                                        ?.dhtNodes ?: 0
-                                } else {
-                                    null
-                                },
-                            heapUsedBytes = heapUsed(),
-                            heapMaxBytes = Runtime.getRuntime().maxMemory(),
-                            lifecycle = if (asked) Lifecycle.Stopping else Lifecycle.Running,
-                        )
-                    }
-                if (!asked) {
-                    delay(TICK)
-                } else if (allStopped(set) || ++stopTicks >= STOP_TICKS) {
-                    break
-                }
-            }
-        } finally {
-            // Before the set is closed, not after: an agent that connects in between is told there
-            // is no engine, which is true, rather than handed one that is being torn down.
-            agents?.invoke(null)
-            set.close()
-            dispatchers.close()
-            onStopped()
-        }
+    // The engine's whole lifetime is the holder's, not this composition's: a window thrown away
+    // and rebuilt — which on Android is a rotation — must not take the `TorrentSet` with it
+    // (B-79). Keyed on the holder so that it is started once per holder and not once per window.
+    LaunchedEffect(model, initial, directory) {
+        model.start(initial = initial, torrents = torrents, agents = agents, onStopped = onStopped)
     }
+
+    // Whoever built the holder closes it: a window that made its own takes it down with it, and one
+    // handed a holder by the application that outlives it leaves the engine running.
+    DisposableEffect(model) { onDispose { if (model.ownedByTheWindow) model.close() } }
+
+    // What the window is being asked to do, handed down rather than captured: the loop above
+    // reads it on every tick and a value captured at launch would be the one from before the
+    // click.
+    LaunchedEffect(stopping) { model.stopping.value = stopping }
 
     val snapshot = engine ?: return
     // Composed here rather than in the loop, so a click is a recomposition and not a wait.
@@ -1290,7 +1054,7 @@ internal fun shortcutFor(
  * By hash and not by index: the list is sorted by whatever column was last clicked, and a command
  * that travelled as "row 3" would arrive at whichever torrent row 3 had become.
  */
-private class TorrentCommand(
+internal class TorrentCommand(
     val infoHash: String,
     val kind: Kind,
     /** Only [Kind.Sequential] carries this: which way the order is being switched. */
@@ -1308,7 +1072,7 @@ private class TorrentCommand(
  * The split is the point: this is recomputed on a timer and everything else is recomputed on a
  * click.
  */
-private class EngineSnapshot(
+internal class EngineSnapshot(
     val samples: List<Sample>,
     val fetching: List<MagnetLink>,
     val pieceLengths: Map<String, Long>,
@@ -1325,7 +1089,7 @@ private class EngineSnapshot(
     val lifecycle: Lifecycle,
 )
 
-private suspend fun open(
+internal suspend fun open(
     set: TorrentSet,
     metainfo: Metainfo,
     preferences: Preferences,
@@ -1348,7 +1112,7 @@ private suspend fun open(
     }
 
 /** Every session has answered its tracker, closed its peers, flushed and written its record. */
-private suspend fun allStopped(set: TorrentSet): Boolean =
+internal suspend fun allStopped(set: TorrentSet): Boolean =
     withTimeoutOrNull(TICK) { set.torrents.forEach { it.awaitStopped() } } != null
 
 /** The file chooser is the platform's, because a file chooser drawn by hand is always worse. */
@@ -1455,7 +1219,7 @@ private fun magnetFromClipboard(directory: String): Pending? {
     }
 }
 
-private fun heapUsed(): Long = Runtime.getRuntime().let { it.totalMemory() - it.freeMemory() }
+internal fun heapUsed(): Long = Runtime.getRuntime().let { it.totalMemory() - it.freeMemory() }
 
 /**
  * How often the window asks the engine what it is doing.
@@ -1469,10 +1233,10 @@ private fun heapUsed(): Long = Runtime.getRuntime().let { it.totalMemory() - it.
  * Affordable only because the sample is built off the composition's thread; before that, tripling
  * the rate would have tripled the work the UI thread does between clicks.
  */
-private val TICK = 300.milliseconds
+internal val TICK = 300.milliseconds
 
 /** Ten of them: the same ten seconds the headless client gives a clean stop before it goes. */
-private const val STOP_TICKS = 10
+internal const val STOP_TICKS = 10
 
 /**
  * How long a settings change waits before it is written down.

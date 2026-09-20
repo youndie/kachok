@@ -50,7 +50,8 @@ asked for it in a conversation, through the same `TorrentSet` a click goes throu
 
 | File | What is there |
 |---|---|
-| `ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/App.kt` | `main`, the window, and the loop that samples every session and stops them cleanly on close |
+| `ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/App.kt` | `main`, the window, and the platform it reaches for: the file chooser, the clipboard, the drop target, the tray |
+| `.../ui/session/ClientModel.kt` | what the window *is*, held where a window is not: its state, its channels, and the loop that samples every session and stops them cleanly |
 | `.../ui/theme/` | the eight roles, the `warning` M3 does not ship, the three bundled families, the 4 dp calibration |
 | `.../ui/icons/Icons.kt` | the twenty-one Material Symbols codepoints and the subset font they index into |
 | `.../ui/list/TorrentRow.kt` | the nine columns at the design's widths, and the row's own hairline |
@@ -210,6 +211,13 @@ it a different torrent for every `.torrent` whose keys are not sorted, and those
   `EngineSnapshot` holds one second's worth of session state and nothing else. The window state used
   to be rebuilt inside the sampling loop, which made every click up to a second late
   ([B-64](../backlog/B-64-a-click-waited-for-the-tick.md)).
+* **The window's state and its engine are not the window's.** Both live on a `ClientModel`, held one
+  level above the window, and the composable reads them through `by model.selected` — the same text
+  the `remember` was. Lifting the sampling loop's *body* out of the composable would have moved
+  nothing: a `LaunchedEffect` is cancelled with its composition, so the holder owns the scope and
+  the window only starts it. **Whoever builds the holder closes it** — a window that made its own
+  takes it down, one handed a holder by the application leaves the engine running
+  ([B-79](../backlog/B-79-the-windows-state-outlives-its-composition.md)).
 * **The DHT is built the first time it is asked for.** Joining announces this machine's address to
   three public routers, so it happens when somebody asks for it rather than because a flag was true
   at start-up; a torrent already running keeps the `Dht` it was opened with, which may be none.
