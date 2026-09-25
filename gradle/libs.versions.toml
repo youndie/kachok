@@ -17,7 +17,7 @@ sborka = "0.4.0.87"
 viddik = "0.4.0"
 # The window frame: a Compose-drawn title bar with the host's own window controls. The design draws
 # one in its own colours, which is a custom frame whether or not it says so.
-appframe = "0.1.24"
+appframe = "0.1.27"
 
 [libraries]
 appframe = { module = "io.github.youndie:appframe-desktop", version.ref = "appframe" }
