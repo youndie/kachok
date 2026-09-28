@@ -231,6 +231,33 @@ class BackendTest {
             )
         }
 
+    /** A move over the socket takes the files, and the torrent goes on complete from there (B-134). */
+    @Test
+    fun aMoveSentOverTheSocketTakesTheFilesAndKeepsTheProgress(): Unit =
+        serving { local, _, listening, socket ->
+            socket.send(Request.AddTorrent(Base64.getEncoder().encodeToString(local.torrent)))
+            val hash =
+                listening
+                    .awaitSnapshot { it.torrents.singleOrNull()?.isComplete == true }
+                    .torrents
+                    .single()
+                    .infoHash
+            val elsewhere = root.resolve("elsewhere")
+
+            socket.send(Request.Move(hash, elsewhere.toString()))
+
+            val deadline = System.nanoTime() + 30_000_000_000
+            while (!Files.exists(elsewhere.resolve("payload.bin")) && System.nanoTime() < deadline) Thread.sleep(50)
+            assertTrue(Files.readAllBytes(elsewhere.resolve("payload.bin")).contentEquals(local.content))
+            assertTrue(
+                listening
+                    .awaitSnapshot { it.torrents.single().isComplete }
+                    .torrents
+                    .single()
+                    .isComplete,
+            )
+        }
+
     @Test
     fun removingATorrentOverTheSocketTakesItOutOfTheList(): Unit =
         serving { local, _, listening, socket ->

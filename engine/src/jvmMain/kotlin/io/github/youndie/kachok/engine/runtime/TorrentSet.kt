@@ -13,6 +13,7 @@ import io.github.youndie.kachok.engine.nat.PortMapper
 import io.github.youndie.kachok.engine.nat.PortMapping
 import io.github.youndie.kachok.engine.peer.Encryption
 import io.github.youndie.kachok.engine.session.Command
+import io.github.youndie.kachok.engine.session.FilePriority
 import io.github.youndie.kachok.engine.storage.FileSet
 import io.github.youndie.kachok.engine.tracker.TrackerProtocol
 import kotlinx.coroutines.CoroutineScope
@@ -22,6 +23,7 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.io.IOException
 import java.net.BindException
+import java.nio.file.Files
 import java.nio.file.Path
 import java.util.concurrent.ConcurrentHashMap
 
@@ -276,6 +278,168 @@ public class TorrentSet(
         byInfoHash.remove(runtime.metainfo.infoHash.hex()) ?: return
         runtime.stop()
         runtime.close()
+    }
+
+    /** What [move] did. */
+    public class Moved(
+        /**
+         * The torrent, opened again and not yet started — at the new directory, or at the old one
+         * when the move failed. The caller restores and starts it, the way it does after [add].
+         */
+        public val runtime: TorrentRuntime,
+        /** Whether it was paused before the move, so the caller starts it the way it was. */
+        public val paused: Boolean,
+        /** Null when every file arrived; otherwise what went wrong, with every file put back. */
+        public val failure: String?,
+    )
+
+    /**
+     * Moves a torrent's files and its resume record to [directory] and opens it again there
+     * ([B-134](../../../../../../../../docs/backlog/B-134-move-a-torrent-s-data.md)).
+     *
+     * **The resume record goes with the files, and that is what keeps the progress.** The torrent
+     * is stopped first — the stop flushes and writes the record — and the record is moved beside the
+     * files, so the start-up check at the new place trusts it the way it trusts it after a restart
+     * and hashes only what it does not vouch for. A move is a restart somewhere else.
+     *
+     * **Refused before anything is touched** when the torrent is already there, when a file it would
+     * write already exists at the target, when another torrent in this set owns one of those paths,
+     * or when the target's volume has less room than the files take. Those are the cases where a
+     * half-done move is worse than none; `IllegalArgumentException`, with a sentence.
+     *
+     * One file at a time with `Files.move`: a rename on one volume, a copy and a delete across two.
+     * A failure part-way puts back the files already moved and opens the torrent where it was, and
+     * says so in [Moved.failure] rather than throwing, because by then the torrent has been stopped
+     * and the caller has a runtime to start again either way.
+     *
+     * The torrent stays in [torrents] for the whole move, stopped, so a list drawn from the set does
+     * not lose its row while a large copy runs.
+     */
+    public suspend fun move(
+        runtime: TorrentRuntime,
+        directory: Path,
+    ): Moved {
+        val metainfo = runtime.metainfo
+        val key = metainfo.infoHash.hex()
+        require(byInfoHash[key] === runtime) { "${metainfo.name} is not in this client" }
+        val from = runtime.directory.toAbsolutePath().normalize()
+        val to = directory.toAbsolutePath().normalize()
+        require(from != to) { "${metainfo.name} is already saved in $to" }
+        // Every file the torrent can have, and the record — which the stop below writes, so it is
+        // not on the disk yet and is decided on after the stop, not now.
+        val candidates =
+            // `listOf`, not `+ path`: a `Path` is an `Iterable<Path>`, and adding one to a list adds its
+            // name elements — `Users`, `youndie`, … — one by one.
+            (runtime.paths + listOf(from.resolve(TorrentRuntime.resumeName(metainfo))))
+                .map { it.toAbsolutePath().normalize() }
+                .map { it to to.resolve(from.relativize(it)) }
+        candidates.firstOrNull { Files.exists(it.second) }?.let { (_, target) ->
+            throw IllegalArgumentException("$target already exists; nothing was moved")
+        }
+        collisionWith(metainfo, to)?.let { (path, owner) ->
+            throw IllegalArgumentException("$path belongs to $owner; nothing was moved")
+        }
+        val store = Files.getFileStore(existingAncestor(to))
+        if (store != Files.getFileStore(from)) {
+            val needed = candidates.filter { Files.exists(it.first) }.sumOf { Files.size(it.first) }
+            require(needed <= store.usableSpace) {
+                "$to has ${store.usableSpace} bytes free and ${metainfo.name} takes $needed; nothing was moved"
+            }
+        }
+
+        val state = runtime.state.value
+        runtime.stop()
+        runtime.awaitStopped()
+        runtime.close()
+        val moves = candidates.filter { Files.exists(it.first) }
+
+        val done = mutableListOf<Pair<Path, Path>>()
+        val failure =
+            try {
+                moves.forEach { (source, target) ->
+                    Files.createDirectories(target.parent)
+                    Files.move(source, target)
+                    done += source to target
+                }
+                null
+            } catch (failed: IOException) {
+                done.asReversed().forEach { (source, target) ->
+                    try {
+                        Files.move(target, source)
+                    } catch (stuck: IOException) {
+                        // Nothing better to do than say so: the file is at `target`, whole, and the
+                        // torrent reopens at `from` and will fetch it again.
+                        runtime.onResumeFailure("$target could not be moved back to $source: ${stuck.message}")
+                    }
+                }
+                "${failed.message ?: failed::class.simpleName}; everything was put back in $from"
+            }
+        if (failure == null) pruneEmpty(moves.map { it.first }, from)
+
+        val tiers = state.files
+        val options =
+            runtime.options.let {
+                RuntimeOptions(
+                    directory = if (failure == null) to else from,
+                    port = it.port,
+                    maxPeers = it.maxPeers,
+                    pipelineDepth = it.pipelineDepth,
+                    announceToAllTrackers = it.announceToAllTrackers,
+                    uploadLimitBytesPerSecond = it.uploadLimitBytesPerSecond,
+                    downloadLimitBytesPerSecond = it.downloadLimitBytesPerSecond,
+                    // The decisions as they stand now, not as they were when the torrent opened:
+                    // a tier or the order changed since is the one to keep.
+                    unwantedFiles = tiers.indices.filter { tiers[it].priority == FilePriority.SKIP }.toSet(),
+                    highFiles = tiers.indices.filter { tiers[it].priority == FilePriority.HIGH }.toSet(),
+                    sequential = state.sequential,
+                    encryption = it.encryption,
+                )
+            }
+        val reopened =
+            TorrentRuntime.open(
+                metainfo = metainfo,
+                options = options,
+                dispatchers = dispatchers,
+                scope = scope,
+                listenPort = listenPort,
+                dht = if (metainfo.isPrivate) null else dht,
+                onResumeFailure = runtime.onResumeFailure,
+            )
+        byInfoHash[key] = reopened
+        return Moved(reopened, paused = state.paused, failure = failure)
+    }
+
+    /** The nearest directory on the way up to [path] that exists, which is where its volume is asked. */
+    private fun existingAncestor(path: Path): Path {
+        var at: Path? = path
+        while (at != null && !Files.exists(at)) at = at.parent
+        return at ?: path.root
+    }
+
+    /**
+     * The directories the move emptied, deepest first, up to and not including [root].
+     *
+     * A multi-file torrent's folder, and any folder inside it, would otherwise stay behind as an
+     * empty tree beside wherever the files went. Only empty ones: a folder that holds something
+     * else is somebody's, and a move is no reason to touch it.
+     */
+    private fun pruneEmpty(
+        moved: List<Path>,
+        root: Path,
+    ) {
+        moved
+            .flatMap { file ->
+                generateSequence(file.parent) { it.parent }.takeWhile { it != root && it.startsWith(root) }
+            }.distinct()
+            .sortedByDescending { it.nameCount }
+            .forEach { folder ->
+                try {
+                    Files.deleteIfExists(folder)
+                } catch (kept: IOException) {
+                    // Not empty — somebody else's files are in it, and they stay — or not ours to
+                    // delete. Either way the move itself is done.
+                }
+            }
     }
 
     /**

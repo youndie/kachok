@@ -191,6 +191,13 @@ internal fun rememberTorrent(
     }
 }
 
+/** And where the files are, after a move ([B-134](../../../../../../../../docs/backlog/B-134-move-a-torrent-s-data.md)). */
+internal fun rememberDirectory(
+    directory: Path,
+    infoHash: String,
+    saveTo: String,
+): Unit = rememberOne(directory, infoHash, DIRECTORY, saveTo)
+
 /** Only the paused flag, for the one thing that changes without anything else changing. */
 internal fun rememberPaused(
     directory: Path,
@@ -321,4 +328,9 @@ internal class StoredTorrentsKeeper(
         infoHash: String,
         on: Boolean,
     ): Unit = rememberSequential(directory, infoHash, on)
+
+    override fun moved(
+        infoHash: String,
+        directory: Path,
+    ): Unit = rememberDirectory(this.directory, infoHash, directory.toString())
 }

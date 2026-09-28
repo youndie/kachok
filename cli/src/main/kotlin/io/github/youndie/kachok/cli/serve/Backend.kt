@@ -136,6 +136,21 @@ internal class Backend(
                 onTorrent(connection, request, request.infoHash) { it.sequential(request.on) }
             }
 
+            is Request.Move -> {
+                onTorrent(connection, request, request.infoHash) { runtime ->
+                    val moved =
+                        try {
+                            set.move(runtime, Path.of(request.directory))
+                        } catch (refused: IllegalArgumentException) {
+                            refuse(connection, "move", refused.message.orEmpty())
+                            return@onTorrent
+                        }
+                    moved.runtime.restore()
+                    moved.runtime.start(scope, paused = moved.paused)
+                    moved.failure?.let { refuse(connection, "move", it) }
+                }
+            }
+
             is Request.Remove -> {
                 onTorrent(connection, request, request.infoHash) { set.remove(it) }
             }

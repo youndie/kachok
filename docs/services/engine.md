@@ -142,6 +142,18 @@ Session context is a `CoroutineContext.Element`. `ScopedValue` is not used in co
 research [D2](../research/research-architecture.md#d2-scopedvalue-is-allowed-in-the-blocking-loops-only-deviation-from-the-brief)
 says why.
 
+* **A move is a restart somewhere else.** `TorrentSet.move` stops the torrent — the stop flushes and
+  writes the resume record — moves every file *and the record* with `Files.move` (a rename on one
+  volume, a copy and a delete across two), and opens the torrent again at the new directory with
+  its tiers and order as they stand. The start-up check there trusts the record the way it does
+  after a restart, so nothing it vouches for is hashed again. It refuses before touching anything
+  when a target file exists, another torrent owns the path, or the volume is short of room; a
+  failure part-way puts the moved files back and reopens the torrent where it was. The row stays in
+  `torrents` for the whole move, stopped. Found on the way: `runtime.paths + path` adds the
+  path's *name elements* to the list, because a `Path` is an `Iterable<Path>` — the record was
+  silently left behind until it was `+ listOf(path)`
+  ([B-134](../backlog/B-134-move-a-torrent-s-data.md)).
+
 ## 4. Dependencies
 
 | Kind | Name | What for |

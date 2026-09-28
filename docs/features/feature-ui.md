@@ -169,6 +169,20 @@ toolbar ── Add torrent ──▶ file chooser ──▶ MetainfoParser ─�
   `#withinTheRaisedPoolTheRarestStillWins`, `#raisingAFileOnARunningPickerChangesOnlyWhatBeginsNext`,
   `#leftCountsTheWantedPiecesAndNotTheWantedFiles`, `#leftFollowsTheSkipSetBothWays`
 
+### Scenario: A torrent's files are moved from *Save to*
+* **Given:** a torrent selected, its details panel on *Overview*.
+* **When:** the folder button beside *Save to* is pressed and another directory chosen.
+* **Then:** the torrent stops, its files and its resume record go to that directory, and it opens
+  again there with its progress, tiers and order and the way it was — paused or not — without
+  hashing again what the record vouches for; *Save to* reads the new directory and the list
+  remembers it. A target that already holds its files, or has too little room, is refused before
+  anything is touched, and the reason is a `MOVE` complaint in *Overview*
+  ([B-134](../backlog/B-134-move-a-torrent-s-data.md)).
+* **Automated:** `ui MoveDataTest#theFolderButtonBesideSaveToAsksTheCaller`,
+  `#withNoHandlerThereIsNoButton`, `#aMoveThatFailedIsAComplaint`;
+  `engine TorrentSetMoveTest#theFilesAndTheRecordMoveAndTheProgressComesWithThem`,
+  `#aTargetThatAlreadyHoldsTheFilesIsRefusedAndNothingIsTouched`
+
 ### Scenario: The column header sorts the list it heads
 * **Given:** torrents whose sizes, percentages and ratios sort one way as text and another as
   numbers.

@@ -61,6 +61,7 @@ what the WebSocket sends.
 | `pause_torrent`, `resume_torrent`, `remove_torrent` | as the toolbar's, with `delete_data` on the last |
 | `set_file_priority` | one file to `skip`, `normal` or `high` on a running torrent |
 | `set_sequential` | a running torrent in order or rarest first |
+| `move_torrent` | the downloaded files to another directory, keeping the progress |
 
 Every refusal is a sentence — which torrent, which path, what was wrong — because the thing on the
 other end shows words to a person and has nowhere to look up a code.

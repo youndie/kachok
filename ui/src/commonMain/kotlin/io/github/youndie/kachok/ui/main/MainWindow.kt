@@ -114,6 +114,8 @@ internal fun MainWindow(
     onSequentialOrder: (Boolean) -> Unit = {},
     /** A row's glyph in the *Files* tab moved that file to another tier (B-106). */
     onFilePriority: (FileRow, FilePriority) -> Unit = { _, _ -> },
+    /** *Save to*'s folder button; null draws none (B-134). */
+    onMoveData: (() -> Unit)? = null,
     onSequential: (Boolean) -> Unit = {},
     onResizeDetails: (Dp) -> Unit = {},
 ) {
@@ -191,6 +193,7 @@ internal fun MainWindow(
                             onOpenFile = onOpenFile,
                             onSequential = onSequentialOrder,
                             onFilePriority = onFilePriority,
+                            onMoveData = onMoveData,
                             width = state.detailsWidth,
                             onResize = onResizeDetails,
                         )
@@ -215,6 +218,7 @@ internal fun MainWindow(
                     onOpenFile = onOpenFile,
                     onSequential = onSequentialOrder,
                     onFilePriority = onFilePriority,
+                    onMoveData = onMoveData,
                     width = state.detailsWidth,
                     onResize = onResizeDetails,
                 )

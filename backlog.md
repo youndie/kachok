@@ -60,7 +60,7 @@ which is also the order of work.
 | [B-87](docs/backlog/B-87-a-server-with-a-web-face.md) `[ ]` | Phase 3: a headless server with a web face, installable on a box that is always on | P3 | XL | B-80 |
 | [B-02](docs/backlog/B-02-ci-runs-build-and-docs-gates.md) `[ ]` | CI runs the build and the documentation gates on every push | infra | S | B-01 |
 
-## Closed (126)
+## Closed (127)
 
 **M0 — The build and its gates**
 
@@ -168,6 +168,7 @@ which is also the order of work.
 - [B-130](docs/backlog/B-130-the-interface-is-too-small.md) `[x]` - The whole interface wants to be 10–20 % larger
 - [B-131](docs/backlog/B-131-the-window-has-no-minimum-size.md) `[x]` - The window has no minimum size, and the interface scale moved where it breaks
 - [B-132](docs/backlog/B-132-left-goes-negative-when-files-are-skipped.md) `[x]` - left goes negative when files are skipped
+- [B-134](docs/backlog/B-134-move-a-torrent-s-data.md) `[x]` - A torrent's data can be moved to another directory, keeping its progress
 - [B-39](docs/backlog/B-39-compose-ui-desktop.md) `[x]` - Phase 2: a Compose Multiplatform desktop UI on the engine's StateFlow
 - [B-46](docs/backlog/B-46-ui-theme-and-calibration.md) `[x]` - The theme: colour roles, type, and the desktop calibration
 - [B-47](docs/backlog/B-47-torrent-row-and-states.md) `[x]` - The torrent row and its seven states

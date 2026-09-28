@@ -130,6 +130,12 @@ public class TorrentRuntime internal constructor(
      * every torrent, including the ones that are not there.
      */
     public val directory: Path,
+    /**
+     * What this torrent was opened with, so that [TorrentSet.move] can open it again elsewhere with
+     * everything else the same ([B-134](../../../../../../../../docs/backlog/B-134-move-a-torrent-s-data.md)).
+     */
+    internal val options: RuntimeOptions,
+    internal val onResumeFailure: (String) -> Unit,
 ) : AutoCloseable {
     public val state: StateFlow<SessionState> get() = session.state
 
@@ -345,6 +351,8 @@ public class TorrentRuntime internal constructor(
                 listenPort = port,
                 blocks = storage,
                 io = dispatchers.io,
+                options = options,
+                onResumeFailure = onResumeFailure,
             )
         }
 
