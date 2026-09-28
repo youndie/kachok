@@ -2996,6 +2996,39 @@ class SessionTest {
             job.cancelAndJoin()
         }
 
+    /**
+     * Taking the last file off `skip` reaches the picker.
+     *
+     * With both sets empty the session used to hand the picker nothing, so it kept the old skip set:
+     * the file read as wanted and was never asked for, and `left` did not count it
+     * ([B-132](../../../../../../../../docs/backlog/B-132-left-goes-negative-when-files-are-skipped.md)).
+     */
+    @Test
+    fun aFileTakenOffSkipIsOwedAgain() =
+        runTest {
+            val metainfo = twoFileTorrent(pieces = 8)
+            val session =
+                session(
+                    metainfo,
+                    FakeDialer(metainfo.infoHash),
+                    FakeTracker(listOf(peerA)),
+                    FakeStorage(),
+                    AgreeableHasher(metainfo),
+                )
+            session.restore(AgreeableHasher(metainfo))
+            val job = session.start(kotlinx.coroutines.CoroutineScope(coroutineContext + handler))
+            testScheduler.runCurrent()
+
+            session.send(Command.PrioritiseFile(0, FilePriority.SKIP))
+            testScheduler.runCurrent()
+            session.send(Command.PrioritiseFile(0, FilePriority.NORMAL))
+            testScheduler.runCurrent()
+
+            assertEquals(metainfo.totalLength, session.state.value.left, "the file taken off skip is still not owed")
+
+            job.cancelAndJoin()
+        }
+
     /** `-FAKE01-` and then the address, so two fakes are two peers unless a test says otherwise. */
     private companion object {
         fun fakeIdFor(address: PeerAddress): PeerId =

@@ -26,7 +26,6 @@ import io.github.youndie.kachok.engine.storage.Storage
 import io.github.youndie.kachok.engine.storage.piecesOf
 import io.github.youndie.kachok.engine.storage.unwantedPieces
 import io.github.youndie.kachok.engine.storage.verifiedBytesPerFile
-import io.github.youndie.kachok.engine.storage.wantedBytes
 import io.github.youndie.kachok.engine.tracker.AnnounceEvent
 import io.github.youndie.kachok.engine.tracker.AnnounceRequest
 import io.github.youndie.kachok.engine.tracker.TrackerClient
@@ -142,9 +141,15 @@ public class Session(
             else -> FilePriority.NORMAL
         }
 
-    /** Hands the picker the two pools, derived from the file sets and the piece boundaries. */
+    /**
+     * Hands the picker the two pools, derived from the file sets and the piece boundaries.
+     *
+     * Always, empty sets included. It used to return early when both were empty, which is right at
+     * start-up and wrong on a running torrent: taking the last file off `skip` left the picker with
+     * the old skip set, so the file was still not fetched and `left` still did not count it
+     * ([B-132](../../../../../../../../docs/backlog/B-132-left-goes-negative-when-files-are-skipped.md)).
+     */
     private fun applyPriorities() {
-        if (skipped.isEmpty() && raised.isEmpty()) return
         picker.prioritise(unwantedPieces(metainfo, skipped), piecesOf(metainfo, raised))
     }
 
@@ -365,15 +370,14 @@ public class Session(
             (0 until metainfo.pieceCount)
                 .filter { verified[it] }
                 .sumOf { metainfo.pieceLengthAt(PieceIndex(it)).toLong() }
-        // BEP 3's `left` is what this client still needs, and it does not need the files it is
-        // skipping. With nothing skipped this is the torrent's own length, as before.
-        val wanted = wantedBytes(metainfo, skipped)
         departedUploaded = record?.uploaded ?: 0
         publish {
             it.copy(
                 completedPieces = verified.cardinality,
                 downloaded = bytes,
-                left = (wanted - bytes).coerceAtLeast(0),
+                // BEP 3's `left` is what this client still needs, and it does not need the files
+                // it is skipping; the picker counts it in pieces, the unit it is paid off in.
+                left = picker.left,
                 uploaded = record?.uploaded ?: 0,
                 isComplete = verified.isComplete,
                 verifiedPieces = metainfo.pieceCount,
@@ -489,7 +493,7 @@ public class Session(
                         applyPriorities()
                         publish {
                             it.copy(
-                                left = (wantedBytes(metainfo, skipped) - it.downloaded).coerceAtLeast(0),
+                                left = picker.left,
                                 isComplete = picker.isComplete,
                                 files = fileViews(),
                             )
@@ -1765,7 +1769,7 @@ public class Session(
                         it.copy(
                             completedPieces = picker.completed.cardinality,
                             downloaded = it.downloaded + length,
-                            left = it.left - length,
+                            left = picker.left,
                             isComplete = picker.isComplete,
                         )
                     }

@@ -59,12 +59,3 @@ public fun piecesOf(
     }
     return touched
 }
-
-/** The bytes of the files this client actually wants, which is what `left` counts down. */
-public fun wantedBytes(
-    metainfo: Metainfo,
-    unwantedFiles: Set<Int>,
-): Long =
-    metainfo.files
-        .filterIndexed { index, _ -> index !in unwantedFiles }
-        .sumOf { it.length }

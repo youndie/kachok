@@ -138,6 +138,20 @@ public class PiecePicker(
 
     private var wantedHave: Int = 0
 
+    private var wantedMissing: Long = metainfo.totalLength
+
+    /**
+     * Bytes of the wanted pieces not yet verified: BEP 3's `left`.
+     *
+     * **Counted in pieces, because everything subtracted from it is a piece.** The first version
+     * was the wanted *files'* length minus the verified *pieces'* length, and those are different
+     * units: a piece on a file boundary also holds bytes of the neighbouring file, a skipped one
+     * included, so each boundary piece took more off than the wanted file owed, and a torrent with
+     * skipped files finished at a negative `left` ([B-132](../../../../../../../../docs/backlog/B-132-left-goes-negative-when-files-are-skipped.md)).
+     * Here it is 0 exactly when [isComplete] is true and never below.
+     */
+    public val left: Long get() = wantedMissing
+
     /**
      * Ask for none of these.
      *
@@ -152,6 +166,7 @@ public class PiecePicker(
         unwanted = pieces
         wantedPieces = metainfo.pieceCount - pieces.cardinality
         wantedHave = (0 until metainfo.pieceCount).count { have[it] && !pieces[it] }
+        wantedMissing = countWantedMissing()
     }
 
     /**
@@ -177,6 +192,7 @@ public class PiecePicker(
         high = raised.takeIf { it.cardinality > 0 }
         wantedPieces = metainfo.pieceCount - skipped.cardinality
         wantedHave = (0 until metainfo.pieceCount).count { have[it] && !skipped[it] }
+        wantedMissing = countWantedMissing()
     }
 
     /**
@@ -365,6 +381,7 @@ public class PiecePicker(
         isStarted.fill(false)
         have.clear()
         wantedHave = 0
+        wantedMissing = countWantedMissing()
     }
 
     /**
@@ -380,13 +397,25 @@ public class PiecePicker(
         check(started.isEmpty() && have.cardinality == 0) { "the picker is already in use" }
         (0 until metainfo.pieceCount).forEach { if (verified[it]) have.set(it) }
         wantedHave = (0 until metainfo.pieceCount).count { have[it] && unwanted?.get(it) != true }
+        wantedMissing = countWantedMissing()
     }
 
     /** The writer verified a piece. */
     public fun pieceVerified(piece: PieceIndex) {
         finish(piece.value)
-        if (!have[piece.value] && unwanted?.get(piece.value) != true) wantedHave++
+        if (!have[piece.value] && unwanted?.get(piece.value) != true) {
+            wantedHave++
+            wantedMissing -= metainfo.pieceLengthAt(piece)
+        }
         have.set(piece.value)
+    }
+
+    private fun countWantedMissing(): Long {
+        var missing = 0L
+        for (index in 0 until metainfo.pieceCount) {
+            if (!have[index] && unwanted?.get(index) != true) missing += metainfo.pieceLengthAt(PieceIndex(index))
+        }
+        return missing
     }
 
     /** The writer found a bad hash: every block of the piece has to come again. */
