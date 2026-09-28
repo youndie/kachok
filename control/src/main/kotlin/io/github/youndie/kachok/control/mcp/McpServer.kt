@@ -74,6 +74,8 @@ public class McpServer(
     /** Where a torrent is saved when the tool call names nowhere. */
     private val directory: Path,
     private val dispatchers: EngineDispatchers,
+    /** Told what an agent changed, so a host that keeps a torrent list can keep it ([McpKeeper]). */
+    private val keeper: McpKeeper = McpKeeper.NOTHING,
     /** One frame, with no newline in it; the caller appends the newline and flushes. */
     private val write: (String) -> Unit,
 ) {
@@ -314,19 +316,22 @@ public class McpServer(
                 ?.mapNotNull { it.jsonPrimitive.intOrNull }
                 ?.toSet()
                 .orEmpty()
+        val sequential = arguments["sequential"]?.jsonPrimitive?.booleanOrNull ?: false
         val metainfo = if (source.startsWith(MAGNET_SCHEME)) fromMagnet(source) else fromFile(source)
         val runtime =
             try {
-                set.add(metainfo, RuntimeOptions(directory = saveTo, highFiles = high))
+                set.add(metainfo, RuntimeOptions(directory = saveTo, highFiles = high, sequential = sequential))
             } catch (refused: IllegalArgumentException) {
                 // The set refuses a torrent it already has, and one whose files another one owns.
                 throw Refusal(refused.message.orEmpty())
             }
         runtime.restore()
         runtime.start(scope)
+        keeper.added(metainfo, saveTo, high, sequential)
         return Outcome(
             "Added ${metainfo.name}: ${human(metainfo.totalLength)} in ${metainfo.pieceCount} pieces, " +
-                "${metainfo.files.size} file(s), saving to $saveTo.\ninfo_hash: ${metainfo.infoHash.hex()}\n" +
+                "${metainfo.files.size} file(s), saving to $saveTo, ${orderWords(sequential)}." +
+                "\ninfo_hash: ${metainfo.infoHash.hex()}\n" +
                 metainfo.files.withIndex().joinToString("\n") { (at, file) ->
                     "  [$at] ${file.path.joinToString("/")}  ${human(file.length)}" + if (at in high) "  (high)" else ""
                 },
@@ -372,7 +377,7 @@ public class McpServer(
                 val percent = if (state.pieceCount == 0) 0 else state.completedPieces * PERCENT / state.pieceCount
                 "${state.infoHash}  ${state.name}  ${stateWord(state.paused, state.isComplete, state.sessionError)}  " +
                     "$percent%  down ${human(state.downBytesPerSecond)}/s  up ${human(state.upBytesPerSecond)}/s  " +
-                    "peers ${state.connectedPeers}/${state.knownPeers}"
+                    "peers ${state.connectedPeers}/${state.knownPeers}" + if (state.sequential) "  in order" else ""
             },
         )
     }
@@ -405,6 +410,7 @@ public class McpServer(
                 state.lastPeerError?.let { appendLine("last peer error: $it") }
                 state.sessionError?.let { appendLine("session error: $it") }
                 appendLine("saving to ${runtime.directory}")
+                appendLine("order: ${orderWords(state.sequential)}")
                 if (state.files.isNotEmpty()) {
                     appendLine("files:")
                     state.files.forEachIndexed { at, file ->
@@ -448,6 +454,7 @@ public class McpServer(
     private suspend fun pause(arguments: JsonObject): Outcome {
         val runtime = runtimeFor(arguments)
         runtime.pause()
+        keeper.paused(runtime.metainfo.infoHash.hex(), paused = true)
         return if (runtime.settled { it.paused }) {
             Outcome("Paused ${runtime.metainfo.name}.")
         } else {
@@ -458,6 +465,7 @@ public class McpServer(
     private suspend fun resume(arguments: JsonObject): Outcome {
         val runtime = runtimeFor(arguments)
         runtime.resume()
+        keeper.paused(runtime.metainfo.infoHash.hex(), paused = false)
         return if (runtime.settled { !it.paused }) {
             Outcome("Resumed ${runtime.metainfo.name}.")
         } else {
@@ -485,6 +493,7 @@ public class McpServer(
         // somewhere to ask what it was writing.
         val paths = runtime.paths
         set.remove(runtime)
+        keeper.removed(runtime.metainfo.infoHash.hex())
         if (!deleteData) return Outcome("Removed $name from the list; its files are still on the disk.")
         val kept = mutableListOf<String>()
         paths.forEach { path ->
@@ -520,11 +529,41 @@ public class McpServer(
             FilePriority.entries.firstOrNull { it.name.equals(word, ignoreCase = true) }
                 ?: throw Refusal("priority must be skip, normal or high, not '$word'")
         runtime.prioritise(file, priority)
+        // The sets are what the engine last reported with this change applied, the way the window
+        // derives them, so a host that writes them down does not wait for the next state.
+        val tiers = runtime.state.value.files
+        val tierOf = { at: Int -> if (at == file) priority else tiers.getOrNull(at)?.priority ?: FilePriority.NORMAL }
+        keeper.priorities(
+            runtime.metainfo.infoHash.hex(),
+            unwanted = files.indices.filter { tierOf(it) == FilePriority.SKIP }.toSet(),
+            high = files.indices.filter { tierOf(it) == FilePriority.HIGH }.toSet(),
+        )
         val name = files[file].path.joinToString("/")
         return if (runtime.settled { it.files.getOrNull(file)?.priority == priority }) {
             Outcome("$name is now ${priority.name.lowercase()}.")
         } else {
             Outcome("Asked for $name to be ${priority.name.lowercase()}; the session has not confirmed it yet.")
+        }
+    }
+
+    /**
+     * The order on a running torrent, both ways
+     * ([B-133](../../../../../../../../docs/backlog/B-133-sequential-over-mcp-and-the-wire.md)).
+     *
+     * The same call the Files tab's "Ask in order" makes (B-89): what is already asked for is left
+     * alone and what begins next follows the new order.
+     */
+    private suspend fun setSequential(arguments: JsonObject): Outcome {
+        val runtime = runtimeFor(arguments)
+        val on =
+            arguments["on"]?.jsonPrimitive?.booleanOrNull
+                ?: throw Refusal("set_sequential needs `on`: true for in order, false for rarest first")
+        runtime.sequential(on)
+        keeper.sequential(runtime.metainfo.infoHash.hex(), on)
+        return if (runtime.settled { it.sequential == on }) {
+            Outcome("${runtime.metainfo.name} is now ${orderWords(on)}.")
+        } else {
+            Outcome("Asked ${runtime.metainfo.name} to be ${orderWords(on)}; the session has not confirmed it yet.")
         }
     }
 
@@ -608,6 +647,20 @@ public class McpServer(
                 else -> "downloading"
             }
 
+        private fun orderWords(sequential: Boolean): String =
+            if (sequential) "in order (both ends of each file first)" else "rarest first"
+
+        /**
+         * What sequential gives, said where an agent reads it. It follows the order of the files
+         * *inside the torrent*, which is often by size or by name and not the order a person means
+         * by "episode 1, then 2" — and an agent that promised the second would be wrong.
+         */
+        private const val ORDER =
+            "In order means pieces are asked for from the start of the torrent to its end, with both " +
+                "ends of every file first so a player can open a file while it downloads. It follows the " +
+                "order of the files inside the torrent, as torrent_status lists them, which is not always " +
+                "episode order; to get one file before another, use set_file_priority."
+
         private const val KIB = 1024.0
 
         fun human(bytes: Long): String {
@@ -660,6 +713,11 @@ public class McpServer(
                         property("source", "string", "A path to a .torrent file, or a magnet: link.")
                         property("directory", "string", "Where to save it. Defaults to the server's directory.")
                         property("high", "array", "Indices of files to fetch before the others.", items = "integer")
+                        property(
+                            "sequential",
+                            "boolean",
+                            "Download in order rather than rarest first. Default false. $ORDER",
+                        )
                     },
                 ) { addTorrent(it) },
                 Tool(
@@ -714,6 +772,14 @@ public class McpServer(
                         property("priority", "string", "skip, normal or high.", enum = listOf("skip", "normal", "high"))
                     },
                 ) { setFilePriority(it) },
+                Tool(
+                    "set_sequential",
+                    "Switch a running torrent between downloading in order and rarest first. $ORDER",
+                    schema(listOf("info_hash", "on")) {
+                        property("info_hash", "string", HASH)
+                        property("on", "boolean", "true for in order, false for rarest first.")
+                    },
+                ) { setSequential(it) },
             )
     }
 }

@@ -55,11 +55,12 @@ what the WebSocket sends.
 
 | Tool | Does |
 |---|---|
-| `add_torrent` | a path or a magnet link → started, and the info hash every other tool takes |
+| `add_torrent` | a path or a magnet link → started, and the info hash every other tool takes; `sequential` for in order |
 | `list_torrents`, `torrent_status` | the list, or one torrent with its files and their tiers |
 | `wait_for_completion` | blocks until done, failed, or the timeout — so an agent waits once instead of polling |
 | `pause_torrent`, `resume_torrent`, `remove_torrent` | as the toolbar's, with `delete_data` on the last |
 | `set_file_priority` | one file to `skip`, `normal` or `high` on a running torrent |
+| `set_sequential` | a running torrent in order or rarest first |
 
 Every refusal is a sentence — which torrent, which path, what was wrong — because the thing on the
 other end shows words to a person and has nowhere to look up a code.

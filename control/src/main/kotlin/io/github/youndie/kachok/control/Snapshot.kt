@@ -64,6 +64,7 @@ public fun SessionState.onTheWire(): TorrentState =
         upBytesPerSecond = peers.sumOf { it.upBytesPerSecond },
         paused = paused,
         isComplete = isComplete,
+        sequential = sequential,
         trackerError = trackerError,
         lastPeerError = lastPeerError,
         sessionError = sessionError,

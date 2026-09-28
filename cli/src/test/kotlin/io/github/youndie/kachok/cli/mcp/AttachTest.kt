@@ -157,7 +157,7 @@ class AttachTest {
             val set = TorrentSet(dispatchers, scope, SetOptions(dht = false))
             val instance = assertNotNull(SingleInstance.claim(config, emptyList()), "the lock was not bound")
             instance.agents =
-                SingleInstance.McpSessions { write -> McpServer(set, scope, root, dispatchers, write) }
+                SingleInstance.McpSessions { write -> McpServer(set, scope, root, dispatchers, write = write) }
             try {
                 body(set, local)
             } finally {

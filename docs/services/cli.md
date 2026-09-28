@@ -44,6 +44,9 @@ in-process ([B-40](../backlog/B-40-wasmjs-ui-is-a-client-of-the-headless-engine.
 * **Payload:** JSON, `kotlinx.serialization`, of `:wire`'s `Reply` and `Request`. `encodeDefaults`
   is on: without it an empty list is an *absent* key, which a JavaScript client reads as
   `undefined`.
+* **Requests:** pause, resume, recheck, announce, `sequential` (on or off, and `TorrentState.sequential`
+  says which a torrent is — [B-133](../backlog/B-133-sequential-over-mcp-and-the-wire.md)), remove,
+  remove with data, add a `.torrent`. A refused one is answered with `Refused` and a sentence.
 * **Cadence:** the whole state once a second, plus one immediately on connect. Not a delta — a
   delta protocol's failure mode is a client whose numbers drift instead of one briefly behind.
 * **Ordering:** `Snapshot.sequence` counts, and is not a timestamp; two machines' clocks need not
@@ -95,13 +98,19 @@ headless case and is what this command did everywhere before B-117.
 
   | Tool | Does |
   |---|---|
-  | `add_torrent` | a `.torrent` path or a magnet link → started; answers with the info hash every other tool takes |
+  | `add_torrent` | a `.torrent` path or a magnet link → started; answers with the info hash every other tool takes; `sequential: true` starts it in order |
   | `list_torrents` | one line per torrent: hash, name, state, percentage, rates, peers |
-  | `torrent_status` | one torrent in detail, files with their tier included |
+  | `torrent_status` | one torrent in detail, files with their tier and the order included |
   | `wait_for_completion` | **blocks** until done, failed, or `timeout_seconds` (default 600, at most 3600); says which |
   | `pause_torrent`, `resume_torrent` | as the toolbar's |
   | `remove_torrent` | off the list; `delete_data: true` deletes the files it wrote |
   | `set_file_priority` | one file to `skip`, `normal` or `high` on a running torrent (B-106) |
+  | `set_sequential` | a running torrent in order or rarest first, both ways (B-89, B-133) |
+
+  Both `sequential` descriptions say what the order is *not*: it follows the files as the torrent
+  lists them, which is often by size or name, so "episode 1 before episode 2" is a job for
+  `set_file_priority`. An agent that read "sequential" as "in the order I mean" would promise a
+  person something the client does not do — which is how this was found.
 
 * **Resource:** `kachok://snapshot`, `application/json` — the `Snapshot` the socket sends once a
   second, read on demand.

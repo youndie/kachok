@@ -22,7 +22,7 @@ distance they are one thing:
 * **the single-instance lock** — a loopback socket and a secret in the user's configuration
   directory, which is how a second launch hands its `.torrent` to the client that is already
   running rather than becoming a second one;
-* **the MCP server** — the Model Context Protocol surface an agent drives, over the same eight
+* **the MCP server** — the Model Context Protocol surface an agent drives, over the same nine
   task-shaped tools whichever process is holding the engine.
 
 It owns no engine and starts nothing. Every entry point here is handed a `TorrentSet` that some
@@ -77,12 +77,20 @@ server is constructed per connected agent, over a `TorrentSet` it does not own, 
 frames through a function the caller supplies. That is what makes a relayed session and a spawned
 one the same code: stdout in one case, a socket in the other.
 
+It is also handed an `McpKeeper`, and tells it every change an agent makes — an add, a removal, a
+pause, a tier, the order — after the engine has been asked. The window's is `StoredTorrentsKeeper`,
+which writes the same list its own clicks write, so a torrent an agent added to a running window is
+still there after the window restarts; before, it was in the engine and nowhere else. A headless
+`kachok mcp` keeps nothing and passes none, because it keeps its torrents only while its pipe is
+open ([B-133](../backlog/B-133-sequential-over-mcp-and-the-wire.md)).
+
 ## 2a. Code anchors
 
 | File | What is there |
 |---|---|
 | `control/src/main/kotlin/io/github/youndie/kachok/control/SingleInstance.kt` | the lock, both halves of its handshake, and `McpRelay` — the attached session a headless process pumps |
-| `control/src/main/kotlin/io/github/youndie/kachok/control/mcp/McpServer.kt` | JSON-RPC 2.0, the eight tools, the one resource |
+| `control/src/main/kotlin/io/github/youndie/kachok/control/mcp/McpServer.kt` | JSON-RPC 2.0, the nine tools, the one resource |
+| `control/src/main/kotlin/io/github/youndie/kachok/control/mcp/McpKeeper.kt` | what an agent changed, for a host that keeps a torrent list; the window's is `ui/.../session/StoredTorrents.kt`'s `StoredTorrentsKeeper` |
 | `control/src/main/kotlin/io/github/youndie/kachok/control/Snapshot.kt` | the engine's state as `:wire`'s, shared by the socket and the MCP resource so the two cannot drift |
 | `control/src/main/kotlin/io/github/youndie/kachok/control/ConfigDirectory.kt` | where this user's kachok keeps things, on each platform |
 | `control/src/test/kotlin/io/github/youndie/kachok/control/SingleInstanceTest.kt` | a stale file, a stranger on the port, a wrong secret |

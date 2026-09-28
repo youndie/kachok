@@ -221,7 +221,14 @@ internal class ClientModel(
         // nowhere to go. One server per connected agent, each writing back down its own socket.
         agents?.invoke(
             SingleInstance.McpSessions { write ->
-                McpServer(set, scope, Path.of(preferences.value.directory), dispatchers, write)
+                McpServer(
+                    set,
+                    scope,
+                    Path.of(preferences.value.directory),
+                    dispatchers,
+                    keeper = StoredTorrentsKeeper(torrents),
+                    write = write,
+                )
             },
         )
         this.set = set
