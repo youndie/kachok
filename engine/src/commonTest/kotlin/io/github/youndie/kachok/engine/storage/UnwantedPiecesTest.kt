@@ -81,14 +81,6 @@ class UnwantedPiecesTest {
         assertEquals(unwantedPieces(metainfo, setOf(0)).cardinality, unwantedPieces(metainfo, setOf(0, 1)).cardinality)
     }
 
-    @Test
-    fun theWantedBytesAreTheFilesThatWereKept() {
-        val metainfo = torrent(40, 24)
-        assertEquals(64, wantedBytes(metainfo, emptySet()))
-        assertEquals(40, wantedBytes(metainfo, setOf(1)))
-        assertEquals(0, wantedBytes(metainfo, setOf(0, 1)))
-    }
-
     private companion object {
         const val PIECE = 16
         const val HASH_BYTES = 20

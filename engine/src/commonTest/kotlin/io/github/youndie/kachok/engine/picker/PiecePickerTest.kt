@@ -463,6 +463,52 @@ class PiecePickerTest {
     }
 
     /**
+     * `left` is counted in pieces, so a skipped neighbour on a boundary cannot push it below zero.
+     *
+     * Four pieces: `a` is one and a half, `b` two, `c` a half. Skipping `b` lets only piece 2 off —
+     * pieces 1 and 3 hold bytes of `a` and `c` too — so three pieces are owed, although the wanted
+     * files are two pieces long. The first version subtracted the three verified pieces from those
+     * two and ended at minus one ([B-132](../../../../../../../../docs/backlog/B-132-left-goes-negative-when-files-are-skipped.md)).
+     */
+    @Test
+    fun leftCountsTheWantedPiecesAndNotTheWantedFiles() {
+        val block = PeerWire.BLOCK_SIZE.toLong()
+        val metainfo =
+            torrent(
+                files = listOf("a.mkv" to block * 3 / 2, "b.mkv" to block * 2, "c.mkv" to block / 2),
+                pieceLength = PeerWire.BLOCK_SIZE,
+            )
+        val picker = PiecePicker(metainfo, maxStartedPieces = 1, random = Random(1))
+        picker.skip(Bitfield(metainfo.pieceCount).apply { set(2) })
+        assertEquals(block * 3, picker.left)
+
+        listOf(0, 1, 3).forEach { picker.pieceVerified(PieceIndex(it)) }
+
+        assertEquals(0L, picker.left)
+        assertTrue(picker.isComplete)
+    }
+
+    /** A skip set changed on a running picker moves `left` both ways, and a skipped piece already on the disk is not owed. */
+    @Test
+    fun leftFollowsTheSkipSetBothWays() {
+        val block = PeerWire.BLOCK_SIZE.toLong()
+        val metainfo =
+            torrent(files = listOf("one" to block * 2, "two" to block * 2), pieceLength = PeerWire.BLOCK_SIZE)
+        val picker = PiecePicker(metainfo, maxStartedPieces = 1, random = Random(1))
+        picker.pieceVerified(PieceIndex(3))
+        assertEquals(block * 3, picker.left)
+
+        picker.prioritise(
+            Bitfield(metainfo.pieceCount).apply { (2..3).forEach { set(it) } },
+            Bitfield(metainfo.pieceCount),
+        )
+        assertEquals(block * 2, picker.left, "the skipped file is still owed")
+
+        picker.prioritise(Bitfield(metainfo.pieceCount), Bitfield(metainfo.pieceCount))
+        assertEquals(block * 3, picker.left, "the file taken off skip is owed again")
+    }
+
+    /**
      * And with the order off the ends are ordinary pieces.
      *
      * The default is rarest-first and every measured number assumes it, so a boundary piece that

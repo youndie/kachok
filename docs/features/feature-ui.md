@@ -155,15 +155,19 @@ toolbar ── Add torrent ──▶ file chooser ──▶ MetainfoParser ─�
 * **Then:** each press sends that file and its new tier, and nothing else; the glyph reads the tier
   the session reports rather than the last press; the picker asks for that file's pieces before
   any other's, rarest first within them, and what was already in flight finishes; a file dropped
-  to *skip* stops counting towards `left`; and the choice is remembered beside the torrent, so it
-  survives a restart ([B-106](../backlog/B-106-per-file-priority.md)).
+  to *skip* stops counting towards `left` and one taken off *skip* counts again, and `left` never
+  goes below zero however the files around it are set
+  ([B-132](../backlog/B-132-left-goes-negative-when-files-are-skipped.md)); and the choice is
+  remembered beside the torrent, so it survives a restart
+  ([B-106](../backlog/B-106-per-file-priority.md)).
 * **Automated:** `ui FilesTabTest#theGlyphOfAnOrdinaryFileAsksToRaiseIt`,
   `#aRaisedFileAsksToBeSkippedAndASkippedOneToBeOrdinary`, `#pressingTheGlyphOpensNothing`;
   `ui StoredTorrentsTest#theTiersAreRecordedTogetherWithoutDisturbingAnythingElse`;
   `engine SessionTest#aFileRaisedOnARunningSessionIsAskedForFirst`,
-  `#aFileSkippedOnARunningSessionStopsBeingOwed`;
+  `#aFileSkippedOnARunningSessionStopsBeingOwed`, `#aFileTakenOffSkipIsOwedAgain`;
   `engine PiecePickerTest#aRaisedPieceIsTakenBeforeARarerOrdinaryOne`,
-  `#withinTheRaisedPoolTheRarestStillWins`, `#raisingAFileOnARunningPickerChangesOnlyWhatBeginsNext`
+  `#withinTheRaisedPoolTheRarestStillWins`, `#raisingAFileOnARunningPickerChangesOnlyWhatBeginsNext`,
+  `#leftCountsTheWantedPiecesAndNotTheWantedFiles`, `#leftFollowsTheSkipSetBothWays`
 
 ### Scenario: The column header sorts the list it heads
 * **Given:** torrents whose sizes, percentages and ratios sort one way as text and another as

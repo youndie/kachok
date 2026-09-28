@@ -367,6 +367,16 @@ them. Nothing is read from the environment by this module; that is [cli](cli.md)
   another ([B-106](../backlog/B-106-per-file-priority.md)). The same call, `prioritise`, changes
   the skip set on a running picker — what is started finishes, what begins next follows the new
   sets — which is the half B-67 left out, done the only honest way.
+* **`left` is counted by the picker, in pieces.** It is the length of the wanted pieces not yet
+  verified — wanted meaning at least one byte of a non-skipped file, the same straddling rule the
+  skip set uses. It used to be the wanted *files'* length minus the verified *pieces'*, and a piece
+  on a file boundary holds bytes of the neighbouring file too, so with a neighbour skipped each
+  boundary piece took more off than the wanted file owed: a real 10-file torrent with eight files
+  skipped finished at `left = -172519321`. Counted in the unit it is paid off in, it reaches 0
+  exactly when the picker is complete and never goes below. `applyPriorities` hands the picker both
+  sets every time, empty ones included — returning early on "nothing skipped, nothing raised" left a
+  running picker with its old skip set after the last file was taken off it
+  ([B-132](../backlog/B-132-left-goes-negative-when-files-are-skipped.md)).
 * **Sequential is in order except for the two ends of every file, and that exception is the whole
   point of it.** An MP4's `moov` atom, an AVI's `idx1` and an MKV's `Cues` sit at the *end* of the
   file, and a player that cannot read the index will not start a frame — so strict lowest-first
