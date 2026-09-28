@@ -132,6 +132,10 @@ internal class Backend(
                 onTorrent(connection, request, request.infoHash) { it.announce() }
             }
 
+            is Request.Sequential -> {
+                onTorrent(connection, request, request.infoHash) { it.sequential(request.on) }
+            }
+
             is Request.Remove -> {
                 onTorrent(connection, request, request.infoHash) { set.remove(it) }
             }

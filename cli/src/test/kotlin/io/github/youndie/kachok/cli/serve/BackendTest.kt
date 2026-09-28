@@ -25,6 +25,7 @@ import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertContains
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.milliseconds
@@ -188,6 +189,45 @@ class BackendTest {
                     .torrents
                     .single()
                     .paused,
+            )
+        }
+
+    /** The order is switched over the socket both ways, and the snapshot says which it is (B-133). */
+    @Test
+    fun sequentialSentOverTheSocketReachesTheSessionBothWays(): Unit =
+        serving { local, _, listening, socket ->
+            socket.send(Request.AddTorrent(Base64.getEncoder().encodeToString(local.torrent)))
+            val hash =
+                listening
+                    .awaitSnapshot { it.torrents.isNotEmpty() }
+                    .torrents
+                    .single()
+                    .infoHash
+            assertFalse(
+                listening
+                    .awaitSnapshot { true }
+                    .torrents
+                    .single()
+                    .sequential,
+                "a torrent starts rarest first",
+            )
+
+            socket.send(Request.Sequential(hash, on = true))
+            assertTrue(
+                listening
+                    .awaitSnapshot { it.torrents.single().sequential }
+                    .torrents
+                    .single()
+                    .sequential,
+            )
+
+            socket.send(Request.Sequential(hash, on = false))
+            assertFalse(
+                listening
+                    .awaitSnapshot { !it.torrents.single().sequential }
+                    .torrents
+                    .single()
+                    .sequential,
             )
         }
 

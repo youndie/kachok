@@ -1,6 +1,7 @@
 package io.github.youndie.kachok.ui.session
 
 import io.github.youndie.kachok.control.configDirectory
+import io.github.youndie.kachok.control.mcp.McpKeeper
 import io.github.youndie.kachok.engine.hex
 import io.github.youndie.kachok.engine.metainfo.Metainfo
 import io.github.youndie.kachok.engine.metainfo.MetainfoParser
@@ -284,3 +285,40 @@ private const val UNWANTED = "unwanted"
 private const val SEQUENTIAL = "sequential"
 private const val HIGH = "high"
 private const val ENDS = 4
+
+/**
+ * What an agent changed through MCP, written into the same list the window's own clicks write to
+ * ([B-133](../../../../../../../../docs/backlog/B-133-sequential-over-mcp-and-the-wire.md)).
+ *
+ * Without it a torrent an agent added to a running window was in the engine and nowhere else: the
+ * window's next start did not have it, and neither a tier nor the order an agent set on one of the
+ * window's own torrents survived the restart either.
+ */
+internal class StoredTorrentsKeeper(
+    private val directory: Path,
+) : McpKeeper {
+    override fun added(
+        metainfo: Metainfo,
+        directory: Path,
+        high: Set<Int>,
+        sequential: Boolean,
+    ): Unit = rememberTorrent(this.directory, metainfo, directory.toString(), sequential = sequential, high = high)
+
+    override fun removed(infoHash: String): Unit = forgetTorrent(directory, infoHash)
+
+    override fun paused(
+        infoHash: String,
+        paused: Boolean,
+    ): Unit = rememberPaused(directory, infoHash, paused)
+
+    override fun priorities(
+        infoHash: String,
+        unwanted: Set<Int>,
+        high: Set<Int>,
+    ): Unit = rememberPriorities(directory, infoHash, unwanted, high)
+
+    override fun sequential(
+        infoHash: String,
+        on: Boolean,
+    ): Unit = rememberSequential(directory, infoHash, on)
+}

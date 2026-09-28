@@ -10,6 +10,7 @@ import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -107,7 +108,10 @@ class McpServerTest {
         }
     }
 
-    private fun <T> serving(body: (LocalSwarm, Driver) -> T): T =
+    private fun <T> serving(
+        keeper: McpKeeper = McpKeeper.NOTHING,
+        body: (LocalSwarm, Driver) -> T,
+    ): T =
         runBlocking {
             val local = LocalSwarm.start(delayPerBlockMillis = 20).also { swarm = it }
             val dispatchers = EngineDispatchers()
@@ -115,7 +119,7 @@ class McpServerTest {
             val scope = CoroutineScope(coroutineContext + dispatchers.io + job)
             val set = TorrentSet(dispatchers, scope)
             val frames = Frames()
-            val server = McpServer(set, scope, root, dispatchers) { frames.lines += it }
+            val server = McpServer(set, scope, root, dispatchers, keeper) { frames.lines += it }
             try {
                 body(local, Driver(server, frames))
             } finally {
@@ -129,6 +133,110 @@ class McpServerTest {
         root.resolve("payload.torrent").also {
             Files.write(it, local.torrent)
         }
+
+    /**
+     * `add_torrent`'s arguments for the swarm's torrent, saved under [root].
+     *
+     * The paths go through a JSON string, so they are escaped: a Windows path spliced in raw has
+     * backslashes in it, the frame is not JSON, and the call is answered with a parse error whose id
+     * the test never sees — which is how every test that added a torrent failed on Windows.
+     */
+    private fun addArguments(
+        local: LocalSwarm,
+        more: String = "",
+    ): String =
+        """{"source":${JsonPrimitive(
+            torrentFile(local).toString(),
+        )},"directory":${JsonPrimitive(root.toString())}$more}"""
+
+    /** Every call a keeper got, in order, as words. */
+    private class RecordingKeeper : McpKeeper {
+        val calls = java.util.concurrent.CopyOnWriteArrayList<String>()
+
+        override fun added(
+            metainfo: io.github.youndie.kachok.engine.metainfo.Metainfo,
+            directory: Path,
+            high: Set<Int>,
+            sequential: Boolean,
+        ) {
+            calls += "added ${metainfo.name} sequential=$sequential"
+        }
+
+        override fun removed(infoHash: String) {
+            calls += "removed"
+        }
+
+        override fun paused(
+            infoHash: String,
+            paused: Boolean,
+        ) {
+            calls += "paused=$paused"
+        }
+
+        override fun priorities(
+            infoHash: String,
+            unwanted: Set<Int>,
+            high: Set<Int>,
+        ) {
+            calls += "priorities unwanted=$unwanted high=$high"
+        }
+
+        override fun sequential(
+            infoHash: String,
+            on: Boolean,
+        ) {
+            calls += "sequential=$on"
+        }
+    }
+
+    /** The order goes in with the torrent, reads back in the status, and switches both ways (B-133). */
+    @Test
+    fun theOrderIsSetOnAddAndSwitchedOnARunningTorrent(): Unit =
+        serving { local, driver ->
+            val (added, refused) = driver.call("add_torrent", addArguments(local, ""","sequential":true"""))
+            assertFalse(refused, added)
+            assertContains(added, "in order")
+            val hash = Regex("info_hash: ([0-9a-f]{40})").find(added)!!.groupValues[1]
+
+            val (status, _) = driver.call("torrent_status", """{"info_hash":"$hash"}""")
+            assertContains(status, "order: in order")
+            assertContains(driver.call("list_torrents").first, "in order")
+
+            val (switched, refusedSwitch) = driver.call("set_sequential", """{"info_hash":"$hash","on":false}""")
+            assertFalse(refusedSwitch, switched)
+            assertContains(switched, "rarest first")
+            assertContains(driver.call("torrent_status", """{"info_hash":"$hash"}""").first, "order: rarest first")
+
+            val (missing, refusedMissing) = driver.call("set_sequential", """{"info_hash":"$hash"}""")
+            assertTrue(refusedMissing, missing)
+            assertContains(missing, "`on`")
+        }
+
+    /** Every change an agent makes is told to the keeper, which is how the window's list learns of it (B-133). */
+    @Test
+    fun theKeeperIsToldWhatAnAgentChanged() {
+        val keeper = RecordingKeeper()
+        serving(keeper) { local, driver ->
+            val (added, _) = driver.call("add_torrent", addArguments(local))
+            val hash = Regex("info_hash: ([0-9a-f]{40})").find(added)!!.groupValues[1]
+            driver.call("set_file_priority", """{"info_hash":"$hash","file":0,"priority":"skip"}""")
+            driver.call("set_sequential", """{"info_hash":"$hash","on":true}""")
+            driver.call("pause_torrent", """{"info_hash":"$hash"}""")
+            driver.call("resume_torrent", """{"info_hash":"$hash"}""")
+            driver.call("remove_torrent", """{"info_hash":"$hash"}""")
+        }
+        assertEquals(
+            listOf(
+                "added payload.bin sequential=false",
+                "priorities unwanted=[0] high=[]",
+                "sequential=true",
+                "paused=true",
+                "paused=false",
+                "removed",
+            ),
+            keeper.calls.toList(),
+        )
+    }
 
     /** The handshake, and what the server says it can do. */
     @Test
@@ -162,6 +270,7 @@ class McpServerTest {
                 "resume_torrent",
                 "remove_torrent",
                 "set_file_priority",
+                "set_sequential",
             ).forEach { assertContains(names, it) }
             tools.forEach { assertNotNull(it.jsonObject["inputSchema"], "a tool without a schema: $it") }
         }
@@ -178,7 +287,7 @@ class McpServerTest {
             val (added, refused) =
                 driver.call(
                     "add_torrent",
-                    """{"source":"${torrentFile(local)}","directory":"$root"}""",
+                    addArguments(local),
                 )
             assertFalse(refused, added)
             assertContains(added, "payload.bin")
@@ -215,7 +324,7 @@ class McpServerTest {
     @Test
     fun aFilesTierIsChangedThroughTheToolAndShowsInTheStatus(): Unit =
         serving { local, driver ->
-            val (added, _) = driver.call("add_torrent", """{"source":"${torrentFile(local)}","directory":"$root"}""")
+            val (added, _) = driver.call("add_torrent", addArguments(local))
             val hash = Regex("info_hash: ([0-9a-f]{40})").find(added)!!.groupValues[1]
 
             val (moved, refused) =
@@ -276,7 +385,7 @@ class McpServerTest {
     @Test
     fun removeWithDataDeletesWhatWasWritten(): Unit =
         serving { local, driver ->
-            val (added, _) = driver.call("add_torrent", """{"source":"${torrentFile(local)}","directory":"$root"}""")
+            val (added, _) = driver.call("add_torrent", addArguments(local))
             val hash = Regex("info_hash: ([0-9a-f]{40})").find(added)!!.groupValues[1]
             driver.call("wait_for_completion", """{"info_hash":"$hash","timeout_seconds":60}""")
             assertTrue(Files.exists(root.resolve("payload.bin")))

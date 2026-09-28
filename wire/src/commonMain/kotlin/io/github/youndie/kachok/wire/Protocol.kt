@@ -68,6 +68,8 @@ public class TorrentState(
     public val upBytesPerSecond: Long = 0,
     public val paused: Boolean = false,
     public val isComplete: Boolean = false,
+    /** Pieces are asked for in order, both ends of each file first, rather than rarest first (B-89, B-121). */
+    public val sequential: Boolean = false,
     /** The tracker's own words, not this client's summary of them. */
     public val trackerError: String? = null,
     public val lastPeerError: String? = null,
@@ -142,6 +144,17 @@ public sealed interface Request {
     @SerialName("announce")
     public class Announce(
         public val infoHash: String,
+    ) : Request
+
+    /**
+     * The order pieces are asked for: `on` is in order with both ends of each file first, off is
+     * rarest first ([B-133](../../../../../../../../docs/backlog/B-133-sequential-over-mcp-and-the-wire.md)).
+     */
+    @Serializable
+    @SerialName("sequential")
+    public class Sequential(
+        public val infoHash: String,
+        public val on: Boolean,
     ) : Request
 
     @Serializable

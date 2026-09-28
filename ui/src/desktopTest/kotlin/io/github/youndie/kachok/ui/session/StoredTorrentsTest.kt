@@ -9,6 +9,7 @@ import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertContains
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -46,6 +47,35 @@ class StoredTorrentsTest {
         assertTrue(stored.sequential)
         assertEquals(setOf(0, 2), stored.unwanted)
         assertNull(stored.problem)
+    }
+
+    /**
+     * What an agent changes through the window's MCP server lands in the same list, so it is there
+     * on the next start ([B-133](../../../../../../../../docs/backlog/B-133-sequential-over-mcp-and-the-wire.md)).
+     */
+    @Test
+    fun whatAnAgentChangesIsInTheListOnTheNextStart() {
+        val metainfo = torrent("alpha.bin")
+        val hash = metainfo.infoHash.hex()
+        val keeper = StoredTorrentsKeeper(root)
+
+        keeper.added(metainfo, Path.of("/srv/agent"), high = setOf(1), sequential = true)
+        val added = loadStoredTorrents(root).single()
+        assertEquals("/srv/agent", Path.of(added.directory).toString().replace('\\', '/'))
+        assertTrue(added.sequential)
+        assertEquals(setOf(1), added.high)
+
+        keeper.sequential(hash, on = false)
+        keeper.paused(hash, paused = true)
+        keeper.priorities(hash, unwanted = setOf(0), high = emptySet())
+        val changed = loadStoredTorrents(root).single()
+        assertFalse(changed.sequential)
+        assertTrue(changed.paused)
+        assertEquals(setOf(0), changed.unwanted)
+        assertEquals(emptySet(), changed.high)
+
+        keeper.removed(hash)
+        assertEquals(emptyList(), loadStoredTorrents(root))
     }
 
     /** The order is the same on every run, so two starts do not shuffle the list under somebody. */
