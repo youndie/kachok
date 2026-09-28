@@ -187,6 +187,55 @@ class McpServerTest {
         ) {
             calls += "sequential=$on"
         }
+
+        override fun moved(
+            infoHash: String,
+            directory: Path,
+        ) {
+            calls += "moved to ${directory.fileName}"
+        }
+    }
+
+    /**
+     * The files go, the torrent goes on from the new place complete, and a target that already has
+     * them is refused with nothing touched (B-134).
+     */
+    @Test
+    fun aDownloadedTorrentIsMovedAndGoesOnFromThere() {
+        val keeper = RecordingKeeper()
+        serving(keeper) { local, driver ->
+            val (added, _) = driver.call("add_torrent", addArguments(local))
+            val hash = Regex("info_hash: ([0-9a-f]{40})").find(added)!!.groupValues[1]
+            driver.call("wait_for_completion", """{"info_hash":"$hash","timeout_seconds":60}""")
+
+            val occupied = Files.createDirectories(root.resolve("occupied"))
+            Files.write(occupied.resolve("payload.bin"), byteArrayOf(1))
+            val (refusal, refused) =
+                driver.call(
+                    "move_torrent",
+                    """{"info_hash":"$hash","directory":${JsonPrimitive(occupied.toString())}}""",
+                )
+            assertTrue(refused, refusal)
+            assertContains(refusal, "already exists")
+            assertTrue(Files.exists(root.resolve("payload.bin")), "a refused move took the file")
+
+            val elsewhere = root.resolve("elsewhere")
+            val (moved, failed) =
+                driver.call(
+                    "move_torrent",
+                    """{"info_hash":"$hash","directory":${JsonPrimitive(elsewhere.toString())}}""",
+                )
+            assertFalse(failed, moved)
+            assertTrue(
+                Files.readAllBytes(elsewhere.resolve("payload.bin")).contentEquals(local.content),
+                "the file did not arrive whole",
+            )
+            assertFalse(Files.exists(root.resolve("payload.bin")), "the file stayed behind")
+            val (status, _) = driver.call("torrent_status", """{"info_hash":"$hash"}""")
+            assertContains(status, "saving to $elsewhere")
+            assertContains(status, "seeding")
+        }
+        assertTrue("moved to elsewhere" in keeper.calls, keeper.calls.toString())
     }
 
     /** The order goes in with the torrent, reads back in the status, and switches both ways (B-133). */
@@ -271,6 +320,7 @@ class McpServerTest {
                 "remove_torrent",
                 "set_file_priority",
                 "set_sequential",
+                "move_torrent",
             ).forEach { assertContains(names, it) }
             tools.forEach { assertNotNull(it.jsonObject["inputSchema"], "a tool without a schema: $it") }
         }

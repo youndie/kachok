@@ -563,6 +563,7 @@ internal fun Client(
     // one direction that matters — claiming the client starts with the computer when it does not.
     val autostart = remember { autostartFor() }
     var autostartProblem by model.autostartProblem
+    val moveProblems by model.moveProblems
     // Where the last torrent actually went, back from the engine loop to the composition that owns
     // the preferences. Conflated: only the most recent one is the answer.
     val saved = model.saved
@@ -721,6 +722,7 @@ internal fun Client(
                         paths = snapshot.filePaths[sample.state.infoHash.hex()].orEmpty(),
                         lifecycle = snapshot.lifecycle,
                         tab = tab,
+                        moveProblem = moveProblems[sample.state.infoHash.hex()],
                     )
                 },
             // Checked here and not in the dialog: what a file would land on depends on the folder,
@@ -930,6 +932,20 @@ internal fun Client(
                 commanded.trySend(TorrentCommand(it.state.infoHash.hex(), TorrentCommand.Kind.Sequential, on))
             }
         },
+        // Asked here, on the window's thread, because the folder dialog is the window's; the move
+        // itself is the engine loop's, which is where the files are closed and opened (B-134).
+        onMoveData = {
+            chosenSample?.let {
+                val hash = it.state.infoHash.hex()
+                val current =
+                    model.engine.value
+                        ?.directories
+                        ?.get(hash) ?: preferences.directory
+                chooseDirectory("Move to", current)?.let { chosen ->
+                    commanded.trySend(TorrentCommand(hash, TorrentCommand.Kind.Move, directory = chosen))
+                }
+            }
+        },
         onFilePriority = { row, tier ->
             chosenSample?.let {
                 commanded.trySend(
@@ -1074,8 +1090,10 @@ internal class TorrentCommand(
     /** Only [Kind.Priority] carries these: which file, and to which tier (B-106). */
     val file: Int = -1,
     val priority: FilePriority = FilePriority.NORMAL,
+    /** Only [Kind.Move] carries this: where the files go (B-134). */
+    val directory: String? = null,
 ) {
-    enum class Kind { Pause, Resume, Recheck, Announce, Remove, RemoveWithData, Sequential, Priority }
+    enum class Kind { Pause, Resume, Recheck, Announce, Remove, RemoveWithData, Sequential, Priority, Move }
 }
 
 /**

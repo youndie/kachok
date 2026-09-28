@@ -74,6 +74,12 @@ class StoredTorrentsTest {
         assertEquals(setOf(0), changed.unwanted)
         assertEquals(emptySet(), changed.high)
 
+        keeper.moved(hash, Path.of("/srv/elsewhere"))
+        assertEquals(
+            "/srv/elsewhere",
+            Path.of(loadStoredTorrents(root).single().directory).toString().replace('\\', '/'),
+        )
+
         keeper.removed(hash)
         assertEquals(emptyList(), loadStoredTorrents(root))
     }

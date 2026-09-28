@@ -44,6 +44,12 @@ public interface McpKeeper {
         on: Boolean,
     ) {}
 
+    /** Where the torrent's files are now, after a move that succeeded (B-134). */
+    public fun moved(
+        infoHash: String,
+        directory: Path,
+    ) {}
+
     public companion object {
         /** Keeps nothing. */
         public val NOTHING: McpKeeper = object : McpKeeper {}

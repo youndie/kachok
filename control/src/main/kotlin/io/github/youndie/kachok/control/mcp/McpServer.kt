@@ -567,6 +567,46 @@ public class McpServer(
         }
     }
 
+    /**
+     * The torrent's files and its resume record to another directory, keeping its progress
+     * ([B-134](../../../../../../../../docs/backlog/B-134-move-a-torrent-s-data.md)).
+     *
+     * A refusal — the target already holds its files, not enough room, it is already there —
+     * leaves everything as it was and says so. A failure part-way puts back what was moved and the
+     * torrent goes on from where it was, and that is an error too, with the reason.
+     */
+    private suspend fun moveTorrent(arguments: JsonObject): Outcome {
+        val runtime = runtimeFor(arguments)
+        val to =
+            arguments.string("directory")?.let {
+                try {
+                    Path.of(it)
+                } catch (notAPath: java.nio.file.InvalidPathException) {
+                    throw Refusal("$it is not a path: ${notAPath.message}")
+                }
+            } ?: throw Refusal("move_torrent needs `directory`, where the files should go")
+        val name = runtime.metainfo.name
+        val moved =
+            try {
+                set.move(runtime, to)
+            } catch (refused: IllegalArgumentException) {
+                throw Refusal(refused.message.orEmpty())
+            } catch (unreadable: IOException) {
+                throw Refusal("cannot move $name to $to: ${unreadable.message}")
+            }
+        moved.runtime.restore()
+        moved.runtime.start(scope, paused = moved.paused)
+        moved.failure?.let { return Outcome("$name was not moved: $it", isError = true) }
+        keeper.moved(runtime.metainfo.infoHash.hex(), moved.runtime.directory)
+        return Outcome(
+            "Moved $name to ${moved.runtime.directory}; ${stateWord(
+                moved.paused,
+                moved.runtime.state.value.isComplete,
+                null,
+            )}.",
+        )
+    }
+
     private fun runtimeFor(arguments: JsonObject): TorrentRuntime {
         val hash =
             arguments.string("info_hash")
@@ -780,6 +820,16 @@ public class McpServer(
                         property("on", "boolean", "true for in order, false for rarest first.")
                     },
                 ) { setSequential(it) },
+                Tool(
+                    "move_torrent",
+                    "Move a torrent's downloaded files to another directory and go on from there, keeping " +
+                        "its progress, file priorities and order. Refused, with nothing touched, when the " +
+                        "directory already holds its files or has too little room.",
+                    schema(listOf("info_hash", "directory")) {
+                        property("info_hash", "string", HASH)
+                        property("directory", "string", "Where the files should go, on this machine.")
+                    },
+                ) { moveTorrent(it) },
             )
     }
 }

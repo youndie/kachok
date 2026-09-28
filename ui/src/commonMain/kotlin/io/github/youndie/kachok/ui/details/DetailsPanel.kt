@@ -98,6 +98,12 @@ internal class DetailsField(
     val copyText: String = value,
     /** A path: identified by its end, so it is elided from the front rather than the back. */
     val path: Boolean = false,
+    /**
+     * The torrent's files can be moved from here: *Save to* draws a folder button beside its path
+     * when the panel is given somewhere to send the request
+     * ([B-134](../../../../../../../../docs/backlog/B-134-move-a-torrent-s-data.md)).
+     */
+    val movable: Boolean = false,
 )
 
 internal class DetailsSection(
@@ -261,6 +267,14 @@ internal fun DetailsPanel(
      * as one ([B-106](../../../../../../../../docs/backlog/B-106-per-file-priority.md)).
      */
     onFilePriority: (FileRow, FilePriority) -> Unit = { _, _ -> },
+    /**
+     * *Save to*'s folder button was pressed: the caller asks where to and moves the files
+     * ([B-134](../../../../../../../../docs/backlog/B-134-move-a-torrent-s-data.md)).
+     *
+     * Null draws no button, which is what a panel with nothing behind it — a preview, a golden —
+     * gets, so the pictures of the panel are the ones they were.
+     */
+    onMoveData: (() -> Unit)? = null,
     /** Where the drag has put the edge, clamped by the caller to [Details.minimumWidth]..[Details.maximumWidth]. */
     width: Dp = Details.width,
     onResize: (Dp) -> Unit = {},
@@ -292,7 +306,7 @@ internal fun DetailsPanel(
             Header(state)
             Tabs(state.tab, onTab)
             when (state.tab) {
-                DetailsTab.Overview -> Overview(state, onCopy)
+                DetailsTab.Overview -> Overview(state, onCopy, onMoveData)
                 DetailsTab.Peers -> Peers(state.peers)
                 DetailsTab.Files -> Files(state, onOpenFile, onSequential, onFilePriority)
                 DetailsTab.Trackers -> Trackers(state, onAnnounce)
@@ -387,6 +401,7 @@ private fun ColumnScope.Tabs(
 private fun ColumnScope.Overview(
     state: DetailsState,
     onCopy: (String) -> Unit,
+    onMoveData: (() -> Unit)? = null,
 ) {
     Column(
         Modifier
@@ -396,7 +411,7 @@ private fun ColumnScope.Overview(
     ) {
         state.sections.forEachIndexed { index, section ->
             SectionHead(section.title, first = index == 0)
-            section.fields.forEach { Field(it, onCopy) }
+            section.fields.forEach { Field(it, onCopy, onMoveData.takeIf { _ -> it.movable }) }
         }
         if (state.complaints.isNotEmpty() || state.sessionError != null) {
             SectionHead("LAST COMPLAINTS", first = false)
@@ -439,6 +454,7 @@ private fun SectionHead(
 private fun Field(
     field: DetailsField,
     onCopy: (String) -> Unit = {},
+    onMove: (() -> Unit)? = null,
 ) {
     Column {
         Row(
@@ -481,6 +497,7 @@ private fun Field(
                 if (field.copyable) {
                     CopyButton(field, onCopy)
                 }
+                onMove?.let { MoveButton(field, it) }
             }
         }
         Box(Modifier.fillMaxWidth().height(HAIRLINE).background(KachokPalette.rowHairline))
@@ -984,6 +1001,19 @@ private fun CopyButton(
                     onCopy(field.copyText)
                     copied = true
                 }.semantics { contentDescription = "Copy ${field.label}" },
+    )
+}
+
+@Composable
+private fun MoveButton(
+    field: DetailsField,
+    onMove: () -> Unit,
+) {
+    Glyph(
+        Icons.FOLDER,
+        size = COPY_GLYPH,
+        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.clickable(onClick = onMove).semantics { contentDescription = "Move ${field.label}" },
     )
 }
 

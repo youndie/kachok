@@ -157,6 +157,18 @@ public sealed interface Request {
         public val on: Boolean,
     ) : Request
 
+    /**
+     * The torrent's files and its resume record to another directory, keeping its progress
+     * ([B-134](../../../../../../../../docs/backlog/B-134-move-a-torrent-s-data.md)). A directory in the
+     * backend's own filesystem, like [AddTorrent]'s.
+     */
+    @Serializable
+    @SerialName("move")
+    public class Move(
+        public val infoHash: String,
+        public val directory: String,
+    ) : Request
+
     @Serializable
     @SerialName("remove")
     public class Remove(

@@ -33,6 +33,8 @@ internal fun detailsOf(
     paths: List<String> = emptyList(),
     lifecycle: Lifecycle = Lifecycle.Running,
     tab: DetailsTab = DetailsTab.Overview,
+    /** Why the last move of this torrent's files did not happen, until the next one (B-134). */
+    moveProblem: String? = null,
 ): DetailsState {
     val torrentState = stateOf(state, lifecycle)
     return DetailsState(
@@ -55,7 +57,7 @@ internal fun detailsOf(
                         ),
                         DetailsField("Total length", Figures.bytes(state.totalLength)),
                         DetailsField("Piece length", Figures.bytes(pieceLength)),
-                        DetailsField("Save to", directory, path = true),
+                        DetailsField("Save to", directory, path = true, movable = true),
                     ),
                 ),
                 DetailsSection(
@@ -127,6 +129,7 @@ internal fun detailsOf(
             listOfNotNull(
                 state.trackerError?.let { Complaint("TRACKER", it, warning = true) },
                 state.lastPeerError?.let { Complaint("LAST PEER", it, warning = false) },
+                moveProblem?.let { Complaint("MOVE", it, warning = true) },
             ),
         sessionError = state.sessionError,
         tab = tab,

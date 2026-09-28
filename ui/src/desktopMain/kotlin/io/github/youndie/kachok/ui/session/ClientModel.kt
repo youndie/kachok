@@ -114,6 +114,12 @@ internal class ClientModel(
      */
     val broken: MutableState<List<StoredTorrent>> = mutableStateOf(emptyList())
 
+    /**
+     * Why the last move of a torrent's files did not happen, by info hash, until its next move
+     * succeeds. Drawn as a complaint in that torrent's *Overview* (B-134).
+     */
+    val moveProblems: MutableState<Map<String, String>> = mutableStateOf(emptyMap())
+
     // ---- the seams between the composition and the engine ----
 
     /**
@@ -327,6 +333,31 @@ internal class ClientModel(
                         TorrentCommand.Kind.Remove -> {
                             set.remove(runtime)
                             forgetTorrent(torrents, command.infoHash)
+                        }
+
+                        TorrentCommand.Kind.Move -> {
+                            val to = command.directory ?: continue
+                            val moved =
+                                try {
+                                    set.move(runtime, Path.of(to))
+                                } catch (refused: IllegalArgumentException) {
+                                    moveProblems.value += command.infoHash to refused.message.orEmpty()
+                                    continue
+                                } catch (unmovable: java.io.IOException) {
+                                    moveProblems.value += command.infoHash to "cannot move to $to: ${unmovable.message}"
+                                    continue
+                                }
+                            moved.runtime.restore()
+                            moved.runtime.start(scope, paused = moved.paused)
+                            val failure = moved.failure
+                            if (failure == null) {
+                                // Written down as well as done, like every other decision about a
+                                // torrent: the next start opens it where the files now are.
+                                rememberDirectory(torrents, command.infoHash, moved.runtime.directory.toString())
+                                moveProblems.value -= command.infoHash
+                            } else {
+                                moveProblems.value += command.infoHash to failure
+                            }
                         }
 
                         TorrentCommand.Kind.RemoveWithData -> {
