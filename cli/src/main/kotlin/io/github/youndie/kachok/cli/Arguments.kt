@@ -153,8 +153,11 @@ kachok mcp [options]
   --dir <path>        where to write (default: the working directory)
   --port <n>          peer listening port (default: the first free of 6881-6889)
   --no-dht            stay out of the DHT (BEP 5), which is joined by default
+  --extra-tracker <url>
+                      also announce every magnet to this tracker (repeatable);
+                      dropped from a torrent that turns out to be private
 
-  The last three are the engine's: attached to a running client they are named
+  The last four are the engine's: attached to a running client they are named
   on stderr as ignored, because that client decided them when it started."""
 
     /**
@@ -211,6 +214,7 @@ kachok mcp [options]
         var peerPort: Int? = null
         var dht = true
         var standalone = false
+        val extraTrackers = mutableListOf<String>()
         // The three that are the engine's, remembered as they were spelled: attached to a running
         // client this command builds no engine, so these are words it has to say it is ignoring
         // rather than settings it can apply (B-117).
@@ -237,6 +241,12 @@ kachok mcp [options]
                     standalone = true
                 }
 
+                // Repeatable: one tracker each, added to every magnet this server fetches (B-135).
+                "--extra-tracker" -> {
+                    extraTrackers += value(arguments, ++index, argument)
+                    engineOptions += argument
+                }
+
                 else -> {
                     throw UsageException("unknown option '$argument'")
                 }
@@ -248,6 +258,7 @@ kachok mcp [options]
             peerPort = peerPort,
             dht = dht,
             standalone = standalone,
+            extraTrackers = extraTrackers,
             // Nothing is overridden when this process is the one building the engine.
             overridden = if (standalone) emptySet() else engineOptions,
         )

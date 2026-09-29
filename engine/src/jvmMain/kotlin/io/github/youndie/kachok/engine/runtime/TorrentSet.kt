@@ -128,6 +128,12 @@ public class TorrentSet(
     public val dhtEnabled: Boolean get() = dht != null
 
     /**
+     * The DHT a magnet can be looked up in before it is a torrent, or null when it is off
+     * ([B-135](../../../../../../../../docs/backlog/B-135-the-magnet-fetch-gives-up-too-early.md)).
+     */
+    public val dhtForLookups: Dht? get() = dht
+
+    /**
      * Turns the DHT on or off for torrents added from now on.
      *
      * Turning it off closes the socket, which stops the announcing this client is doing; a session

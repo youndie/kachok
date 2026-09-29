@@ -60,7 +60,7 @@ which is also the order of work.
 | [B-87](docs/backlog/B-87-a-server-with-a-web-face.md) `[ ]` | Phase 3: a headless server with a web face, installable on a box that is always on | P3 | XL | B-80 |
 | [B-02](docs/backlog/B-02-ci-runs-build-and-docs-gates.md) `[ ]` | CI runs the build and the documentation gates on every push | infra | S | B-01 |
 
-## Closed (127)
+## Closed (128)
 
 **M0 — The build and its gates**
 
@@ -129,6 +129,7 @@ which is also the order of work.
 
 **M8 — Extensions**
 
+- [B-135](docs/backlog/B-135-the-magnet-fetch-gives-up-too-early.md) `[x]` - The magnet fetch gives up too early: first tracker only, twenty dials, no DHT
 - [B-32](docs/backlog/B-32-udp-tracker.md) `[x]` - UDP tracker protocol (BEP 15)
 - [B-33](docs/backlog/B-33-fast-extension.md) `[x]` - Fast extension (BEP 6): reject, have all/none, allowed fast
 - [B-34](docs/backlog/B-34-peer-exchange.md) `[x]` - Peer exchange (BEP 11, ut_pex)

@@ -335,6 +335,26 @@ class DownloadTest {
         assertTrue(Arguments.parseDownload(listOf("x.torrent", "--sequential")).sequential)
     }
 
+    /**
+     * `mcp`'s extra trackers are none unless named, and each `--extra-tracker` is one of them; an
+     * attached session names the option as the running client's to decide (B-135).
+     */
+    @Test
+    fun extraTrackersAreNoneUnlessNamedAndRepeatable() {
+        assertEquals(emptyList(), Arguments.parseMcp(emptyList()).extraTrackers)
+        val named =
+            Arguments.parseMcp(
+                listOf(
+                    "--extra-tracker",
+                    "udp://a.example:1337/announce",
+                    "--extra-tracker",
+                    "http://b.example/announce",
+                ),
+            )
+        assertEquals(listOf("udp://a.example:1337/announce", "http://b.example/announce"), named.extraTrackers)
+        assertTrue("--extra-tracker" in named.overridden)
+    }
+
     @Test
     fun rateLimitsAreGivenInKibibytesAndZeroIsTheDefault() {
         val plain = Arguments.parseDownload(listOf("x.torrent"))

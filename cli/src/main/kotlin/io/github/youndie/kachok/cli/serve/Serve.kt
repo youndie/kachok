@@ -107,6 +107,11 @@ class McpOptions(
      */
     val standalone: Boolean = false,
     /**
+     * Trackers added to every magnet this server fetches, from `--extra-tracker` (B-135). Kept on a
+     * torrent only when it turns out not to be private.
+     */
+    val extraTrackers: List<String> = emptyList(),
+    /**
      * The options named on this command line that the running client decides instead, in the
      * spelling they were given.
      *
