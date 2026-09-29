@@ -423,6 +423,14 @@ them. Nothing is read from the environment by this module; that is [cli](cli.md)
   four megabytes, which is far past any torrent in circulation.
 * **A magnet announce sends a non-zero `left`.** The torrent's length is in the metadata being
   fetched; zero would announce this client as a seed and bring back leechers only.
+* **A magnet fetch asks every source and keeps dialling.** Every tracker in the link on its own
+  coroutine, the DHT when the caller passes one, and at most twenty dials open at once, each one that
+  ends replaced by the next peer not yet tried; the trackers are asked again halfway through the
+  budget. It used to stop at the first tracker that answered and dial twenty of its peers once, and a
+  real rutracker swarm of 689 peers was given up on after twenty that were behind NAT. The failure
+  message counts what was tried. Trackers named with `--extra-tracker` are announced to during the
+  fetch and dropped from a torrent the metadata says is private (BEP 27)
+  ([B-135](../backlog/B-135-the-magnet-fetch-gives-up-too-early.md)).
 * **`NodeId` is not a value class**, unlike the torrent's other twenty-byte identifiers. A value
   class around a `ByteArray` inherits the array's equality, which is identity; the routing table
   keys maps by node id, so every lookup would miss and the table would fill with duplicates of the

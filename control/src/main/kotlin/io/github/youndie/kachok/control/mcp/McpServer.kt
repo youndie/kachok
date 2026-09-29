@@ -76,6 +76,8 @@ public class McpServer(
     private val dispatchers: EngineDispatchers,
     /** Told what an agent changed, so a host that keeps a torrent list can keep it ([McpKeeper]). */
     private val keeper: McpKeeper = McpKeeper.NOTHING,
+    /** Trackers added to every magnet, off unless the host names some (B-135). */
+    private val extraTrackers: List<String> = emptyList(),
     /** One frame, with no newline in it; the caller appends the newline and flushes. */
     private val write: (String) -> Unit,
 ) {
@@ -346,7 +348,14 @@ public class McpServer(
                 throw Refusal("not a usable magnet link: ${malformed.message}")
             }
         return try {
-            fetchMetainfo(link = link, scope = scope, dispatchers = dispatchers, listenPort = set.listenPort)
+            fetchMetainfo(
+                link = link,
+                scope = scope,
+                dispatchers = dispatchers,
+                listenPort = set.listenPort,
+                dht = set.dhtForLookups,
+                extraTrackers = extraTrackers,
+            )
         } catch (unavailable: IllegalArgumentException) {
             throw Refusal("the swarm did not hand over the torrent for that magnet: ${unavailable.message}")
         }

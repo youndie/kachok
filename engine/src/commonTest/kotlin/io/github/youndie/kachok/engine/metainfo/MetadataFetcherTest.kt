@@ -295,6 +295,177 @@ class MetadataFetcherTest {
             assertContains(thrown.message ?: "", "no peers")
         }
 
+    /** Answers per tracker URL; a tracker it does not know fails the way a dead one does. */
+    private class Trackers(
+        private val byUrl: Map<String, List<PeerAddress>>,
+    ) : TrackerClient {
+        val asked: MutableList<String> = mutableListOf()
+
+        override suspend fun announce(
+            tracker: String,
+            request: AnnounceRequest,
+        ): AnnounceResponse {
+            asked += tracker
+            val peers =
+                byUrl[tracker] ?: throw io.github.youndie.kachok.engine.tracker
+                    .TrackerException("no answer")
+            return AnnounceResponse(interval = 1800, peers = peers)
+        }
+    }
+
+    /** Only [live] answers; every other address is a dial that times out, as a peer behind NAT does. */
+    private class MostlyDeadDialer(
+        private val live: PeerAddress,
+        private val connection: PeerConnection,
+    ) : PeerDialer {
+        val dialled: MutableList<PeerAddress> = mutableListOf()
+
+        override suspend fun connect(address: PeerAddress): PeerConnection {
+            dialled += address
+            if (address == live) return connection
+            throw IllegalStateException("$address: Connect timed out")
+        }
+    }
+
+    private fun dead(count: Int) = (1..count).map { PeerAddress("10.1.0.$it", 6881) }
+
+    /**
+     * The case that was reported: the tracker's first peers are all unreachable and the one that
+     * has the metadata is further down. The first version dialled twenty once and gave up
+     * ([B-135](../../../../../../../../docs/backlog/B-135-the-magnet-fetch-gives-up-too-early.md)).
+     */
+    @Test
+    fun aLivePeerBehindTwentyFiveDeadOnesIsStillReached(): Unit =
+        runTest {
+            val live = PeerAddress("10.0.0.9", 6881)
+            val dialer = MostlyDeadDialer(live, MetadataPeer(live, fromFile.infoHash, infoDictionary))
+            val fetcher =
+                MetadataFetcher(magnet(), ourId, 6881, dialer, OneTracker(dead(25) + live), maxPeers = 20)
+
+            val fetched = fetcher.fetch(this)
+
+            assertEquals(fromFile.name, fetched.name)
+            assertTrue(live in dialer.dialled, "the live peer was never dialled")
+        }
+
+    /** Every tracker is asked, not only the first that answers. */
+    @Test
+    fun aPeerOnlyTheSecondTrackerKnowsIsReached(): Unit =
+        runTest {
+            val live = PeerAddress("10.0.0.9", 6881)
+            val trackers =
+                Trackers(mapOf("http://first.example/annc" to dead(3), "http://second.example/annc" to listOf(live)))
+            val fetcher =
+                MetadataFetcher(
+                    magnet(listOf("http://first.example/annc", "http://second.example/annc")),
+                    ourId,
+                    6881,
+                    MostlyDeadDialer(live, MetadataPeer(live, fromFile.infoHash, infoDictionary)),
+                    trackers,
+                )
+
+            assertEquals(fromFile.name, fetcher.fetch(this).name)
+            assertTrue("http://second.example/annc" in trackers.asked, "the second tracker was never asked")
+        }
+
+    /** A magnet whose trackers know nobody is found through the DHT. */
+    @Test
+    fun theDhtIsAskedAsWell(): Unit =
+        runTest {
+            val live = PeerAddress("10.0.0.9", 6881)
+            val fetcher =
+                MetadataFetcher(
+                    magnet(),
+                    ourId,
+                    6881,
+                    MostlyDeadDialer(live, MetadataPeer(live, fromFile.infoHash, infoDictionary)),
+                    OneTracker(emptyList()),
+                    dhtPeers = { listOf(live) },
+                )
+
+            assertEquals(fromFile.name, fetcher.fetch(this).name)
+        }
+
+    /** When nothing works the message says what was tried, not a count of what a tracker returned. */
+    @Test
+    fun theFailureSaysWhatWasTried(): Unit =
+        runTest {
+            val fetcher =
+                MetadataFetcher(
+                    magnet(listOf("http://first.example/annc", "http://gone.example/annc")),
+                    ourId,
+                    6881,
+                    MostlyDeadDialer(PeerAddress("10.0.0.9", 6881), MetadataPeer(peerA, fromFile.infoHash, null)),
+                    Trackers(mapOf("http://first.example/annc" to dead(30))),
+                    maxPeers = 20,
+                    timeout = kotlin.time.Duration.parse("5s"),
+                )
+
+            val message = assertFailsWith<MetainfoException> { fetcher.fetch(this) }.message.orEmpty()
+
+            assertContains(message, "1 of 2 tracker(s) answered")
+            assertContains(message, "30 peer(s) dialled, 30 unreachable")
+            assertContains(message, "Connect timed out")
+        }
+
+    /**
+     * An added tracker stays on a public torrent and is dropped from a private one — which only
+     * the metadata can say (BEP 27).
+     */
+    @Test
+    fun anExtraTrackerIsKeptOnlyWhenTheTorrentIsNotPrivate(): Unit =
+        runTest {
+            val extra = "udp://extra.example:1337/announce"
+            val public =
+                MetadataFetcher(
+                    magnet(),
+                    ourId,
+                    6881,
+                    OneDialer(MetadataPeer(peerA, fromFile.infoHash, infoDictionary)),
+                    OneTracker(listOf(peerA)),
+                    extraTrackers = listOf(extra),
+                ).fetch(this)
+            assertTrue(extra in public.trackers, "the extra tracker was not kept on a public torrent")
+
+            val privateInfo =
+                Bencode.encode(
+                    BDictionary(
+                        (Bencode.decode(infoDictionary) as BDictionary).entries + (BString("private") to BInteger(1)),
+                    ),
+                )
+            val privateHash =
+                MetainfoParser
+                    .parse(
+                        Bencode.encode(
+                            BDictionary(
+                                mapOf(
+                                    BString("announce") to BString("http://tracker.example/annc"),
+                                    BString("info") to Bencode.decode(privateInfo),
+                                ),
+                            ),
+                        ),
+                    ).infoHash
+            val private =
+                MetadataFetcher(
+                    MagnetLink(
+                        privateHash,
+                        displayName = "fixture.bin",
+                        trackers = listOf("http://tracker.example/annc"),
+                    ),
+                    ourId,
+                    6881,
+                    OneDialer(MetadataPeer(peerA, privateHash, privateInfo)),
+                    OneTracker(listOf(peerA)),
+                    extraTrackers = listOf(extra),
+                ).fetch(this)
+            assertTrue(private.isPrivate)
+            assertEquals(
+                listOf("http://tracker.example/annc"),
+                private.trackers,
+                "a private torrent kept the extra tracker",
+            )
+        }
+
     @Test
     fun theMetadataIsBigEnoughForTheTestToMeanSomething() {
         assertTrue(

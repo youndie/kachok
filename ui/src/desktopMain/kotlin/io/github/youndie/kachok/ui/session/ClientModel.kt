@@ -413,7 +413,7 @@ internal class ClientModel(
                     scope.launch {
                         val metainfo =
                             try {
-                                fetchMetainfo(waiting.link, scope, dispatchers, set.listenPort)
+                                fetchMetainfo(waiting.link, scope, dispatchers, set.listenPort, dht = set.dhtForLookups)
                             } catch (unavailable: IllegalArgumentException) {
                                 // The swarm had nothing to say. The row goes; a magnet nobody can
                                 // answer is not a torrent, and there is no session to mark broken.

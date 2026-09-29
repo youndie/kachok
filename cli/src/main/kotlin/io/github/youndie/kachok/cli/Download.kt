@@ -94,9 +94,9 @@ class Download(
     /**
      * BEP 9: a magnet link names a torrent and carries none of it.
      *
-     * The peers this asks are the link's trackers, plus the DHT's when it is on — which is the one
-     * case where `--dht` is not optional in practice: a magnet with no trackers has nowhere else to
-     * look.
+     * The peers this asks are the link's trackers. Not the DHT: this command builds its set after
+     * the metadata is in hand, so there is no DHT running yet to ask — this comment used to say
+     * there was (B-135). The window and `kachok mcp` ask theirs.
      */
     private suspend fun fetchMagnet(
         source: TorrentSource.Magnet,

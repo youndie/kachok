@@ -89,7 +89,7 @@ internal object Mcp {
                     onBindFailure = { err.appendLine("kachok: $it") },
                 )
             val server =
-                McpServer(set, scope, options.directory, dispatchers) { frame ->
+                McpServer(set, scope, options.directory, dispatchers, extraTrackers = options.extraTrackers) { frame ->
                     // The frame and its newline in one append, then a flush: a client reads a line at
                     // a time and a frame that sits in a buffer is a tool call that never answers.
                     out.append(frame).append('\n')

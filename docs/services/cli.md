@@ -63,7 +63,7 @@ a program as this user can drive this socket, and that is the decision, not an o
 ### `kachok mcp`: the engine on stdin/stdout, for an agent
 
 ```
-kachok mcp [--standalone] [--dir <path>] [--port <n>] [--no-dht]
+kachok mcp [--standalone] [--dir <path>] [--port <n>] [--no-dht] [--extra-tracker <url>]…
 ```
 
 The third way in, and the one built for a program rather than a person
@@ -91,7 +91,11 @@ headless case and is what this command did everywhere before B-117.
   none needed: whoever launched the process already runs as this user.
 * `--standalone` is the second path asked for by name, on a machine where a window is running. It
   is how a test drives an engine that is not the developer's own.
-* `--dir`, `--port` and `--no-dht` are the engine's, and an attached session has no engine of its
+* `--extra-tracker <url>`, repeatable, adds a tracker to every magnet this server fetches: it is
+  announced to while the metadata is fetched and kept on the torrent only when the torrent is not
+  private — BEP 27, and whether it is private is in the metadata being fetched. Off unless named
+  ([B-135](../backlog/B-135-the-magnet-fetch-gives-up-too-early.md)).
+* `--dir`, `--port`, `--no-dht` and `--extra-tracker` are the engine's, and an attached session has no engine of its
   own: they are **named on stderr as ignored**, and the server still starts. Refusing would make
   the one line of configuration in an agent runtime work only on the days nobody opened the window.
 * **Tools**, task-shaped rather than one-for-one with the socket's requests, because an agent wants

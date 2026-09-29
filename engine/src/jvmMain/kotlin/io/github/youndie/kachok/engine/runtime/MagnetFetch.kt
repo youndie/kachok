@@ -1,6 +1,7 @@
 package io.github.youndie.kachok.engine.runtime
 
 import io.github.youndie.kachok.engine.PeerId
+import io.github.youndie.kachok.engine.dht.Dht
 import io.github.youndie.kachok.engine.io.BufferPool
 import io.github.youndie.kachok.engine.io.EngineDispatchers
 import io.github.youndie.kachok.engine.io.NoBlocks
@@ -32,6 +33,13 @@ public suspend fun fetchMetainfo(
     scope: CoroutineScope,
     dispatchers: EngineDispatchers,
     listenPort: Int,
+    /**
+     * The DHT to ask for peers as well as the trackers, or null — `TorrentSet.dhtForLookups`. Until
+     * B-135 a magnet was never looked up in the DHT the set was already running.
+     */
+    dht: Dht? = null,
+    /** Trackers to add to every magnet; kept only on a torrent that is not private (BEP 27). */
+    extraTrackers: List<String> = emptyList(),
 ): Metainfo {
     val identity = randomPeerId()
     // Enough buffers to talk to a handful of peers about a few dozen kibibytes. Sizing this from
@@ -57,6 +65,8 @@ public suspend fun fetchMetainfo(
                 udp = UdpTrackerClient(dispatchers.io),
             ),
         blocking = dispatchers.io,
+        dhtPeers = dht?.let { table -> { table.lookup(scope, link.infoHash).peers } },
+        extraTrackers = extraTrackers,
     ).fetch(scope)
 }
 
