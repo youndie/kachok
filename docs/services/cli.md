@@ -81,6 +81,15 @@ on downloading after the conversation ends, because the process holding it is th
 there is none, this process builds the engine and stops it when the pipe closes, which is the
 headless case and is what this command did everywhere before B-117.
 
+**And the headless engine is the machine's**
+([B-136](../backlog/B-136-one-engine-that-remembers.md)). It takes the single-instance lock, so
+the next `kachok mcp` attaches to it rather than building a second engine, and it keeps the same
+torrent list the window keeps (`<config>/torrents`): opened at the start, written as agents change
+it, and each torrent stopped on the way out so its record is current. A restart of the agent
+runtime used to lose every torrent; now the next process reopens them where they were. When a
+window starts it is given the engine — this process stops, lets go of the lock and exits — and
+opens the same list.
+
 * **Transport:** stdio, JSON-RPC 2.0, one message per line. Stdout carries frames and nothing
   else; every human-readable line goes to stderr. The process runs until stdin closes, which is how
   a client says goodbye — and then stops the engine the way `download` does, or, attached, drops
@@ -90,7 +99,8 @@ headless case and is what this command did everywhere before B-117.
   a tool an agent spawns and the shape every MCP client expects by default. No authentication, and
   none needed: whoever launched the process already runs as this user.
 * `--standalone` is the second path asked for by name, on a machine where a window is running. It
-  is how a test drives an engine that is not the developer's own.
+  is how a test drives an engine that is not the developer's own, and it neither takes the lock nor
+  keeps the list: two engines on one list would open the same files twice.
 * `--extra-tracker <url>`, repeatable, adds a tracker to every magnet this server fetches: it is
   announced to while the metadata is fetched and kept on the torrent only when the torrent is not
   private — BEP 27, and whether it is private is in the metadata being fetched. Off unless named

@@ -3,18 +3,26 @@ package io.github.youndie.kachok.cli.mcp
 import io.github.youndie.kachok.cli.serve.McpOptions
 import io.github.youndie.kachok.control.SingleInstance
 import io.github.youndie.kachok.control.configDirectory
+import io.github.youndie.kachok.control.mcp.McpKeeper
 import io.github.youndie.kachok.control.mcp.McpServer
+import io.github.youndie.kachok.control.store.StoredTorrentsKeeper
+import io.github.youndie.kachok.control.store.loadStoredTorrents
 import io.github.youndie.kachok.engine.io.EngineDispatchers
+import io.github.youndie.kachok.engine.runtime.RuntimeOptions
 import io.github.youndie.kachok.engine.runtime.SetOptions
 import io.github.youndie.kachok.engine.runtime.TorrentSet
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.selects.select
+import kotlinx.coroutines.withTimeoutOrNull
 import java.io.Flushable
 import java.io.InputStream
 import java.nio.file.Path
+import kotlin.concurrent.thread
 
 /**
  * `kachok mcp`: the engine on stdin/stdout, for an agent runtime that launched this process
@@ -68,15 +76,42 @@ internal object Mcp {
                 return EXIT_OK
             }
         }
-        return standalone(options, input, out, err)
+        // Nobody to attach to. Unless a second engine was asked for by name, this process becomes
+        // the machine's engine: it takes the lock, so later agents attach to it, and it keeps the
+        // torrent list, so a restart does not forget what it was doing (B-136).
+        if (!options.standalone) {
+            val instance = SingleInstance.claim(config, emptyList())
+            if (instance != null) return engine(options, input, out, err, instance, config.resolve(TORRENTS))
+            // Somebody holds the lock and would not take an agent: a window still building its
+            // engine. It will in a moment, and attaching is better than a second engine.
+            repeat(ATTACH_RETRIES) {
+                Thread.sleep(ATTACH_RETRY_MILLIS)
+                SingleInstance.attach(config)?.let { relay ->
+                    relay.use { it.pump(input, out) }
+                    return EXIT_OK
+                }
+            }
+            err.appendLine("kachok: a client holds the lock but has no engine; running one here that will not remember")
+        }
+        return engine(options, input, out, err, instance = null, store = null)
     }
 
-    /** The engine in this process, stopped the way `download` stops it when the pipe closes. */
-    private fun standalone(
+    /**
+     * The engine in this process.
+     *
+     * With an [instance], it is the machine's: later `kachok mcp` processes attach to it, the list
+     * is read from [store] at the start and written as agents change it, and a window that asks for
+     * the engine gets it — this process stops its torrents, lets go of the lock and exits, and the
+     * window opens the same list. Without one it is the second engine `--standalone` asks for,
+     * which remembers nothing, because two engines sharing one list would open the same files twice.
+     */
+    private fun engine(
         options: McpOptions,
         input: InputStream,
         out: Appendable,
         err: Appendable,
+        instance: SingleInstance?,
+        store: Path?,
     ): Int =
         runBlocking {
             val dispatchers = EngineDispatchers()
@@ -88,37 +123,113 @@ internal object Mcp {
                     options = SetOptions(port = options.peerPort, dht = options.dht),
                     onBindFailure = { err.appendLine("kachok: $it") },
                 )
+            val keeper = store?.let { StoredTorrentsKeeper(it) } ?: McpKeeper.NOTHING
+
+            fun server(write: (String) -> Unit) =
+                McpServer(
+                    set,
+                    scope,
+                    options.directory,
+                    dispatchers,
+                    keeper = keeper,
+                    extraTrackers = options.extraTrackers,
+                    write = write,
+                )
             val server =
-                McpServer(set, scope, options.directory, dispatchers, extraTrackers = options.extraTrackers) { frame ->
+                server { frame ->
                     // The frame and its newline in one append, then a flush: a client reads a line at
                     // a time and a frame that sits in a buffer is a tool call that never answers.
                     out.append(frame).append('\n')
                     (out as? Flushable)?.flush()
                 }
+            val yielded = CompletableDeferred<Unit>()
+            instance?.agents = SingleInstance.McpSessions { write -> server(write) }
+            instance?.onYield = { yielded.complete(Unit) }
+            // In the background, like the window: opening a torrent checks its files, and an agent
+            // asking `list_torrents` must not wait for a hundred gigabytes to be looked at.
+            store?.let { directory -> scope.launch { reopen(set, scope, directory, err) } }
             // Stderr, never stdout: stdout is the protocol's.
             err.appendLine(
-                "kachok: mcp server on stdio, peers on port ${set.listenPort}, saving to ${options.directory}",
+                "kachok: mcp server on stdio, peers on port ${set.listenPort}, saving to ${options.directory}" +
+                    if (store != null) ", remembering in $store" else "",
             )
             try {
-                // A blocking read, on the engine's own virtual threads rather than the caller's
-                // thread — the read is the one thing here that blocks, and it must not hold the
-                // coroutine that owns the scope.
-                withContext(dispatchers.io) {
-                    input.bufferedReader().useLines { lines ->
-                        lines.forEach { line -> if (line.isNotBlank()) server.receive(line) }
+                // A blocking read, on a daemon thread of its own. **Not on the engine's executor**,
+                // which is where it used to be: closing the executor waits for its threads, and a
+                // read of stdin cannot be interrupted, so an engine yielding to a window with its
+                // agent still connected never finished closing (B-136).
+                val reading = CompletableDeferred<Unit>()
+                thread(isDaemon = true, name = "kachok-mcp-stdin") {
+                    try {
+                        input.bufferedReader().useLines { lines ->
+                            lines.forEach { line -> if (line.isNotBlank()) server.receive(line) }
+                        }
+                        // Stdin closing means the agent is leaving, not that it is owed nothing: the
+                        // answer to the last `tools/call` is still on its way from the engine's
+                        // threads, and the engine is stopped in the `finally` below.
+                        server.finish(SingleInstance.GOODBYE_MILLIS)
+                    } finally {
+                        reading.complete(Unit)
                     }
-                    // Stdin closing means the agent is leaving, not that it is owed nothing: the
-                    // answer to the last `tools/call` is still on its way from the engine's
-                    // threads, and the engine is stopped in the `finally` below.
-                    server.finish(SingleInstance.GOODBYE_MILLIS)
+                }
+                // Whichever comes first: the agent leaving, or a window asking for the engine. On a
+                // yield the read is left behind, and the process exits straight after this returns.
+                select {
+                    reading.onAwait {}
+                    yielded.onAwait {}
                 }
                 EXIT_OK
             } finally {
+                // Stopped before the set closes, so every torrent writes its record: the next engine
+                // — this command again, or the window — opens the list and trusts them.
+                withTimeoutOrNull(SingleInstance.GOODBYE_MILLIS) {
+                    set.torrents.forEach { it.stop() }
+                    set.torrents.forEach { it.awaitStopped() }
+                }
                 set.close()
+                instance?.close()
                 scope.cancel()
                 dispatchers.close()
             }
         }
 
+    /** Every torrent the list remembers, opened the way it was left. */
+    private suspend fun reopen(
+        set: TorrentSet,
+        scope: CoroutineScope,
+        store: Path,
+        err: Appendable,
+    ) {
+        loadStoredTorrents(store).forEach { stored ->
+            val metainfo = stored.metainfo
+            if (metainfo == null) {
+                err.appendLine("kachok: ${stored.name} ${stored.problem}")
+                return@forEach
+            }
+            try {
+                val runtime =
+                    set.add(
+                        metainfo,
+                        RuntimeOptions(
+                            directory = Path.of(stored.directory),
+                            unwantedFiles = stored.unwanted,
+                            highFiles = stored.high,
+                            sequential = stored.sequential,
+                        ),
+                    )
+                runtime.restore()
+                runtime.start(scope, paused = stored.paused)
+            } catch (refused: IllegalArgumentException) {
+                // Already added by an agent in the moment since the start, or its files are another's.
+                err.appendLine("kachok: ${stored.name} was not reopened: ${refused.message}")
+            }
+        }
+    }
+
     const val EXIT_OK: Int = 0
+
+    /** Where the list lives inside the configuration directory: the window's own (B-81). */
+    private const val TORRENTS = "torrents"
+    private const val ATTACH_RETRIES = 20
+    private const val ATTACH_RETRY_MILLIS = 500L
 }

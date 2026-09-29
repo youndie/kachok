@@ -80,22 +80,42 @@ one the same code: stdout in one case, a socket in the other.
 It is also handed an `McpKeeper`, and tells it every change an agent makes — an add, a removal, a
 pause, a tier, the order, a move — after the engine has been asked. The window's is `StoredTorrentsKeeper`,
 which writes the same list its own clicks write, so a torrent an agent added to a running window is
-still there after the window restarts; before, it was in the engine and nowhere else. A headless
-`kachok mcp` keeps nothing and passes none, because it keeps its torrents only while its pipe is
-open ([B-133](../backlog/B-133-sequential-over-mcp-and-the-wire.md)).
+still there after the window restarts; before, it was in the engine and nowhere else
+([B-133](../backlog/B-133-sequential-over-mcp-and-the-wire.md)). A headless `kachok mcp` that holds
+the lock passes the same keeper over the same list since B-136; one started with `--standalone`
+passes none, because two engines on one list would open the same files twice.
+
+### The torrent list, and who opens it
+
+`store/StoredTorrents.kt` is the list on the disk — a `.torrent` copy and a `.properties` file per
+torrent in `<config>/torrents` (B-81). It lives here and not in the window since
+[B-136](../backlog/B-136-one-engine-that-remembers.md), because the window and a headless
+`kachok mcp` both keep it.
+
+**Exactly one engine opens it**, and the lock decides which. The first `kachok mcp` on a machine
+with no window takes the lock, opens the list, and later `kachok mcp` processes attach to it
+instead of building engines of their own — on the machine this was found on, every agent session
+had started one, eight engines at once, each on its own port and DHT node. A window, when it
+starts, calls `claimForWindow`: it says `window` after the secret, and a headless holder (one with
+`onYield` set) answers `kachok/yielding`, stops its torrents so their records are written, lets go
+of the lock and exits; the window then takes the lock and opens the same list. A holder that is a
+window answers `kachok/stay`, and an older one hangs up on a word it does not know; either way the
+new window hands its paths over and exits, as before.
 
 ## 2a. Code anchors
 
 | File | What is there |
 |---|---|
-| `control/src/main/kotlin/io/github/youndie/kachok/control/SingleInstance.kt` | the lock, both halves of its handshake, and `McpRelay` — the attached session a headless process pumps |
+| `control/src/main/kotlin/io/github/youndie/kachok/control/SingleInstance.kt` | the lock, both halves of its handshake, `claimForWindow` and `onYield`, and `McpRelay` — the attached session a headless process pumps |
+| `control/src/main/kotlin/io/github/youndie/kachok/control/store/StoredTorrents.kt` | the torrent list on the disk, and `StoredTorrentsKeeper`, which writes an agent's changes into it |
 | `control/src/main/kotlin/io/github/youndie/kachok/control/mcp/McpServer.kt` | JSON-RPC 2.0, the ten tools, the one resource |
-| `control/src/main/kotlin/io/github/youndie/kachok/control/mcp/McpKeeper.kt` | what an agent changed, for a host that keeps a torrent list; the window's is `ui/.../session/StoredTorrents.kt`'s `StoredTorrentsKeeper` |
+| `control/src/main/kotlin/io/github/youndie/kachok/control/mcp/McpKeeper.kt` | what an agent changed, for a host that keeps a torrent list; the list's is `store/StoredTorrents.kt`'s `StoredTorrentsKeeper` |
 | `control/src/main/kotlin/io/github/youndie/kachok/control/Snapshot.kt` | the engine's state as `:wire`'s, shared by the socket and the MCP resource so the two cannot drift |
 | `control/src/main/kotlin/io/github/youndie/kachok/control/ConfigDirectory.kt` | where this user's kachok keeps things, on each platform |
 | `control/src/test/kotlin/io/github/youndie/kachok/control/SingleInstanceTest.kt` | a stale file, a stranger on the port, a wrong secret |
 | `control/src/test/kotlin/io/github/youndie/kachok/control/mcp/McpServerTest.kt` | the tools against a real download on `:swarm` |
 | `cli/src/test/kotlin/io/github/youndie/kachok/cli/mcp/AttachTest.kt` | the two halves as two real things: what the window holds is what the agent lists |
+| `cli/src/test/kotlin/io/github/youndie/kachok/cli/mcp/RememberTest.kt` | a headless `kachok mcp` remembers across a restart, a second one attaches, and a window is given the engine |
 
 ## 3. How it is built
 
