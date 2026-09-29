@@ -41,6 +41,7 @@ import io.github.youndie.appframe.TitleBarStyle
 import io.github.youndie.kachok.control.SingleInstance
 import io.github.youndie.kachok.control.configDirectory
 import io.github.youndie.kachok.control.mcp.McpServer
+import io.github.youndie.kachok.control.store.torrentsDirectory
 import io.github.youndie.kachok.engine.hex
 import io.github.youndie.kachok.engine.io.EngineDispatchers
 import io.github.youndie.kachok.engine.metainfo.MagnetLink
@@ -71,7 +72,6 @@ import io.github.youndie.kachok.ui.session.Lifecycle
 import io.github.youndie.kachok.ui.session.Preferences
 import io.github.youndie.kachok.ui.session.Rates
 import io.github.youndie.kachok.ui.session.Sample
-import io.github.youndie.kachok.ui.session.StoredTorrent
 import io.github.youndie.kachok.ui.session.addFrom
 import io.github.youndie.kachok.ui.session.autostartFor
 import io.github.youndie.kachok.ui.session.brokenRow
@@ -79,24 +79,17 @@ import io.github.youndie.kachok.ui.session.chooseDirectory
 import io.github.youndie.kachok.ui.session.clicked
 import io.github.youndie.kachok.ui.session.clientModelFor
 import io.github.youndie.kachok.ui.session.detailsOf
-import io.github.youndie.kachok.ui.session.forgetTorrent
 import io.github.youndie.kachok.ui.session.inOrder
 import io.github.youndie.kachok.ui.session.loadPreferences
-import io.github.youndie.kachok.ui.session.loadStoredTorrents
 import io.github.youndie.kachok.ui.session.magnetRow
 import io.github.youndie.kachok.ui.session.matches
 import io.github.youndie.kachok.ui.session.openFile
 import io.github.youndie.kachok.ui.session.preferencesFile
 import io.github.youndie.kachok.ui.session.ratesOf
-import io.github.youndie.kachok.ui.session.rememberPaused
-import io.github.youndie.kachok.ui.session.rememberPriorities
-import io.github.youndie.kachok.ui.session.rememberSequential
-import io.github.youndie.kachok.ui.session.rememberTorrent
 import io.github.youndie.kachok.ui.session.rowOf
 import io.github.youndie.kachok.ui.session.savePreferences
 import io.github.youndie.kachok.ui.session.scaleTrayMenu
 import io.github.youndie.kachok.ui.session.settingsOf
-import io.github.youndie.kachok.ui.session.torrentsDirectory
 import io.github.youndie.kachok.ui.session.trayTooltip
 import io.github.youndie.kachok.ui.session.wideArguments
 import io.github.youndie.kachok.ui.session.windowOf
@@ -206,7 +199,7 @@ private fun run(args: Array<String>) {
     // path goes there and this one exits. Two clients would be two listeners on one port and two
     // writers in one download directory, and no `TorrentSet` can see across a process boundary
     // to refuse that (B-84).
-    val instance = SingleInstance.claim(configDirectory(), listOfNotNull(torrent))
+    val instance = SingleInstance.claimForWindow(configDirectory(), listOfNotNull(torrent))
     if (instance == null) return
     // A shutdown hook and not `onStopped`, because the lock has to go however this process ends —
     // a stale file is not fatal (the next launch takes it over) but it costs that launch a

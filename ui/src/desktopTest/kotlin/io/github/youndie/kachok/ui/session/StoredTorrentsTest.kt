@@ -1,5 +1,12 @@
 package io.github.youndie.kachok.ui.session
 
+import io.github.youndie.kachok.control.store.StoredTorrentsKeeper
+import io.github.youndie.kachok.control.store.forgetTorrent
+import io.github.youndie.kachok.control.store.loadStoredTorrents
+import io.github.youndie.kachok.control.store.rememberPaused
+import io.github.youndie.kachok.control.store.rememberPriorities
+import io.github.youndie.kachok.control.store.rememberSequential
+import io.github.youndie.kachok.control.store.rememberTorrent
 import io.github.youndie.kachok.engine.hex
 import io.github.youndie.kachok.engine.metainfo.MetainfoParser
 import java.nio.file.Files

@@ -4,6 +4,7 @@ import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.v2.runComposeUiTest
+import io.github.youndie.kachok.control.store.rememberTorrent
 import io.github.youndie.kachok.engine.metainfo.MetainfoParser
 import io.github.youndie.kachok.ui.Client
 import io.github.youndie.kachok.ui.theme.KachokTheme

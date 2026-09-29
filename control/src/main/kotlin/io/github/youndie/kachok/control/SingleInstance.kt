@@ -66,6 +66,19 @@ public class SingleInstance private constructor(
     @Volatile
     public var agents: McpSessions? = null
 
+    /**
+     * What this process does when a window asks for the engine, or null for a window, which never
+     * gives it up ([B-136](../../../../../../../../../docs/backlog/B-136-one-engine-that-remembers.md)).
+     *
+     * A headless `kachok mcp` holds the lock so that later agents attach to it rather than each
+     * running an engine of their own. A person then opening the window would have been handed to
+     * that headless process and seen nothing — so the headless one yields: it is told, it stops its
+     * torrents (their list is on the disk), closes this lock and exits, and the window takes the lock
+     * and opens the same list. Called on the caller's thread, after the answer has been sent.
+     */
+    @Volatile
+    public var onYield: (() -> Unit)? = null
+
     /** The surface's side of an MCP session: one server per connected agent. */
     public fun interface McpSessions {
         /**
@@ -110,6 +123,8 @@ public class SingleInstance private constructor(
 
                 MCP -> relay(socket, reader, out)
 
+                WINDOW -> yieldToWindow(out)
+
                 // A word this client does not know is a newer launch talking to an older client.
                 // Hanging up is the whole answer: the caller sees the socket close and decides.
                 else -> return
@@ -126,6 +141,13 @@ public class SingleInstance private constructor(
             val line = reader.readLine() ?: return
             if (line.isNotBlank()) opened.trySend(Path.of(line))
         }
+    }
+
+    private fun yieldToWindow(out: OutputStream) {
+        val yielding = onYield
+        out.write("${if (yielding == null) STAY else YIELDING}\n".encodeToByteArray())
+        out.flush()
+        yielding?.invoke()
     }
 
     private fun relay(
@@ -200,6 +222,62 @@ public class SingleInstance private constructor(
             val lock = configDirectory.resolve(LOCK_FILE)
             if (handOverTo(lock, paths)) return null
             return bind(lock)
+        }
+
+        /**
+         * [claim], for a window: a headless holder of the lock is asked to yield first, and the
+         * lock is taken once it has gone (B-136).
+         *
+         * A holder that is itself a window says so and keeps the lock, and then this is exactly
+         * [claim] — the paths go to it and the caller exits. So does an older client that does not
+         * know the word: it hangs up, and a hang-up is not a yes.
+         */
+        public fun claimForWindow(
+            configDirectory: Path,
+            paths: List<Path>,
+            waitMillis: Long = YIELD_WAIT_MILLIS,
+        ): SingleInstance? {
+            val lock = configDirectory.resolve(LOCK_FILE)
+            if (askToYield(lock)) {
+                val deadline = System.nanoTime() + waitMillis * NANOS_PER_MILLI
+                while (System.nanoTime() < deadline && answers(lock)) Thread.sleep(YIELD_POLL_MILLIS)
+            }
+            return claim(configDirectory, paths)
+        }
+
+        private fun askToYield(lock: Path): Boolean {
+            val (port, secret) = readLock(lock) ?: return false
+            return try {
+                Socket().use { socket ->
+                    socket.connect(InetSocketAddress(InetAddress.getLoopbackAddress(), port), CONNECT_TIMEOUT_MILLIS)
+                    socket.soTimeout = HANDOVER_TIMEOUT_MILLIS
+                    socket.getOutputStream().apply {
+                        write("$secret\n$WINDOW\n".encodeToByteArray())
+                        flush()
+                    }
+                    val reader = socket.getInputStream().bufferedReader()
+                    reader.readLine() == ACKNOWLEDGED && reader.readLine() == YIELDING
+                }
+            } catch (unreachable: IOException) {
+                // Nobody there, or somebody who hung up on the word: either way nothing is yielding.
+                false
+            }
+        }
+
+        /** Whether something still answers on the lock's port — the holder that is yielding, until it has gone. */
+        private fun answers(lock: Path): Boolean {
+            val (port, _) = readLock(lock) ?: return false
+            return try {
+                Socket().use {
+                    it.connect(
+                        InetSocketAddress(InetAddress.getLoopbackAddress(), port),
+                        CONNECT_TIMEOUT_MILLIS,
+                    )
+                }
+                true
+            } catch (gone: IOException) {
+                false
+            }
         }
 
         /**
@@ -336,6 +414,20 @@ public class SingleInstance private constructor(
 
         /** The client is running but has no engine yet. */
         private const val UNAVAILABLE = "kachok/no-engine"
+
+        /** The caller is a window that wants the engine; a headless holder yields it (B-136). */
+        private const val WINDOW = "window"
+
+        /** The holder is headless and is giving the engine up. */
+        private const val YIELDING = "kachok/yielding"
+
+        /** The holder is a window and keeps the engine; the caller hands its paths over instead. */
+        private const val STAY = "kachok/stay"
+
+        /** How long a window waits for a headless holder to stop its torrents and let go. */
+        private const val YIELD_WAIT_MILLIS = 30_000L
+        private const val YIELD_POLL_MILLIS = 100L
+        private const val NANOS_PER_MILLI = 1_000_000L
 
         /**
          * How long a departing agent's owed answers are waited for.

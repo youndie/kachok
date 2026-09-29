@@ -1,4 +1,4 @@
-package io.github.youndie.kachok.ui.session
+package io.github.youndie.kachok.control.store
 
 import io.github.youndie.kachok.control.configDirectory
 import io.github.youndie.kachok.control.mcp.McpKeeper
@@ -36,7 +36,7 @@ import kotlin.io.path.name
  * *this* torrent and are in no resume record and no metainfo: where it saves, whether it was
  * paused, which files were unticked, whether it asks for pieces in order.
  */
-internal fun torrentsDirectory(): Path = configDirectory().resolve("torrents")
+public fun torrentsDirectory(): Path = configDirectory().resolve("torrents")
 
 /**
  * One remembered torrent.
@@ -46,9 +46,9 @@ internal fun torrentsDirectory(): Path = configDirectory().resolve("torrents")
  * indistinguishable from one the client never had, and the person who has been seeding it for a
  * month deserves better than that.
  */
-internal class StoredTorrent(
-    val infoHash: String,
-    val metainfo: Metainfo?,
+public class StoredTorrent(
+    public val infoHash: String,
+    public val metainfo: Metainfo?,
     /**
      * What the torrent was called when it was remembered.
      *
@@ -56,14 +56,14 @@ internal class StoredTorrent(
      * where there is no metainfo: `b9f1cc…0625 could not be opened` is a row nobody can act on,
      * and `ubuntu-24.04.iso could not be opened` is one they can.
      */
-    val name: String,
-    val directory: String,
-    val paused: Boolean,
-    val unwanted: Set<Int>,
-    val sequential: Boolean,
+    public val name: String,
+    public val directory: String,
+    public val paused: Boolean,
+    public val unwanted: Set<Int>,
+    public val sequential: Boolean,
     /** Files fetched first, by index — the third tier of B-106, kept beside the other two decisions about this torrent. */
-    val high: Set<Int> = emptySet(),
-    val problem: String? = null,
+    public val high: Set<Int> = emptySet(),
+    public val problem: String? = null,
 )
 
 /**
@@ -72,7 +72,7 @@ internal class StoredTorrent(
  * A directory that does not exist is an empty list and not an error: it is what a first run looks
  * like.
  */
-internal fun loadStoredTorrents(directory: Path): List<StoredTorrent> {
+public fun loadStoredTorrents(directory: Path): List<StoredTorrent> {
     val entries =
         try {
             if (!Files.isDirectory(directory)) return emptyList()
@@ -156,7 +156,7 @@ private fun shortHash(infoHash: String): String =
  * that says something is wrong, and an entry with a copy and no properties is invisible. Of the two
  * halves of an interrupted write, the invisible one is the one to be left holding.
  */
-internal fun rememberTorrent(
+public fun rememberTorrent(
     directory: Path,
     metainfo: Metainfo,
     saveTo: String,
@@ -192,21 +192,21 @@ internal fun rememberTorrent(
 }
 
 /** And where the files are, after a move ([B-134](../../../../../../../../docs/backlog/B-134-move-a-torrent-s-data.md)). */
-internal fun rememberDirectory(
+public fun rememberDirectory(
     directory: Path,
     infoHash: String,
     saveTo: String,
 ): Unit = rememberOne(directory, infoHash, DIRECTORY, saveTo)
 
 /** Only the paused flag, for the one thing that changes without anything else changing. */
-internal fun rememberPaused(
+public fun rememberPaused(
     directory: Path,
     infoHash: String,
     paused: Boolean,
 ): Unit = rememberOne(directory, infoHash, PAUSED, paused.toString())
 
 /** And the order, which a person can change while the torrent runs (B-89). */
-internal fun rememberSequential(
+public fun rememberSequential(
     directory: Path,
     infoHash: String,
     sequential: Boolean,
@@ -218,7 +218,7 @@ internal fun rememberSequential(
  * Both sets at once, because one click can move a file *between* them — high to skip — and two
  * writes of one decision would be two chances to be interrupted between them.
  */
-internal fun rememberPriorities(
+public fun rememberPriorities(
     directory: Path,
     infoHash: String,
     unwanted: Set<Int>,
@@ -256,7 +256,7 @@ private fun rememberOne(
 }
 
 /** Both files, gone. A torrent removed from the list must not come back on the next start. */
-internal fun forgetTorrent(
+public fun forgetTorrent(
     directory: Path,
     infoHash: String,
 ) {
@@ -301,7 +301,7 @@ private const val ENDS = 4
  * window's next start did not have it, and neither a tier nor the order an agent set on one of the
  * window's own torrents survived the restart either.
  */
-internal class StoredTorrentsKeeper(
+public class StoredTorrentsKeeper(
     private val directory: Path,
 ) : McpKeeper {
     override fun added(

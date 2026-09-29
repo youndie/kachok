@@ -60,7 +60,7 @@ which is also the order of work.
 | [B-87](docs/backlog/B-87-a-server-with-a-web-face.md) `[ ]` | Phase 3: a headless server with a web face, installable on a box that is always on | P3 | XL | B-80 |
 | [B-02](docs/backlog/B-02-ci-runs-build-and-docs-gates.md) `[ ]` | CI runs the build and the documentation gates on every push | infra | S | B-01 |
 
-## Closed (128)
+## Closed (129)
 
 **M0 — The build and its gates**
 
@@ -228,6 +228,7 @@ which is also the order of work.
 - [B-117](docs/backlog/B-117-one-client-for-the-window-and-the-agent.md) `[x]` - One client for the window and the agent: `kachok mcp` attaches to the running window
 - [B-120](docs/backlog/B-120-two-launches-have-no-order-between-them.md) `[x]` - A test asserts the order of paths handed over by two separate launches, which nothing guarantees
 - [B-133](docs/backlog/B-133-sequential-over-mcp-and-the-wire.md) `[x]` - Sequential over MCP and the wire, and an agent's changes kept by the window
+- [B-136](docs/backlog/B-136-one-engine-that-remembers.md) `[x]` - A headless kachok mcp is the machine's one engine, and it remembers its torrents
 
 <!-- END INDEX -->
 

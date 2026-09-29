@@ -54,6 +54,36 @@ class SingleInstanceTest {
     }
 
     /**
+     * A window meeting a window: nothing yields, and the paths go over as they always did (B-136).
+     *
+     * The other half — a headless holder that does yield — is driven end to end in the command
+     * line's `RememberTest`, where the holder is a real `kachok mcp`.
+     */
+    @Test
+    fun aWindowMeetingAWindowHandsItsTorrentOverAsBefore() {
+        val first = assertNotNull(claim(), "the first launch has to be the client")
+        assertNull(
+            SingleInstance.claimForWindow(root, listOf(Path.of("/srv/one.torrent")), waitMillis = 1_000),
+            "a running window was asked to yield and did",
+        )
+        assertEquals(Path.of("/srv/one.torrent").toAbsolutePath(), await(first.opened))
+    }
+
+    /** A holder that yields is told so, lets go, and the window gets the lock. */
+    @Test
+    fun aHolderThatYieldsGivesTheWindowTheLock() {
+        val headless = assertNotNull(claim())
+        var yielded = false
+        headless.onYield = {
+            yielded = true
+            headless.close()
+        }
+        val window = SingleInstance.claimForWindow(root, emptyList())?.also { open += it }
+        assertNotNull(window, "the window did not get the lock")
+        assertTrue(yielded, "the holder was never asked")
+    }
+
+    /**
      * Three double-clicks in a second are three torrents, not the last one.
      *
      * **What is ordered here is one launch's own paths, and nothing across launches** (B-120).

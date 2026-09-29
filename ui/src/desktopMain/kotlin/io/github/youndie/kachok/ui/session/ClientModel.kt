@@ -4,6 +4,15 @@ import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
 import io.github.youndie.kachok.control.SingleInstance
 import io.github.youndie.kachok.control.mcp.McpServer
+import io.github.youndie.kachok.control.store.StoredTorrent
+import io.github.youndie.kachok.control.store.StoredTorrentsKeeper
+import io.github.youndie.kachok.control.store.forgetTorrent
+import io.github.youndie.kachok.control.store.loadStoredTorrents
+import io.github.youndie.kachok.control.store.rememberDirectory
+import io.github.youndie.kachok.control.store.rememberPaused
+import io.github.youndie.kachok.control.store.rememberPriorities
+import io.github.youndie.kachok.control.store.rememberSequential
+import io.github.youndie.kachok.control.store.rememberTorrent
 import io.github.youndie.kachok.engine.hex
 import io.github.youndie.kachok.engine.io.EngineDispatchers
 import io.github.youndie.kachok.engine.metainfo.MetainfoParser
