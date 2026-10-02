@@ -33,16 +33,16 @@ next to every point where the research departs from it.
 
 Verified on the JDK the project builds with — `openjdk 25.0.2 2026-01-20` — by reading the class
 files with `javap`, the flags with `-XX:+PrintFlagsFinal`, and the sources in the JDK's own
-`lib/src.zip`; and against the JEP texts at `openjdk.org/jeps/<n>`.
+`src.zip` (`jdk-25.0.2!/lib/src.zip`); and against the JEP texts at `openjdk.org/jeps/<n>`.
 
 | Fact | Where verified |
 |---|---|
 | `java.lang.ScopedValue` is a final API in 25 (no `PreviewFeature` annotation in the class file) | `javap -v java.lang.ScopedValue`; JEP 506, *Release 25* |
-| `java.util.concurrent.StructuredTaskScope` is **still preview** in 25 | `javap -v` shows `jdk/internal/javac/PreviewFeature` on the class; JEP 505 |
+| `java.util.concurrent.StructuredTaskScope` is **still preview** in 25 | `javap -v` shows `jdk.internal.javac.PreviewFeature` on the class; JEP 505 |
 | Virtual threads are final since 21; `synchronized` no longer pins the carrier since 24 | JEP 444 (*Release 21*), JEP 491 (*Release 24*) |
-| A blocking `SocketChannel` read on a virtual thread parks the virtual thread rather than the carrier | `sun/nio/ch/SocketChannelImpl.java` in `src.zip`: `park(Net.POLLIN)` in `read`, `park(Net.POLLOUT)` in `write`, gated on `Thread.currentThread().isVirtual()` |
-| Blocking file I/O on a virtual thread is *compensated* (the carrier pool grows), not unmounted | `sun/nio/ch/FileChannelImpl.java`: `Blocker.begin(...)` / `Blocker.end(...)` around `read`, `write`, positional variants, `transferTo` |
-| The carrier pool's ceiling is `jdk.virtualThreadScheduler.maxPoolSize` | `java/lang/VirtualThread.java`, the scheduler's `createDefaultScheduler` |
+| A blocking `SocketChannel` read on a virtual thread parks the virtual thread rather than the carrier | `jdk-25.0.2!/lib/src.zip!/java.base/sun/nio/ch/SocketChannelImpl.java`: `park(Net.POLLIN)` in `read`, `park(Net.POLLOUT)` in `write`, gated on `Thread.currentThread().isVirtual()` |
+| Blocking file I/O on a virtual thread is *compensated* (the carrier pool grows), not unmounted | `jdk-25.0.2!/lib/src.zip!/java.base/sun/nio/ch/FileChannelImpl.java`: `Blocker.begin(...)` / `Blocker.end(...)` around `read`, `write`, positional variants, `transferTo` |
+| The carrier pool's ceiling is `jdk.virtualThreadScheduler.maxPoolSize` | `jdk-25.0.2!/lib/src.zip!/java.base/java/lang/VirtualThread.java`, the scheduler's `createDefaultScheduler` |
 | `-XX:+UseCompactObjectHeaders` is a **product** flag in 25, default `false` | `PrintFlagsFinal`: `bool UseCompactObjectHeaders = false {product lp64_product}`; JEP 519, *Release 25* |
 | JEP 519 reports 22 % less heap and 8 % less CPU on SPECjbb2015, 10 % less time on a JSON parser benchmark | JEP 519, *Motivation* — those are the JEP's numbers for the JEP's workloads, not this project's |
 | The AOT cache flags `AOTCache`, `AOTCacheOutput`, `AOTConfiguration`, `AOTMode` are product flags | `PrintFlagsFinal`; JEP 514 (*Release 25*), JEP 515 (*Release 25*) |
@@ -51,10 +51,10 @@ files with `javap`, the flags with `-XX:+PrintFlagsFinal`, and the sources in th
 | G1 is the default collector on this machine; `UseZGC = false` by default | `PrintFlagsFinal` |
 | `FileChannel.map(MapMode, long, long, Arena)` returning a `MemorySegment` exists; `Arena.ofConfined()` / `ofAuto()` / `global()` exist | `javap java.nio.channels.FileChannel`, `javap java.lang.foreign.Arena`; JEP 454 (*Release 22*) |
 | `FileChannel` has positional `write(ByteBuffer, long)` and gathering `write(ByteBuffer[], int, int)`; `transferTo(long, long, WritableByteChannel)` | `javap java.nio.channels.FileChannel` |
-| `StandardOpenOption.SPARSE` exists **and is ignored on Unix** | `javap java.nio.file.StandardOpenOption`; `sun/nio/fs/UnixChannelFactory.java`: `case SPARSE: /* ignore */ break;` |
-| A heap `ByteBuffer` handed to channel I/O is copied into a temporary direct buffer first | `sun/nio/ch/IOUtil.java`: `Util.getTemporaryDirectBuffer(rem)` in both the read and the write paths |
+| `StandardOpenOption.SPARSE` exists **and is ignored on Unix** | `javap java.nio.file.StandardOpenOption`; `jdk-25.0.2!/lib/src.zip!/java.base/sun/nio/fs/UnixChannelFactory.java`: `case SPARSE: /* ignore */ break;` |
+| A heap `ByteBuffer` handed to channel I/O is copied into a temporary direct buffer first | `jdk-25.0.2!/lib/src.zip!/java.base/sun/nio/ch/IOUtil.java`: `Util.getTemporaryDirectBuffer(rem)` in both the read and the write paths |
 | SHA-1 / SHA-256 / SHA-3 / SHA-512 intrinsics are on for this CPU | `-XX:+UnlockDiagnosticVMOptions -XX:+PrintFlagsFinal`: `UseSHA1Intrinsics = true`, `UseSHA256Intrinsics = true` (diagnostic flags, so invisible without the unlock) |
-| `jlink`, `jpackage`, `jfr` and the `jmods/` directory ship with this JDK build | `ls <JDK>/bin`, `ls <JDK>/jmods` |
+| `jlink`, `jpackage`, `jfr` and the `jmods` directory ship with this JDK build | `ls <JDK>/bin`, `ls <JDK>/jmods` |
 | JFR's default configuration records `jdk.VirtualThreadPinned` | `<JDK>/lib/jfr/default.jfc` |
 | Linking a run-time image without jmods is a build-time option of the JDK, not the default | JEP 493 (*Release 24*), *Restrictions* |
 
@@ -569,7 +569,7 @@ runtime exists only inside `createDistributable`, whose next step is to zip it. 
 [B-78](../backlog/B-78-nothing-runs-the-packaged-application.md), and **closed on 2026-09-06**: the
 distribution now answers `--preflight`, and `:ui:check` runs it against the image on the platform
 that produced it. There is no `java` in that image to run anything else with — `jlink` strips the
-native commands and `runtime/` has no `bin/` — so the application's own launcher is both the only
+native commands and the runtime image has no `bin` directory — so the application's own launcher is both the only
 way in and the most faithful one.
 
 **`jdk.crypto.ec` is not needed, and the reasoning that said it was is worth writing down.** The
@@ -751,7 +751,7 @@ the Kotlin release notes at `kotlinlang.org/docs/whatsnew*.html`, the coroutines
 | kotlinx.coroutines **1.11.0** is current; its changelog has **no** virtual-thread dispatcher — `Executor.asCoroutineDispatcher()` is the mechanism | Maven Central metadata; `CHANGES.md` (the only "virtual" entries concern virtual *time* in tests) |
 | Compose Multiplatform 1.12.0 is current (phase 2) | Maven Central `compose-gradle-plugin` metadata; the shared catalog pins the same |
 | Gradle 9.7.1 is current and runs on JDK 25 | `services.gradle.org/versions/current`; `docs.gradle.org/current/userguide/compatibility.html` lists 25 |
-| The shared conventions (`ru.workinprogress.sborka`) are at 0.2.0.29 on a **publicly readable** snapshot repository; the `wip` catalog they carry pins coroutines 1.11.0, serialization 1.11.0, ktor 3.5.2, compose 1.12.0, koin 4.2.2, junit 6.1.3 | `reposilite.kotlin.website/snapshots/ru/workinprogress/sborka/settings/maven-metadata.xml`; `catalog/sborka.versions.toml` in the sborka repository |
+| The shared conventions (`ru.workinprogress.sborka`) are at 0.2.0.29 on a **publicly readable** snapshot repository; the `wip` catalog they carry pins coroutines 1.11.0, serialization 1.11.0, ktor 3.5.2, compose 1.12.0, koin 4.2.2, junit 6.1.3 | `reposilite.kotlin.website/snapshots/ru/workinprogress/sborka/settings/maven-metadata.xml`; `youndie/sborka@efafdb6c664725f0c1050f253402b2db8c7453d7!/catalog/sborka.versions.toml` |
 | This repository's skeleton — `:engine` (multiplatform, `jvm()` only) and `:cli` — **builds, lints and tests green** on JDK 25 with Kotlin 2.4.10, Gradle 9.7.1, sborka 0.2.0.29, `-jvm-default=no-compatibility`, and with the release flags | `./gradlew build` and `./gradlew build -Pkachok.release` in this repository, 2026-09-05 |
 
 **Consequence 1.** The brief's `-Xjvm-default=all` becomes `jvmDefault = NO_COMPATIBILITY` in

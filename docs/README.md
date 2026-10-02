@@ -67,7 +67,7 @@ Sections marked `<!-- optional -->` can be deleted.
 ```bash
 pip install pyyaml
 make check                                   # the gate: exactly what CI runs
-make report                                  # BDD coverage and code anchors, read by a person
+make report                                  # BDD coverage (read by a person), code anchors (blocking)
 make fix                                     # regenerate the backlog index, append missing map lines
 ```
 
@@ -75,8 +75,11 @@ The checks are [docs-bootstrap](https://github.com/youndie/docs-bootstrap)'s, at
 `.github/workflows/check.yaml` pins, fetched into `.docs-bootstrap/` by the first run; the checks of
 this repository's own run under the Makefile's `gate`.
 
-`code_anchors.py` will report the target directories named in the service documents as missing
-until their backlog items land; that is the report doing its job, and it is not a gate.
+`code_anchors.py` is a gate (`ANCHORS_ARGS ?= --check` in the Makefile): a path in `docs/` that
+resolves to nothing fails `make check`. A path outside this repository is written as an address -
+`<artefact>!/<path>` for a file inside the JDK or a dependency, `youndie/<repo>@<commit>!/<path>`
+for another repository (docs-bootstrap SPEC §4.1) - and a build output is named without a path, so
+a document that names code not written yet has to say so in words rather than with a path.
 
 ## Coverage map
 
