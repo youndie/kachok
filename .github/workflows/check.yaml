@@ -41,7 +41,8 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      # The Python this repository declares; the action's own default is older.
+      # The Python this repository declares; the action's own default is older. Renovate's
+      # github-actions manager does not read this input — the regex manager in renovate.json moves it.
       - uses: youndie/docs-bootstrap@v0.3.0
         with:
           python-version: "3.14"
