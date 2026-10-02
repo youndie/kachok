@@ -17,7 +17,7 @@
 
 - **`main` describes what exists. An open pull request describes what will be.** A feature
   document for behaviour that is not built is `status: draft` on a branch; on `main`,
-  `python3 scripts/docs_check.py --on-main` fails on a draft.
+  `make docs-on-main` fails on a draft.
 - **Verified and assumed are kept apart.** A number you have not measured is a hypothesis and says
   so; a fact carries where it was read. When the implementation contradicts the research, amend the
   research *at the point of divergence* — "this used to say X; it cannot, because Y; the working
@@ -76,8 +76,12 @@
 ```bash
 ./gradlew build
 make check
-python3 scripts/backlog_index.py      # after editing any backlog item
+make fix                              # after editing any backlog item: regenerates the index
 ```
+
+The documentation checks are docs-bootstrap's, at the version the `uses: youndie/docs-bootstrap@…`
+line in `.github/workflows/check.yaml` pins: the first `make check` fetches that version into
+`.docs-bootstrap/` (it ignores itself), and there are no copies under `scripts/` to run by hand.
 
 Update the backlog item's status, and if you learned something the research did not know, write
 it into the research with where you verified it.

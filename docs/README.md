@@ -71,6 +71,10 @@ make report                                  # BDD coverage and code anchors, re
 make fix                                     # regenerate the backlog index, append missing map lines
 ```
 
+The checks are [docs-bootstrap](https://github.com/youndie/docs-bootstrap)'s, at the version
+`.github/workflows/check.yaml` pins, fetched into `.docs-bootstrap/` by the first run; the checks of
+this repository's own run under the Makefile's `gate`.
+
 `code_anchors.py` will report the target directories named in the service documents as missing
 until their backlog items land; that is the report doing its job, and it is not a gate.
 
