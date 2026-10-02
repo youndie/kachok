@@ -114,9 +114,9 @@ format each — the host picks from `targetFormats`:
 
 | Platform | Command | Output | Prerequisite |
 |---|---|---|---|
-| macOS | `LOCAL=1 ./gradlew :ui:packageDistributionForCurrentOS` | `ui/build/compose/binaries/main/dmg/kachok-1.0.0.dmg` | — |
-| Linux | `~/.claude/bin/wsl-run './gradlew :ui:packageDeb'` | `.../deb/kachok_0.1.0_amd64.deb` | `fakeroot` |
-| Windows | `gradlew.bat :ui:packageMsi` | `.../msi/kachok-0.1.0.msi` | none — the Compose plugin downloads WiX 3.11.2 into `~/.gradle/compose-jb/` and passes it as `WIX_PATH`; `compose.desktop.application.downloadWix=false` turns that off |
+| macOS | `LOCAL=1 ./gradlew :ui:packageDistributionForCurrentOS` | `kachok-1.0.0.dmg`, in the build directory under compose/binaries/main/dmg | — |
+| Linux | `~/.claude/bin/wsl-run './gradlew :ui:packageDeb'` | `kachok_0.1.0_amd64.deb`, next to it under deb | `fakeroot` |
+| Windows | `gradlew.bat :ui:packageMsi` | `kachok-0.1.0.msi`, under msi | none — the Compose plugin downloads WiX 3.11.2 into `~/.gradle/compose-jb/` and passes it as `WIX_PATH`; `compose.desktop.application.downloadWix=false` turns that off |
 
 The client can be asked to **start with the computer**, from a checkbox in Settings: a launch agent
 on macOS, an `HKCU\…\Run` value on Windows, a freedesktop autostart entry on Linux — each written
