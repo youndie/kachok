@@ -17,7 +17,7 @@ jobs:
       - uses: actions/checkout@v7
 
       # Java 21 + 25 and the Gradle cache, at the same versions as the rest of the portfolio.
-      - uses: youndie/sborka/.github/actions/setup-kotlin@main
+      - uses: youndie/sborka/.github/actions/setup-kotlin@v0.5.0.130
 
       # build covers ktlintCheck (through check) and the tests of every module. Both flag sets:
       # the release flags are accepted by the compiler or they are not, and only a build says which.
