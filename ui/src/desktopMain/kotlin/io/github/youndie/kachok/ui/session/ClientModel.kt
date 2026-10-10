@@ -13,6 +13,7 @@ import io.github.youndie.kachok.control.store.rememberPaused
 import io.github.youndie.kachok.control.store.rememberPriorities
 import io.github.youndie.kachok.control.store.rememberSequential
 import io.github.youndie.kachok.control.store.rememberTorrent
+import io.github.youndie.kachok.control.store.reopenStored
 import io.github.youndie.kachok.engine.hex
 import io.github.youndie.kachok.engine.io.EngineDispatchers
 import io.github.youndie.kachok.engine.metainfo.MetainfoParser
@@ -265,17 +266,35 @@ internal class ClientModel(
             scope.launch {
                 val remembered = loadStoredTorrents(torrents)
                 broken.value = remembered.filter { it.metainfo == null }
-                remembered.forEach { stored ->
-                    val metainfo = stored.metainfo ?: return@forEach
-                    open(
-                        set,
-                        metainfo,
-                        preferences.value.withDirectory(stored.directory),
-                        scope,
-                        unwanted = stored.unwanted,
-                        sequential = stored.sequential,
-                        paused = stored.paused,
-                        high = stored.high,
+                // One at a time, and one failure is that torrent's: a drive that has not woken up yet
+                // used to cost the whole list (B-138). The ones that wait are tried again in the
+                // background, so the command line below is not held up by them.
+                launch {
+                    reopenStored(
+                        remembered,
+                        torrents,
+                        open = { stored, metainfo ->
+                            val before = set.torrents.toSet()
+                            try {
+                                open(
+                                    set,
+                                    metainfo,
+                                    preferences.value.withDirectory(stored.directory),
+                                    scope,
+                                    unwanted = stored.unwanted,
+                                    sequential = stored.sequential,
+                                    paused = stored.paused,
+                                    high = stored.high,
+                                )
+                            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                                throw cancelled
+                            } catch (failed: Exception) {
+                                // Nothing left behind, so the next try is not refused as a duplicate.
+                                (set.torrents - before).forEach { set.remove(it) }
+                                throw failed
+                            }
+                        },
+                        report = { System.err.println("kachok: $it") },
                     )
                 }
                 initial?.let { path ->

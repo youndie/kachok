@@ -102,11 +102,19 @@ of the lock and exits; the window then takes the lock and opens the same list. A
 window answers `kachok/stay`, and an older one hangs up on a word it does not know; either way the
 new window hands its paths over and exits, as before.
 
+**Opening it is one loop, and one torrent's failure is that torrent's**
+([B-138](../backlog/B-138-one-missing-drive-does-not-cost-the-list.md)). `reopenStored` opens each
+remembered torrent on its own; a refusal from the set is reported, and anything else — a drive that
+has not woken up yet — is reported once and tried again every thirty seconds, then every five
+minutes, while the torrent is still in the list. It used to stop at the first exception: a client
+started before `D:` answered opened none of ten torrents.
+
 ## 2a. Code anchors
 
 | File | What is there |
 |---|---|
 | `control/src/main/kotlin/io/github/youndie/kachok/control/SingleInstance.kt` | the lock, both halves of its handshake, `claimForWindow` and `onYield`, and `McpRelay` — the attached session a headless process pumps |
+| `control/src/main/kotlin/io/github/youndie/kachok/control/store/Reopen.kt` | `reopenStored`, the one loop both the window and `kachok mcp` reopen the list with: a failure is that torrent's, and an unreachable one is tried again (B-138) |
 | `control/src/main/kotlin/io/github/youndie/kachok/control/store/StoredTorrents.kt` | the torrent list on the disk, and `StoredTorrentsKeeper`, which writes an agent's changes into it |
 | `control/src/main/kotlin/io/github/youndie/kachok/control/mcp/McpServer.kt` | JSON-RPC 2.0, the ten tools, the one resource |
 | `control/src/main/kotlin/io/github/youndie/kachok/control/mcp/McpKeeper.kt` | what an agent changed, for a host that keeps a torrent list; the list's is `store/StoredTorrents.kt`'s `StoredTorrentsKeeper` |
