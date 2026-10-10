@@ -57,7 +57,7 @@ object Cli {
                     // The protocol owns stdout; `out` is where its frames go and `err` is the only
                     // place a human-readable line may be written.
                     io.github.youndie.kachok.cli.mcp.Mcp
-                        .run(Arguments.parseMcp(arguments.drop(1)), System.`in`, out, err)
+                        .run(Arguments.parseMcp(arguments.drop(1)), System.`in`, frames(out), err)
                 } catch (usage: UsageException) {
                     err.appendLine("kachok: ${usage.message}")
                     err.appendLine(Arguments.USAGE)
@@ -92,3 +92,16 @@ object Cli {
             }
         }
 }
+
+/**
+ * Where JSON-RPC frames go: UTF-8, whatever the platform's own encoding is
+ * ([B-137](../../../../../../../docs/backlog/B-137-mcp-frames-are-utf8.md)).
+ *
+ * `System.out` encodes with `stdout.encoding`, which on Windows is the console's code page, and a
+ * frame is UTF-8 by the protocol's definition: every Cyrillic torrent name an agent asked about
+ * came back as `???????`. A `PrintStream` passes the bytes written to it through unchanged, so a
+ * UTF-8 writer layered over it puts exactly UTF-8 on the descriptor. Anything that is not a print
+ * stream — a test's buffer, a pipe a caller already chose — is left as it is.
+ */
+internal fun frames(out: Appendable): Appendable =
+    if (out is java.io.PrintStream) java.io.PrintStream(out, true, Charsets.UTF_8) else out

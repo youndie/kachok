@@ -93,7 +93,10 @@ opens the same list.
 * **Transport:** stdio, JSON-RPC 2.0, one message per line. Stdout carries frames and nothing
   else; every human-readable line goes to stderr. The process runs until stdin closes, which is how
   a client says goodbye — and then stops the engine the way `download` does, or, attached, drops
-  the socket and leaves the client that owns it running.
+  the socket and leaves the client that owns it running. **Frames are UTF-8 whatever the platform
+  says**: `System.out` encodes with the console's code page on Windows, so `main`'s stdout is
+  wrapped in a UTF-8 writer for this command, and a torrent named in Cyrillic no longer reaches the
+  agent as `???????` ([B-137](../backlog/B-137-mcp-frames-are-utf8.md)).
 * **Why stdio and not the socket that exists:** the socket is guarded against pages and by nothing
   against programs; a pipe is held only by the process that opened it, which is the right shape for
   a tool an agent spawns and the shape every MCP client expects by default. No authentication, and
