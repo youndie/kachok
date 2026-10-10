@@ -7,6 +7,7 @@ import io.github.youndie.kachok.control.mcp.McpKeeper
 import io.github.youndie.kachok.control.mcp.McpServer
 import io.github.youndie.kachok.control.store.StoredTorrentsKeeper
 import io.github.youndie.kachok.control.store.loadStoredTorrents
+import io.github.youndie.kachok.control.store.reopenStored
 import io.github.youndie.kachok.engine.io.EngineDispatchers
 import io.github.youndie.kachok.engine.runtime.RuntimeOptions
 import io.github.youndie.kachok.engine.runtime.SetOptions
@@ -193,37 +194,46 @@ internal object Mcp {
             }
         }
 
-    /** Every torrent the list remembers, opened the way it was left. */
+    /**
+     * Every torrent the list remembers, opened the way it was left — and the ones that cannot be
+     * opened yet, tried again until they can (B-138).
+     */
     private suspend fun reopen(
         set: TorrentSet,
         scope: CoroutineScope,
         store: Path,
         err: Appendable,
     ) {
-        loadStoredTorrents(store).forEach { stored ->
-            val metainfo = stored.metainfo
-            if (metainfo == null) {
-                err.appendLine("kachok: ${stored.name} ${stored.problem}")
-                return@forEach
-            }
-            try {
+        val stored = loadStoredTorrents(store)
+        stored.filter { it.metainfo == null }.forEach { err.appendLine("kachok: ${it.name} ${it.problem}") }
+        reopenStored(
+            stored,
+            store,
+            open = { entry, metainfo ->
                 val runtime =
                     set.add(
                         metainfo,
                         RuntimeOptions(
-                            directory = Path.of(stored.directory),
-                            unwantedFiles = stored.unwanted,
-                            highFiles = stored.high,
-                            sequential = stored.sequential,
+                            directory = Path.of(entry.directory),
+                            unwantedFiles = entry.unwanted,
+                            highFiles = entry.high,
+                            sequential = entry.sequential,
                         ),
                     )
-                runtime.restore()
-                runtime.start(scope, paused = stored.paused)
-            } catch (refused: IllegalArgumentException) {
-                // Already added by an agent in the moment since the start, or its files are another's.
-                err.appendLine("kachok: ${stored.name} was not reopened: ${refused.message}")
-            }
-        }
+                try {
+                    runtime.restore()
+                    runtime.start(scope, paused = entry.paused)
+                } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                    throw cancelled
+                } catch (failed: Exception) {
+                    // Nothing left behind: an opened-but-unchecked torrent would turn every retry
+                    // into "this set already has it".
+                    set.remove(runtime)
+                    throw failed
+                }
+            },
+            report = { err.appendLine("kachok: $it") },
+        )
     }
 
     const val EXIT_OK: Int = 0
