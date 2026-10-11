@@ -21,6 +21,23 @@ internal object Upnp {
     const val SSDP_ADDRESS: String = "239.255.255.250"
     const val SSDP_PORT: Int = 1900
 
+    /**
+     * Whether an IPv4 address is one a router could be reached from: not unspecified, not the
+     * loopback (`127/8`), not link-local (`169.254/16`, an adapter nobody gave an address) (B-139).
+     */
+    fun routable(address: ByteArray): Boolean {
+        if (address.size != IPV4_BYTES) return false
+        val first = address[0].toInt() and BYTE
+        val second = address[1].toInt() and BYTE
+        return first != 0 && first != LOOPBACK && !(first == LINK_LOCAL_FIRST && second == LINK_LOCAL_SECOND)
+    }
+
+    private const val IPV4_BYTES = 4
+    private const val BYTE = 0xFF
+    private const val LOOPBACK = 127
+    private const val LINK_LOCAL_FIRST = 169
+    private const val LINK_LOCAL_SECOND = 254
+
     /** The two services that can map a port; a router offers one or the other, not both. */
     val SERVICES: List<String> =
         listOf(
@@ -144,6 +161,38 @@ internal object Upnp {
             <NewProtocol>TCP</NewProtocol>
             """.trimIndent(),
         )
+
+    /** The SOAP envelope asking what the router forwards [externalPort] to (B-139). */
+    fun getSpecificPortMappingEntry(
+        service: String,
+        externalPort: Int,
+    ): String =
+        envelope(
+            service,
+            "GetSpecificPortMappingEntry",
+            """
+            <NewRemoteHost></NewRemoteHost>
+            <NewExternalPort>$externalPort</NewExternalPort>
+            <NewProtocol>TCP</NewProtocol>
+            """.trimIndent(),
+        )
+
+    /** The internal host and port a `GetSpecificPortMappingEntry` reply names, or null if it names none. */
+    fun mappingTarget(reply: String): Pair<String, Int>? {
+        val host = element(reply, "NewInternalClient") ?: return null
+        val port = element(reply, "NewInternalPort")?.toIntOrNull() ?: return null
+        return host to port
+    }
+
+    private fun element(
+        reply: String,
+        name: String,
+    ): String? =
+        Regex("<$name>\\s*([^<]*?)\\s*</$name>", RegexOption.IGNORE_CASE)
+            .find(reply)
+            ?.groupValues
+            ?.get(1)
+            ?.takeIf { it.isNotEmpty() }
 
     /** The `SOAPAction` header, which routers check and which is not optional. */
     fun soapAction(

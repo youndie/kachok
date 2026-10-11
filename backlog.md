@@ -60,7 +60,7 @@ which is also the order of work.
 | [B-87](docs/backlog/B-87-a-server-with-a-web-face.md) `[ ]` | Phase 3: a headless server with a web face, installable on a box that is always on | P3 | XL | B-80 |
 | [B-02](docs/backlog/B-02-ci-runs-build-and-docs-gates.md) `[ ]` | CI runs the build and the documentation gates on every push | infra | S | B-01 |
 
-## Closed (131)
+## Closed (132)
 
 **M0 — The build and its gates**
 
@@ -153,6 +153,7 @@ which is also the order of work.
 - [B-127](docs/backlog/B-127-trading-barely-starts-before-a-download-ends.md) `[x]` - Four clients on one seed trade 2% of the data, because almost nothing is ever unchoked
 - [B-128](docs/backlog/B-128-ties-among-equally-rare-pieces.md) `[x]` - Rarest-first breaks ties by index, which keeps every client of a swarm in lock step
 - [B-129](docs/backlog/B-129-a-piece-can-be-verified-twice.md) `[x]` - Four clients recorded taking 40.9 MiB of a 40.0 MiB torrent
+- [B-139](docs/backlog/B-139-upnp-searches-every-interface.md) `[x]` - UPnP finds the router on a machine with several adapters, and a refusal is checked against the router's table
 - [B-95](docs/backlog/B-95-the-dial-loop-only-runs-when-something-else-happens.md) `[x]` - The client stops dialling: there is no periodic top-up, and a dial in flight is dialled again
 - [B-96](docs/backlog/B-96-the-handshake-read-has-no-deadline.md) `[x]` - A peer that accepts the connection and then says nothing is never given up on
 - [B-97](docs/backlog/B-97-the-announce-never-says-how-many-peers-it-wants.md) `[x]` - The announce never says how many peers it wants, and only one tracker is ever asked

@@ -2,6 +2,7 @@ package io.github.youndie.kachok.engine.nat
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -73,6 +74,29 @@ class UpnpTest {
             """.trimIndent()
         assertNull(Upnp.controlUrl(useless))
         assertNull(Upnp.service(useless))
+    }
+
+    /** What a mapping entry forwards to, read back to check a refusal against (B-139). */
+    @Test
+    fun aMappingEntryNamesItsTarget() {
+        val reply =
+            "<s:Envelope><s:Body><u:GetSpecificPortMappingEntryResponse><NewInternalPort>6881</NewInternalPort>" +
+                "<NewInternalClient>192.168.1.102</NewInternalClient><NewEnabled>1</NewEnabled>" +
+                "</u:GetSpecificPortMappingEntryResponse></s:Body></s:Envelope>"
+        assertEquals("192.168.1.102" to 6881, Upnp.mappingTarget(reply))
+        assertNull(Upnp.mappingTarget("<s:Envelope><s:Body></s:Body></s:Envelope>"))
+    }
+
+    /** Link-local and loopback addresses are not ones a router can be reached from (B-139). */
+    @Test
+    fun onlyAnAddressOnARealNetworkIsRoutable() {
+        fun ip(vararg parts: Int) = ByteArray(4) { parts[it].toByte() }
+        assertTrue(Upnp.routable(ip(192, 168, 1, 102)))
+        assertTrue(Upnp.routable(ip(10, 0, 0, 5)))
+        assertFalse(Upnp.routable(ip(169, 254, 20, 65)), "a link-local adapter was taken as a network")
+        assertFalse(Upnp.routable(ip(127, 0, 0, 1)))
+        assertFalse(Upnp.routable(ip(0, 0, 0, 0)))
+        assertFalse(Upnp.routable(ByteArray(16)), "an IPv6 address went through the IPv4 check")
     }
 
     /** Routers send all three forms of control URL and a client must take all three. */

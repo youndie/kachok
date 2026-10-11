@@ -63,7 +63,7 @@ internal class PortMapper(
      * has answered the question, and asking the same box the same thing in another protocol is
      * noise on somebody's network for an answer already given.
      */
-    private val upnp: UpnpMapper = UpnpMapper(),
+    private val upnp: UpnpMapper = UpnpMapper(gateway = gateway),
 ) {
     /**
      * Asks for [internalPort] to be forwarded, and answers within [timeout] × [attempts] whatever
