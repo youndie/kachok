@@ -74,6 +74,7 @@ internal class PortMapper(
      * one that has not answered in a few seconds is one this client should stop waiting for and
      * tell its owner about.
      */
+    @Synchronized
     fun map(
         internalPort: Int,
         tcp: Boolean = true,
@@ -81,7 +82,7 @@ internal class PortMapper(
         val router = gateway ?: return PortMapping.NotMapped("no default gateway was found")
         val answer = exchange(NatPmp.mapRequest(internalPort, internalPort, tcp = tcp), router)
         if (answer != null) {
-            usedUpnp = false
+            usedUpnp[tcp] = false
             return when {
                 !answer.succeeded -> PortMapping.NotMapped(answer.refusal ?: "the router refused")
                 answer.externalPort == 0 -> PortMapping.NotMapped("the router mapped port 0, which is no port")
@@ -90,8 +91,8 @@ internal class PortMapper(
         }
         // Silence, so the router may simply not speak this. UPnP is four times the work for the
         // same result, which is why it is second and not first.
-        val fallback = upnp.map(internalPort)
-        usedUpnp = fallback is PortMapping.Mapped
+        val fallback = upnp.map(internalPort, tcp)
+        usedUpnp[tcp] = fallback is PortMapping.Mapped
         return when (fallback) {
             is PortMapping.Mapped -> {
                 fallback
@@ -116,14 +117,15 @@ internal class PortMapper(
      * releasing leaves a hole in a router it does not own; the router will drop it when the lease
      * expires, which is up to two hours of somebody else's network being open for no reason.
      */
+    @Synchronized
     fun release(
         internalPort: Int,
         tcp: Boolean = true,
     ) {
         // Released through whichever protocol made it. A NAT-PMP release sent to a mapping UPnP
         // made is a packet the router has no record for, and the hole stays open.
-        if (usedUpnp) {
-            upnp.release(internalPort)
+        if (usedUpnp[tcp] == true) {
+            upnp.release(internalPort, tcp)
             return
         }
         val router = gateway ?: return
@@ -133,8 +135,15 @@ internal class PortMapper(
         )
     }
 
-    /** Which protocol made the mapping this holds, because that is the one that can take it back. */
-    private var usedUpnp = false
+    /**
+     * Which protocol made each mapping this holds — the TCP listener's and the DHT's UDP one, keyed
+     * by `tcp` — because that is the one that can take it back.
+     *
+     * Per mapping since B-143. One flag for both let a UDP mapping that fell back to UPnP send the
+     * TCP one's release over NAT-PMP. [map] and [release] are synchronized because the two are
+     * renewed from two coroutines, and one discovery serves both.
+     */
+    private val usedUpnp = HashMap<Boolean, Boolean>()
 
     /** When to renew: half the lease, which is RFC 6886's advice and leaves room for one failure. */
     fun renewAfter(mapping: PortMapping.Mapped): Duration = (mapping.lifetimeSeconds / 2).seconds

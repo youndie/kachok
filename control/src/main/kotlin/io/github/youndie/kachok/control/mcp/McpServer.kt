@@ -628,6 +628,7 @@ public class McpServer(
                 appendLine(
                     "DHT: " + (set.dhtForLookups?.let { "${it.table.size} node(s) in the routing table" } ?: "off"),
                 )
+                set.dhtPortMapping?.let { appendLine("DHT udp port ${set.dhtPort}: $it") }
                 val torrents = set.torrents.map { it.state.value }
                 val running = torrents.filter { !it.paused }
                 append(

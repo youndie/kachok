@@ -60,7 +60,7 @@ which is also the order of work.
 | [B-87](docs/backlog/B-87-a-server-with-a-web-face.md) `[ ]` | Phase 3: a headless server with a web face, installable on a box that is always on | P3 | XL | B-80 |
 | [B-02](docs/backlog/B-02-ci-runs-build-and-docs-gates.md) `[ ]` | CI runs the build and the documentation gates on every push | infra | S | B-01 |
 
-## Closed (135)
+## Closed (136)
 
 **M0 — The build and its gates**
 
@@ -235,6 +235,7 @@ which is also the order of work.
 - [B-140](docs/backlog/B-140-the-snapshot-reports-the-network.md) `[x]` - The snapshot reports the DHT from its own table and says whether the port is mapped
 - [B-141](docs/backlog/B-141-the-dht-table-fills-and-a-resume-looks-at-once.md) `[x]` - The DHT table fills near its own id, a resumed torrent looks at once, and a lookup ends at the closest eight
 - [B-142](docs/backlog/B-142-the-dht-answers.md) `[x]` - The DHT answers the queries other nodes send it
+- [B-143](docs/backlog/B-143-the-dht-port-is-the-listeners-and-forwarded.md) `[x]` - The DHT listens on the listener's port, and the router is asked to forward it for UDP
 
 <!-- END INDEX -->
 

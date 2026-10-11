@@ -149,6 +149,16 @@ class UpnpMapperTest {
         assertContains(mapping.because, "501")
     }
 
+    /** The DHT's port is mapped for UDP, and given back for UDP (B-143). */
+    @Test
+    fun aUdpMappingAsksForUdp() {
+        val mapper = gatewayMapper()
+
+        assertIs<PortMapping.Mapped>(mapper.map(6881, tcp = false))
+
+        assertContains(synchronized(soap) { soap.single() }, "<NewProtocol>UDP</NewProtocol>")
+    }
+
     private fun gatewayMapper() =
         UpnpMapper(
             discoveryTimeout = 2.seconds,

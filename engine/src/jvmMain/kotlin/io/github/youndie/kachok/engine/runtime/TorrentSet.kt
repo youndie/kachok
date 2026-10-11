@@ -23,6 +23,8 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.io.IOException
 import java.net.BindException
+import java.net.DatagramSocket
+import java.net.SocketException
 import java.nio.file.Files
 import java.nio.file.Path
 import java.util.concurrent.ConcurrentHashMap
@@ -120,10 +122,6 @@ public class TorrentSet(
 
     private var dht: Dht? = null
 
-    init {
-        if (options.dht) useDht(true)
-    }
-
     /** Whether a torrent added now would be given the DHT. */
     public val dhtEnabled: Boolean get() = dht != null
 
@@ -144,13 +142,23 @@ public class TorrentSet(
     public fun useDht(on: Boolean) {
         if (on == dhtEnabled) return
         if (on) {
-            val transport = DatagramKrpcTransport(dispatchers.io)
+            val transport = DatagramKrpcTransport(dispatchers.io, socket = dhtSocket())
             dhtTransport = transport
             val joined = Dht(self = NodeId.random(), transport = transport)
             dht = joined
             transport.onQuery = joined::answer
             transport.start(scope)
+            dhtMappingJob = keepMapped(transport.port, tcp = false) { dhtMapping = it }
         } else {
+            dhtMappingJob?.cancel()
+            dhtMappingJob = null
+            val port = dhtTransport?.port
+            if (dhtMapping is PortMapping.Mapped && port != null) {
+                // Off the caller's thread: a release is a request to a router, and turning the DHT
+                // off is a click.
+                scope.launch(dispatchers.io) { mapper.release(port, tcp = false) }
+            }
+            dhtMapping = PortMapping.NotTried
             dhtTransport?.close()
             dhtTransport = null
             dht = null
@@ -172,12 +180,26 @@ public class TorrentSet(
      * forwarded nowhere.
      */
     public val portMapping: String
-        get() =
-            when (val state = mapping) {
-                is PortMapping.Mapped -> "mapped to ${state.externalPort}"
-                is PortMapping.NotMapped -> "not mapped: ${state.because}"
-                PortMapping.NotTried -> "not mapped: no listener to map"
-            }
+        get() = describe(mapping, "no listener to map")
+
+    /**
+     * Whether the router forwards the DHT's UDP port, or null with the DHT off (B-143).
+     *
+     * The DHT answers queries since B-142, and a query from a node this client has not just
+     * written to reaches it only through a forwarded port.
+     */
+    public val dhtPortMapping: String?
+        get() = if (dhtTransport == null) null else describe(dhtMapping, "not asked yet")
+
+    private fun describe(
+        state: PortMapping,
+        notTried: String,
+    ): String =
+        when (state) {
+            is PortMapping.Mapped -> "mapped to ${state.externalPort}"
+            is PortMapping.NotMapped -> "not mapped: ${state.because}"
+            PortMapping.NotTried -> "not mapped: $notTried"
+        }
 
     /**
      * The port the router is forwarding, or null.
@@ -201,19 +223,51 @@ public class TorrentSet(
      * costs four seconds and a client must not spend them before it dials anybody. The network
      * this was written on is exactly that network, so the asynchronous shape is not speculative.
      */
-    private val mappingJob: Job? =
-        listener?.let { bound ->
-            scope.launch(dispatchers.io) {
-                while (isActive) {
-                    val result = mapper.map(bound.port)
-                    mapping = result
-                    // A refusal is not retried on a timer. A router that does not speak NAT-PMP
-                    // will not have learned it in an hour, and asking again every half hour is
-                    // noise on somebody's network for no chance of a different answer.
-                    val next = (result as? PortMapping.Mapped)?.let { mapper.renewAfter(it) } ?: break
-                    delay(next)
-                }
+    private val mappingJob: Job? = listener?.let { bound -> keepMapped(bound.port, tcp = true) { mapping = it } }
+
+    @Volatile
+    private var dhtMapping: PortMapping = PortMapping.NotTried
+
+    private var dhtMappingJob: Job? = null
+
+    init {
+        // After the mapper and the listen port, which joining the DHT now uses: it binds the same
+        // port and asks the router to forward it for UDP (B-143).
+        if (options.dht) useDht(true)
+    }
+
+    /** Maps [port] and renews it at half the lease, reporting each answer to [record]. */
+    private fun keepMapped(
+        port: Int,
+        tcp: Boolean,
+        record: (PortMapping) -> Unit,
+    ): Job =
+        scope.launch(dispatchers.io) {
+            while (isActive) {
+                val result = mapper.map(port, tcp)
+                record(result)
+                // A refusal is not retried on a timer. A router that does not speak NAT-PMP
+                // will not have learned it in an hour, and asking again every half hour is
+                // noise on somebody's network for no chance of a different answer.
+                val next = (result as? PortMapping.Mapped)?.let { mapper.renewAfter(it) } ?: break
+                delay(next)
             }
+        }
+
+    /**
+     * The DHT's socket, on the listener's port when it is free (B-143).
+     *
+     * **It used to be an ephemeral port**, so nothing forwarded it and it changed at every start:
+     * a node that kept this one lost it at the next restart, and behind a NAT only nodes this
+     * client had just written to could reach it. The listener's port is what libtorrent and
+     * Transmission use for UDP, and one number is one thing for a person to forward by hand.
+     */
+    private fun dhtSocket(): DatagramSocket =
+        try {
+            DatagramSocket(listenPort)
+        } catch (taken: SocketException) {
+            onBindFailure("the DHT could not have UDP port $listenPort (${taken.message}), so it took another")
+            DatagramSocket()
         }
 
     /** Null when the DHT is off, which is what the status bar draws differently from zero nodes. */
@@ -536,7 +590,9 @@ public class TorrentSet(
         // it does not own for the rest of the lease. The cancel comes first so the renewal loop
         // cannot re-map what this is dropping.
         mappingJob?.cancel()
+        dhtMappingJob?.cancel()
         if (mapping is PortMapping.Mapped) listener?.let { mapper.release(it.port) }
+        if (dhtMapping is PortMapping.Mapped) dhtTransport?.let { mapper.release(it.port, tcp = false) }
         lsd.close()
         listener?.close()
         dhtTransport?.close()
