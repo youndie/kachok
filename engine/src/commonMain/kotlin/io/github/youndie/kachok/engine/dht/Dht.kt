@@ -67,6 +67,18 @@ public class Dht(
     @Volatile
     private var refreshed: TimeMark? = null
 
+    /** What answers the queries other nodes send this one (B-142). */
+    private val responder = Responder(self, table, timeSource)
+
+    /**
+     * The answer to a query another node sent: what makes this a node and not only a client.
+     * Called by the transport's reader, and by nothing else.
+     */
+    public fun answer(
+        query: KrpcMessage.Query,
+        from: PeerAddress,
+    ): KrpcMessage = responder.answer(query, from)
+
     /**
      * Ask some known nodes who they know, until the table has some of them.
      *

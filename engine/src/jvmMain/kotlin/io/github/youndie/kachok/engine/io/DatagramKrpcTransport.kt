@@ -46,9 +46,17 @@ public class DatagramKrpcTransport(
 
     public val port: Int get() = socket.localPort
 
-    /** Queries this node answered, for the tests: a DHT that only asks is not a DHT node. */
+    /** Queries other nodes sent this one, answered or not. */
     public var queriesSeen: Int = 0
         private set
+
+    /**
+     * What answers a query: the [io.github.youndie.kachok.engine.dht.Dht]'s `answer`, set before
+     * [start]. Null answers nothing, which is what this transport did for every query until B-142
+     * — it counted them.
+     */
+    @Volatile
+    public var onQuery: ((KrpcMessage.Query, PeerAddress) -> KrpcMessage)? = null
 
     /**
      * Starts the reader.
@@ -75,8 +83,14 @@ public class DatagramKrpcTransport(
                         continue
                     }
                 when (message) {
-                    is KrpcMessage.Query -> queriesSeen++
-                    else -> waiting.remove(key(message.transactionId))?.complete(message)
+                    is KrpcMessage.Query -> {
+                        queriesSeen++
+                        answer(message, datagram)
+                    }
+
+                    else -> {
+                        waiting.remove(key(message.transactionId))?.complete(message)
+                    }
                 }
             }
         }
@@ -105,6 +119,21 @@ public class DatagramKrpcTransport(
                 waiting.remove(key(transaction))
             }
         }
+
+    /** Sends the answer back where the query came from; a send that fails is a node that left. */
+    private fun answer(
+        query: KrpcMessage.Query,
+        datagram: DatagramPacket,
+    ) {
+        val respond = onQuery ?: return
+        val reply = Krpc.encode(respond(query, PeerAddress(datagram.address.hostAddress, datagram.port)))
+        try {
+            socket.send(DatagramPacket(reply, reply.size, datagram.socketAddress))
+        } catch (unreachable: IOException) {
+            // UDP has no one to tell: the asker will time out, as it would on a lost datagram.
+            return
+        }
+    }
 
     override fun close() {
         socket.close()

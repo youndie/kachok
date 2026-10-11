@@ -25,8 +25,9 @@ public object DhtProbe {
         val dispatchers = EngineDispatchers()
         val scope = CoroutineScope(dispatchers.io + SupervisorJob())
         val transport = DatagramKrpcTransport(dispatchers.io)
-        transport.start(scope)
         val dht = Dht(NodeId.random(), transport)
+        transport.onQuery = dht::answer
+        transport.start(scope)
         runBlocking(dispatchers.io) {
             fun timed(
                 label: String,
@@ -48,7 +49,7 @@ public object DhtProbe {
                 val found = Dht(dht.self, transport, dht.table, rounds = 20).lookup(scope, hash)
                 "${found.peers.size} peers with 20 rounds"
             }
-            println("queries from other nodes, unanswered: ${transport.queriesSeen}")
+            println("queries from other nodes, answered: ${transport.queriesSeen}")
         }
         transport.close()
         scope.cancel()

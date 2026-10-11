@@ -87,7 +87,8 @@ What exists on `main` today:
 | `.../engine/dht/Krpc.kt` | BEP 5's three message shapes and four queries, on this project's bencode |
 | `.../engine/dht/RoutingTable.kt` | buckets by common prefix, eviction by failure |
 | `.../engine/dht/Dht.kt` | bootstrap, the walk towards its own id that fills the table, the iterative `get_peers` lookup, `announce_peer` |
-| `.../engine/io/DatagramKrpcTransport.kt` (jvmMain) | one socket for the whole DHT, multiplexed by transaction id |
+| `.../engine/dht/Responder.kt` | the answers to `ping`, `find_node`, `get_peers` and `announce_peer`; tokens and the peers announced here |
+| `.../engine/io/DatagramKrpcTransport.kt` (jvmMain) | one socket for the whole DHT, multiplexed by transaction id, answering the queries that arrive on it |
 | `.../engine/wire/PexMessage.kt` | BEP 11's `added` / `dropped` delta |
 | `.../engine/peer/CompactPeers.kt` | BEP 23's six bytes, shared by both trackers and by peer exchange |
 | `.../engine/wire/ExtensionHandshake.kt` | BEP 10's `m` dictionary: what a peer can do and the id it wants each extension sent under |
@@ -460,6 +461,11 @@ them. Nothing is read from the environment by this module; that is [cli](cli.md)
   where the bootstrap takes 5, and again after fifteen minutes. A resume wakes the DHT loop, and
   a lookup ends when the eight closest nodes it knows have been asked
   ([B-141](../backlog/B-141-the-dht-table-fills-and-a-resume-looks-at-once.md)).
+* **The DHT answers, and a query is not a reason to trust its sender.** All four queries are
+  answered (BEP 5 evicts a node that does not); tokens are a hash of the asker's address and a
+  secret rotated every five minutes; announced peers are held 30 minutes, 100 per torrent, 1000
+  torrents. A node that queries this one is not added to the table — only one that has answered
+  ([B-142](../backlog/B-142-the-dht-answers.md)).
 * **Eviction is by failure, never to make room.** A full bucket of good nodes refuses a new one:
   a known-good node is worth more than an unknown one, and one lost datagram is normal on UDP —
   two failures make a node replaceable.
