@@ -423,6 +423,12 @@ them. Nothing is read from the environment by this module; that is [cli](cli.md)
   four megabytes, which is far past any torrent in circulation.
 * **A magnet announce sends a non-zero `left`.** The torrent's length is in the metadata being
   fetched; zero would announce this client as a seed and bring back leechers only.
+* **UPnP is searched for from every routable address, and a router's refusal is checked.** The
+  `M-SEARCH` goes out once per up, non-loopback IPv4 address that is not link-local, and unicast to
+  the default gateway; one unbound socket let Windows send it through a `169.254` adapter and the
+  router was never found. A refused `AddPortMapping` is then checked with
+  `GetSpecificPortMappingEntry`, because a netis router answers the first one with 501 and maps the
+  port anyway ([B-139](../backlog/B-139-upnp-searches-every-interface.md)).
 * **A magnet fetch asks every source and keeps dialling.** Every tracker in the link on its own
   coroutine, the DHT when the caller passes one, and at most twenty dials open at once, each one that
   ends replaced by the next peer not yet tried; the trackers are asked again halfway through the
