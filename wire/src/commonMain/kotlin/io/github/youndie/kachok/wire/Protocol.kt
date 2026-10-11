@@ -29,6 +29,13 @@ public class Snapshot(
     public val listenPort: Int = 0,
     /** Nodes in the routing table, or null when the DHT was never asked for — a different fact. */
     public val dhtNodes: Int? = null,
+    /** The external port the router forwards to [listenPort], or null when it forwards nothing. */
+    public val mappedPort: Int? = null,
+    /**
+     * What came of asking the router to forward [listenPort], in words: "mapped to 6881", or
+     * "not mapped: …" with the reason ([B-140](../../../../../../../../docs/backlog/B-140-the-snapshot-reports-the-network.md)).
+     */
+    public val portMapping: String? = null,
     /**
      * Which snapshot this is, counting from one. Not a timestamp.
      *

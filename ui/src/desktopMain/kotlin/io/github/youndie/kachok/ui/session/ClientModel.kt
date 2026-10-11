@@ -507,16 +507,9 @@ internal class ClientModel(
                                 running.associate { it.metainfo.infoHash.hex() to it.directory.toString() },
                             listenPort = set.listenPort,
                             mappedExternalPort = set.mappedExternalPort,
-                            dhtNodes =
-                                if (set.dhtEnabled) {
-                                    running
-                                        .firstOrNull()
-                                        ?.state
-                                        ?.value
-                                        ?.dhtNodes ?: 0
-                                } else {
-                                    null
-                                },
+                            // The routing table's own size, not the first torrent's last report of
+                            // it, which a paused torrent never updates (B-140).
+                            dhtNodes = set.dhtForLookups?.table?.size,
                             heapUsedBytes = heapUsed(),
                             heapMaxBytes = Runtime.getRuntime().maxMemory(),
                             lifecycle = if (asked) Lifecycle.Stopping else Lifecycle.Running,
