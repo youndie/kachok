@@ -205,4 +205,31 @@ class DatagramKrpcTransportTest {
 
             assertTrue(answer != null, "the junk datagram took the reader down with it")
         }
+
+    /**
+     * A query that arrives is answered, on the same socket, to the address it came from (B-142).
+     * Until then the transport counted queries and answered none.
+     */
+    @Test
+    fun aQueryFromAnotherNodeIsAnswered(): Unit =
+        runBlocking {
+            val node = transport()
+            val answering =
+                io.github.youndie.kachok.engine.dht
+                    .Dht(self, node)
+            node.onQuery = answering::answer
+            node.start(reader)
+            val asker = DatagramKrpcTransport(Dispatchers.IO, timeout = 2_000.milliseconds)
+            try {
+                asker.start(reader)
+                val other = NodeId(ByteArray(NodeId.SIZE) { 0x7F })
+
+                val reply = asker.query(PeerAddress("127.0.0.1", node.port), Krpc.PING, Krpc.ping(other))
+
+                assertEquals(self, reply?.id, "the ping went unanswered")
+                assertEquals(1, node.queriesSeen)
+            } finally {
+                asker.close()
+            }
+        }
 }

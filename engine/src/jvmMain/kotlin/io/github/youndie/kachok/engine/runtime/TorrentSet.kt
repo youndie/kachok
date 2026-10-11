@@ -146,7 +146,9 @@ public class TorrentSet(
         if (on) {
             val transport = DatagramKrpcTransport(dispatchers.io)
             dhtTransport = transport
-            dht = Dht(self = NodeId.random(), transport = transport)
+            val joined = Dht(self = NodeId.random(), transport = transport)
+            dht = joined
+            transport.onQuery = joined::answer
             transport.start(scope)
         } else {
             dhtTransport?.close()
