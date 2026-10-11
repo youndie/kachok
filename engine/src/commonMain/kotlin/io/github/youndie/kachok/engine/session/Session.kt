@@ -48,6 +48,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.coroutines.ContinuationInterceptor
 import kotlin.random.Random
 import kotlin.time.TimeSource
@@ -285,6 +286,13 @@ public class Session(
 
     /** When the last DHT pass finished announcing, so the panel can count down to the next. */
     private var dhtAnnouncedAt: kotlin.time.TimeMark? = null
+
+    /**
+     * Ends [dhtLoop]'s wait early: a resume sends one, so a torrent that was paused looks in the
+     * DHT now and not when the interval it was sleeping through runs out (B-141). Conflated, so
+     * any number of resumes during one wait is one wake-up.
+     */
+    private val dhtWake = Channel<Unit>(Channel.CONFLATED)
 
     /** One tracker's last answer: when, what, and how long it asked to be left alone for. */
     private class TrackerReport(
@@ -668,6 +676,7 @@ public class Session(
         // genuinely failed before it, which a person pressing *Resume* is entitled to have retried.
         failed.clear()
         connectMore(scope)
+        dhtWake.trySend(Unit)
     }
 
     /**
@@ -756,16 +765,24 @@ public class Session(
     private suspend fun dhtLoop(scope: CoroutineScope) {
         val node = dht ?: return
         node.bootstrap(scope, config.dhtBootstrap)
+        // Beside the lookups and not before them: the walk takes as long as its slowest round.
+        // One torrent of the set does it and the rest find it fresh (B-141).
+        scope.launchGuarded("dht refresh") { node.refreshIfStale(scope) }
         var starvedWait = config.dhtStarvedInterval
         while (!stopping) {
             // Announcing to the DHT is saying "this client has it and will serve it", which a
-            // paused one will not.
+            // paused one will not. **Woken by the resume rather than left to sleep it out**: a
+            // torrent restored paused and resumed a minute later used to wait the rest of fifteen
+            // for its first lookup, holding only the tracker's peers while the DHT had five times
+            // as many (B-141).
             if (paused) {
-                delay(config.dhtInterval)
+                withTimeoutOrNull(config.dhtInterval) { dhtWake.receive() }
                 continue
             }
             var wait = config.dhtInterval
             tick("dht lookup") {
+                // The set's one table, refreshed by whichever torrent finds it stale first.
+                scope.launchGuarded("dht refresh") { node.refreshIfStale(scope) }
                 val found = node.lookup(scope, metainfo.infoHash)
                 if (found.peers.isNotEmpty()) {
                     val before = known.size
@@ -798,7 +815,8 @@ public class Session(
                     starvedWait = config.dhtStarvedInterval
                 }
             }
-            delay(wait)
+            // A pause and a resume inside this wait is a resume all the same.
+            withTimeoutOrNull(wait) { dhtWake.receive() }
         }
     }
 

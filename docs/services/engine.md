@@ -86,7 +86,7 @@ What exists on `main` today:
 | `.../engine/dht/NodeId.kt` | 160-bit ids, XOR distance, and what a bucket is |
 | `.../engine/dht/Krpc.kt` | BEP 5's three message shapes and four queries, on this project's bencode |
 | `.../engine/dht/RoutingTable.kt` | buckets by common prefix, eviction by failure |
-| `.../engine/dht/Dht.kt` | bootstrap, the iterative `get_peers` lookup, `announce_peer` |
+| `.../engine/dht/Dht.kt` | bootstrap, the walk towards its own id that fills the table, the iterative `get_peers` lookup, `announce_peer` |
 | `.../engine/io/DatagramKrpcTransport.kt` (jvmMain) | one socket for the whole DHT, multiplexed by transaction id |
 | `.../engine/wire/PexMessage.kt` | BEP 11's `added` / `dropped` delta |
 | `.../engine/peer/CompactPeers.kt` | BEP 23's six bytes, shared by both trackers and by peer exchange |
@@ -454,6 +454,12 @@ them. Nothing is read from the environment by this module; that is [cli](cli.md)
   node to remember the port a query arrived from, so the port has to be the same one every time or
   the announce points at nothing. That makes the transport a multiplexer, and `t` is what
   multiplexes.
+* **The table is filled by walking towards this node's own id, beside the first lookup.** Lookups
+  for info hashes only meet nodes far from it, and without the walk the table stalled at about
+  thirty nodes; with it, a hundred. It runs beside the first lookup because it takes 30–40 s
+  where the bootstrap takes 5, and again after fifteen minutes. A resume wakes the DHT loop, and
+  a lookup ends when the eight closest nodes it knows have been asked
+  ([B-141](../backlog/B-141-the-dht-table-fills-and-a-resume-looks-at-once.md)).
 * **Eviction is by failure, never to make room.** A full bucket of good nodes refuses a new one:
   a known-good node is worth more than an unknown one, and one lost datagram is normal on UDP —
   two failures make a node replaceable.
