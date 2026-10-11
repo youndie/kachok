@@ -616,6 +616,29 @@ public class McpServer(
         )
     }
 
+    /**
+     * What decides how many peers this client can reach, which is what to look at before blaming a
+     * swarm for being slow ([B-140](../../../../../../../../docs/backlog/B-140-the-snapshot-reports-the-network.md)).
+     */
+    private fun networkStatus(): Outcome =
+        Outcome(
+            buildString {
+                appendLine("listen port: ${set.listenPort}")
+                appendLine("port mapping: ${set.portMapping}")
+                appendLine(
+                    "DHT: " + (set.dhtForLookups?.let { "${it.table.size} node(s) in the routing table" } ?: "off"),
+                )
+                val torrents = set.torrents.map { it.state.value }
+                val running = torrents.filter { !it.paused }
+                append(
+                    "torrents: ${torrents.size}, ${running.size} running, " +
+                        "${running.sumOf {
+                            it.connectedPeers
+                        }} peer(s) connected of ${running.sumOf { it.knownPeers }} known",
+                )
+            },
+        )
+
     private fun runtimeFor(arguments: JsonObject): TorrentRuntime {
         val hash =
             arguments.string("info_hash")
@@ -769,6 +792,12 @@ public class McpServer(
                         )
                     },
                 ) { addTorrent(it) },
+                Tool(
+                    "network_status",
+                    "How reachable this client is: the listen port, whether the router forwards it and why not, how " +
+                        "many DHT nodes it knows, and how many peers its running torrents are connected to.",
+                    schema(emptyList()) {},
+                ) { networkStatus() },
                 Tool(
                     "list_torrents",
                     "Every torrent this client holds: hash, name, state, percentage, rates, peers. One line each.",

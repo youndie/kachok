@@ -23,16 +23,13 @@ public fun TorrentSet.snapshot(sequence: Long): Snapshot =
     Snapshot(
         torrents = torrents.map { it.state.value.onTheWire() },
         listenPort = listenPort,
-        dhtNodes =
-            if (dhtEnabled) {
-                torrents
-                    .firstOrNull()
-                    ?.state
-                    ?.value
-                    ?.dhtNodes ?: 0
-            } else {
-                null
-            },
+        // The set's own routing table, not one torrent's last report of it. It used to be the first
+        // torrent's: a session publishes the count only from its DHT loop, and only while it is not
+        // paused, so a paused torrent at the head of the list made this read 0 for as long as it
+        // stayed paused, whatever the table held (B-140).
+        dhtNodes = dhtForLookups?.table?.size,
+        mappedPort = mappedExternalPort,
+        portMapping = portMapping,
         sequence = sequence,
     )
 

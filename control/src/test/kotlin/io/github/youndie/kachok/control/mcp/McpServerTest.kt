@@ -313,6 +313,7 @@ class McpServerTest {
             listOf(
                 "add_torrent",
                 "list_torrents",
+                "network_status",
                 "torrent_status",
                 "wait_for_completion",
                 "pause_torrent",
@@ -396,6 +397,17 @@ class McpServerTest {
                 )
             assertTrue(refusedFile, noSuchFile)
             assertContains(noSuchFile, "no file 9")
+        }
+
+    /** What decides how many peers the client reaches, in one call (B-140). */
+    @Test
+    fun theNetworkStatusSaysWhatDecidesReach(): Unit =
+        serving { _, driver ->
+            val (status, refused) = driver.call("network_status")
+            assertFalse(refused, status)
+            assertContains(status, "listen port:")
+            assertContains(status, "port mapping:")
+            assertContains(status, "DHT: off")
         }
 
     /** The resource is the socket's payload: the same class decodes it. */

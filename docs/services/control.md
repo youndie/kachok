@@ -22,7 +22,7 @@ distance they are one thing:
 * **the single-instance lock** — a loopback socket and a secret in the user's configuration
   directory, which is how a second launch hands its `.torrent` to the client that is already
   running rather than becoming a second one;
-* **the MCP server** — the Model Context Protocol surface an agent drives, over the same ten
+* **the MCP server** — the Model Context Protocol surface an agent drives, over the same eleven
   task-shaped tools whichever process is holding the engine.
 
 It owns no engine and starts nothing. Every entry point here is handed a `TorrentSet` that some
@@ -116,7 +116,7 @@ started before `D:` answered opened none of ten torrents.
 | `control/src/main/kotlin/io/github/youndie/kachok/control/SingleInstance.kt` | the lock, both halves of its handshake, `claimForWindow` and `onYield`, and `McpRelay` — the attached session a headless process pumps |
 | `control/src/main/kotlin/io/github/youndie/kachok/control/store/Reopen.kt` | `reopenStored`, the one loop both the window and `kachok mcp` reopen the list with: a failure is that torrent's, and an unreachable one is tried again (B-138) |
 | `control/src/main/kotlin/io/github/youndie/kachok/control/store/StoredTorrents.kt` | the torrent list on the disk, and `StoredTorrentsKeeper`, which writes an agent's changes into it |
-| `control/src/main/kotlin/io/github/youndie/kachok/control/mcp/McpServer.kt` | JSON-RPC 2.0, the ten tools, the one resource |
+| `control/src/main/kotlin/io/github/youndie/kachok/control/mcp/McpServer.kt` | JSON-RPC 2.0, the eleven tools, the one resource |
 | `control/src/main/kotlin/io/github/youndie/kachok/control/mcp/McpKeeper.kt` | what an agent changed, for a host that keeps a torrent list; the list's is `store/StoredTorrents.kt`'s `StoredTorrentsKeeper` |
 | `control/src/main/kotlin/io/github/youndie/kachok/control/Snapshot.kt` | the engine's state as `:wire`'s, shared by the socket and the MCP resource so the two cannot drift |
 | `control/src/main/kotlin/io/github/youndie/kachok/control/ConfigDirectory.kt` | where this user's kachok keeps things, on each platform |
