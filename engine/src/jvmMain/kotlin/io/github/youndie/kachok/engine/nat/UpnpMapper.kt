@@ -58,7 +58,11 @@ internal class UpnpMapper(
         val internalHost: String,
     )
 
-    fun map(internalPort: Int): PortMapping {
+    fun map(
+        internalPort: Int,
+        tcp: Boolean = true,
+    ): PortMapping {
+        val protocol = if (tcp) Upnp.TCP else Upnp.UDP
         val found = device ?: discover() ?: return PortMapping.NotMapped("no UPnP gateway answered")
         device = found
         val body =
@@ -68,6 +72,7 @@ internal class UpnpMapper(
                 internalPort = internalPort,
                 externalPort = internalPort,
                 description = DESCRIPTION,
+                protocol = protocol,
             )
         val reply =
             soap(found, "AddPortMapping", body) ?: return PortMapping.NotMapped("the UPnP gateway did not reply")
@@ -77,7 +82,7 @@ internal class UpnpMapper(
             // `GetSpecificPortMappingEntry` straight after shows it, pointed at this machine, and
             // a second identical request is answered OK. Taking the 501 at its word left a mapped
             // client telling its owner the router had refused (B-139).
-            if (!mappedTo(found, internalPort)) return PortMapping.NotMapped(refusal)
+            if (!mappedTo(found, internalPort, protocol)) return PortMapping.NotMapped(refusal)
         }
         // **The external port is the one asked for and not one the router chose.** `AddPortMapping`
         // has no way to say otherwise: it either maps what it was given or refuses with 718, which
@@ -90,17 +95,25 @@ internal class UpnpMapper(
     private fun mappedTo(
         device: Device,
         port: Int,
+        protocol: String,
     ): Boolean {
         val entry =
-            soap(device, "GetSpecificPortMappingEntry", Upnp.getSpecificPortMappingEntry(device.service, port))
-                ?: return false
+            soap(
+                device,
+                "GetSpecificPortMappingEntry",
+                Upnp.getSpecificPortMappingEntry(device.service, port, protocol),
+            ) ?: return false
         if (Upnp.fault(entry) != null) return false
         return Upnp.mappingTarget(entry) == (device.internalHost to port)
     }
 
-    fun release(internalPort: Int) {
+    fun release(
+        internalPort: Int,
+        tcp: Boolean = true,
+    ) {
         val found = device ?: return
-        soap(found, "DeletePortMapping", Upnp.deletePortMapping(found.service, internalPort))
+        val protocol = if (tcp) Upnp.TCP else Upnp.UDP
+        soap(found, "DeletePortMapping", Upnp.deletePortMapping(found.service, internalPort, protocol))
     }
 
     /**

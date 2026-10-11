@@ -466,6 +466,10 @@ them. Nothing is read from the environment by this module; that is [cli](cli.md)
   secret rotated every five minutes; announced peers are held 30 minutes, 100 per torrent, 1000
   torrents. A node that queries this one is not added to the table — only one that has answered
   ([B-142](../backlog/B-142-the-dht-answers.md)).
+* **The DHT listens on the listener's port, and the router is asked to forward it for UDP.** An
+  ephemeral port changed at every start and was forwarded nowhere, so only nodes this client had
+  just written to could reach it. A taken port falls back to an ephemeral one and is reported
+  ([B-143](../backlog/B-143-the-dht-port-is-the-listeners-and-forwarded.md)).
 * **Eviction is by failure, never to make room.** A full bucket of good nodes refuses a new one:
   a known-good node is worth more than an unknown one, and one lost datagram is normal on UDP —
   two failures make a node replaceable.

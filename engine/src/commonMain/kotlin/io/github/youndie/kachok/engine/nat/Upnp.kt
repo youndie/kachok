@@ -21,6 +21,10 @@ internal object Upnp {
     const val SSDP_ADDRESS: String = "239.255.255.250"
     const val SSDP_PORT: Int = 1900
 
+    /** `NewProtocol`'s two values: the peer listener's, and the DHT's (B-143). */
+    const val TCP: String = "TCP"
+    const val UDP: String = "UDP"
+
     /**
      * Whether an IPv4 address is one a router could be reached from: not unspecified, not the
      * loopback (`127/8`), not link-local (`169.254/16`, an adapter nobody gave an address) (B-139).
@@ -131,6 +135,7 @@ internal object Upnp {
         externalPort: Int,
         description: String,
         leaseSeconds: Int = LEASE_SECONDS,
+        protocol: String = TCP,
     ): String =
         envelope(
             service,
@@ -138,7 +143,7 @@ internal object Upnp {
             """
             <NewRemoteHost></NewRemoteHost>
             <NewExternalPort>$externalPort</NewExternalPort>
-            <NewProtocol>TCP</NewProtocol>
+            <NewProtocol>$protocol</NewProtocol>
             <NewInternalPort>$internalPort</NewInternalPort>
             <NewInternalClient>$internalHost</NewInternalClient>
             <NewEnabled>1</NewEnabled>
@@ -151,6 +156,7 @@ internal object Upnp {
     fun deletePortMapping(
         service: String,
         externalPort: Int,
+        protocol: String = TCP,
     ): String =
         envelope(
             service,
@@ -158,7 +164,7 @@ internal object Upnp {
             """
             <NewRemoteHost></NewRemoteHost>
             <NewExternalPort>$externalPort</NewExternalPort>
-            <NewProtocol>TCP</NewProtocol>
+            <NewProtocol>$protocol</NewProtocol>
             """.trimIndent(),
         )
 
@@ -166,6 +172,7 @@ internal object Upnp {
     fun getSpecificPortMappingEntry(
         service: String,
         externalPort: Int,
+        protocol: String = TCP,
     ): String =
         envelope(
             service,
@@ -173,7 +180,7 @@ internal object Upnp {
             """
             <NewRemoteHost></NewRemoteHost>
             <NewExternalPort>$externalPort</NewExternalPort>
-            <NewProtocol>TCP</NewProtocol>
+            <NewProtocol>$protocol</NewProtocol>
             """.trimIndent(),
         )
 

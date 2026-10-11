@@ -57,7 +57,7 @@ what the WebSocket sends.
 |---|---|
 | `add_torrent` | a path or a magnet link → started, and the info hash every other tool takes; `sequential` for in order |
 | `list_torrents`, `torrent_status` | the list, or one torrent with its files and their tiers |
-| `network_status` | listen port, port mapping, DHT nodes: what decides how many peers the client reaches |
+| `network_status` | listen port, port mapping (TCP, and UDP for the DHT), DHT nodes: what decides how many peers the client reaches |
 | `wait_for_completion` | blocks until done, failed, or the timeout — so an agent waits once instead of polling |
 | `pause_torrent`, `resume_torrent`, `remove_torrent` | as the toolbar's, with `delete_data` on the last |
 | `set_file_priority` | one file to `skip`, `normal` or `high` on a running torrent |
