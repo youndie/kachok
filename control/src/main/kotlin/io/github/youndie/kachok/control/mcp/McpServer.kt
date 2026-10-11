@@ -625,12 +625,16 @@ public class McpServer(
             buildString {
                 appendLine("listen port: ${set.listenPort}")
                 appendLine("port mapping: ${set.portMapping}")
-                appendLine("DHT: " + (set.dhtForLookups?.let { "${it.table.size} node(s) in the routing table" } ?: "off"))
+                appendLine(
+                    "DHT: " + (set.dhtForLookups?.let { "${it.table.size} node(s) in the routing table" } ?: "off"),
+                )
                 val torrents = set.torrents.map { it.state.value }
                 val running = torrents.filter { !it.paused }
                 append(
                     "torrents: ${torrents.size}, ${running.size} running, " +
-                        "${running.sumOf { it.connectedPeers }} peer(s) connected of ${running.sumOf { it.knownPeers }} known",
+                        "${running.sumOf {
+                            it.connectedPeers
+                        }} peer(s) connected of ${running.sumOf { it.knownPeers }} known",
                 )
             },
         )
