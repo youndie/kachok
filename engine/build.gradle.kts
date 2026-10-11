@@ -116,6 +116,26 @@ tasks.register<JavaExec>("portMapProbe") {
     )
 }
 
+// B-141's probe: join the real DHT and say how big the table gets and what a lookup finds. Not part
+// of `build` — its subject is the internet.
+tasks.register<JavaExec>("dhtProbe") {
+    group = "verification"
+    description = "Joins the public DHT, looks one info hash up, and reports the routing table"
+    mainClass.set("io.github.youndie.kachok.engine.dht.DhtProbe")
+    val testCompilation =
+        kotlin.targets
+            .getByName("jvm")
+            .compilations
+            .getByName("test")
+    classpath = files(testCompilation.runtimeDependencyFiles, testCompilation.output.allOutputs)
+    systemProperty("infoHash", providers.gradleProperty("infoHash").getOrElse(""))
+    javaLauncher.set(
+        javaToolchains.launcherFor {
+            languageVersion.set(java.toolchain.languageVersion.get())
+        },
+    )
+}
+
 // Prints the probe's class path, so the same classes can be run under another kernel:
 // `docker run … java -cp "$(./gradlew -q :engine:probeClasspath)" …`.
 tasks.register("probeClasspath") {

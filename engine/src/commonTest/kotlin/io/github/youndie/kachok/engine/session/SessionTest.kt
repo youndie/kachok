@@ -3356,6 +3356,48 @@ class SessionTest {
         }
 
     /**
+     * A torrent opened paused and resumed a minute later looks in the DHT at once. It used to
+     * sleep out the rest of the fifteen-minute interval it had started while paused, holding only
+     * the tracker's peers (B-141).
+     */
+    @Test
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    fun aResumedTorrentLooksInTheDhtAtOnce() =
+        runTest {
+            val metainfo = torrent(pieces = 4)
+            val transport = LonelyDht()
+            val dht =
+                io.github.youndie.kachok.engine.dht.Dht(
+                    io.github.youndie.kachok.engine.dht
+                        .NodeId(ByteArray(20) { 0x01 }),
+                    transport,
+                )
+            val session =
+                session(
+                    metainfo,
+                    FakeDialer(metainfo.infoHash),
+                    FakeTracker(emptyList()),
+                    FakeStorage(),
+                    AgreeableHasher(metainfo),
+                    config = dhtConfig(),
+                    timeSource = testScheduler.timeSource,
+                    dht = dht,
+                )
+            val job =
+                session.start(kotlinx.coroutines.CoroutineScope(coroutineContext + handler), startPaused = true)
+            testScheduler.runCurrent()
+            testScheduler.advanceTimeBy(60_000)
+            testScheduler.runCurrent()
+            assertEquals(0, transport.lookups, "a paused torrent does not look")
+
+            session.send(Command.Resume)
+            testScheduler.runCurrent()
+
+            assertEquals(1, transport.lookups, "the resume woke the DHT loop rather than waiting out the interval")
+            job.cancelAndJoin()
+        }
+
+    /**
      * The session's side of the same guarantee: a send the connection refuses because the peer
      * stopped reading ends that peer, counted under its own reason, and the timer that tried —
      * here the keep-alive — goes on to the next tick rather than waiting on it.

@@ -8,6 +8,7 @@ import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertContains
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 /**
@@ -178,5 +179,80 @@ class DhtTest {
 
             assertEquals(2, size, "the bootstrap node itself, and the one it named")
             assertContains(dht.table.all().map { it.id }, id(0xFF))
+        }
+
+    /**
+     * The walk towards this node's own id is what reaches the buckets near it: a node that shares
+     * a long prefix with ours is met only by asking for ours (B-141).
+     */
+    @Test
+    fun theWalkTowardsItsOwnIdMeetsTheNodesNearIt() =
+        runTest {
+            val self = id(0x01, 0x02)
+            val neighbour = DhtNode(id(0x01, 0x03), PeerAddress("10.0.1.3", 3))
+            val halfway = DhtNode(id(0x01, 0x80), PeerAddress("10.0.1.2", 2))
+            val entry = DhtNode(id(0xFF), PeerAddress("10.0.1.1", 1))
+            val network =
+                FakeNetwork(
+                    mapOf(
+                        entry.address to FakeNode(entry.id, knows = listOf(halfway)),
+                        halfway.address to FakeNode(halfway.id, knows = listOf(neighbour)),
+                        neighbour.address to FakeNode(neighbour.id, knows = emptyList()),
+                    ),
+                )
+            val dht = Dht(self = self, transport = network)
+
+            dht.bootstrap(this, listOf(entry.address))
+            assertFalse(dht.table.isGood(neighbour.id), "the bootstrap alone does not reach it")
+
+            dht.refresh(this)
+
+            assertTrue(
+                dht.table.isGood(neighbour.id),
+                "the walk stopped short of the neighbourhood: ${dht.table.all()}",
+            )
+            assertContains(network.asked, neighbour.address to Krpc.FIND_NODE)
+        }
+
+    /** A refresh is repeated when it is older than fifteen minutes, and not before. */
+    @Test
+    fun aStaleWalkIsWalkedAgain() =
+        runTest {
+            val (network, _) = chain()
+            val clock = kotlin.time.TestTimeSource()
+            val dht = Dht(self = id(0x01), transport = network, timeSource = clock)
+            dht.bootstrap(this, listOf(PeerAddress("10.0.0.1", 1)))
+            dht.refresh(this)
+            val afterJoining = network.asked.size
+
+            dht.refreshIfStale(this)
+            assertEquals(afterJoining, network.asked.size, "a fresh table is not walked again")
+
+            clock += Dht.REFRESH_INTERVAL
+            dht.refreshIfStale(this)
+            assertTrue(network.asked.size > afterJoining, "fifteen minutes on, the walk is repeated")
+        }
+
+    /**
+     * A lookup ends once the eight closest nodes it knows have all been asked. It used to ask
+     * every node it could reach in eight rounds, because its exit was a `continue` (B-141).
+     */
+    @Test
+    fun aLookupEndsWhenTheClosestEightHaveBeenAsked() =
+        runTest {
+            val holders =
+                (1..12).map { n ->
+                    DhtNode(id(0xF0, n), PeerAddress("10.0.2.$n", n)) to
+                        FakeNode(id(0xF0, n), knows = emptyList(), holds = listOf(holder))
+                }
+            val network = FakeNetwork(holders.associate { (node, fake) -> node.address to fake })
+            val dht = Dht(self = id(0x01), transport = network)
+            holders.forEach { (node, _) -> dht.table.seen(node) }
+
+            val found = dht.lookup(this, infoHash)
+
+            assertTrue(found.peers.isNotEmpty())
+            val asked = network.asked.map { it.first.port }.sorted()
+            assertEquals((1..8).toList(), asked, "the lookup went past the closest eight")
         }
 }
