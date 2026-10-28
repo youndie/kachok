@@ -24,8 +24,15 @@ import java.nio.file.attribute.UserDefinedFileAttributeView
  * the same file occupies zero (research §1.3a). The obvious trick is the preallocation this class
  * exists to avoid; only the boring call does the right thing.
  *
- * `StandardOpenOption.SPARSE` is passed and is ignored on Unix — `sun/nio/fs/UnixChannelFactory`
- * drops it outright (research §1.1). It is here for Windows, which phase 1 does not test.
+ * `StandardOpenOption.SPARSE` is ignored on Unix — `sun/nio/fs/UnixChannelFactory` drops it
+ * outright (research §1.1) — and **on Windows it applies only to the open that creates the file
+ * with `CREATE_NEW`** (`sun/nio/fs/WindowsChannelFactory`: `if (dwCreationDisposition ==
+ * CREATE_NEW && flags.sparse) DeviceIoControlSetSparse`). It used to be passed to an open of a file
+ * [size] had already created, so on Windows no file was ever sparse, and an NTFS file sized but not
+ * sparse makes the first write deep into it zero-fill everything before it: minutes, on a fresh
+ * 18 GiB torrent written rarest first to a USB disk
+ * ([B-146](../../../../../../../../docs/backlog/B-146-files-are-sparse-on-windows.md)). [create]
+ * makes a fresh file with `CREATE_NEW` and `SPARSE`, then it is sized.
  *
  * Channels are opened once and kept: a torrent is written at random positions for hours, and
  * reopening a file per block would be a system call per block on the hot path.
@@ -170,6 +177,7 @@ public class FileSet private constructor(
                 // Before the file exists, because that is the only moment this client can tell a
                 // file it is creating from one it is resuming into.
                 val fresh = Files.notExists(path)
+                if (fresh) create(path)
                 size(path, metainfo.files[index].length)
                 if (fresh) mark(path)
             }
@@ -221,6 +229,23 @@ public class FileSet private constructor(
                 // A filesystem that has no streams to write. The download is the point; the mark is
                 // what the download deserves where it can be had.
                 System.err.println("kachok: cannot mark $path as downloaded: ${unsupported.message}")
+            }
+        }
+
+        /**
+         * Creates [path] empty and, on Windows, sparse — before it has a length, because the sparse
+         * flag is set only by the open that creates the file (B-146).
+         *
+         * A file that appeared since [open] looked is somebody's, and is left as it is: the open
+         * below extends it rather than replacing it, exactly as it would a resumed one.
+         */
+        private fun create(path: Path) {
+            try {
+                FileChannel
+                    .open(path, StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE, StandardOpenOption.SPARSE)
+                    .close()
+            } catch (appeared: java.nio.file.FileAlreadyExistsException) {
+                System.err.println("kachok: ${appeared.file} appeared while it was being created; keeping it")
             }
         }
 
