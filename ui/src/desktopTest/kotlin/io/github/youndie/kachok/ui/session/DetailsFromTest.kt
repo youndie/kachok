@@ -93,7 +93,7 @@ class DetailsFromTest {
                 .map { it.label },
         )
         assertEquals(
-            "4 312 / 812",
+            "4.21 MiB/s / 812 KiB/s",
             details.sections
                 .flatMap { it.fields }
                 .single { it.label == "Speed down / up" }

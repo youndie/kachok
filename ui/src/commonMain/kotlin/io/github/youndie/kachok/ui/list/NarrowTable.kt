@@ -9,11 +9,11 @@ import io.github.youndie.kachok.ui.main.SortColumn
  *
  * The design's own note asks for this and does not say which go. The order here is *derived first*:
  * ETA and RATIO are arithmetic on other columns, so a reader who loses them can still work them
- * out; PEERS · OUT and UP KIB/S are the swarm's side of a download rather than the download's; SIZE
+ * out; PEERS · OUT and UP SPEED are the swarm's side of a download rather than the download's; SIZE
  * goes last of the five, because it is neither derivable nor about the swarm and is the one a
  * reader would miss.
  *
- * **Name, PROGRESS, DOWN KIB/S and STATE are never dropped.** They are what the window is for —
+ * **Name, PROGRESS, DOWN SPEED and STATE are never dropped.** They are what the window is for —
  * which torrent, how far, how fast, and whether anything is wrong — and a table without them is a
  * list of names with a scrollbar.
  *

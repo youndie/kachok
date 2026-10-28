@@ -17,7 +17,7 @@ import kotlin.test.assertTrue
 class TrayTooltipTest {
     private val status =
         SessionStatus(
-            down = "24 988 KiB/s",
+            down = "24.4 MiB/s",
             up = "812 KiB/s",
             torrents = "16 torrents, 7 seeding, 2 paused",
             dht = "DHT 214 nodes",
@@ -28,7 +28,7 @@ class TrayTooltipTest {
     @Test
     fun theTooltipCarriesBothRatesAndTheCount() {
         val tooltip = trayTooltip(status)
-        assertContains(tooltip, "24 988 KiB/s")
+        assertContains(tooltip, "24.4 MiB/s")
         assertContains(tooltip, "812 KiB/s")
         assertContains(tooltip, "16 torrents, 7 seeding, 2 paused")
         assertTrue(tooltip.startsWith("kachok"), "the tooltip does not say whose it is: $tooltip")
@@ -50,8 +50,8 @@ class TrayTooltipTest {
     fun aTooltipIsNeverLongerThanWindowsWillShow() {
         val long =
             SessionStatus(
-                down = "1 234 567 KiB/s",
-                up = "7 654 321 KiB/s",
+                down = "1.18 GiB/s",
+                up = "7.30 GiB/s",
                 torrents = "128 torrents, 64 seeding, 32 paused, 4 checking, 2 degraded and more",
                 dht = "DHT 214 nodes",
                 port = "port 6881 listening",

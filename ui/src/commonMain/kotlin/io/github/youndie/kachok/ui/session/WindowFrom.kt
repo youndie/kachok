@@ -25,8 +25,8 @@ internal fun statusOf(
     heapMaxBytes: Long,
 ): SessionStatus =
     SessionStatus(
-        down = "${Figures.rate(rates.down)} KiB/s",
-        up = "${Figures.rate(rates.up)} KiB/s",
+        down = Figures.speed(rates.down),
+        up = Figures.speed(rates.up),
         torrents = torrentsLine(rows),
         // Null is "not asked for" and zero is "asked for and nothing answered yet"; the status bar
         // draws those differently, so they must not arrive here as the same value.

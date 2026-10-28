@@ -42,14 +42,17 @@ class FiguresTest {
         assertEquals("999 B", Figures.bytes(999))
     }
 
+    /** B-145: a rate carries its unit and is scaled, by the byte size's three figures. */
     @Test
-    fun aRateIsAWholeNumberGroupedInThrees() {
-        assertEquals("15 736", Figures.rate(15_736 * kib))
-        assertEquals("4 312", Figures.rate(4_312 * kib))
-        assertEquals("812", Figures.rate(812 * kib))
-        assertEquals("96", Figures.rate(96 * kib))
-        assertEquals("0", Figures.rate(0))
-        assertEquals("1 480", Figures.rate(1_480 * kib))
+    fun aSpeedIsASizePerSecondWithItsUnit() {
+        assertEquals("15.4 MiB/s", Figures.speed(15_736 * kib))
+        assertEquals("4.21 MiB/s", Figures.speed(4_312 * kib))
+        assertEquals("812 KiB/s", Figures.speed(812 * kib))
+        assertEquals("48.2 KiB/s", Figures.speed(49_357))
+        assertEquals("900 B/s", Figures.speed(900))
+        assertEquals("0 B/s", Figures.speed(0))
+        assertEquals(Figures.NO_SPEED, Figures.speed(0))
+        assertEquals("1.10 GiB/s", Figures.speed(1_181_116_006))
     }
 
     @Test

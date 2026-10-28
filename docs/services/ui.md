@@ -236,6 +236,10 @@ it a different torrent for every `.torrent` whose keys are not sorted, and those
   `FileDialog` into a folder chooser on macOS and does nothing anywhere else; `JFileChooser` in
   `DIRECTORIES_ONLY` is the one that exists on Windows and Linux. The wrong half does not throw —
   it opens a *file* chooser and returns nothing for a folder.
+* **A speed is a size per second, with its unit.** `Figures.speed` scales by the byte-size rule —
+  `5.70 MiB/s`, `48.2 KiB/s`, `900 B/s` — in the list, the status bar, the tray and the details
+  panel alike; the bare grouped KiB/s the mockup drew was unreadable in use
+  ([B-145](../backlog/B-145-a-speed-says-its-unit.md)).
 * **A control either has a command or a reason, never neither.** `ToolbarAction` refuses to be
   built without one of the two and the handler switches on an enum, because four buttons that
   looked available and fell into an `else ->` shipped once ([B-56](../backlog/B-56-dead-toolbar-controls.md)).

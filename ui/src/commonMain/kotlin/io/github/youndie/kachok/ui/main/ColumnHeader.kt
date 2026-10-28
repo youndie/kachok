@@ -65,9 +65,9 @@ internal fun ColumnHeader(
             Head("SIZE", SortColumn.Size, sort, TorrentColumns.size, onSort, TextAlign.End)
         }
         Head("PROGRESS", SortColumn.Progress, sort, TorrentColumns.progress, onSort)
-        Head("DOWN KIB/S", SortColumn.Down, sort, TorrentColumns.down, onSort, TextAlign.End, TIGHT)
+        Head("DOWN SPEED", SortColumn.Down, sort, TorrentColumns.down, onSort, TextAlign.End, TIGHT)
         if (SortColumn.Up in visible) {
-            Head("UP KIB/S", SortColumn.Up, sort, TorrentColumns.up, onSort, TextAlign.End, TIGHT)
+            Head("UP SPEED", SortColumn.Up, sort, TorrentColumns.up, onSort, TextAlign.End, TIGHT)
         }
         if (SortColumn.Peers in visible) {
             Head("PEERS · OUT", SortColumn.Peers, sort, TorrentColumns.peers, onSort, TextAlign.End)
