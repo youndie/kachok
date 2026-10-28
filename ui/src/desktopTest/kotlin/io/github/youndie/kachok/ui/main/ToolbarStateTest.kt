@@ -45,7 +45,16 @@ class ToolbarStateTest {
             "with nothing selected there is nothing to pause or resume",
         )
         assertEquals(
-            listOf("Add torrent", "Paste magnet", "Pause", "Remove…", "Force re-check", "Details panel", "Settings"),
+            listOf(
+                "Add torrent",
+                "Paste magnet",
+                "Pause",
+                "Remove…",
+                "Force re-check",
+                "Force re-announce",
+                "Details panel",
+                "Settings",
+            ),
             toolbar
                 .forSelection(TorrentState.Downloading)
                 .all
@@ -85,6 +94,21 @@ class ToolbarStateTest {
                 .mapNotNull { it.command }
                 .toSet(),
         )
+    }
+
+    /**
+     * *Force re-announce* (B-144): a running torrent's, and greyed with a reason for nothing
+     * selected, a paused torrent and a magnet.
+     */
+    @Test
+    fun reAnnounceIsOfferedToARunningTorrentOnly() {
+        assertEquals(ToolbarCommand.Reannounce, toolbar.forSelection(TorrentState.Downloading).reannounce.command)
+        assertEquals(ToolbarCommand.Reannounce, toolbar.forSelection(TorrentState.Seeding).reannounce.command)
+        listOf(null, TorrentState.Paused, TorrentState.Metadata).forEach { selection ->
+            val action = toolbar.forSelection(selection).reannounce
+            assertEquals(null, action.command, "$selection was offered a re-announce")
+            assertTrue(action.hint.startsWith("Force re-announce — "), action.hint)
+        }
     }
 
     /** Pausing a paused torrent, and resuming a running one, are the two nonsense cases. */

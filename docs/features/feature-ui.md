@@ -200,6 +200,15 @@ toolbar ── Add torrent ──▶ file chooser ──▶ MetainfoParser ─�
 * **Automated:** `ui ToolbarStateTest#everyControlEitherDoesSomethingOrSaysWhyItDoesNot`,
   `#everyDisabledControlNamesTheItemThatWouldEnableIt`
 
+### Scenario: Resting the pointer on an icon button says what it does
+* **Given:** the toolbar, with a running torrent or a paused one selected.
+* **When:** the pointer rests on an icon button for half a second.
+* **Then:** a tooltip names the action, and for a greyed one says why it is greyed; *Force
+  re-announce* is offered for a running torrent and greyed with a reason for nothing selected, a
+  paused torrent and a magnet.
+* **Automated:** `ui ToolbarHintTest#aHoveredButtonSaysWhatItDoes`,
+  `#aGreyedButtonsHintSaysWhyItIsGreyed`; `ui ToolbarStateTest#reAnnounceIsOfferedToARunningTorrentOnly`
+
 ### Scenario: A path too long for its cell keeps the end that identifies it
 * **Given:** a save directory longer than the cell it is drawn in.
 * **When:** the details panel draws it.

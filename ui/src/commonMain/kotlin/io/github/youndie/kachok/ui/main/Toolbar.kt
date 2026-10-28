@@ -47,6 +47,7 @@ internal enum class ToolbarCommand {
     Resume,
     Remove,
     Recheck,
+    Reannounce,
     ToggleDetails,
     ToggleSettings,
 }
@@ -74,6 +75,9 @@ internal class ToolbarAction(
     }
 
     val enabled: Boolean get() = disabledBecause == null
+
+    /** What the tooltip says: the name, and for a greyed control why it is greyed (B-144). */
+    val hint: String get() = disabledBecause?.let { "$label — $it" } ?: label
 }
 
 /**
@@ -96,21 +100,23 @@ private fun IconAction(
             action.enabled -> KachokPalette.onSurfaceMuted
             else -> scheme.onSurfaceVariant
         }
-    Box(
-        Modifier
-            .size(Chrome.controlHeight)
-            .background(background, RoundedCornerShape(CONTROL_RADIUS))
-            .clickable(enabled = action.enabled, onClick = onClick)
-            // A glyph and nothing else. Without this the button has no name at all — not to a
-            // screen reader, and not to a test, which is why the bar's guard could only ever click
-            // the one control that happens to carry text.
-            .semantics {
-                contentDescription = action.label
-                if (!action.enabled) disabled()
-            },
-        contentAlignment = Alignment.Center,
-    ) {
-        Glyph(action.glyph, size = ACTION_GLYPH, tint = tint)
+    Hint(action.hint) {
+        Box(
+            Modifier
+                .size(Chrome.controlHeight)
+                .background(background, RoundedCornerShape(CONTROL_RADIUS))
+                .clickable(enabled = action.enabled, onClick = onClick)
+                // A glyph and nothing else. Without this the button has no name at all — not to a
+                // screen reader, and not to a test, which is why the bar's guard could only ever
+                // click the one control that happens to carry text.
+                .semantics {
+                    contentDescription = action.label
+                    if (!action.enabled) disabled()
+                },
+            contentAlignment = Alignment.Center,
+        ) {
+            Glyph(action.glyph, size = ACTION_GLYPH, tint = tint)
+        }
     }
 }
 
@@ -209,6 +215,8 @@ internal class ToolbarState(
         ToolbarAction(Icons.DELETE, "Remove…", disabledBecause = NOTHING_SELECTED),
     val recheck: ToolbarAction =
         ToolbarAction(Icons.RESTART_ALT, "Force re-check", disabledBecause = NOTHING_SELECTED),
+    val reannounce: ToolbarAction =
+        ToolbarAction(Icons.CAMPAIGN, REANNOUNCE, disabledBecause = NOTHING_SELECTED),
     val filter: String = "",
     val details: ToolbarAction =
         ToolbarAction(Icons.RIGHT_PANEL_OPEN, "Details panel", ToolbarCommand.ToggleDetails),
@@ -216,7 +224,7 @@ internal class ToolbarState(
 ) {
     /** Every control on the bar, in the order it is drawn. */
     val all: List<ToolbarAction>
-        get() = listOf(addTorrent, pasteMagnet, pause, resume, remove, recheck, details, settings)
+        get() = listOf(addTorrent, pasteMagnet, pause, resume, remove, recheck, reannounce, details, settings)
 
     /** The same state with both toggles set from whether their screens are actually there. */
     fun withDetails(
@@ -229,6 +237,7 @@ internal class ToolbarState(
             resume = resume,
             remove = remove,
             recheck = recheck,
+            reannounce = reannounce,
             filter = filter,
             details = ToolbarAction(details.glyph, details.label, details.command, active = open),
             settings =
@@ -291,6 +300,31 @@ internal class ToolbarState(
                         ToolbarAction(Icons.RESTART_ALT, "Force re-check", ToolbarCommand.Recheck)
                     }
                 },
+            // **The details panel's *Re-announce*, on the bar** (B-144): the same command, for a
+            // person who has not opened the Trackers tab. Not for a paused torrent, which has told
+            // its trackers `stopped`, nor for a magnet, which has no torrent to announce yet.
+            reannounce =
+                when (selected) {
+                    null -> {
+                        ToolbarAction(Icons.CAMPAIGN, REANNOUNCE, disabledBecause = NOTHING_SELECTED)
+                    }
+
+                    TorrentState.Paused -> {
+                        ToolbarAction(
+                            Icons.CAMPAIGN,
+                            REANNOUNCE,
+                            disabledBecause = PAUSED_SAYS_NOTHING,
+                        )
+                    }
+
+                    TorrentState.Metadata -> {
+                        ToolbarAction(Icons.CAMPAIGN, REANNOUNCE, disabledBecause = NO_TORRENT_YET)
+                    }
+
+                    else -> {
+                        ToolbarAction(Icons.CAMPAIGN, REANNOUNCE, ToolbarCommand.Reannounce)
+                    }
+                },
             filter = filter,
             details = details,
             settings = settings,
@@ -307,6 +341,11 @@ internal class ToolbarState(
             "There is no torrent yet, so there is nothing to check the disk against."
         const val ALREADY_CHECKING =
             "This torrent is being checked right now."
+        const val REANNOUNCE = "Force re-announce"
+        const val PAUSED_SAYS_NOTHING =
+            "This torrent is paused; it has told its trackers it stopped."
+        const val NO_TORRENT_YET =
+            "There is no torrent yet, only a magnet looking for one."
     }
 }
 
@@ -335,7 +374,7 @@ internal fun Toolbar(
         AddTorrentButton { onAction(state.addTorrent) }
         IconAction(state.pasteMagnet) { onAction(state.pasteMagnet) }
         ToolbarSeparator()
-        listOf(state.pause, state.resume, state.remove, state.recheck).forEach { action ->
+        listOf(state.pause, state.resume, state.remove, state.recheck, state.reannounce).forEach { action ->
             IconAction(action) { onAction(action) }
         }
         Spacer()
