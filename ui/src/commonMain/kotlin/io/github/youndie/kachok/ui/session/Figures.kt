@@ -9,8 +9,14 @@ import kotlin.time.Duration
  *
  * Two rules cover every figure in the window, and they were read off the mockup rather than
  * invented: **a byte size is three significant figures** — `3.70 GiB`, `412 MiB`, `48.2 MiB`,
- * `14.6 GiB` — and **a rate is a whole number with a space every three digits** — `15 736`,
- * `4 312`, `812`. A ratio follows the first rule: `0.11`, `2.07`, `11.4`, `18.9`.
+ * `14.6 GiB` — and **a rate is a byte size per second**, by the same rule: `5.70 MiB/s`,
+ * `48.2 KiB/s`, `900 B/s`. A ratio follows the first rule: `0.11`, `2.07`, `11.4`, `18.9`.
+ *
+ * **A rate used to be a whole number of KiB/s grouped in threes** — `15 736` — with the unit only in
+ * the column head, which is what the mockup drew. Read in use it was the one figure in the window
+ * nobody could take in at a glance: five digits to divide by 1024 in one's head, a column whose width
+ * jumped as a download sped up, and `0` for a peer sending 900 bytes a second
+ * ([B-145](../../../../../../../../docs/backlog/B-145-a-speed-says-its-unit.md)).
  *
  * Three significant figures rather than a fixed two decimals because the columns are 40 and 60 px
  * wide and `11.40` does not fit where `11.4` does — the design's own numbers show it choosing this,
@@ -38,8 +44,11 @@ internal object Figures {
         return if (unit == 0) "$value ${UNITS[0]}" else "${threeFigures(scaled)} ${UNITS[unit]}"
     }
 
-    /** `15 736`, `812`, `0` — the unit is the column head, not the cell. */
-    fun rate(bytesPerSecond: Long): String = grouped(bytesPerSecond / KIB)
+    /** `5.70 MiB/s`, `48.2 KiB/s`, `900 B/s`, `0 B/s`: a size, per second, with its unit. */
+    fun speed(bytesPerSecond: Long): String = "${bytes(bytesPerSecond.coerceAtLeast(0))}/s"
+
+    /** What [speed] says for nothing, which is what a muted cell compares against. */
+    val NO_SPEED: String = speed(0)
 
     /** `0.11`, `11.4`, `18.9`. Zero downloaded is not a ratio, it is a dash. */
     fun ratio(
@@ -126,21 +135,10 @@ internal object Figures {
         return if (decimals == 0) "$whole" else "$whole.${part.toString().padStart(decimals, '0')}"
     }
 
-    /** `15 736`. A plain space, which in JetBrains Mono is exactly one figure wide. */
-    private fun grouped(value: Long): String {
-        val digits = value.toString()
-        return digits
-            .reversed()
-            .chunked(GROUP)
-            .joinToString(" ")
-            .reversed()
-    }
-
     private const val PERCENT = 100
     private const val TEN = 10
     private const val TEN_L = 10L
     private const val HUNDRED = 100
-    private const val GROUP = 3
     private const val SECONDS_PER_MINUTE = 60L
     private const val SECONDS_PER_HOUR = 3600L
 }

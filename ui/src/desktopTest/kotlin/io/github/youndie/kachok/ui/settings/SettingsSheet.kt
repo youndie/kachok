@@ -49,8 +49,8 @@ internal fun EmptyWindowSheet() {
                 status =
                     io.github.youndie.kachok.ui.main
                         .SessionStatus(
-                            down = "0 KiB/s",
-                            up = "0 KiB/s",
+                            down = "0 B/s",
+                            up = "0 B/s",
                             torrents = "idle",
                             dht = null,
                             port = designStatus.port,

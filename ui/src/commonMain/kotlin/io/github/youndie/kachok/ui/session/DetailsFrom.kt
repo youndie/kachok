@@ -74,7 +74,7 @@ internal fun detailsOf(
                         // ([B-77](../../../../../../../../docs/backlog/B-77-the-rate-column-reads-zero.md)).
                         DetailsField(
                             "Speed down / up",
-                            "${Figures.rate(rates.down)} / ${Figures.rate(rates.up)}",
+                            "${Figures.speed(rates.down)} / ${Figures.speed(rates.up)}",
                         ),
                     ),
                 ),
@@ -279,7 +279,7 @@ private fun peersOf(state: SessionState): List<PeerRow> =
                 client = peer.client.takeIf { it.isNotBlank() && it != "unknown" } ?: Figures.DASH,
                 unchoked = !peer.choking,
                 interested = peer.interested,
-                rate = Figures.rate(peer.downBytesPerSecond),
+                rate = Figures.speed(peer.downBytesPerSecond),
             )
         }
 

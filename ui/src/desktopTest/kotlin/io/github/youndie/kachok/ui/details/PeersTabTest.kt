@@ -27,7 +27,7 @@ class PeersTabTest {
             setContent { KachokTheme { DetailsPanel(details) } }
             onNodeWithText("88.99.242.17:6881").assertIsDisplayed()
             onNodeWithText("qBittorrent 5.1").assertIsDisplayed()
-            onNodeWithText("1 842").assertIsDisplayed()
+            onNodeWithText("1.80 MiB/s").assertIsDisplayed()
         }
 
     /**
@@ -49,7 +49,7 @@ class PeersTabTest {
     fun theColumnHeadsAreTheDesignsFour() =
         runComposeUiTest {
             setContent { KachokTheme { DetailsPanel(details) } }
-            listOf("ADDRESS", "CLIENT", "FLAG", "KIB/S").forEach {
+            listOf("ADDRESS", "CLIENT", "FLAG", "SPEED").forEach {
                 onNodeWithText(it).assertIsDisplayed()
             }
         }

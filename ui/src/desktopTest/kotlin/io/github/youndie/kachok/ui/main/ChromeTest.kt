@@ -30,8 +30,8 @@ class ChromeTest {
             "NAME",
             "SIZE",
             "PROGRESS",
-            "DOWN KIB/S",
-            "UP KIB/S",
+            "DOWN SPEED",
+            "UP SPEED",
             "PEERS · OUT",
             "RATIO",
             "ETA",
@@ -40,7 +40,7 @@ class ChromeTest {
 
     private val status =
         SessionStatus(
-            down = "24 988 KiB/s",
+            down = "24.4 MiB/s",
             up = "812 KiB/s",
             torrents = "16 torrents, 7 seeding, 2 paused",
             dht = "DHT 214 nodes",
@@ -53,7 +53,7 @@ class ChromeTest {
         runComposeUiTest {
             setContent { KachokTheme { StatusBar(status) } }
             listOf(
-                "24 988 KiB/s",
+                "24.4 MiB/s",
                 "812 KiB/s",
                 "16 torrents, 7 seeding, 2 paused",
                 "DHT 214 nodes",
@@ -71,7 +71,7 @@ class ChromeTest {
     @Test
     fun theDhtSaysOffRatherThanZeroWhenItWasNeverAskedFor() =
         runComposeUiTest {
-            setContent { KachokTheme { StatusBar(SessionStatus("0 KiB/s", "0 KiB/s", "0 torrents", null, "p", "h")) } }
+            setContent { KachokTheme { StatusBar(SessionStatus("0 B/s", "0 B/s", "0 torrents", null, "p", "h")) } }
             onNodeWithText("DHT off").assertIsDisplayed()
             assertEquals(
                 0,
@@ -86,7 +86,7 @@ class ChromeTest {
             setContent {
                 KachokTheme {
                     StatusBar(
-                        SessionStatus("0 KiB/s", "0 KiB/s", "0 torrents", "DHT 0 nodes", "p", "h"),
+                        SessionStatus("0 B/s", "0 B/s", "0 torrents", "DHT 0 nodes", "p", "h"),
                     )
                 }
             }

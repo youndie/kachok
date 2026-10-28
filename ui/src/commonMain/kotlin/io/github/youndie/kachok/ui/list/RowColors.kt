@@ -56,7 +56,7 @@ internal enum class Emphasis {
 /** The em dash the design writes where a value does not exist yet. */
 internal const val DASH: String = "—"
 
-private const val ZERO = "0"
+private val ZERO = io.github.youndie.kachok.ui.session.Figures.NO_SPEED
 
 /**
  * Two states rewrite every emphasis in their row.

@@ -46,8 +46,10 @@ public object TorrentColumns {
     public val name: Dp = 199.dp
     public val size: Dp = 60.dp
     public val progress: Dp = 92.dp
-    public val down: Dp = 70.dp
-    public val up: Dp = 70.dp
+
+    // 78 and not the design's 70: `48.2 KiB/s` is ten figures of JetBrains Mono at 12 sp (B-145).
+    public val down: Dp = 78.dp
+    public val up: Dp = 78.dp
     public val peers: Dp = 100.dp
     public val ratio: Dp = 40.dp
     public val eta: Dp = 52.dp

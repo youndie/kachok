@@ -53,6 +53,7 @@ import io.github.youndie.kachok.ui.icons.Icons
 import io.github.youndie.kachok.ui.list.RowCell
 import io.github.youndie.kachok.ui.list.TorrentState
 import io.github.youndie.kachok.ui.list.stateLabelColor
+import io.github.youndie.kachok.ui.session.Figures
 import io.github.youndie.kachok.ui.theme.ChromeText
 import io.github.youndie.kachok.ui.theme.KachokPalette
 import io.github.youndie.kachok.ui.theme.MonoSmall
@@ -839,7 +840,7 @@ private fun ColumnScope.Peers(peers: List<PeerRow>) {
             Text("CLIENT", style = PEER_HEADING, color = scheme.onSurfaceVariant, modifier = Modifier.width(CLIENT))
             Text("FLAG", style = PEER_HEADING, color = scheme.onSurfaceVariant, modifier = Modifier.width(FLAGS))
             Text(
-                "KIB/S",
+                "SPEED",
                 style = PEER_HEADING,
                 color = scheme.onSurfaceVariant,
                 textAlign = TextAlign.End,
@@ -910,7 +911,7 @@ private fun PeerLine(peer: PeerRow) {
             style = MonoSmall,
             // A rate of nothing is drawn as a figure that is not there rather than as a number,
             // which is the same rule the table's own zero columns follow.
-            color = if (peer.rate == "0") scheme.onSurfaceVariant else KachokPalette.onSurfaceMuted,
+            color = if (peer.rate == Figures.NO_SPEED) scheme.onSurfaceVariant else KachokPalette.onSurfaceMuted,
             textAlign = TextAlign.End,
             maxLines = 1,
             modifier = Modifier.width(PEER_RATE),
@@ -944,7 +945,7 @@ private val CLIENT = 100.dp
 
 private val FLAGS = 30.dp
 
-private val PEER_RATE = 42.dp
+private val PEER_RATE = 70.dp
 
 private val FILE_TICK = 13.sp
 

@@ -27,8 +27,8 @@ class WindowFromTest {
         size = "96.0 MiB",
         progress = 0.5f,
         percent = "50%",
-        down = "254",
-        up = "0",
+        down = "254 KiB/s",
+        up = "0 B/s",
         connected = 1,
         unchoked = 1,
         outstanding = 3,
@@ -136,7 +136,7 @@ class WindowFromTest {
     @Test
     fun theRatesAreTheProcessesOwnAndAreLabelled() {
         val status = window(listOf(row()), rates = Rates(down = 24_988 * 1024, up = 812 * 1024)).status
-        assertEquals("24 988 KiB/s", status.down)
+        assertEquals("24.4 MiB/s", status.down)
         assertEquals("812 KiB/s", status.up)
     }
 
