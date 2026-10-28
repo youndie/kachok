@@ -820,6 +820,12 @@ internal fun Client(
                     }
                 }
 
+                ToolbarCommand.Reannounce -> {
+                    rowKeys.getOrNull(index)?.let {
+                        commanded.trySend(TorrentCommand(it, TorrentCommand.Kind.Announce))
+                    }
+                }
+
                 ToolbarCommand.Remove -> {
                     // Built from the row that is highlighted, so the dialog names the torrent the
                     // person is looking at rather than one it went and found.

@@ -239,6 +239,11 @@ it a different torrent for every `.torrent` whose keys are not sorted, and those
 * **A control either has a command or a reason, never neither.** `ToolbarAction` refuses to be
   built without one of the two and the handler switches on an enum, because four buttons that
   looked available and fell into an `else ->` shipped once ([B-56](../backlog/B-56-dead-toolbar-controls.md)).
+* **An icon button says what it does when the pointer rests on it.** `Hint` is an `expect`
+  composable — `TooltipArea` on the desktop — showing `ToolbarAction.hint`: the label, and for a
+  greyed control the reason it is greyed, which until then only the semantics tree carried.
+  *Force re-announce* sends the details panel's `Announce` from the bar
+  ([B-144](../backlog/B-144-the-toolbar-says-what-its-buttons-do.md)).
 * **The title bar is drawn, not the operating system's**, because the design draws it in its own
   colours. `AppFrame` provides it and the controls stay the host's — traffic lights on macOS,
   minimise/maximise/close on Windows, the GTK layout on Linux.
