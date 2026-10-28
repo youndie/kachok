@@ -652,6 +652,20 @@ nothing on macOS and Linux, where files are sparse by default". The first half s
 is dropped by `UnixChannelFactory`. The second half was too glib: a file is sparse only if it is
 *extended* rather than *written*, and nothing about the platform makes that choice for you.
 
+**Second correction to §1.1, Consequence 3: on Windows the option bought nothing either, for a
+different reason** ([B-146](../backlog/B-146-files-are-sparse-on-windows.md)). "It matters on
+Windows only" assumed it was applied there. It was not: `WindowsChannelFactory` sets the sparse flag
+only for an open that creates the file with `CREATE_NEW` (`if (dwCreationDisposition == CREATE_NEW
+&& flags.sparse) DeviceIoControlSetSparse(handle)`, `jdk-25.0.1!/lib/src.zip!/java.base/sun/nio/fs/
+WindowsChannelFactory.java`), and `FileSet` passed `SPARSE` to an open with `CREATE` of a file
+`setLength` had already made. `fsutil sparse queryflag` on the files of running torrents: not
+sparse. An NTFS file sized but not sparse has a valid data length of zero, and a write at offset X
+zero-fills up to X inside the write call — measured, 1 872 ms for a 16 KiB write at the end of a
+fresh 4 GiB file on an NVMe disk, 6 ms for the same file created `CREATE_NEW` + `SPARSE`; on a USB
+disk under three fresh 16–19 GiB torrents, the client wrote 14 MB/s and the disk 99 MB/s for
+minutes. The working replacement: a fresh file is created empty with `CREATE_NEW` + `SPARSE`, then
+sized. Files created before it stay non-sparse.
+
 ### 1.3c `transferTo` against a mapped file, measured
 
 [D5](#d5-seeding-reads-go-through-transferto-first-mmap-is-a-measured-hypothesis-deviation-from-the-brief)
@@ -1512,7 +1526,8 @@ re-hashing after an unclean exit, which is bounded by how often the resume file 
 knob, measured in M6.
 
 **Risk 6. Windows is not tested in phase 1.** Positional writes, `SPARSE` and `ATOMIC_MOVE` behave
-differently there and nothing in phase 1 runs on it. Mitigation: it is said here and in the CLI
+differently there and nothing in phase 1 runs on it. *It came due for `SPARSE`* (§1.3a, second
+correction, B-146): the option never applied on Windows, and a large torrent stalled on it. Mitigation: it is said here and in the CLI
 service document rather than implied by "JVM"; the CI matrix grows when there is a Windows user.
 
 **Risk 7. Peers close the connection on a request larger than 16 KiB** (§1.5). Mitigation: the

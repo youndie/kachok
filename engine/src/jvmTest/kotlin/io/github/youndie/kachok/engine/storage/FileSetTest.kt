@@ -69,10 +69,9 @@ class FileSetTest {
      * attribute view on macOS offers `size` and not `blocks` — and a test that quietly skipped
      * would be indistinguishable from one that passed.
      *
-     * **POSIX only, because `du` is.** NTFS has sparse files and `StandardOpenOption.SPARSE` asks
-     * for one, but nothing on Windows measures allocated blocks from Java, so there is nothing to
-     * assert there. Skipped rather than weakened: the claim is about bytes on a disk and a version
-     * of it that only looked at `size` would pass on a preallocated file.
+     * **POSIX only, because `du` is.** Windows has its own test below, which reads the flag
+     * rather than counting blocks. Skipped rather than weakened: the claim is about bytes on a disk
+     * and a version of it that only looked at `size` would pass on a preallocated file.
      */
     @Test
     @EnabledOnOs(OS.LINUX, OS.MAC)
@@ -86,6 +85,28 @@ class FileSetTest {
                 allocated < 512,
                 "a fresh 8 MB file occupies ${allocated}K; it was preallocated rather than left sparse",
             )
+        }
+    }
+
+    /**
+     * B-146: on NTFS a fresh file carries `FILE_ATTRIBUTE_SPARSE_FILE`. Without it a write near
+     * the end of a file sized but not sparse zero-fills everything before it — measured, 1.9 s for
+     * a 16 KiB write at the end of a fresh 4 GiB file on an NVMe disk, 6 ms with the flag.
+     *
+     * `dos:attributes` is the raw attribute word, which the Windows view exposes beside the four
+     * named flags; reading it needs no shell and no locale, which `fsutil`'s sentence would.
+     */
+    @Test
+    @EnabledOnOs(OS.WINDOWS)
+    fun aFreshFileIsSparseOnWindows() {
+        val big = MetainfoParser.parse(eightMegabytes.encodeToByteArray())
+        FileSet.open(root, big).use { files ->
+            val attributes = Files.getAttribute(files.paths[0], "dos:attributes") as Int
+            assertTrue(
+                attributes and FILE_ATTRIBUTE_SPARSE_FILE != 0,
+                "a fresh file is not sparse (attributes 0x${attributes.toString(16)})",
+            )
+            assertEquals(8_388_608L, Files.size(files.paths[0]), "and it still reports its full length")
         }
     }
 
@@ -129,6 +150,11 @@ class FileSetTest {
             assertEquals(9, read.array()[0])
             assertEquals(999L, Files.size(files.paths[2]))
         }
+    }
+
+    private companion object {
+        /** `winnt.h`. */
+        const val FILE_ATTRIBUTE_SPARSE_FILE = 0x200
     }
 
     private fun isUnix(): Boolean =

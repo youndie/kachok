@@ -100,7 +100,7 @@ What exists on `main` today:
 | `.../engine/session/SessionState.kt` | the state a UI reads, the commands it sends, and every knob with what it trades |
 | `.../engine/session/Session.kt` | the orchestrator: peers, tracker loop, writer, one timer, all under one `SupervisorJob` |
 | `.../engine/hash/MessageDigestPieceHasher.kt` (jvmMain) | SHA-1 on a bounded dispatcher, with a pool of digests and the `JvmBlock` seam |
-| `.../engine/storage/FileSet.kt` (jvmMain) | the torrent's files, created sparse with `setLength` and kept open for positional writes |
+| `.../engine/storage/FileSet.kt` (jvmMain) | the torrent's files, created `CREATE_NEW` + `SPARSE` (the only open that makes a file sparse on Windows, B-146), sized with `setLength`, and kept open for positional writes |
 | `engine/src/commonTest/kotlin/io/github/youndie/kachok/engine/` | 169 tests across every package; the session's nine run entirely on fakes; the fixtures are embedded strings, because a KMP test source set has no resources |
 
 The layout the backlog builds toward, under `engine/src/commonMain/kotlin/io/github/youndie/kachok/engine/`
