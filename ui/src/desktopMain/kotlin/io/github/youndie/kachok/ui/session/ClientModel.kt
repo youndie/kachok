@@ -229,7 +229,8 @@ internal class ClientModel(
             TorrentSet(
                 dispatchers = dispatchers,
                 scope = scope,
-                options = SetOptions(dht = preferences.value.dht),
+                // The records next to the remembered torrents, not in the download folder (B-150).
+                options = SetOptions(dht = preferences.value.dht, resumeDirectory = torrents.resolveSibling("resume")),
             )
         // **An agent drives this engine, not one of its own** (B-117). Registered here and not in
         // `main`, because the set is built on this effect: a socket that answered before there was
@@ -393,7 +394,7 @@ internal class ClientModel(
                             // and a `FileSet` that has been closed is not somewhere to ask what it
                             // was writing.
                             val paths = runtime.paths
-                            set.remove(runtime)
+                            set.remove(runtime, forgetProgress = true)
                             forgetTorrent(torrents, command.infoHash)
                             deleteQuietly(paths)
                         }

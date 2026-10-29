@@ -22,29 +22,47 @@ import java.nio.file.StandardCopyOption
  *
  * Failing to save is reported, not thrown. A client that stops downloading because it cannot record
  * its progress is worse than one that re-hashes on the next start.
+ *
+ * **[legacy] is where the record used to be kept**, beside the torrent's files, before B-150 moved
+ * it out of the download directory. A record found only there is read, and deleted once the first
+ * save at [path] has succeeded — never before, so a failing save leaves the old record where it
+ * was rather than leaving no record at all. Only one that decoded as this torrent's is deleted.
  */
 public class FileResumeStore(
     private val path: Path,
     private val infoHash: InfoHash,
     private val pieceCount: Int,
     private val dispatcher: CoroutineDispatcher,
+    private val legacy: Path? = null,
     private val onFailure: (String) -> Unit = {},
 ) : ResumeStore {
+    /** Set when the record came from [legacy]; the next good save removes it. */
+    @Volatile
+    private var adopted: Boolean = false
+
     override suspend fun load(): ResumeRecord? =
         withContext(dispatcher) {
-            if (!Files.exists(path)) return@withContext null
-            try {
-                ResumeRecord.decode(Files.readAllBytes(path), infoHash, pieceCount)
-            } catch (unreadable: IOException) {
-                onFailure("cannot read $path: ${unreadable.message}")
-                null
-            } catch (refused: ResumeException) {
-                // Kept rather than deleted: a record for another torrent in this directory is the
-                // user's business, and deleting somebody else's file is not this client's.
-                onFailure("ignoring $path: ${refused.message}")
-                null
-            }
+            read(path)
+                ?: legacy
+                    ?.takeIf { !Files.exists(path) }
+                    ?.let(::read)
+                    ?.also { adopted = true }
         }
+
+    private fun read(from: Path): ResumeRecord? {
+        if (!Files.exists(from)) return null
+        return try {
+            ResumeRecord.decode(Files.readAllBytes(from), infoHash, pieceCount)
+        } catch (unreadable: IOException) {
+            onFailure("cannot read $from: ${unreadable.message}")
+            null
+        } catch (refused: ResumeException) {
+            // Kept rather than deleted: a record for another torrent in this directory is the
+            // user's business, and deleting somebody else's file is not this client's.
+            onFailure("ignoring $from: ${refused.message}")
+            null
+        }
+    }
 
     override suspend fun save(record: ResumeRecord) {
         withContext(dispatcher) {
@@ -64,6 +82,10 @@ public class FileResumeStore(
                     // is still written, but a crash mid-move can now leave neither version.
                     onFailure("$path cannot be replaced atomically: ${unsupported.message}")
                     Files.move(temporary, path, StandardCopyOption.REPLACE_EXISTING)
+                }
+                if (adopted) {
+                    legacy?.let(Files::deleteIfExists)
+                    adopted = false
                 }
             } catch (failed: IOException) {
                 onFailure("cannot save $path: ${failed.message}")

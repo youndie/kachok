@@ -504,7 +504,7 @@ public class McpServer(
         // Read before the remove: `remove` closes the files, and a closed `FileSet` is not
         // somewhere to ask what it was writing.
         val paths = runtime.paths
-        set.remove(runtime)
+        set.remove(runtime, forgetProgress = deleteData)
         keeper.removed(runtime.metainfo.infoHash.hex())
         if (!deleteData) return Outcome("Removed $name from the list; its files are still on the disk.")
         val kept = mutableListOf<String>()

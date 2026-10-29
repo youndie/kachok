@@ -160,7 +160,7 @@ internal class Backend(
                     // Read before the remove: `remove` closes the files, and a closed `FileSet` is
                     // not somewhere to ask what it was writing.
                     val paths = runtime.paths
-                    set.remove(runtime)
+                    set.remove(runtime, forgetProgress = true)
                     paths.forEach { path ->
                         try {
                             java.nio.file.Files
