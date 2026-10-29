@@ -15,7 +15,7 @@ Asked for by the person using the client: a folder of films had a `<name>.<8 hex
 every one of them, which is the client's bookkeeping in somebody's library.
 
 - **The decision and its reason.** `SetOptions.resumeDirectory` says where every torrent of a set
-  keeps its record. The MCP engine and the window give it `resume/` beside `torrents/` in the
+  keeps its record. The MCP engine and the window give it a `resume` directory beside the list of torrents in the
   client's own directory (`%APPDATA%\kachok`, `~/Library/Application Support/kachok`,
   `~/.config/kachok`), named `<info hash>.resume` — the full hash, because nobody reads that
   directory and the hash is what makes a record one torrent's (B-60). The default stays null,

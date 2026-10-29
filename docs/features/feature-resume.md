@@ -37,7 +37,7 @@ checked, and nothing else. Anything it does not vouch for is re-hashed at start-
 * A record whose info hash does not match the torrent is refused.
 * **Where it lives** ([B-150](../backlog/B-150-resume-records-live-with-the-client.md)): the window
   and the MCP engine keep it as `resume/<info hash>.resume` in the client's own directory, beside
-  `torrents/`, so a download folder holds downloads. The engine's default — `kachok download`, and
+  the list of torrents it remembers, so a download folder holds downloads. The engine's default — `kachok download`, and
   every test — keeps it beside the files as `<name>.<8 hex>.resume`. A record still beside the files
   from before is read, and deleted once the first save in the client's directory has succeeded.
   Removing a torrent *with its data* removes its record; removing it from the list alone keeps the
