@@ -1295,7 +1295,11 @@ public class Session(
                 // Counted before anything else: these bytes came off the wire whatever becomes of
                 // them, and the rate this peer is giving us is what the choker ranks it by.
                 link.download.add(block.length.toLong(), elapsedMillis())
-                if (picker.completed[block.piece.value]) {
+                // Or a second copy of a block of a piece still open: the writer may have completed
+                // that piece already and removed its entry, and a copy reaching it then starts a
+                // fresh one that nothing completes — a pool buffer gone for the life of the
+                // torrent, or with one-block pieces the same piece written twice (B-148).
+                if (picker.completed[block.piece.value] || picker.alreadyReceived(block.piece, block.begin)) {
                     // **A block for a piece this client already has, and it must not reach the
                     // writer.** The writer gathers by piece index and removes the entry when the
                     // piece completes, so blocks arriving after that start a fresh entry which

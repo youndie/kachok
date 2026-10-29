@@ -1354,6 +1354,49 @@ class SessionTest {
         }
 
     /**
+     * B-148: the second copy of a block, arriving before the writer's verdict on its piece has
+     * reached the session, is dropped by the session rather than handed to the writer.
+     *
+     * The writer removes a piece's entry when the piece completes, so a copy that reaches it after
+     * that starts a fresh entry, for a piece nobody will send again, and holds its buffer for the
+     * life of the torrent. `completed` cannot catch it: it is set when the session reads the
+     * outcome, and both copies are in hand before that. The picker can — it marked the block
+     * received when the first copy came. Seen as 32 buffers on loan on a seeding torrent with no
+     * peers.
+     */
+    @Test
+    fun aSecondCopyOfABlockArrivingBeforeItsPieceIsVerifiedIsDropped(): Unit =
+        runTest {
+            val metainfo = torrent(pieces = 4)
+            val dialer = FakeDialer(metainfo.infoHash)
+            val storage = FakeStorage()
+            val session =
+                session(metainfo, dialer, FakeTracker(listOf(peerA)), storage, AgreeableHasher(metainfo))
+
+            val job = session.start(kotlinx.coroutines.CoroutineScope(coroutineContext + handler))
+            testScheduler.runCurrent()
+            val connection = dialer.connections.getValue(peerA)
+            connection.incoming.send(PeerEvent.Received(Message.Bitfield(allOf(metainfo.pieceCount))))
+            connection.incoming.send(PeerEvent.Received(Message.Unchoke))
+            testScheduler.runCurrent()
+            val asked = connection.sent.filterIsInstance<Message.Request>().first()
+
+            // Both copies queued before the session runs again: endgame's two answers, back to back.
+            val first = FakeBlock(asked.piece, asked.begin, asked.length)
+            val second = FakeBlock(asked.piece, asked.begin, asked.length)
+            connection.incoming.send(PeerEvent.BlockReceived(first))
+            connection.incoming.send(PeerEvent.BlockReceived(second))
+            testScheduler.runCurrent()
+
+            assertEquals(listOf(asked.piece.value), storage.written.map { it.value })
+            assertTrue(first.released, "the writer released the copy it wrote")
+            assertTrue(second.released, "the second copy is still out of the pool")
+            assertEquals(1, session.state.value.duplicateBlocks, "the drop was not counted")
+
+            job.cancelAndJoin()
+        }
+
+    /**
      * B-147: a peer whose message throws ends its event loop, and the blocks it had queued behind
      * that message go back to the pool rather than staying in a closed channel nobody reads.
      */
