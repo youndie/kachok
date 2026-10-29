@@ -2112,6 +2112,37 @@ class SessionTest {
         }
 
     /**
+     * B-149: a torrent that has every file it wants is complete when it starts, whatever is
+     * missing from the files it skips.
+     *
+     * Start-up took `isComplete` from the verified bitfield, which counts every piece, while `left`
+     * beside it came from the picker, which counts the wanted ones — so a restarted torrent with a
+     * skipped file said `left 0 B` and *downloading* in the same row, and stayed so for good, since
+     * no piece would ever arrive to publish the picker's answer.
+     */
+    @Test
+    fun aTorrentWithEveryWantedFileIsCompleteAtStartUp(): Unit =
+        runTest {
+            val metainfo = twoFileTorrent(pieces = 8)
+            val storage = FakeStorage()
+            storage.present += 0 until metainfo.pieceCount / 2
+            val session =
+                session(
+                    metainfo,
+                    FakeDialer(metainfo.infoHash),
+                    FakeTracker(emptyList()),
+                    storage,
+                    AgreeableHasher(metainfo),
+                    unwantedFiles = setOf(1),
+                )
+            session.restore(AgreeableHasher(metainfo))
+
+            val state = session.state.value
+            assertEquals(0L, state.left, "the wanted file is all on the disk")
+            assertTrue(state.isComplete, "nothing is wanted and the torrent still says it is downloading")
+        }
+
+    /**
      * Each tracker's own answer, and the ones nobody reached said so.
      *
      * BEP 12 has the session stop at the first tracker that works, so a list of three normally has
