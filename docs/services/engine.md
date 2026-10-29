@@ -62,7 +62,7 @@ What exists on `main` today:
 | `.../engine/runtime/TorrentRuntime.kt` (jvmMain) | one torrent, wired: every interface above meets its JVM implementation here, and both surfaces call it |
 | `engine/src/jvmMain/kotlin/io/github/youndie/kachok/engine/io/BufferPool.kt` | the capped pool of direct 16 KiB buffers and its `PooledBuffer` handle |
 | `.../engine/io/EngineDispatchers.kt` | the virtual-thread dispatcher every coroutine in the engine runs on |
-| `.../engine/io/SocketPeerConnection.kt` | one peer, one blocking `SocketChannel`, one virtual thread; `connect` and `accept`, blocks read straight into pool buffers |
+| `.../engine/io/SocketPeerConnection.kt` | one peer, one blocking `SocketChannel`, one virtual thread; `connect` and `accept`, blocks read straight into pool buffers, and a block the session never took goes back to the pool (B-147) |
 | `.../engine/io/PeerListener.kt` | the 6881–6889 probe and the accept loop |
 | `.../engine/io/SocketPeerDialer.kt` | the `PeerDialer` the session dials through |
 | `.../engine/io/BlockSource.kt` | where a connection serves blocks from — required, `FileStorage` for a torrent and `NoBlocks` for a metadata fetch (B-110) |
@@ -217,6 +217,11 @@ them. Nothing is read from the environment by this module; that is [cli](cli.md)
   interleave at suspension points exactly as threads interleave anywhere, so every loop that sends
   to each peer iterates a snapshot. The symptom otherwise is an intermittent
   `ConcurrentModificationException` from code that looks sequential.
+* **A block owns a pool buffer until somebody releases it, on every path.** The connection's
+  incoming queue releases a block whose send was cancelled or met a closed queue, and the session
+  drains the events it left unread when a peer's loop ends. A buffer lost on either path is lost
+  for the life of the torrent, and a pool that loses them one at a time stops every download of the
+  process at once, with peers connected and requests out (B-147).
 * **A connection ending is an event, never a thrown exception.** `SocketPeerConnection` reports
   `PeerEvent.Closed` and does not rethrow: under a `SupervisorJob` a throw goes to the platform's
   uncaught-exception path, and the commonest cause is our own `close()`.

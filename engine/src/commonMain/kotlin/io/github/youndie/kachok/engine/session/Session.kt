@@ -1223,6 +1223,7 @@ public class Session(
             publish { it.copy(lastPeerError = "$address: ${failure.message ?: failure::class.simpleName}") }
         } finally {
             connection.close()
+            releaseUnread(connection)
             // **Only if this link is still the registered one.**
             //
             // Everything below is keyed by address, and a reconnect to the same address installs a
@@ -2010,6 +2011,22 @@ public class Session(
             connected[request.peer]?.let { link -> link.outstanding = (link.outstanding - 1).coerceAtLeast(0) }
         }
         connected.snapshot().forEach { requestMore(it) }
+    }
+
+    /**
+     * Hands back the blocks a connection delivered and this session never read.
+     *
+     * The event loop ends early when [handle] throws — a bitfield of the wrong length is enough —
+     * and whatever the reader had queued behind the bad message is still in the channel, each block
+     * in a pooled buffer. Closing the connection does not drop them: a closed channel keeps its
+     * elements for a consumer, and the consumer was this loop. Left there they are gone from the
+     * pool for good (B-147). The connection is closed by now, so nothing more arrives behind these.
+     */
+    private fun releaseUnread(connection: PeerConnection) {
+        while (true) {
+            val unread = connection.events.tryReceive().getOrNull() ?: return
+            (unread as? PeerEvent.BlockReceived)?.block?.release()
+        }
     }
 
     /** Milliseconds since this session started; the picker's only notion of time. */

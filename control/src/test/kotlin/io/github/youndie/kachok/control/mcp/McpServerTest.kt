@@ -249,6 +249,8 @@ class McpServerTest {
 
             val (status, _) = driver.call("torrent_status", """{"info_hash":"$hash"}""")
             assertContains(status, "order: in order")
+            // B-147: how much of the pool is out, which is what tells a dry pool from a dry swarm.
+            assertTrue(Regex("buffers: \\d+ of \\d+ on loan").containsMatchIn(status), status)
             assertContains(driver.call("list_torrents").first, "in order")
 
             val (switched, refusedSwitch) = driver.call("set_sequential", """{"info_hash":"$hash","on":false}""")

@@ -58,11 +58,13 @@ public class PooledBlock internal constructor(
  * ten thousand stacks and no platform threads — which is the entire reason this project targets
  * JDK 25.
  *
- * **The reader loop suspends in exactly one place, and that place is the point.** Taking a buffer
- * from the pool for an incoming block suspends when every buffer is out, which stops this
- * connection reading and lets the receive window apply the back-pressure. Everything else in the
- * loop blocks rather than suspends. (The original design note said the reader never suspends at
- * all; it cannot, and the correction is recorded in the research at D1.)
+ * **The reader loop suspends in two places, and the first is the point.** Taking a buffer from
+ * the pool for an incoming block suspends when every buffer is out, which stops this connection
+ * reading and lets the receive window apply the back-pressure. Handing an event to the session
+ * suspends when the session is behind, and a block waits there *in its buffer* — which is why the
+ * queue gives the buffer back when the send never completes (B-147). Everything else in the loop
+ * blocks rather than suspends. (The original design note said the reader never suspends at all;
+ * it cannot, and both corrections are recorded in the research at D1.)
  */
 public class SocketPeerConnection private constructor(
     override val address: PeerAddress,
@@ -109,7 +111,24 @@ public class SocketPeerConnection private constructor(
         private set
 
     private val outgoing = Channel<Outgoing>(OUTGOING_QUEUE)
-    private val incoming = Channel<PeerEvent>(INCOMING_QUEUE)
+
+    /**
+     * **A block that never reaches the session goes back to the pool here.**
+     *
+     * The reader holds a pooled buffer from the moment it reads a block until the session takes
+     * it, and when the session is behind — the writer waiting on the disk, which on Windows can be
+     * minutes — the reader waits in `incoming.send` with the buffer in hand. [close] cancels that
+     * send, and a send that is cancelled, or that meets a channel already closed, keeps its element:
+     * one buffer out on loan for the life of the torrent, per connection closed at such a moment.
+     * That is not rare; it is every timeout during a writer stall. A pool that loses its buffers one
+     * at a time keeps working until the last one, and then every reader waits in `acquire`, nothing
+     * reads a socket, and the download stands at 0 B/s with peers connected and requests out — for
+     * hours, on every torrent at once, until the process is restarted (B-147).
+     */
+    private val incoming =
+        Channel<PeerEvent>(INCOMING_QUEUE) { undelivered ->
+            (undelivered as? PeerEvent.BlockReceived)?.block?.release()
+        }
     private lateinit var reader: Job
     private lateinit var writer: Job
 
