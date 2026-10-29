@@ -4,6 +4,7 @@ import io.github.youndie.kachok.engine.PeerId
 import io.github.youndie.kachok.engine.dht.Dht
 import io.github.youndie.kachok.engine.dht.NodeId
 import io.github.youndie.kachok.engine.hash.MessageDigestPieceHasher
+import io.github.youndie.kachok.engine.hex
 import io.github.youndie.kachok.engine.io.BlockSource
 import io.github.youndie.kachok.engine.io.BufferPool
 import io.github.youndie.kachok.engine.io.DatagramKrpcTransport
@@ -136,6 +137,12 @@ public class TorrentRuntime internal constructor(
      */
     internal val options: RuntimeOptions,
     internal val onResumeFailure: (String) -> Unit,
+    /**
+     * Where this torrent's resume record is kept: the set's resume directory when it has one, and
+     * beside the files when it does not (B-150). Exposed so that removing a torrent with its data
+     * removes the record too, wherever it is.
+     */
+    public val resumePath: Path,
 ) : AutoCloseable {
     public val state: StateFlow<SessionState> get() = session.state
 
@@ -267,6 +274,7 @@ public class TorrentRuntime internal constructor(
             listenPort: Int,
             dht: Dht?,
             onResumeFailure: (String) -> Unit = {},
+            resumeDirectory: Path? = null,
         ): TorrentRuntime {
             Files.createDirectories(options.directory)
             val files = FileSet.open(options.directory, metainfo)
@@ -284,6 +292,8 @@ public class TorrentRuntime internal constructor(
             // — dialled here, or accepted by the set and routed to this runtime — serves from it.
             // Until B-110 nothing gave the connections one, and this client never uploaded a block.
             val storage = FileStorage(PieceLayout(metainfo), files, pool)
+            val besideFiles = options.directory.resolve(resumeName(metainfo))
+            val resumePath = resumeDirectory?.resolve("${metainfo.infoHash.hex()}.resume") ?: besideFiles
             val session =
                 Session(
                     metainfo = metainfo,
@@ -316,11 +326,17 @@ public class TorrentRuntime internal constructor(
                             // was then refused on the next start for the piece count — the resume
                             // path doing the right thing with a file it should never have been
                             // handed (B-60).
-                            path = options.directory.resolve(resumeName(metainfo)),
+                            //
+                            // In the set's own directory when it has one (B-150): a download folder
+                            // is the person's, and a `.resume` beside every film in it is litter.
+                            // There the full hash is the whole name; the torrent's name only ever
+                            // helped somebody reading a download folder.
+                            path = resumePath,
                             infoHash = metainfo.infoHash,
                             pieceCount = metainfo.pieceCount,
                             dispatcher = dispatchers.io,
                             onFailure = onResumeFailure,
+                            legacy = besideFiles.takeIf { resumeDirectory != null },
                         ),
                     blocking = dispatchers.io,
                     dht = dht,
@@ -353,6 +369,7 @@ public class TorrentRuntime internal constructor(
                 io = dispatchers.io,
                 options = options,
                 onResumeFailure = onResumeFailure,
+                resumePath = resumePath,
             )
         }
 

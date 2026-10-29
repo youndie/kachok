@@ -35,6 +35,13 @@ checked, and nothing else. Anything it does not vouch for is re-hashed at start-
   `force()` has run — never before, so the record can never claim a piece the page cache still
   holds.
 * A record whose info hash does not match the torrent is refused.
+* **Where it lives** ([B-150](../backlog/B-150-resume-records-live-with-the-client.md)): the window
+  and the MCP engine keep it as `resume/<info hash>.resume` in the client's own directory, beside
+  `torrents/`, so a download folder holds downloads. The engine's default — `kachok download`, and
+  every test — keeps it beside the files as `<name>.<8 hex>.resume`. A record still beside the files
+  from before is read, and deleted once the first save in the client's directory has succeeded.
+  Removing a torrent *with its data* removes its record; removing it from the list alone keeps the
+  record, so adding it again does not hash it all.
 * At start-up, every piece the record does not mark verified is read from disk and hashed; a
   matching hash marks it verified, a mismatch leaves it unrequested. Adding a torrent whose files
   already exist without a record is the same path over every piece.
@@ -100,6 +107,27 @@ start ── read <name>.resume ──▶ hash check of unverified pieces on the
 * **Automated:** `ResumeRecordTest#aRecordForAnotherTorrentIsRefused`
   and `FileResumeStoreTest#aRecordForAnotherTorrentIsIgnoredAndKept` — ignored, and kept: a stray
   file in the user's directory is not this client's to delete.
+
+### Scenario: The window and the MCP engine keep the record out of the download folder
+* **Given:** a set built with a resume directory, and a torrent complete in a download folder.
+* **When:** the torrent is checked, started and stopped.
+* **Then:** its record is `<resume directory>/<info hash>.resume`, and the download folder holds no
+  `.resume` file.
+* **Automated:** `TorrentSetResumeDirectoryTest#theRecordIsKeptInTheSetsDirectoryAndNotBesideTheFiles`
+
+### Scenario: A record left beside the files by an older client is trusted and then moved
+* **Given:** a record beside the files, written by a set with no resume directory, and a byte of
+  the data changed that the record vouches for.
+* **When:** a set with a resume directory adds the torrent, checks it and stops it.
+* **Then:** the torrent is complete — the old record was trusted — the record is in the resume
+  directory, and the old one is gone.
+* **Automated:** `TorrentSetResumeDirectoryTest#aRecordBesideTheFilesIsTrustedAndThenTakenAway`
+
+### Scenario: Removing a torrent with its data takes its record
+* **Given:** two torrents in a set with a resume directory.
+* **When:** one is removed from the list and the other is removed with its progress forgotten.
+* **Then:** the first one's record is still there and the second one's is gone.
+* **Automated:** `TorrentSetResumeDirectoryTest#removingATorrentWithItsDataTakesTheRecordAndWithoutItKeepsIt`
 
 ### Scenario: SIGINT during a download stops cleanly
 * **Given:** a download in progress against a local tracker and fake peers.

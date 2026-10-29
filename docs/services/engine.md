@@ -58,7 +58,7 @@ What exists on `main` today:
 | `.../engine/platform/Sha1.kt` + `engine/src/jvmMain/kotlin/io/github/youndie/kachok/engine/platform/Sha1.jvm.kt` | the one-shot SHA-1 primitive, `expect`/`actual` |
 | `.../engine/wire/` | `Handshake`, the sealed `Message`, `PeerWire` — framing, the identifier table, in-place `piece` decoding |
 | `.../engine/peer/Peer.kt` | `PeerAddress`, `Block`, `PeerEvent`, `PeerConnection` — what the session is allowed to know about a connection |
-| `.../engine/runtime/TorrentSet.kt` (jvmMain) | several torrents in one process: one listener that reads a handshake before it routes it, one DHT, one dispatcher |
+| `.../engine/runtime/TorrentSet.kt` (jvmMain) | several torrents in one process: one listener that reads a handshake before it routes it, one DHT, one dispatcher, and where their resume records live when that is not beside the files (B-150) |
 | `.../engine/runtime/TorrentRuntime.kt` (jvmMain) | one torrent, wired: every interface above meets its JVM implementation here, and both surfaces call it |
 | `engine/src/jvmMain/kotlin/io/github/youndie/kachok/engine/io/BufferPool.kt` | the capped pool of direct 16 KiB buffers and its `PooledBuffer` handle |
 | `.../engine/io/EngineDispatchers.kt` | the virtual-thread dispatcher every coroutine in the engine runs on |
@@ -75,7 +75,7 @@ What exists on `main` today:
 | `.../engine/picker/PiecePicker.kt` | rarest-first with strict priority, the started-piece bound, endgame |
 | `.../engine/choke/Choker.kt`, `RateMeter.kt` | BEP 3's ten-second pass and optimistic unchoke, over a rolling rate window |
 | `.../engine/resume/ResumeRecord.kt` | what survives a restart, bencoded, and the store interface |
-| `.../engine/resume/FileResumeStore.kt` (jvmMain) | a temporary sibling and an `ATOMIC_MOVE` |
+| `.../engine/resume/FileResumeStore.kt` (jvmMain) | a temporary sibling and an `ATOMIC_MOVE`; a record left where it used to be kept is read and removed after the first good save (B-150) |
 | `.../engine/resume/StartupVerifier.kt` | what is already on the disk, before a peer is dialled |
 | `engine/src/jvmTest/kotlin/io/github/youndie/kachok/engine/storage/UploadPathBench.kt` | `transferTo` against a mapped segment on real sockets — research §1.3c |
 | `.../engine/choke/TokenBucket.kt` | the upload and download rate limits, spent by bytes and refilled by the timer |

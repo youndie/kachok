@@ -51,6 +51,16 @@ public class SetOptions(
      * one listener serves every torrent in the set.
      */
     public val encryption: Encryption = Encryption.PREFERRED,
+    /**
+     * Where every torrent of the set keeps its resume record, or null to keep it beside the
+     * torrent's files (B-150).
+     *
+     * Null here and a directory in the products, for the same reason as [dht]: the CLI's MCP
+     * engine and the window keep their records next to the list of torrents they remember, so a
+     * download folder holds downloads; a library, and the tests built on it, write nothing outside
+     * the directory they were given. A record still beside the files is read once and moved.
+     */
+    public val resumeDirectory: Path? = null,
 )
 
 /**
@@ -81,6 +91,8 @@ public class TorrentSet(
 ) : AutoCloseable {
     /** What this process answers a peer that dials it; see [SetOptions.encryption]. */
     private val answeringWith: Encryption = options.encryption
+
+    private val resumeDirectory: Path? = options.resumeDirectory
 
     /**
      * Peers that dialled this process and were turned away before any session saw them.
@@ -311,6 +323,7 @@ public class TorrentSet(
                 listenPort = listenPort,
                 dht = if (metainfo.isPrivate) null else dht,
                 onResumeFailure = onResumeFailure,
+                resumeDirectory = resumeDirectory,
             )
         byInfoHash[key] = runtime
         startAccepting()
@@ -335,11 +348,29 @@ public class TorrentSet(
             .firstNotNullOfOrNull { path -> taken[path]?.let { path to it } }
     }
 
-    /** Stops one torrent and forgets it. The set stays open; the others keep running. */
-    public suspend fun remove(runtime: TorrentRuntime) {
+    /**
+     * Stops one torrent and forgets it. The set stays open; the others keep running.
+     *
+     * With [forgetProgress] its resume record goes too — what a removal *with the data* wants,
+     * because a record vouching for files that are gone vouches for nothing, and in the set's resume
+     * directory nobody would ever see it to delete it (B-150). The stop is waited for first: the
+     * stop is what writes the record, and a record deleted before it was written comes back.
+     */
+    public suspend fun remove(
+        runtime: TorrentRuntime,
+        forgetProgress: Boolean = false,
+    ) {
         byInfoHash.remove(runtime.metainfo.infoHash.hex()) ?: return
         runtime.stop()
+        if (forgetProgress) runtime.awaitStopped()
         runtime.close()
+        if (forgetProgress) {
+            try {
+                Files.deleteIfExists(runtime.resumePath)
+            } catch (undeletable: IOException) {
+                runtime.onResumeFailure("${runtime.resumePath} was not deleted: ${undeletable.message}")
+            }
+        }
     }
 
     /** What [move] did. */
@@ -362,7 +393,8 @@ public class TorrentSet(
      * **The resume record goes with the files, and that is what keeps the progress.** The torrent
      * is stopped first — the stop flushes and writes the record — and the record is moved beside the
      * files, so the start-up check at the new place trusts it the way it trusts it after a restart
-     * and hashes only what it does not vouch for. A move is a restart somewhere else.
+     * and hashes only what it does not vouch for. A move is a restart somewhere else. A record kept
+     * in the set's resume directory (B-150) is not beside the files and stays where it is.
      *
      * **Refused before anything is touched** when the torrent is already there, when a file it would
      * write already exists at the target, when another torrent in this set owns one of those paths,
@@ -392,8 +424,10 @@ public class TorrentSet(
         val candidates =
             // `listOf`, not `+ path`: a `Path` is an `Iterable<Path>`, and adding one to a list adds its
             // name elements — `Users`, `youndie`, … — one by one.
-            (runtime.paths + listOf(from.resolve(TorrentRuntime.resumeName(metainfo))))
-                .map { it.toAbsolutePath().normalize() }
+            (
+                runtime.paths +
+                    listOfNotNull(runtime.resumePath.takeIf { it.toAbsolutePath().normalize().startsWith(from) })
+            ).map { it.toAbsolutePath().normalize() }
                 .map { it to to.resolve(from.relativize(it)) }
         candidates.firstOrNull { Files.exists(it.second) }?.let { (_, target) ->
             throw IllegalArgumentException("$target already exists; nothing was moved")
@@ -466,6 +500,7 @@ public class TorrentSet(
                 listenPort = listenPort,
                 dht = if (metainfo.isPrivate) null else dht,
                 onResumeFailure = runtime.onResumeFailure,
+                resumeDirectory = resumeDirectory,
             )
         byInfoHash[key] = reopened
         return Moved(reopened, paused = state.paused, failure = failure)

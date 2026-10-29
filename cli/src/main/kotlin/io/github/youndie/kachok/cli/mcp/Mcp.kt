@@ -121,7 +121,13 @@ internal object Mcp {
                 TorrentSet(
                     dispatchers = dispatchers,
                     scope = scope,
-                    options = SetOptions(port = options.peerPort, dht = options.dht),
+                    options =
+                        SetOptions(
+                            port = options.peerPort,
+                            dht = options.dht,
+                            // Next to the remembered torrents, not in the download folder (B-150).
+                            resumeDirectory = store?.resolveSibling(RESUME),
+                        ),
                     onBindFailure = { err.appendLine("kachok: $it") },
                 )
             val keeper = store?.let { StoredTorrentsKeeper(it) } ?: McpKeeper.NOTHING
@@ -240,6 +246,7 @@ internal object Mcp {
 
     /** Where the list lives inside the configuration directory: the window's own (B-81). */
     private const val TORRENTS = "torrents"
+    private const val RESUME = "resume"
     private const val ATTACH_RETRIES = 20
     private const val ATTACH_RETRY_MILLIS = 500L
 }

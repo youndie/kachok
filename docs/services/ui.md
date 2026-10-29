@@ -164,7 +164,7 @@ Everything else the client remembers is in the platform's own configuration dire
 | the settings | `settings.properties` | half a second after the last keystroke in the settings screen |
 | the list of torrents | `torrents/<info hash>.torrent` — a **copy**, not a pointer | a torrent is added |
 | each torrent's own choices | `torrents/<info hash>.properties` — name, directory, paused, unwanted files, sequential | added, paused, resumed |
-| which pieces are verified | `<name>.<8 hex>.resume`, **beside the data** and not here | the engine's own rule ([B-23](../backlog/B-23-atomic-resume-file.md)) |
+| which pieces are verified | `resume/<info hash>.resume` — here, and not beside the data since [B-150](../backlog/B-150-resume-records-live-with-the-client.md) | the engine's own rule ([B-23](../backlog/B-23-atomic-resume-file.md)) |
 
 Every one of these is written to a neighbour and moved into place: a file half-written by a process
 that was killed reads as nonsense on the next start, and the move is the one operation the
