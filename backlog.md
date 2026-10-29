@@ -60,7 +60,7 @@ which is also the order of work.
 | [B-87](docs/backlog/B-87-a-server-with-a-web-face.md) `[ ]` | Phase 3: a headless server with a web face, installable on a box that is always on | P3 | XL | B-80 |
 | [B-02](docs/backlog/B-02-ci-runs-build-and-docs-gates.md) `[ ]` | CI runs the build and the documentation gates on every push | infra | S | B-01 |
 
-## Closed (141)
+## Closed (142)
 
 **M0 — The build and its gates**
 
@@ -91,6 +91,7 @@ which is also the order of work.
 - [B-146](docs/backlog/B-146-files-are-sparse-on-windows.md) `[x]` - On Windows a torrent's files are created sparse, so a write deep into a fresh file costs that write
 - [B-147](docs/backlog/B-147-a-closed-connection-keeps-its-buffers.md) `[x]` - A connection closed while its block waited for the session kept the block's pool buffer
 - [B-148](docs/backlog/B-148-a-second-copy-of-a-block-holds-a-buffer.md) `[x]` - A second copy of a block that arrived before its piece's verdict held a pool buffer for good
+- [B-149](docs/backlog/B-149-a-torrent-skipping-a-file-reads-downloading-after-a-restart.md) `[x]` - A torrent with every wanted file on the disk read 'downloading' after a restart when it skipped a file
 
 **M4 — A download, end to end**
 

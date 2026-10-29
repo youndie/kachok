@@ -387,7 +387,10 @@ public class Session(
                 // it is skipping; the picker counts it in pieces, the unit it is paid off in.
                 left = picker.left,
                 uploaded = record?.uploaded ?: 0,
-                isComplete = verified.isComplete,
+                // The picker's too, for the same reason: done is having every wanted piece. The
+                // bitfield's own answer counts the skipped files, and a torrent that skips one
+                // then read `left 0 B` and *downloading* for good (B-149).
+                isComplete = picker.isComplete,
                 verifiedPieces = metainfo.pieceCount,
                 verifyingOf = metainfo.pieceCount,
                 sequential = sequential,
