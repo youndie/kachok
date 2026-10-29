@@ -327,6 +327,19 @@ public class PiecePicker(
     }
 
     /**
+     * Whether this block has already come for a piece still open — a second copy, which endgame
+     * asks for on purpose.
+     *
+     * Asked before [blockReceived], because the answer is what tells the session not to hand the
+     * copy to the writer. [completed] cannot: it is set when the writer's verdict is read, and both
+     * copies can be in hand before then (B-148).
+     */
+    public fun alreadyReceived(
+        piece: PieceIndex,
+        begin: Int,
+    ): Boolean = started[piece.value]?.has(begin / PeerWire.BLOCK_SIZE) == true
+
+    /**
      * Frees every block asked before [beforeMillis] and says whom it was asked of.
      *
      * **Without this a real download stops.** A peer that takes a request and answers nothing —
@@ -628,6 +641,8 @@ public class PiecePicker(
         fun hasUnrequested(): Boolean = (0 until blocks).any { !received[it] && askedOf[it].isNullOrEmpty() }
 
         fun hasMissing(): Boolean = (0 until blocks).any { !received[it] }
+
+        fun has(block: Int): Boolean = block in 0 until blocks && received[block]
 
         /** The first block nobody has been asked for, now asked of [peer]. */
         fun takeUnrequested(

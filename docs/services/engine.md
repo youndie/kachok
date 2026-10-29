@@ -221,7 +221,10 @@ them. Nothing is read from the environment by this module; that is [cli](cli.md)
   incoming queue releases a block whose send was cancelled or met a closed queue, and the session
   drains the events it left unread when a peer's loop ends. A buffer lost on either path is lost
   for the life of the torrent, and a pool that loses them one at a time stops every download of the
-  process at once, with peers connected and requests out (B-147).
+  process at once, with peers connected and requests out (B-147). A second copy of a block is
+  dropped by the session when the picker says it was received already, not only when its piece is
+  verified: the writer may have completed the piece in between, and the copy would start an entry
+  nothing completes (B-148).
 * **A connection ending is an event, never a thrown exception.** `SocketPeerConnection` reports
   `PeerEvent.Closed` and does not rethrow: under a `SupervisorJob` a throw goes to the platform's
   uncaught-exception path, and the commonest cause is our own `close()`.
