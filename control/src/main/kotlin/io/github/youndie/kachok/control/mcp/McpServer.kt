@@ -415,6 +415,9 @@ public class McpServer(
                         state.upBytesPerSecond,
                     )}/s, peers ${state.connectedPeers} connected of ${state.knownPeers} known, ${state.outstandingRequests} requests out",
                 )
+                // The number that tells a pool running dry from a swarm with nothing to give: both
+                // read 0 B/s with peers connected (B-147).
+                appendLine("buffers: ${runtime.pool.outstanding} of ${runtime.pool.capacity} on loan")
                 state.trackerError?.let { appendLine("tracker: $it") }
                 state.lastPeerError?.let { appendLine("last peer error: $it") }
                 state.sessionError?.let { appendLine("session error: $it") }

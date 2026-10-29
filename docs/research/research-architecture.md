@@ -948,6 +948,21 @@ flow control the download path has. The reader therefore has exactly one suspens
 one place where waiting is the correct behaviour; everything else in the loop blocks. See the
 knock-on correction in D2.
 
+**Second correction: two suspension points, and the second one holds a buffer**
+([B-147](../backlog/B-147-a-closed-connection-keeps-its-buffers.md)). "Exactly one" was not true
+either: handing the event to the session is `incoming.send` on a queue of 64, and it suspends
+whenever the session is behind — which it is for as long as the writer waits on the disk. A block
+waits there in its pooled buffer, and a connection closed at that moment cancelled the send and
+kept the buffer: a closed or cancelled `Channel.send` does not hand its element to anybody. The
+same was true of the events a session left unread when its loop for a peer ended on an exception.
+Neither is visible as a failure — the pool works until its last buffer, and then every reader waits
+in `acquire`, no socket is read, and every torrent of the process stands at 0 B/s with peers
+connected and requests out. Seen on Windows after a night of writer stalls (B-146): nine torrents,
+seven hours, 96 requests out on one of them, the D: disk idle and six of 39 readers in a socket
+read — the rest suspended. The working replacement: the incoming queue releases an undelivered
+block itself (`onUndeliveredElement`), and the session drains what it did not read when a
+connection's loop ends.
+
 ### D2. `ScopedValue` is allowed in the blocking loops only *(deviation from the brief)*
 
 Brief: `ScopedValue` instead of `ThreadLocal` for the session context.

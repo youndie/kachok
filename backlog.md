@@ -60,7 +60,7 @@ which is also the order of work.
 | [B-87](docs/backlog/B-87-a-server-with-a-web-face.md) `[ ]` | Phase 3: a headless server with a web face, installable on a box that is always on | P3 | XL | B-80 |
 | [B-02](docs/backlog/B-02-ci-runs-build-and-docs-gates.md) `[ ]` | CI runs the build and the documentation gates on every push | infra | S | B-01 |
 
-## Closed (139)
+## Closed (140)
 
 **M0 — The build and its gates**
 
@@ -89,6 +89,7 @@ which is also the order of work.
 - [B-13](docs/backlog/B-13-hashing-dispatcher.md) `[x]` - Whole-piece SHA-1 on a bounded dispatcher with one MessageDigest per thread
 - [B-14](docs/backlog/B-14-deferred-force-timer.md) `[x]` - force() on a timer and at close, not per piece
 - [B-146](docs/backlog/B-146-files-are-sparse-on-windows.md) `[x]` - On Windows a torrent's files are created sparse, so a write deep into a fresh file costs that write
+- [B-147](docs/backlog/B-147-a-closed-connection-keeps-its-buffers.md) `[x]` - A connection closed while its block waited for the session kept the block's pool buffer
 
 **M4 — A download, end to end**
 

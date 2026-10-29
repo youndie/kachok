@@ -11,8 +11,10 @@ import io.github.youndie.kachok.engine.wire.WireException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withTimeoutOrNull
 import java.nio.ByteBuffer
 import kotlin.test.AfterTest
 import kotlin.test.Test
@@ -145,6 +147,42 @@ class SocketPeerConnectionTest {
                 pooledBlock.release()
                 assertEquals(0, pool.outstanding)
                 connection.close()
+            }
+        }
+
+    /**
+     * B-147: a block the reader holds while it waits for the session goes back to the pool when
+     * the connection closes. Sixty-four keep-alives fill the queue nobody is reading, so the block
+     * behind them is read into a buffer and waits in `send` — the state every connection of a
+     * session is in while its writer waits on the disk. Before the fix the close kept that buffer.
+     */
+    @Test
+    fun aBlockWaitingForTheSessionGoesBackToThePoolWhenTheConnectionCloses(): Unit =
+        runBlocking {
+            val pool = BufferPool(capacity = 4)
+            FakePeer(
+                infoHash = infoHash,
+                afterHandshake = { socket ->
+                    repeat(QUEUED_AHEAD) { FakePeer.write(socket, PeerWire.encode(Message.KeepAlive)) }
+                    FakePeer.write(socket, PeerWire.encodePieceHeader(PieceIndex(0), 0, PeerWire.BLOCK_SIZE))
+                    FakePeer.write(socket, ByteArray(PeerWire.BLOCK_SIZE))
+                    FakePeer.park(socket)
+                },
+            ).use { peer ->
+                val connection = SocketPeerConnection.connect(scope, peer.address, infoHash, peerId, pool, NoBlocks)
+                withTimeout(TIMEOUT) {
+                    while (pool.outstanding < 1) delay(1)
+                }
+                connection.close()
+                withTimeout(TIMEOUT) {
+                    for (event in connection.events) {
+                        // The keep-alives, which a closed queue still hands over.
+                    }
+                }
+                withTimeoutOrNull(TIMEOUT) {
+                    while (pool.outstanding > 0) delay(1)
+                }
+                assertEquals(0, pool.outstanding, "the buffer of a block nobody took stayed on loan")
             }
         }
 
@@ -323,6 +361,9 @@ class SocketPeerConnectionTest {
     private companion object {
         const val TIMEOUT = 10_000L
         const val CONNECTIONS = 1000
+
+        /** The incoming queue's capacity: this many unread events, and the next send waits. */
+        const val QUEUED_AHEAD = 64
 
         /**
          * The carrier pool is sized to the processors and may add a few threads for reasons that

@@ -1353,6 +1353,34 @@ class SessionTest {
             job.cancelAndJoin()
         }
 
+    /**
+     * B-147: a peer whose message throws ends its event loop, and the blocks it had queued behind
+     * that message go back to the pool rather than staying in a closed channel nobody reads.
+     */
+    @Test
+    fun aBlockQueuedBehindAMessageThatEndsThePeerIsReleased(): Unit =
+        runTest {
+            val metainfo = torrent(pieces = 4)
+            val dialer = FakeDialer(metainfo.infoHash)
+            val session =
+                session(metainfo, dialer, FakeTracker(listOf(peerA)), FakeStorage(), AgreeableHasher(metainfo))
+
+            val job = session.start(kotlinx.coroutines.CoroutineScope(coroutineContext + handler))
+            testScheduler.runCurrent()
+
+            val connection = dialer.connections.getValue(peerA)
+            // Four pieces are one byte of bitfield; three bytes is a peer the picker refuses.
+            connection.incoming.send(PeerEvent.Received(Message.Bitfield(ByteArray(3))))
+            val unread = FakeBlock(PieceIndex(1), 0, PeerWire.BLOCK_SIZE)
+            connection.incoming.send(PeerEvent.BlockReceived(unread))
+            testScheduler.runCurrent()
+
+            assertEquals(0, session.state.value.connectedPeers, "the malformed bitfield did not end the peer")
+            assertTrue(unread.released, "the block behind it stayed out of the pool")
+
+            job.cancelAndJoin()
+        }
+
     @Test
     fun aVerifiedPieceIsAnnouncedToEveryPeerAndCountedOnce() =
         runTest {
