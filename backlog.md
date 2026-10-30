@@ -48,7 +48,7 @@ which is also the order of work.
 
 <!-- BEGIN INDEX -->
 
-## Open (13)
+## Open (12)
 
 | Task | | Priority | Size | Blocked by |
 |---|---|---|---|---|
@@ -57,7 +57,6 @@ which is also the order of work.
 | [B-163](docs/backlog/B-163-an-aot-cache-is-opened-before-it-is-refused.md) `[ ]` | The AOT checks look for a line the VM prints before it refuses the cache | P2 | S | - |
 | [B-80](docs/backlog/B-80-the-ui-moves-to-commonmain.md) `[~]` | The UI moves to commonMain | P2 | L | B-79 |
 | [B-156](docs/backlog/B-156-the-desktop-runtime-is-compressed.md) `[?]` | The desktop runtime is linked compressed, as the CLI's already is | P3 | S | - |
-| [B-158](docs/backlog/B-158-conveyor-as-the-packager.md) `[?]` | Decide whether Conveyor replaces jpackage as the desktop packager | P3 | M | - |
 | [B-161](docs/backlog/B-161-the-material-kit-takes-its-colours-from-a-seed.md) `[ ]` | The Material kit takes its colours from a seed the person picks, through MaterialKolor | P3 | M | B-159 |
 | [B-162](docs/backlog/B-162-the-oldge-ui-kit-offers-its-skins.md) `[ ]` | The oldge-ui kit offers its skins as its colour choice | P3 | S | B-160 |
 | [B-37](docs/backlog/B-37-v2-and-hybrid-torrents.md) `[?]` | v2 and hybrid torrents (BEP 52): SHA-256 piece layers | P3 | L | B-04 |
@@ -66,7 +65,7 @@ which is also the order of work.
 | [B-87](docs/backlog/B-87-a-server-with-a-web-face.md) `[ ]` | Phase 3: a headless server with a web face, installable on a box that is always on | P3 | XL | B-80 |
 | [B-02](docs/backlog/B-02-ci-runs-build-and-docs-gates.md) `[ ]` | CI runs the build and the documentation gates on every push | infra | S | B-01 |
 
-## Closed (150)
+## Closed (151)
 
 **M0 — The build and its gates**
 
@@ -189,6 +188,7 @@ which is also the order of work.
 - [B-144](docs/backlog/B-144-the-toolbar-says-what-its-buttons-do.md) `[x]` - The toolbar's icon buttons say what they do on hover, and Force re-announce is one of them
 - [B-145](docs/backlog/B-145-a-speed-says-its-unit.md) `[x]` - A speed says its unit: scaled B/s, KiB/s, MiB/s instead of a bare number of KiB/s
 - [B-155](docs/backlog/B-155-the-desktop-distribution-ships-shrunk-classes.md) `[x]` - The desktop distribution ships its classes through ProGuard, and the preflight checks that image
+- [B-158](docs/backlog/B-158-conveyor-as-the-packager.md) `[-]` - Decide whether Conveyor replaces jpackage as the desktop packager
 - [B-159](docs/backlog/B-159-the-screens-draw-through-a-kit-not-through-material.md) `[x]` - The screens draw through a kit of their own, and Material becomes one implementation of it
 - [B-160](docs/backlog/B-160-oldge-ui-is-a-kit-the-window-can-wear.md) `[x]` - oldge-ui is a second kit, and the settings choose between the two
 - [B-39](docs/backlog/B-39-compose-ui-desktop.md) `[x]` - Phase 2: a Compose Multiplatform desktop UI on the engine's StateFlow
