@@ -1,7 +1,7 @@
 ---
 id: B-161
 title: "The Material kit takes its colours from a seed the person picks, through MaterialKolor"
-status: open
+status: wip
 priority: P3
 size: M
 stage: phase-2-ui
