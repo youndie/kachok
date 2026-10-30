@@ -52,7 +52,8 @@ class DistributionDownloadTest {
             val window =
                 ProcessBuilder(launcher)
                     .apply {
-                        environment()["JAVA_TOOL_OPTIONS"] = "-Duser.home=$home"
+                        environment()["JAVA_TOOL_OPTIONS"] =
+                            listOfNotNull("-Duser.home=$home", System.getProperty(JVM_OPTIONS)).joinToString(" ")
                         environment()["XDG_CONFIG_HOME"] = home.resolve(".config").toString()
                         environment()["APPDATA"] = home.resolve("AppData").toString()
                         redirectErrorStream(true)
@@ -162,9 +163,14 @@ class DistributionDownloadTest {
 
     private companion object {
         const val LAUNCHER = "kachok.launcher"
+
+        /** More for the window's VM — how `:ui:aotCache` trains the cache through this run. */
+        const val JVM_OPTIONS = "kachok.jvmOptions"
         const val START_SECONDS = 90L
         const val WAIT_SECONDS = 60
-        const val STOP_SECONDS = 10L
+
+        // Long enough for a training run: the VM writes its AOT cache on the way out, and that takes seconds.
+        const val STOP_SECONDS = 120L
         const val POLL_MILLIS = 250L
     }
 }

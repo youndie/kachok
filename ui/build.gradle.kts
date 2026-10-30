@@ -453,6 +453,7 @@ val checkDownload by tasks.registering(Test::class) {
     classpath = desktopTests.get().classpath
     filter { includeTestsMatching("*.DistributionDownloadTest") }
     systemProperty("kachok.launcher", distributionLauncher.get().asFile.absolutePath)
+    providers.gradleProperty("kachok.jvmOptions").orNull?.let { systemProperty("kachok.jvmOptions", it) }
     inputs.dir(layout.buildDirectory.dir("compose/binaries/main-release/app"))
 }
 

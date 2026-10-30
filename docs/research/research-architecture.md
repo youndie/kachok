@@ -669,6 +669,53 @@ server and its serialisation — is outside it. `:ui:checkDownload` starts the p
 has its MCP server download a megabyte from `LocalSwarm`; it passed on all three runners and on the
 Linux box under WSLg, and fails against a seed that refuses (measured, as the mutation check).
 
+### 1.3h The window's AOT cache: what it buys, and why the installers would refuse it
+
+Measured on 2026-10-30 for [B-157](../backlog/B-157-the-desktop-distribution-ships-an-aot-cache.md),
+on the Linux box (x64, Ubuntu's `openjdk-25` 25.0.4.1, WSLg display), against the release app image
+at `292786f`.
+
+**Training.** `:ui:checkDownload` with `-Pkachok.jvmOptions=-XX:AOTCacheOutput=<file>` — the packaged
+window started, a megabyte downloaded through its MCP server, SIGTERM. That run wrote the
+*configuration* (57 MB) and no cache: the one-step workflow assembles the cache in a child JVM, and
+the image has no `java` to start one, because Compose links it with `--strip-native-commands`. The
+second step through the image's own launcher works —
+`JAVA_TOOL_OPTIONS="-XX:AOTMode=create -XX:AOTConfiguration=… -XX:AOTCache=…" bin/kachok` printed
+`AOTCache creation is complete`, **62.6 MB**, and exited without opening a window.
+
+**What it buys.** `scripts/aot_startup.py`, ten interleaved pairs after a discarded warm-up of each,
+from launch to the lock answering `kachok/mcp` — the engine exists, which is after the first
+composition:
+
+| | min | median | max |
+|---|---|---|---|
+| no cache | 924 ms | 1169 ms | 1403 ms |
+| the cache | 359 ms | **413 ms** | 826 ms |
+
+Every run with the cache mapped it (one of them read back with `-Xlog:aot`: no warning, no error).
+**Two thirds of the start**, against 32–51 % for the CLI in §1.2a2 — a window loads far more classes
+before it is useful, and they are what the cache holds.
+
+**Why it does not reach a user as things are.** Compose's package tasks do not package the app image
+the cache was trained on: `packageReleaseDeb` copies the jars again into a directory of its own, and
+the copies have new modification times (19:10:26 in the `.deb`, 19:10:39 in the image, same names,
+same sizes). The cache trained on the image, given to the launcher extracted from the `.deb`:
+
+    [info ][aot] Opened AOT cache /tmp/b157/kachok.aot.
+    [warning][aot] This file is not the one used while building the AOT cache: '…/ui-desktop-0.1.0-SNAPSHOT.jar', timestamp has changed
+    [error  ][aot] shared class paths mismatch …
+    [error  ][aot] Unable to map shared spaces
+
+**Consequence 1 — `Opened AOT cache` is printed before the refusal, so it proves nothing.** The line
+B-28's check and `verify_runtime_image.sh` look for is the first line of a *failed* mapping as much
+as of a successful one. Filed as [B-163](../backlog/B-163-an-aot-cache-is-opened-before-it-is-refused.md).
+
+**Consequence 2 — a cache in an installer has to be trained on that installer's files.** Not on
+the image beside it: after packaging, on what the package will put on the disk, and then put back
+into the same package — per format, because each copies differently (the `.deb` by `dpkg-deb`, as
+`patchDesktopEntry` already does; the `.dmg` by `hdiutil`; the `.msi` from a cabinet whose times
+have a resolution of two seconds). Whether the 750 ms is worth that and 63 MB is B-157's question.
+
 ### 1.3a Sparse files: the mechanism is not interchangeable
 
 Measured on this machine (macOS 27, APFS, JDK 25.0.2, 2026-09-05) by creating a 4 MB file four
