@@ -65,6 +65,8 @@ kotlin {
                 implementation(compose.components.resources)
                 // The second kit (B-160): `ui/theme/oldge/` draws the window in oldge-ui.
                 implementation(libs.oldge.core)
+                // The Material kit's colours from a seed (B-161), named only in `ui/theme/material/`.
+                implementation(libs.materialkolor)
             }
         }
         val desktopMain by getting {

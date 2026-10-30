@@ -147,7 +147,7 @@ class RowColorsTest {
     private fun color(
         model: TorrentRowModel,
         cell: RowCell,
-    ) = rowColor(model, cell, MaterialKit.colors)
+    ) = rowColor(model, cell, MaterialKit.Default.colors)
 
     private fun Color.hex(): String = "%08X".format(toArgb())
 

@@ -257,6 +257,16 @@ class WiringTest {
                             .performClick()
                     }
 
+                    // A swatch row (B-161) reports a swatch, and its styles a segment, each only
+                    // for one that is not already chosen.
+                    setting.swatches != null -> {
+                        val swatch = setting.swatches.first { it.value != setting.swatch }
+                        onNodeWithContentDescription(swatch.label).performScrollTo().performClick()
+                        setting.choices?.first { it.value != setting.value }?.let { other ->
+                            onNodeWithText(other.label).performScrollTo().performClick()
+                        }
+                    }
+
                     // A choice reports only a segment that is not already chosen.
                     setting.choices != null -> {
                         val other = setting.choices.first { it.value != setting.value }
@@ -420,5 +430,6 @@ class WiringTest {
             is SettingChange.Toggled -> key
             is SettingChange.Typed -> key
             is SettingChange.Chose -> key
+            is SettingChange.Swatched -> key
         }
 }

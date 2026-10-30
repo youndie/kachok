@@ -28,7 +28,7 @@ internal const val INTERFACE_SCALE: Float = 1.20f
  */
 @Composable
 internal fun KachokTheme(
-    kit: KachokKit = MaterialKit,
+    kit: KachokKit = MaterialKit.Default,
     content: @Composable () -> Unit,
 ) {
     val density = LocalDensity.current

@@ -22,7 +22,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.CornerRadius
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.semantics.contentDescription
@@ -142,7 +141,7 @@ internal fun AddTorrentDialog(
         modifier
             .width(DIALOG_WIDTH)
             .background(scheme.raisedHigh, RoundedCornerShape(6.dp))
-            .border(HAIRLINE, DIALOG_BORDER, RoundedCornerShape(6.dp)),
+            .border(HAIRLINE, scheme.dialogBorder, RoundedCornerShape(6.dp)),
     ) {
         Text(
             "Add torrent",
@@ -487,7 +486,7 @@ internal fun ClipboardMagnetPrompt(
         modifier
             .fillMaxWidth()
             .background(scheme.raisedHighest, RoundedCornerShape(4.dp))
-            .border(HAIRLINE, DIALOG_BORDER, RoundedCornerShape(4.dp))
+            .border(HAIRLINE, scheme.dialogBorder, RoundedCornerShape(4.dp))
             .padding(horizontal = 12.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(11.dp),
@@ -531,9 +530,6 @@ internal fun ClipboardMagnetPrompt(
 }
 
 private val DIALOG_WIDTH = 520.dp
-
-/** One step above `outline`: the dialog sits on the raised surface and needs an edge on it. */
-private val DIALOG_BORDER = Color(0xFF303836)
 
 private val EDGE = 20.dp
 

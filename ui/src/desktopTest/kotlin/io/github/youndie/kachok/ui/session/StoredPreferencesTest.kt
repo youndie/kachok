@@ -1,7 +1,10 @@
 package io.github.youndie.kachok.ui.session
 
+import androidx.compose.ui.graphics.Color
 import io.github.youndie.kachok.ui.settings.SettingKey
 import io.github.youndie.kachok.ui.theme.InterfaceKit
+import io.github.youndie.kachok.ui.theme.material.MaterialColours
+import io.github.youndie.kachok.ui.theme.material.SchemeStyle
 import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.io.path.deleteRecursively
@@ -78,6 +81,58 @@ class StoredPreferencesTest {
     fun aFileWithNoKitKeepsTheDefault() {
         file.writeText("directory=/srv/torrents\n")
         assertEquals(InterfaceKit.Material, loadPreferences(file, defaults).interfaceKit)
+    }
+
+    /** The seed and the style somebody picked are what the next launch draws in (B-161). */
+    @Test
+    fun theChosenColoursComeBack() {
+        savePreferences(
+            file,
+            defaults
+                .swatched(SettingKey.Colours, "#A78BFA")
+                .chose(SettingKey.Colours, SchemeStyle.Vibrant.stored),
+        )
+        val read = loadPreferences(file, defaults)
+        assertEquals(MaterialColours(Color(0xFFA78BFA), SchemeStyle.Vibrant), read.materialColours)
+        assertTrue("colourSeed=\\#A78BFA" in Files.readString(file), Files.readString(file))
+    }
+
+    /**
+     * A seed that is not `#RRGGBB` is the design's teal, and the rest of the file — the style
+     * included — is still read. Against a fallback that is not the teal, so a reader that merely
+     * ignored the bad value would fail here.
+     */
+    @Test
+    fun aMalformedSeedIsTheDesignsTeal() {
+        val violet = defaults.copy(materialColours = MaterialColours(Color(0xFFA78BFA), SchemeStyle.Neutral))
+        listOf("teal", "#4FD9C", "#4FD9C2FF", "4FD9C2", "#GG0000", "#-12345").forEach { bad ->
+            file.writeText("colourSeed=$bad\ncolourStyle=expressive\ndirectory=/srv/torrents\n")
+            val read = loadPreferences(file, violet)
+            assertEquals(MaterialColours.DESIGN_SEED, read.materialColours.seed, "seed '$bad'")
+            assertEquals(SchemeStyle.Expressive, read.materialColours.style, "the style beside '$bad'")
+            assertEquals("/srv/torrents", read.directory)
+        }
+    }
+
+    /** A style this build does not know — a newer build's — is the design's, and the seed survives. */
+    @Test
+    fun anUnknownStyleIsTheDesigns() {
+        file.writeText("colourSeed=#f39a5b\ncolourStyle=a-style-from-a-newer-build\n")
+        val read =
+            loadPreferences(
+                file,
+                defaults.copy(materialColours = MaterialColours(Color(0xFFA78BFA), SchemeStyle.Vibrant)),
+            )
+        assertEquals(MaterialColours(Color(0xFFF39A5B), SchemeStyle.TonalSpot), read.materialColours)
+    }
+
+    /** A file from before the setting existed keeps whatever the caller would have had. */
+    @Test
+    fun aFileWithNoColoursKeepsTheFallback() {
+        file.writeText("directory=/srv/torrents\n")
+        val violet = MaterialColours(Color(0xFFA78BFA), SchemeStyle.Neutral)
+        assertEquals(violet, loadPreferences(file, defaults.copy(materialColours = violet)).materialColours)
+        assertEquals(MaterialColours.DEFAULT, loadPreferences(file, defaults).materialColours)
     }
 
     /**

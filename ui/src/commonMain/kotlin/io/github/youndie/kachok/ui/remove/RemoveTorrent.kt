@@ -13,7 +13,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
@@ -69,7 +68,7 @@ internal fun RemoveTorrentDialog(
         modifier
             .width(DIALOG_WIDTH)
             .background(scheme.raisedHigh, RoundedCornerShape(6.dp))
-            .border(HAIRLINE, DIALOG_BORDER, RoundedCornerShape(6.dp)),
+            .border(HAIRLINE, scheme.dialogBorder, RoundedCornerShape(6.dp)),
     ) {
         Text(
             "Remove torrent",
@@ -144,8 +143,6 @@ internal fun RemoveTorrentDialog(
 internal const val DELETE_DATA: String = "Delete the downloaded data"
 
 private val DIALOG_WIDTH = 420.dp
-
-private val DIALOG_BORDER = Color(0xFF303836)
 
 private val EDGE = 20.dp
 

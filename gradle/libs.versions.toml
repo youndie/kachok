@@ -22,10 +22,18 @@ appframe = "0.1.24"
 # reposilite's snapshots only, as `<version>.<run>` from every push to its main; pinned to one run,
 # because a snapshot line that moved under a golden is a golden that fails for no change here.
 oldge = "0.1.1.14"
+# The Material kit's scheme from a seed (B-161): Google's material-color-utilities ported to Compose.
+# Upstream, from Maven Central — not the portfolio's `io.github.youndie.materialkolor` fork, which
+# exists for a `linuxX64` target and carries only the utilities. 5.0.1 because its JVM module was
+# built against what this build resolves: Compose 1.12.0 and material3 1.12.0-alpha03 (Compose
+# Multiplatform 1.12.1 here) on Kotlin 2.4.10, read off `material-kolor-jvm-5.0.1.module`; 5.0.0
+# was built against Compose 1.11.1 and 4.x against Kotlin 2.3.
+materialkolor = "5.0.1"
 
 [libraries]
 appframe = { module = "io.github.youndie:appframe-desktop", version.ref = "appframe" }
 oldge-core = { module = "io.github.youndie:oldge-core", version.ref = "oldge" }
+materialkolor = { module = "com.materialkolor:material-kolor", version.ref = "materialkolor" }
 
 [plugins]
 sborkaBase = { id = "io.github.youndie.sborka.base", version.ref = "sborka" }
