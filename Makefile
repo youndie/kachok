@@ -109,6 +109,12 @@ gate: docs-gate
 	if [ -n "$$bad$$oldge" ]; then \
 		echo "outside ui/theme/material/, these name Material 3 or its palette instead of the kit:"; echo "$$bad$$oldge"; exit 1; \
 	fi
+	@# MaterialKolor is the Material kit's generator and nobody else's (B-161): a screen that built a
+	@# scheme of its own from a seed would draw a second Material kit beside the chosen one.
+	@mk=$$(grep -rlE 'com\.materialkolor' --include='*.kt' ui/src/commonMain ui/src/desktopMain | awk '!/\/theme\/material\//'); \
+	if [ -n "$$mk" ]; then \
+		echo "outside ui/theme/material/, these name MaterialKolor:"; echo "$$mk"; exit 1; \
+	fi
 	@# The UI's goldens, on the machine that recorded them — **and the condition is the machine, not
 	@# the directory**. This used to ask whether `snapshots/` exists, which is true everywhere the
 	@# repository is checked out: the first CI run on Linux therefore compared macOS pictures against

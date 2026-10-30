@@ -371,6 +371,10 @@ internal fun kachokColorsOf(o: OldgeColors): KachokColors =
         neutralCard = o.surface2,
         tooltip = o.balloon,
         onTooltip = o.onBalloon,
+        // The values the screens drew as literals before B-161 made them roles, kept as they were so
+        // this kit's goldens did not move; mixing them from the skin is B-162's, with the skins.
+        footnoteGround = Color(0xFF111716),
+        dialogBorder = Color(0xFF303836),
     )
 
 /**

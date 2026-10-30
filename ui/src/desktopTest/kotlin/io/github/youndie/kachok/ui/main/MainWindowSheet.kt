@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.rememberWindowState
@@ -20,6 +21,9 @@ import io.github.youndie.kachok.ui.details.DetailsTab
 import io.github.youndie.kachok.ui.session.Rates
 import io.github.youndie.kachok.ui.session.detailsOf
 import io.github.youndie.kachok.ui.theme.KachokTheme
+import io.github.youndie.kachok.ui.theme.material.MaterialColours
+import io.github.youndie.kachok.ui.theme.material.MaterialKit
+import io.github.youndie.kachok.ui.theme.material.SchemeStyle
 import io.github.youndie.kachok.ui.theme.oldge.OldgeKit
 import io.github.youndie.viddik.annotations.ViddikScreenshot
 
@@ -100,6 +104,55 @@ internal fun MainWindowOldgeSheet() {
                                 row
                             }
                         },
+                    status = designStatus,
+                    degradedSummary = DEGRADED_SUMMARY,
+                    degradedDetail = DEGRADED_DETAIL,
+                    details = designDetails(),
+                ),
+            )
+        }
+    }
+}
+
+/**
+ * The whole window in a seed the person picked (B-161): violet, under the default style.
+ *
+ * The design's own rows — downloading, seeding, checking, stopping, an error, the selected one —
+ * so the picture answers what a seed must not change: three text levels apart, the error row red,
+ * checking and stopping amber, the selected row readable in the new accent.
+ */
+@ViddikScreenshot(name = "window-violet", group = "main", width = 1440, height = 912)
+@Composable
+internal fun MainWindowVioletSheet() {
+    SeededWindow(MaterialColours(Color(0xFFA78BFA), SchemeStyle.TonalSpot))
+}
+
+/** And orange under *Vibrant*: the seed nearest the warning amber the swatches offer, at its loudest. */
+@ViddikScreenshot(name = "window-orange", group = "main", width = 1440, height = 912)
+@Composable
+internal fun MainWindowOrangeSheet() {
+    SeededWindow(MaterialColours(Color(0xFFF39A5B), SchemeStyle.Vibrant))
+}
+
+@Composable
+private fun SeededWindow(colours: MaterialColours) {
+    KachokTheme(kit = MaterialKit.of(colours)) {
+        Column(Modifier.fillMaxSize().background(KachokTheme.colors.surface)) {
+            TitleBar(
+                state = rememberWindowState(size = DpSize(1200.dp, 760.dp)),
+                onCloseRequest = {},
+                title = "kachok",
+                style = KACHOK_TITLE_BAR.copy(cornerRadius = 0.dp),
+            )
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .height(1.dp)
+                    .background(KachokTheme.colors.raisedHigh),
+            )
+            MainWindow(
+                MainWindowState(
+                    torrents = designTorrents,
                     status = designStatus,
                     degradedSummary = DEGRADED_SUMMARY,
                     degradedDetail = DEGRADED_DETAIL,

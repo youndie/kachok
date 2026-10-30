@@ -1,6 +1,7 @@
 package io.github.youndie.kachok.ui.theme.material
 
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
@@ -22,67 +23,59 @@ import io.github.youndie.kachok.ui.theme.KachokKit
 import io.github.youndie.kachok.ui.theme.KachokType
 
 /**
- * The design as it was drawn: a dark Material 3 scheme, read off the design's swatch row, with the
- * roles Material does not ship beside it.
+ * The design as it was drawn — a dark Material 3 scheme, read off the design's swatch row, with the
+ * roles Material does not ship beside it — or that design in a seed the person picked (B-161).
+ *
+ * **[Default] is the hand-written scheme, not a generated one.** `KachokDarkColors` and
+ * `KachokPalette` were read off the design and are the reference; the design's teal under
+ * [SchemeStyle.TonalSpot] draws them exactly, so the first frame after the seed setting arrived is
+ * the frame before it. Every other [MaterialColours] is MaterialKolor's scheme for that seed, with
+ * this design's roles placed in it the way they sit in the teal (`SeededDesign.kt`).
  *
  * **One of the two places in the module that name `androidx.compose.material3`** — `make check`
  * greps for it everywhere else (B-159); the other is the oldge kit, for the scheme `AppFrame` reads
  * (B-160). A screen that reached for `MaterialTheme` directly would draw the
  * same thing under this kit and the wrong thing under any other, and nothing would say so until
- * somebody switched.
+ * somebody switched. `com.materialkolor` is named in this directory only, for the same reason.
+ *
+ * **Equal by its colours.** The kit is a static composition local, and a new kit that is not equal
+ * to the old one redraws the whole window — which is the point when the person picks a seed and a
+ * waste on every other recomposition of the root. [of] hands back the same instance for the same
+ * colours, and two instances for one choice compare equal anyway.
  */
-internal object MaterialKit : KachokKit {
-    override val colors: KachokColors =
-        KachokDarkColors.let { scheme ->
-            KachokColors(
-                accent = scheme.primary,
-                onAccent = scheme.onPrimary,
-                accentContainer = scheme.primaryContainer,
-                onAccentContainer = scheme.onPrimaryContainer,
-                accentBright = KachokPalette.primaryBright,
-                accentContainerHigh = KachokPalette.primaryContainerHigh,
-                text = scheme.onSurface,
-                textMuted = KachokPalette.onSurfaceMuted,
-                textFaint = scheme.onSurfaceVariant,
-                surface = scheme.surface,
-                raised = scheme.surfaceVariant,
-                raisedHigh = scheme.surfaceContainerHigh,
-                raisedHighest = scheme.surfaceContainerHighest,
-                panel = KachokPalette.panel,
-                outline = scheme.outline,
-                divider = scheme.outlineVariant,
-                rowHairline = KachokPalette.rowHairline,
-                error = scheme.error,
-                onError = scheme.onError,
-                errorContainer = scheme.errorContainer,
-                warning = KachokWarning.warning,
-                onWarning = KachokWarning.onWarning,
-                warningContainer = KachokWarning.warningContainer,
-                onWarningContainer = KachokWarning.onWarningContainer,
-                errorFigure = KachokPalette.errorFigure,
-                errorRowTint = KachokPalette.errorRowTint,
-                errorTrack = KachokPalette.errorTrack,
-                stoppingBar = KachokPalette.stoppingBar,
-                selectedFigure = KachokPalette.selectedFigure,
-                selectedTrack = KachokPalette.selectedTrack,
-                degradedBanner = KachokPalette.degradedBanner,
-                warningCard = KachokPalette.warningCard,
-                onWarningCard = KachokPalette.onWarningCard,
-                neutralCard = KachokPalette.neutralCard,
-                tooltip = scheme.inverseSurface,
-                onTooltip = scheme.inverseOnSurface,
-            )
-        }
+internal class MaterialKit private constructor(
+    val colours: MaterialColours,
+    /** What `MaterialTheme` gets at the root, for whatever reads it directly — the title bar. */
+    val scheme: ColorScheme,
+    override val colors: KachokColors,
+) : KachokKit {
+    override fun equals(other: Any?): Boolean = other is MaterialKit && other.colours == colours
 
-    override val type: KachokType =
-        KachokTypography.let {
-            KachokType(headline = it.headlineSmall, section = it.labelSmall, action = it.labelLarge)
+    override fun hashCode(): Int = colours.hashCode()
+
+    override fun toString(): String = "MaterialKit(${colours.storedSeed}, ${colours.style.stored})"
+
+    companion object {
+        /** The design's own colours: the hand-written scheme. */
+        val Default: MaterialKit = MaterialKit(MaterialColours.DEFAULT, KachokDarkColors, designColors())
+
+        private var last: MaterialKit = Default
+
+        /** The kit for [colours]: [Default] for the design's, a generated scheme for anything else. */
+        fun of(colours: MaterialColours): MaterialKit {
+            if (colours.isTheDesign) return Default
+            last.takeIf { it.colours == colours }?.let { return it }
+            val seeded = seededDesign(colours)
+            return MaterialKit(colours, seeded.scheme, seeded.colors).also { last = it }
         }
+    }
+
+    override val type: KachokType = MATERIAL_TYPE
 
     @Composable
     override fun Root(content: @Composable () -> Unit) {
         MaterialTheme(
-            colorScheme = KachokDarkColors,
+            colorScheme = scheme,
             typography = KachokTypography,
             shapes = KachokShapes,
             content = content,
@@ -182,6 +175,57 @@ internal object MaterialKit : KachokKit {
         MaterialProgressBar(fraction, track, bar, modifier)
     }
 }
+
+/** The hand-written roles, as B-159 mapped them: the scheme's names, the palette and the warning. */
+internal fun designColors(): KachokColors =
+    KachokDarkColors.let { scheme ->
+        KachokColors(
+            accent = scheme.primary,
+            onAccent = scheme.onPrimary,
+            accentContainer = scheme.primaryContainer,
+            onAccentContainer = scheme.onPrimaryContainer,
+            accentBright = KachokPalette.primaryBright,
+            accentContainerHigh = KachokPalette.primaryContainerHigh,
+            text = scheme.onSurface,
+            textMuted = KachokPalette.onSurfaceMuted,
+            textFaint = scheme.onSurfaceVariant,
+            surface = scheme.surface,
+            raised = scheme.surfaceVariant,
+            raisedHigh = scheme.surfaceContainerHigh,
+            raisedHighest = scheme.surfaceContainerHighest,
+            panel = KachokPalette.panel,
+            outline = scheme.outline,
+            divider = scheme.outlineVariant,
+            rowHairline = KachokPalette.rowHairline,
+            error = scheme.error,
+            onError = scheme.onError,
+            errorContainer = scheme.errorContainer,
+            warning = KachokWarning.warning,
+            onWarning = KachokWarning.onWarning,
+            warningContainer = KachokWarning.warningContainer,
+            onWarningContainer = KachokWarning.onWarningContainer,
+            errorFigure = KachokPalette.errorFigure,
+            errorRowTint = KachokPalette.errorRowTint,
+            errorTrack = KachokPalette.errorTrack,
+            stoppingBar = KachokPalette.stoppingBar,
+            selectedFigure = KachokPalette.selectedFigure,
+            selectedTrack = KachokPalette.selectedTrack,
+            degradedBanner = KachokPalette.degradedBanner,
+            warningCard = KachokPalette.warningCard,
+            onWarningCard = KachokPalette.onWarningCard,
+            neutralCard = KachokPalette.neutralCard,
+            tooltip = scheme.inverseSurface,
+            onTooltip = scheme.inverseOnSurface,
+            footnoteGround = KachokPalette.footnoteGround,
+            dialogBorder = KachokPalette.dialogBorder,
+        )
+    }
+
+/** One type for every seed: the colours move, the faces do not. */
+private val MATERIAL_TYPE: KachokType =
+    KachokTypography.let {
+        KachokType(headline = it.headlineSmall, section = it.labelSmall, action = it.labelLarge)
+    }
 
 /** [TextStyle.Default] is the shared `Text`'s way of saying "nobody chose one": Material's root style. */
 @Composable

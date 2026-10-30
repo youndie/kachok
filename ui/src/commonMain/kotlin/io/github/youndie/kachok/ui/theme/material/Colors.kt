@@ -148,4 +148,14 @@ internal object KachokPalette {
 
     /** And the neutral card beside it, for a complaint that is somebody else's peer. */
     val neutralCard: Color = Color(0xFF141A19)
+
+    /**
+     * A shade above the surface and below the raised one: the settings screen's own last line.
+     *
+     * A literal in `Settings.kt` until B-161, where it stayed teal under every other seed.
+     */
+    val footnoteGround: Color = Color(0xFF111716)
+
+    /** The add and remove dialogs' border — and the magnet card's — a step above the outline. */
+    val dialogBorder: Color = Color(0xFF303836)
 }

@@ -12,6 +12,7 @@ import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import io.github.youndie.kachok.ui.theme.material.MaterialColours
 import io.github.youndie.kachok.ui.theme.material.MaterialKit
 import io.github.youndie.kachok.ui.theme.oldge.OldgeKit
 
@@ -73,6 +74,12 @@ internal class KachokColors(
     val neutralCard: Color,
     val tooltip: Color,
     val onTooltip: Color,
+    /**
+     * The settings screen's footnote ground and a dialog's border — two values the screens wrote as
+     * literals until a seed could recolour everything around them (B-161).
+     */
+    val footnoteGround: Color,
+    val dialogBorder: Color,
 )
 
 /**
@@ -186,7 +193,7 @@ internal interface KachokKit {
     )
 }
 
-internal val LocalKit = staticCompositionLocalOf<KachokKit> { MaterialKit }
+internal val LocalKit = staticCompositionLocalOf<KachokKit> { MaterialKit.Default }
 
 /**
  * The kits a person can choose between on the settings screen, by the name the settings file
@@ -204,12 +211,15 @@ internal enum class InterfaceKit(
     Oldge("oldge-ui", "oldge-ui"),
     ;
 
-    val kit: KachokKit
-        get() =
-            when (this) {
-                Material -> MaterialKit
-                Oldge -> OldgeKit
-            }
+    /**
+     * The kit itself. [colours] are the Material kit's seed and style (B-161); the oldge kit's colours
+     * are its skin, which is not chosen yet (B-162), so it ignores them.
+     */
+    fun kit(colours: MaterialColours = MaterialColours.DEFAULT): KachokKit =
+        when (this) {
+            Material -> MaterialKit.of(colours)
+            Oldge -> OldgeKit
+        }
 
     companion object {
         val DEFAULT: InterfaceKit = Material

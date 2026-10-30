@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
@@ -81,6 +82,12 @@ internal enum class SettingKey(
 
     /** Which kit draws the window (B-160). */
     Interface,
+
+    /**
+     * The kit's colours (B-161): under the Material kit a seed and a scheme style. The row's
+     * contents are the kit's — under oldge-ui it is absent until its skins are a choice (B-162).
+     */
+    Colours,
     ;
 
     val editable: Boolean get() = disabledBecause == null
@@ -117,6 +124,20 @@ internal class Setting(
      * [value] the chosen one's [Choice.value]. The *Interface* row's kits are the first (B-160).
      */
     val choices: List<Choice>? = null,
+    /**
+     * Colours to pick from, drawn as swatches, with [swatch] the chosen one's [Swatch.value] — or
+     * none of them, for a colour somebody wrote into the file by hand. A row may carry [choices]
+     * too: the *Colours* row's are the scheme styles, under the swatches (B-161).
+     */
+    val swatches: List<Swatch>? = null,
+    val swatch: String? = null,
+)
+
+/** One colour of a swatch row: what is stored, what is drawn, and what a screen reader says. */
+internal class Swatch(
+    val value: String,
+    val color: Color,
+    val label: String,
 )
 
 /** One segment of a choice: what is stored, and what the segment says. */
@@ -156,6 +177,12 @@ internal sealed interface SettingChange {
 
     /** A segment of a [Setting.choices] row was picked; [value] is its [Choice.value]. */
     class Chose(
+        val key: SettingKey,
+        val value: String,
+    ) : SettingChange
+
+    /** A swatch of a [Setting.swatches] row was picked; [value] is its [Swatch.value]. */
+    class Swatched(
         val key: SettingKey,
         val value: String,
     ) : SettingChange
@@ -240,6 +267,20 @@ private fun SettingRow(
                             setting.enabled && setting.key.editable,
                         ) {
                             onChange(SettingChange.Toggled(setting.key, !setting.toggle))
+                        }
+                    }
+
+                    setting.swatches != null -> {
+                        Column(
+                            horizontalAlignment = Alignment.End,
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            Swatches(setting, setting.swatches) { onChange(SettingChange.Swatched(setting.key, it)) }
+                            setting.choices?.let { choices ->
+                                Segmented(setting, choices, description = "${setting.label} style") {
+                                    onChange(SettingChange.Chose(setting.key, it))
+                                }
+                            }
                         }
                     }
 
@@ -380,6 +421,7 @@ private fun FolderField(
 private fun Segmented(
     setting: Setting,
     choices: List<Choice>,
+    description: String = setting.label,
     onChose: (String) -> Unit,
 ) {
     val scheme = KachokTheme.colors
@@ -387,7 +429,7 @@ private fun Segmented(
         Modifier
             .height(FIELD_HEIGHT)
             .border(HAIRLINE, scheme.outline, RoundedCornerShape(4.dp))
-            .semantics { contentDescription = setting.label }
+            .semantics { contentDescription = description }
             .selectableGroup(),
     ) {
         choices.forEach { choice ->
@@ -415,6 +457,46 @@ private fun Segmented(
     }
 }
 
+/**
+ * A row of colours, each a square of itself; the chosen one ringed in the first text level.
+ *
+ * The ring and not a check mark: the swatch *is* the information, and a glyph on it would have to
+ * be drawn in a colour that reads on all six. Each swatch is a radio button with the colour's name,
+ * because a colour is not a name a screen reader can say.
+ */
+@Composable
+private fun Swatches(
+    setting: Setting,
+    swatches: List<Swatch>,
+    onPicked: (String) -> Unit,
+) {
+    val scheme = KachokTheme.colors
+    Row(
+        Modifier.semantics { contentDescription = setting.label }.selectableGroup(),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        swatches.forEach { swatch ->
+            val chosen = swatch.value == setting.swatch
+            Box(
+                Modifier
+                    .size(SWATCH)
+                    .border(
+                        if (chosen) 2.dp else HAIRLINE,
+                        if (chosen) scheme.text else scheme.outline,
+                        RoundedCornerShape(4.dp),
+                    ).semantics { contentDescription = swatch.label }
+                    .selectable(
+                        selected = chosen,
+                        enabled = setting.enabled && setting.key.editable,
+                        role = Role.RadioButton,
+                        onClick = { if (!chosen) onPicked(swatch.value) },
+                    ).padding(4.dp)
+                    .background(swatch.color, RoundedCornerShape(2.dp)),
+            )
+        }
+    }
+}
+
 @Composable
 private fun Footnote(state: SettingsState) {
     val scheme = KachokTheme.colors
@@ -423,7 +505,7 @@ private fun Footnote(state: SettingsState) {
         Row(
             Modifier
                 .fillMaxWidth()
-                .background(FOOTNOTE_GROUND)
+                .background(scheme.footnoteGround)
                 .padding(horizontal = EDGE, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -464,12 +546,11 @@ private val UNIT_WIDTH = 38.dp
 
 private val PATH_WIDTH = 210.dp
 
+private val SWATCH = 24.dp
+
 private val FOLDER_GLYPH = 16.sp
 
 private val FOOTNOTE_GLYPH = 15.sp
-
-/** A shade above the surface and below the raised one: the screen's own last line. */
-private val FOOTNOTE_GROUND = Color(0xFF111716)
 
 private val SECTION_TRACKING = 0.08.em
 

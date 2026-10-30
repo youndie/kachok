@@ -17,7 +17,10 @@ derived — regenerate them, never edit them — and they are what a viddik gold
 
 ## 1. Colour roles (dark)
 
-Read out of the document's own swatch row, which names each one.
+Read out of the document's own swatch row, which names each one. They are the Material kit's
+default — the teal seed — and stay its hand-written reference; another seed recolours them by the
+relations in [B-161](../backlog/B-161-the-material-kit-takes-its-colours-from-a-seed.md), keeping
+every tone.
 
 | Role | Hex |
 |---|---|

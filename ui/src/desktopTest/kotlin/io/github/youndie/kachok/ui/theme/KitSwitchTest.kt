@@ -4,8 +4,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -15,10 +18,13 @@ import io.github.youndie.kachok.ui.session.Preferences
 import io.github.youndie.kachok.ui.session.settingsOf
 import io.github.youndie.kachok.ui.settings.SettingChange
 import io.github.youndie.kachok.ui.settings.SettingsScreen
+import io.github.youndie.kachok.ui.theme.material.MaterialColours
 import io.github.youndie.kachok.ui.theme.material.MaterialKit
+import io.github.youndie.kachok.ui.theme.material.SchemeStyle
 import io.github.youndie.kachok.ui.theme.oldge.OldgeKit
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotEquals
 import kotlin.test.assertSame
 
 /**
@@ -37,7 +43,7 @@ class KitSwitchTest {
             val seen = mutableListOf<KachokKit>()
             setContent {
                 var preferences by remember { mutableStateOf(Preferences(directory = "/tmp/x")) }
-                KachokTheme(kit = preferences.interfaceKit.kit) {
+                KachokTheme(kit = preferences.kit) {
                     val kit = LocalKit.current
                     if (seen.lastOrNull() !== kit) seen += kit
                     SettingsScreen(settingsOf(preferences)) { change ->
@@ -45,7 +51,7 @@ class KitSwitchTest {
                     }
                 }
             }
-            assertSame(MaterialKit, seen.last(), "the default is the Material kit")
+            assertSame(MaterialKit.Default, seen.last(), "the default is the Material kit")
 
             onNodeWithText(InterfaceKit.Oldge.label).performScrollTo().performClick()
             waitForIdle()
@@ -56,7 +62,61 @@ class KitSwitchTest {
 
             onNodeWithText(InterfaceKit.Material.label).performScrollTo().performClick()
             waitForIdle()
-            assertSame(MaterialKit, seen.last(), "and back")
-            assertEquals(listOf<KachokKit>(MaterialKit, OldgeKit, MaterialKit), seen)
+            assertSame(MaterialKit.Default, seen.last(), "and back")
+            assertEquals(listOf<KachokKit>(MaterialKit.Default, OldgeKit, MaterialKit.Default), seen)
+        }
+
+    /**
+     * A swatch and a style redraw the window in a generated scheme and back to the design (B-161),
+     * wired the same way: what is asserted is the kit the screen is composed under.
+     */
+    @Test
+    fun pickingAColourRedrawsTheWindowInItAndBack(): Unit =
+        runComposeUiTest {
+            val seen = mutableListOf<KachokKit>()
+            setContent {
+                var preferences by remember { mutableStateOf(Preferences(directory = "/tmp/x")) }
+                KachokTheme(kit = preferences.kit) {
+                    val kit = LocalKit.current
+                    if (seen.lastOrNull() != kit) seen += kit
+                    SettingsScreen(settingsOf(preferences)) { change ->
+                        when (change) {
+                            is SettingChange.Chose -> preferences = preferences.chose(change.key, change.value)
+                            is SettingChange.Swatched -> preferences = preferences.swatched(change.key, change.value)
+                            else -> Unit
+                        }
+                    }
+                }
+            }
+            assertSame(MaterialKit.Default, seen.last())
+
+            onNodeWithContentDescription("Violet").performScrollTo().performClick()
+            waitForIdle()
+            val violet = seen.last() as MaterialKit
+            assertEquals(MaterialColours(Color(0xFFA78BFA), SchemeStyle.TonalSpot), violet.colours)
+            assertNotEquals(MaterialKit.Default.colors.accent, violet.colors.accent, "the accent did not move")
+            onNodeWithContentDescription("Violet").assertIsSelected()
+
+            onNodeWithText(SchemeStyle.Vibrant.label).performScrollTo().performClick()
+            waitForIdle()
+            assertEquals(SchemeStyle.Vibrant, (seen.last() as MaterialKit).colours.style)
+
+            onNodeWithContentDescription("Teal").performScrollTo().performClick()
+            onNodeWithText(SchemeStyle.TonalSpot.label).performScrollTo().performClick()
+            waitForIdle()
+            assertSame(MaterialKit.Default, seen.last(), "the design's teal and style are the hand-written kit")
+        }
+
+    /** Under oldge-ui the row is absent: its colours are its skin, which B-162 makes a choice. */
+    @Test
+    fun theColoursRowIsTheMaterialKits(): Unit =
+        runComposeUiTest {
+            setContent {
+                KachokTheme(kit = OldgeKit) {
+                    SettingsScreen(settingsOf(Preferences(directory = "/tmp/x", interfaceKit = InterfaceKit.Oldge)))
+                }
+            }
+            onAllNodesWithContentDescription("Colours").assertCountEquals(0)
+            onAllNodesWithContentDescription("Violet").assertCountEquals(0)
         }
 }

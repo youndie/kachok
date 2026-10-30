@@ -9,7 +9,12 @@ import io.github.youndie.kachok.ui.settings.Setting
 import io.github.youndie.kachok.ui.settings.SettingKey
 import io.github.youndie.kachok.ui.settings.SettingsSection
 import io.github.youndie.kachok.ui.settings.SettingsState
+import io.github.youndie.kachok.ui.settings.Swatch
 import io.github.youndie.kachok.ui.theme.InterfaceKit
+import io.github.youndie.kachok.ui.theme.KachokKit
+import io.github.youndie.kachok.ui.theme.material.MaterialColours
+import io.github.youndie.kachok.ui.theme.material.SEED_SWATCHES
+import io.github.youndie.kachok.ui.theme.material.SchemeStyle
 
 /**
  * What a person has actually changed, plus what the process actually did.
@@ -77,7 +82,16 @@ internal data class Preferences(
      * so the window redraws in it without a restart.
      */
     val interfaceKit: InterfaceKit = InterfaceKit.DEFAULT,
+    /**
+     * The Material kit's seed and scheme style (B-161), kept when another kit is chosen so that
+     * coming back finds them. Applied as [interfaceKit] is: the kit is rebuilt from them and the
+     * window redraws without a restart.
+     */
+    val materialColours: MaterialColours = MaterialColours.DEFAULT,
 ) {
+    /** The kit the window is drawn in: [interfaceKit], in [materialColours] when it is Material's. */
+    val kit: KachokKit get() = interfaceKit.kit(materialColours)
+
     /** The same preferences with the port the listener actually bound written into them. */
     fun boundTo(port: Int): Preferences = copy(port = port)
 
@@ -110,7 +124,26 @@ internal data class Preferences(
     ): Preferences =
         when (key) {
             SettingKey.Interface -> copy(interfaceKit = InterfaceKit.of(value))
+            SettingKey.Colours -> copy(materialColours = materialColours.copy(style = SchemeStyle.of(value)))
             else -> this
+        }
+
+    /** A swatch picked; a value that is not a colour is the design's teal, as it is in the file. */
+    fun swatched(
+        key: SettingKey,
+        value: String,
+    ): Preferences =
+        when (key) {
+            SettingKey.Colours -> {
+                copy(
+                    materialColours =
+                        materialColours.copy(seed = MaterialColours.seedOf(value) ?: MaterialColours.DESIGN_SEED),
+                )
+            }
+
+            else -> {
+                this
+            }
         }
 
     /**
@@ -410,7 +443,7 @@ internal fun settingsOf(
                             choices = InterfaceKit.entries.map { Choice(it.stored, it.label) },
                             changed = preferences.interfaceKit != InterfaceKit.DEFAULT,
                         ),
-                    ),
+                    ) + listOfNotNull(coloursOf(preferences)),
                 ),
             ),
         // The badge is gone from the footnote and moved onto the two rows it is still not true of.
@@ -420,6 +453,30 @@ internal fun settingsOf(
             "Rate limits and the peer count apply to running torrents immediately — " +
                 "no restart, no Apply button.",
         footnotePlanned = false,
+    )
+}
+
+/**
+ * The *Colours* row, whose contents are the kit's (B-161).
+ *
+ * Under the Material kit: the seeds as swatches and the scheme styles as segments. Under oldge-ui
+ * the row is absent for now — the kit's colours are its skin, which is not a choice yet (B-162) —
+ * rather than a row of the Material kit's swatches that would change nothing on the screen.
+ */
+private fun coloursOf(preferences: Preferences): Setting? {
+    if (preferences.interfaceKit != InterfaceKit.Material) return null
+    val colours = preferences.materialColours
+    val design = MaterialColours.DEFAULT
+    return Setting(
+        key = SettingKey.Colours,
+        label = "Colours",
+        note = "The seed the scheme is generated from, and how. Applies at once.",
+        default = "${SEED_SWATCHES.first().label.lowercase()}, ${design.style.label.lowercase()}",
+        value = colours.style.stored,
+        choices = SchemeStyle.entries.map { Choice(it.stored, it.label) },
+        swatches = SEED_SWATCHES.map { Swatch(MaterialColours.hexOf(it.seed), it.seed, it.label) },
+        swatch = colours.storedSeed,
+        changed = colours != design,
     )
 }
 

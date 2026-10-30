@@ -1,6 +1,7 @@
 package io.github.youndie.kachok.ui.settings
 
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.graphics.Color
 import io.github.youndie.kachok.ui.main.MainWindow
 import io.github.youndie.kachok.ui.main.MainWindowState
 import io.github.youndie.kachok.ui.main.designStatus
@@ -8,6 +9,8 @@ import io.github.youndie.kachok.ui.session.Preferences
 import io.github.youndie.kachok.ui.session.settingsOf
 import io.github.youndie.kachok.ui.theme.InterfaceKit
 import io.github.youndie.kachok.ui.theme.KachokTheme
+import io.github.youndie.kachok.ui.theme.material.MaterialColours
+import io.github.youndie.kachok.ui.theme.material.SchemeStyle
 import io.github.youndie.kachok.ui.theme.oldge.OldgeKit
 import io.github.youndie.viddik.annotations.ViddikScreenshot
 
@@ -54,6 +57,42 @@ internal fun SettingsOldgeSheet() {
             ),
         )
     KachokTheme(kit = OldgeKit) {
+        SettingsScreen(
+            SettingsState(
+                sections = state.sections.takeLast(1) + state.sections.dropLast(1),
+                footnote = state.footnote,
+                footnotePlanned = state.footnotePlanned,
+            ),
+        )
+    }
+}
+
+/**
+ * The settings screen in a violet seed, the *Colours* row chosen on it (B-161).
+ *
+ * The *Interface* section first for the reason the oldge sheet puts it there: the row that chose the
+ * colours is the one worth a picture — the ringed swatch, the chosen style — and below the fold it
+ * would not be in this one.
+ */
+@ViddikScreenshot(name = "screen-violet", group = "settings", width = 744, height = 912)
+@Composable
+internal fun SettingsVioletSheet() {
+    SeededSettings(MaterialColours(Color(0xFFA78BFA), SchemeStyle.TonalSpot))
+}
+
+/** And in orange under the *Vibrant* style: the other end of the wheel, and the louder style. */
+@ViddikScreenshot(name = "screen-orange", group = "settings", width = 744, height = 912)
+@Composable
+internal fun SettingsOrangeSheet() {
+    SeededSettings(MaterialColours(Color(0xFFF39A5B), SchemeStyle.Vibrant))
+}
+
+@Composable
+private fun SeededSettings(colours: MaterialColours) {
+    val preferences =
+        Preferences(directory = "~/Downloads", downloadLimitKibPerSecond = 12_000, materialColours = colours)
+    val state = settingsOf(preferences)
+    KachokTheme(kit = preferences.kit) {
         SettingsScreen(
             SettingsState(
                 sections = state.sections.takeLast(1) + state.sections.dropLast(1),

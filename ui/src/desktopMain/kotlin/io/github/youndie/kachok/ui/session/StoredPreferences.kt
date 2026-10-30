@@ -2,6 +2,8 @@ package io.github.youndie.kachok.ui.session
 
 import io.github.youndie.kachok.control.configDirectory
 import io.github.youndie.kachok.ui.theme.InterfaceKit
+import io.github.youndie.kachok.ui.theme.material.MaterialColours
+import io.github.youndie.kachok.ui.theme.material.SchemeStyle
 import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.Path
@@ -85,6 +87,16 @@ internal fun loadPreferences(
         // kit and not a refusal to start, and not the fallback's either: an unknown name says
         // nothing about what somebody wanted, and Material is what every build can draw (B-160).
         interfaceKit = text(INTERFACE)?.let { InterfaceKit.of(it) } ?: fallback.interfaceKit,
+        // The same rule for the Material kit's colours (B-161), one key at a time: a seed that is
+        // not `#RRGGBB` is the design's teal, a style this build does not know is the design's, and
+        // a damaged seed does not cost the person their style or the other way round.
+        materialColours =
+            MaterialColours(
+                seed =
+                    text(COLOUR_SEED)?.let { MaterialColours.seedOf(it) ?: MaterialColours.DESIGN_SEED }
+                        ?: fallback.materialColours.seed,
+                style = text(COLOUR_STYLE)?.let { SchemeStyle.of(it) } ?: fallback.materialColours.style,
+            ),
     )
 }
 
@@ -110,6 +122,8 @@ internal fun savePreferences(
             setProperty(TRAY_EXPLAINED, preferences.trayExplained.toString())
             setProperty(DETAILS_WIDTH, preferences.detailsWidth.toString())
             setProperty(INTERFACE, preferences.interfaceKit.stored)
+            setProperty(COLOUR_SEED, preferences.materialColours.storedSeed)
+            setProperty(COLOUR_STYLE, preferences.materialColours.style.stored)
             preferences.maxPeers?.let { setProperty(MAX_PEERS, it.toString()) }
             preferences.pipelineDepth?.let { setProperty(PIPELINE_DEPTH, it.toString()) }
             preferences.uploadLimitKibPerSecond?.let { setProperty(UPLOAD_LIMIT, it.toString()) }
@@ -147,3 +161,5 @@ private const val CLOSE_TO_TRAY = "closeToTray"
 private const val TRAY_EXPLAINED = "trayExplained"
 private const val DETAILS_WIDTH = "detailsWidth"
 private const val INTERFACE = "interface"
+private const val COLOUR_SEED = "colourSeed"
+private const val COLOUR_STYLE = "colourStyle"
