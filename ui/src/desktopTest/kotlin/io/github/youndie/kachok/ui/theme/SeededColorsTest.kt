@@ -10,6 +10,9 @@ import io.github.youndie.kachok.ui.theme.material.MaterialKit
 import io.github.youndie.kachok.ui.theme.material.SEED_SWATCHES
 import io.github.youndie.kachok.ui.theme.material.SchemeStyle
 import kotlin.math.abs
+import kotlin.math.cbrt
+import kotlin.math.hypot
+import kotlin.math.pow
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotEquals
@@ -220,6 +223,86 @@ class SeededColorsTest {
         }
     }
 
+    /** Every pair the settings offer, the design's own included, by the names the settings show. */
+    private val offered: List<Pair<String, MaterialColours>> =
+        SEED_SWATCHES.flatMap { swatch ->
+            SchemeStyle.entries.map { "${swatch.label} ${it.label}" to MaterialColours(swatch.seed, it) }
+        }
+
+    /**
+     * The error row is told by its ground as well as its text (B-167): the tint is red where the
+     * surface is not, by at least Oklab's just-noticeable difference.
+     *
+     * Measured in Oklab's a–b plane, lightness left out: the derivation keeps every tone, so the
+     * tint is one lightness step above the surface under every seed — the step a raised row also
+     * has. What a warm surface takes away is the redness, and the full ΔE would let the lightness
+     * step pass for it (orange under *Vibrant* was 0.021 in ΔE and 0.009 in the a–b plane).
+     */
+    @Test
+    fun theErrorRowTintStaysApartFromTheSurface() {
+        val short =
+            offered.mapNotNull { (name, colours) ->
+                val colors = MaterialKit.of(colours).colors
+                val gap = abDistance(colors.errorRowTint, colors.surface)
+                "$name ${"%.4f".format(gap)}".takeIf { gap < MIN_TINT_GAP }
+            }
+        assertTrue(short.isEmpty(), "the error row tint is within $MIN_TINT_GAP of the surface under: $short")
+    }
+
+    /**
+     * *Seeding* is not a third amber beside *Checking* and *Stopping* (B-167): the accent, and the
+     * accent as text, are at least one hue name — amber's own width — from the warning's hue.
+     */
+    @Test
+    fun theAccentStaysApartFromTheWarning() {
+        val near =
+            offered.flatMap { (name, colours) ->
+                val colors = MaterialKit.of(colours).colors
+                val warning = colors.warning.toHct().hue
+                listOf("accent" to colors.accent, "accentText" to colors.accentText).mapNotNull { (role, colour) ->
+                    val apart = hueDistance(colour.toHct().hue, warning)
+                    "$name $role ${"%.1f".format(apart)}".takeIf { apart < MIN_STATE_HUE_GAP }
+                }
+            }
+        assertTrue(near.isEmpty(), "within $MIN_STATE_HUE_GAP degrees of the warning's hue: $near")
+    }
+
+    /**
+     * Oklab's a–b distance, written out from Björn Ottosson's matrices rather than taken from
+     * Compose's colour space, which is what the derivation uses: a ruler of its own.
+     */
+    private fun abDistance(
+        x: Color,
+        y: Color,
+    ): Double {
+        val a = oklab(x)
+        val b = oklab(y)
+        return hypot(a[1] - b[1], a[2] - b[2])
+    }
+
+    private fun oklab(colour: Color): DoubleArray {
+        val r = linear(colour.red)
+        val g = linear(colour.green)
+        val b = linear(colour.blue)
+        val l = cbrt(0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b)
+        val m = cbrt(0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b)
+        val s = cbrt(0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b)
+        return doubleArrayOf(
+            0.2104542553 * l + 0.7936177850 * m - 0.0040720468 * s,
+            1.9779984951 * l - 2.4285922050 * m + 0.4505937099 * s,
+            0.0259040371 * l + 0.7827717662 * m - 0.8086757660 * s,
+        )
+    }
+
+    private fun linear(channel: Float): Double =
+        if (channel <=
+            SRGB_KNEE
+        ) {
+            channel / SRGB_SLOPE
+        } else {
+            ((channel + SRGB_OFFSET) / (1 + SRGB_OFFSET)).pow(SRGB_GAMMA)
+        }
+
     private fun hueDistance(
         a: Double,
         b: Double,
@@ -235,6 +318,16 @@ class SeededColorsTest {
         const val TONE_SLACK = 1.0
         const val ACCENT_HUE_SLACK = 25.0
         const val INVERSE_SURFACE_TONE = 90.0
+
+        /** Oklab's just-noticeable difference, the one CSS Color 4 maps gamuts by. */
+        const val MIN_TINT_GAP = 0.02
+
+        /** One hue name's width: amber, [AMBER], is 32 degrees wide. */
+        const val MIN_STATE_HUE_GAP = 30.0
+        const val SRGB_KNEE = 0.04045f
+        const val SRGB_SLOPE = 12.92
+        const val SRGB_OFFSET = 0.055
+        const val SRGB_GAMMA = 2.4
         const val HALF_TURN = 180.0
         const val FULL_TURN = 360.0
     }
