@@ -181,6 +181,8 @@ internal fun designColors(): KachokColors =
     KachokDarkColors.let { scheme ->
         KachokColors(
             accent = scheme.primary,
+            // The design's teal reads as text on its dark grounds: one colour, two roles (B-164).
+            accentText = scheme.primary,
             onAccent = scheme.onPrimary,
             accentContainer = scheme.primaryContainer,
             onAccentContainer = scheme.onPrimaryContainer,

@@ -354,7 +354,7 @@ private fun ValueField(
             // says "you changed this", and it says it where the change is.
             .border(
                 HAIRLINE,
-                if (setting.changed) scheme.accent else scheme.outline,
+                if (setting.changed) scheme.accentText else scheme.outline,
                 RoundedCornerShape(4.dp),
             ).padding(horizontal = 9.dp),
         contentAlignment = Alignment.CenterEnd,
@@ -371,7 +371,7 @@ private fun ValueField(
                     color = if (setting.absent) scheme.textFaint else scheme.text,
                     textAlign = TextAlign.End,
                 ),
-            cursorBrush = SolidColor(scheme.accent),
+            cursorBrush = SolidColor(scheme.accentText),
             modifier =
                 Modifier
                     .fillMaxWidth()
@@ -394,7 +394,7 @@ private fun FolderField(
                 .width(PATH_WIDTH)
                 .border(
                     HAIRLINE,
-                    if (changed) scheme.accent else scheme.outline,
+                    if (changed) scheme.accentText else scheme.outline,
                     RoundedCornerShape(4.dp),
                 ).padding(horizontal = 9.dp),
             verticalAlignment = Alignment.CenterVertically,

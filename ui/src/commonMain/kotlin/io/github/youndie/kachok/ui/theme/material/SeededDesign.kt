@@ -89,6 +89,8 @@ internal fun seededDesign(colours: MaterialColours): SeededDesign {
     val colors =
         KachokColors(
             accent = accent(hand.primary),
+            // Every seed is drawn at the design's dark tones, where the accent reads as text (B-164).
+            accentText = accent(hand.primary),
             onAccent = accent(hand.onPrimary),
             accentContainer = accent(hand.primaryContainer),
             onAccentContainer = accent(hand.onPrimaryContainer),

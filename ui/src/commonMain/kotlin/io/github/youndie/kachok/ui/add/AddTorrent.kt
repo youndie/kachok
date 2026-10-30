@@ -187,7 +187,7 @@ private fun SourceCard(state: AddTorrentState) {
         Glyph(
             if (state.magnet) Icons.LINK else Icons.DESCRIPTION,
             size = SOURCE_GLYPH,
-            tint = KachokTheme.colors.accent,
+            tint = KachokTheme.colors.accentText,
         )
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(
@@ -287,7 +287,7 @@ private fun Files(
                     Glyph(
                         if (file.wanted) Icons.CHECK_BOX else Icons.CHECK_BOX_OUTLINE_BLANK,
                         size = LIST_GLYPH,
-                        tint = if (file.wanted) scheme.accent else scheme.textFaint,
+                        tint = if (file.wanted) scheme.accentText else scheme.textFaint,
                     )
                     Text(
                         file.name,
@@ -329,7 +329,7 @@ private fun Sequential(
             size = CONTROL_GLYPH,
             tint =
                 if (state.sequential) {
-                    KachokTheme.colors.accent
+                    KachokTheme.colors.accentText
                 } else {
                     KachokTheme.colors.textFaint
                 },
@@ -375,7 +375,7 @@ private fun Choice(
         Glyph(
             if (on) Icons.RADIO_BUTTON_CHECKED else Icons.RADIO_BUTTON_UNCHECKED,
             size = CONTROL_GLYPH,
-            tint = if (on) KachokTheme.colors.accent else KachokTheme.colors.textFaint,
+            tint = if (on) KachokTheme.colors.accentText else KachokTheme.colors.textFaint,
         )
         Text(
             label,
@@ -418,7 +418,7 @@ internal fun DropOverlay(
 ) {
     val named = names.filter { it != UNNAMED_DROP }
     val scheme = KachokTheme.colors
-    val primary = scheme.accent
+    val primary = scheme.accentText
     Box(
         modifier
             .fillMaxSize()
@@ -444,7 +444,7 @@ internal fun DropOverlay(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
-            Glyph(Icons.DOWNLOAD, size = OVERLAY_GLYPH, tint = scheme.accent)
+            Glyph(Icons.DOWNLOAD, size = OVERLAY_GLYPH, tint = scheme.accentText)
             Text(
                 when {
                     named.isEmpty() -> "Drop to add a torrent"
@@ -491,7 +491,7 @@ internal fun ClipboardMagnetPrompt(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(11.dp),
     ) {
-        Glyph(Icons.LINK, size = CONTROL_GLYPH, tint = scheme.accent)
+        Glyph(Icons.LINK, size = CONTROL_GLYPH, tint = scheme.accentText)
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text("A magnet link is on the clipboard.", style = ChromeText, color = scheme.text)
             Text(

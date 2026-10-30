@@ -86,13 +86,14 @@ controls are drawn because `FilledTonalButton` and `OutlinedTextField` cannot be
 what they reserve. Everything else is stock M3.
 
 **The screens do not name Material; they draw through a kit** (B-159). `KachokTheme.colors` holds
-the design's roles by purpose — `accent`, three text levels (`text`, `textMuted`, `textFaint`),
-grounds, lines, the row and card tints — and `KachokTheme.type` the three type roles a screen names.
+the design's roles by purpose — `accent` for fills and `accentText` for the accent written as
+text, a glyph, a figure or a thin outline (B-164), three text levels (`text`, `textMuted`,
+`textFaint`), grounds, lines, the row and card tints — and `KachokTheme.type` the three type roles a screen names.
 `Text` and the hover hint's raised surface are the kit's to draw, and since B-160 so are the three
 components a second kit draws differently — the settings switch, the dialog button and the row's
 progress bar; the rest is drawn on `foundation` from those tokens, as it always was. The Material
 kit draws exactly what the window drew before: the twelve goldens did not move, through B-159,
-B-160, B-161 or B-162. `make check` fails on any file outside `ui/theme/material/` and `ui/theme/oldge/` that imports
+B-160, B-161, B-162 or B-164. `make check` fails on any file outside `ui/theme/material/` and `ui/theme/oldge/` that imports
 `androidx.compose.material3`, and on any outside the first that reads its palette.
 
 **There are two kits, and the settings choose** ([B-160](../backlog/B-160-oldge-ui-is-a-kit-the-window-can-wear.md)).
@@ -125,12 +126,13 @@ and Crystal in 0.1.1.14, so a skin a release adds appears with the version bump 
 its `ground` with its `accent` as a dot. Stored as `oldgeSkin=<the library's name>`, default Toxic,
 and a name the library no longer has reads as its first skin. Each kit keeps its own choice, so
 Material, oldge-ui, Material finds the seed where it was left. Every role comes from the chosen
-skin's tokens by the mapping B-160 wrote for Toxic; the settings footnote's ground and a dialog's
-border, literals of the Material design that Toxic still draws so its goldens did not move, are
-mixed for the other skins at the place those literals sit between Toxic's tokens (Oklab
-lightness). Crystal is a light skin, and its lime `accent` used as text — *Seeding*, the accent
-figures — is 1.6:1 on its white surface; the library's `accentInk` is the token for that, and the
-kit does not use it yet.
+skin's tokens by the mapping B-160 wrote for Toxic; since [B-168](../backlog/B-168-oldge-skins-own-their-footnote-and-dialog-border.md)
+that includes the settings footnote's ground (`surface2`) and a dialog's border (`edge`), which
+B-162 had still drawn from the Material design's greys. Crystal is a light skin, and its lime `accent` used as text — *Seeding*, the accent
+figures — was 1.6:1 on its white surface; since [B-164](../backlog/B-164-accent-text-reads-on-a-light-skin.md)
+every such use reads `accentText`, which the oldge kit fills with the skin's `accentInk` in every
+skin (Crystal 6.05:1 on `surface`), and the Material kits with `accent` itself, so their goldens
+did not move.
 
 oldge-ui comes from reposilite's **snapshots**, pinned to one run; `settings.gradle.kts` names that
 repository exclusively for `oldge-core` and narrows the releases one to AppFrame's two modules.

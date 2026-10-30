@@ -370,6 +370,10 @@ internal fun kachokColorsOf(skin: OldgeSkin): KachokColors =
     skin.colors.let { o ->
         KachokColors(
             accent = o.accent,
+            // `accent-ink` in every skin, the owner's decision (B-164, 2026-10-30) — not only where
+            // `accent` fails a contrast. Toxic's and Media's inks are a step brighter than their
+            // fills, Crystal's a dark green where its fill is a lime that white swallows.
+            accentText = o.accentInk,
             onAccent = o.onAccent,
             accentContainer = o.select,
             onAccentContainer = o.onSelect,

@@ -180,7 +180,7 @@ private fun FilterField(
                 onValueChange = onFilter,
                 singleLine = true,
                 textStyle = ChromeText.copy(color = scheme.text),
-                cursorBrush = SolidColor(scheme.accent),
+                cursorBrush = SolidColor(scheme.accentText),
                 modifier = Modifier.fillMaxWidth().semantics { contentDescription = "Filter" },
             )
         }

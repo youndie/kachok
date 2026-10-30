@@ -116,7 +116,7 @@ internal fun EmptyState(
                 .border(HAIRLINE, scheme.divider, RoundedCornerShape(RING / 2)),
             contentAlignment = Alignment.Center,
         ) {
-            Glyph(Icons.ARROW_DOWNWARD, size = RING_GLYPH, tint = scheme.accent)
+            Glyph(Icons.ARROW_DOWNWARD, size = RING_GLYPH, tint = scheme.accentText)
         }
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,

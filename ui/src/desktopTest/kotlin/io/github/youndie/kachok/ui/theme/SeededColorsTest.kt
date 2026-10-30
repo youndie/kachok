@@ -31,6 +31,7 @@ class SeededColorsTest {
     private val handWritten: List<Pair<String, (KachokColors) -> Color>> =
         listOf(
             "accent" to { it.accent },
+            "accentText" to { it.accentText },
             "onAccent" to { it.onAccent },
             "accentContainer" to { it.accentContainer },
             "onAccentContainer" to { it.onAccentContainer },
@@ -74,6 +75,7 @@ class SeededColorsTest {
         KachokDarkColors.let { s ->
             mapOf(
                 "accent" to s.primary,
+                "accentText" to s.primary,
                 "onAccent" to s.onPrimary,
                 "accentContainer" to s.primaryContainer,
                 "onAccentContainer" to s.onPrimaryContainer,

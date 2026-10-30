@@ -126,7 +126,7 @@ private fun RowScope.Head(
             Glyph(
                 if (sort.ascending) Icons.ARROW_UPWARD else Icons.ARROW_DOWNWARD,
                 size = SORT_GLYPH,
-                tint = KachokTheme.colors.accent,
+                tint = KachokTheme.colors.accentText,
             )
         }
     }

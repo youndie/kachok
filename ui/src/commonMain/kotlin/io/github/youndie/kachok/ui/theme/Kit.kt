@@ -30,8 +30,16 @@ import io.github.youndie.oldge.theme.OldgeSkin
  */
 @Immutable
 internal class KachokColors(
-    // The accent, and what sits on it.
+    /** The accent as a *fill* — a button, a bar, a selected segment, a toggle that is on. */
     val accent: Color,
+    /**
+     * The accent as *ink*: text, a glyph, a figure, a thin outline or a caret, drawn on the window's
+     * grounds (B-164). On a dark design the two are the same colour; on a light skin the fill's lime
+     * is about 1.6:1 against white, and a word written in it cannot be read. The Material kits fill
+     * it with [accent]; the oldge kit with its skin's `accent-ink`, which the design system has for
+     * exactly this.
+     */
+    val accentText: Color,
     val onAccent: Color,
     val accentContainer: Color,
     val onAccentContainer: Color,
