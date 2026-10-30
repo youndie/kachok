@@ -59,7 +59,7 @@ which is also the order of work.
 | [B-166](docs/backlog/B-166-the-preflight-reruns-when-the-image-changes.md) `[ ]` | The packaged preflight runs again whenever the image it checks changes | P2 | S | - |
 | [B-80](docs/backlog/B-80-the-ui-moves-to-commonmain.md) `[~]` | The UI moves to commonMain | P2 | L | B-79 |
 | [B-167](docs/backlog/B-167-a-seeded-scheme-keeps-its-states-apart.md) `[ ]` | Every seeded scheme keeps the error row's tint and the accent apart from the surface and the warning | P3 | S | - |
-| [B-168](docs/backlog/B-168-oldge-skins-own-their-footnote-and-dialog-border.md) `[?]` | The oldge skins draw the footnote band and the dialog border from their own tokens | P3 | S | - |
+| [B-168](docs/backlog/B-168-oldge-skins-own-their-footnote-and-dialog-border.md) `[~]` | The oldge skins draw the footnote band and the dialog border from their own tokens | P3 | S | - |
 | [B-169](docs/backlog/B-169-a-number-field-shows-its-whole-value.md) `[ ]` | A settings number field shows its whole value: "no limit" is not cut to "no lim" | P3 | XS | - |
 | [B-37](docs/backlog/B-37-v2-and-hybrid-torrents.md) `[?]` | v2 and hybrid torrents (BEP 52): SHA-256 piece layers | P3 | L | B-04 |
 | [B-40](docs/backlog/B-40-wasmjs-ui-is-a-client-of-the-headless-engine.md) `[ ]` | The browser build of the UI is a client of the headless engine | P3 | L | B-80 |

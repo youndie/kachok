@@ -1,7 +1,7 @@
 ---
 id: B-168
 title: "The oldge skins draw the footnote band and the dialog border from their own tokens"
-status: question
+status: wip
 priority: P3
 size: S
 stage: phase-2-ui
