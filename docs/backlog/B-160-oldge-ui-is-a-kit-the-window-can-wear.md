@@ -1,7 +1,7 @@
 ---
 id: B-160
 title: "oldge-ui is a second kit, and the settings choose between the two"
-status: open
+status: wip
 priority: P3
 size: L
 stage: phase-2-ui
