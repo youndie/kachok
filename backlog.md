@@ -48,12 +48,13 @@ which is also the order of work.
 
 <!-- BEGIN INDEX -->
 
-## Open (13)
+## Open (14)
 
 | Task | | Priority | Size | Blocked by |
 |---|---|---|---|---|
 | [B-116](docs/backlog/B-116-a-torrent-whose-name-is-not-ascii-cannot-be-opened-on-windows.md) `[~]` | A `.torrent` whose name is not ASCII cannot be opened on Windows: the launcher hands the path over as question marks | P2 | S | - |
-| [B-157](docs/backlog/B-157-the-desktop-distribution-ships-an-aot-cache.md) `[~]` | The desktop distribution ships an AOT cache trained through its own launcher, and proves it maps | P2 | M | B-155 |
+| [B-157](docs/backlog/B-157-the-desktop-distribution-ships-an-aot-cache.md) `[?]` | The desktop distribution ships an AOT cache trained through its own launcher, and proves it maps | P2 | M | B-155 |
+| [B-163](docs/backlog/B-163-an-aot-cache-is-opened-before-it-is-refused.md) `[ ]` | The AOT checks look for a line the VM prints before it refuses the cache | P2 | S | - |
 | [B-80](docs/backlog/B-80-the-ui-moves-to-commonmain.md) `[~]` | The UI moves to commonMain | P2 | L | B-79 |
 | [B-156](docs/backlog/B-156-the-desktop-runtime-is-compressed.md) `[ ]` | The desktop runtime is linked compressed, as the CLI's already is | P3 | S | - |
 | [B-158](docs/backlog/B-158-conveyor-as-the-packager.md) `[ ]` | Decide whether Conveyor replaces jpackage as the desktop packager | P3 | M | - |
