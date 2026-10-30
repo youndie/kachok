@@ -127,7 +127,12 @@ in it relative to an anchor the generated scheme has at the same tone — the ro
 anchor's hue plus the role's offset, the role's chroma scaled by the anchor's — because the
 hand-written scheme uses Material's names at tones Material does not (its `surfaceVariant` is
 tone 10, not 30). `warning` is the design's amber harmonised towards the seed, so *checking* and
-*stopping* stay amber. Dark only, by the owner's decision.
+*stopping* stay amber. Two distances between families are kept by rule
+([B-167](../backlog/B-167-a-seeded-scheme-keeps-its-states-apart.md)): the error row's tint gains
+chroma, in its own hue and tone, until it is as far from the surface in Oklab's a–b plane as the
+design drew it (0.024), and the warning is turned back from the accent to 32° of hue, within 15° of
+the design's amber, where harmonising brought it nearer — `SeededColorsTest` holds every offered
+seed and style to 0.02 and 30°. Dark only, by the owner's decision.
 
 **Under oldge-ui the same *Colours* row offers its skins** ([B-162](../backlog/B-162-the-oldge-ui-kit-offers-its-skins.md)).
 One row whose contents are the kit's: the skins are read from `OldgeSkin.entries` — Toxic, Media

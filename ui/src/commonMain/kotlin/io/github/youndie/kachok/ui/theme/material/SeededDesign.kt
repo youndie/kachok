@@ -2,6 +2,7 @@ package io.github.youndie.kachok.ui.theme.material
 
 import androidx.compose.material3.ColorScheme
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.colorspace.ColorSpaces
 import com.materialkolor.PaletteStyle
 import com.materialkolor.dynamicColorScheme
 import com.materialkolor.dynamiccolor.ColorSpec
@@ -10,6 +11,8 @@ import com.materialkolor.ktx.harmonize
 import com.materialkolor.ktx.toColor
 import com.materialkolor.ktx.toHct
 import io.github.youndie.kachok.ui.theme.KachokColors
+import kotlin.math.abs
+import kotlin.math.hypot
 
 /**
  * The design's roles for a seed it was not drawn in (B-161): MaterialKolor's scheme for the seed,
@@ -62,6 +65,24 @@ import io.github.youndie.kachok.ui.theme.KachokColors
  * difference and never more than 15 degrees, so *checking* and *stopping* are 66–98 degrees of
  * hue whatever the seed — amber — and lean the way the rest of the window does.
  *
+ * **Two distances the tone-keeping relation cannot keep (B-167).** It keeps every *lightness* step
+ * the design drew, and the hue offsets within a family, but not the distances *between* families —
+ * and two of those carry a meaning:
+ *
+ * - **The error row's tint stays as far from the surface, in colour, as the design drew it.** The
+ *   tint is one lightness step above the surface in every scheme; what says *error* is that it is
+ *   red where the surface is not. A warm seed turns the surface towards red, and under orange the
+ *   tint was two thousandths of Oklab's a–b plane from it — the same colour, one step lighter.
+ *   Where it falls short of the design's own distance (0.024 in the a–b plane, computed from the
+ *   hand-written pair), the tint gains chroma in its own hue and tone until it has it back.
+ * - **`warning` is never harmonised into the accent.** Harmonising turns the amber towards the
+ *   seed, so an orange seed — or a style that puts the accent at an orange hue — brought the two
+ *   to fourteen degrees, and *Seeding* read as a third amber beside *Checking* and *Stopping*.
+ *   Where harmonising leaves the warning nearer than [STATE_HUE_GAP] to the accent, the warning
+ *   turns back, away from the accent, by as much as it takes — never further than `harmonize` could
+ *   have turned it from the design's amber, so it stays amber. The accent is left where the seed
+ *   put it: turning an orange accent away from the amber would turn it into the error's red.
+ *
  * Contrast is MaterialKolor's default, and spec 2021 is named rather than taken from the library's
  * default so a release that moved the default cannot move a golden. Contrast −1.0 is never asked
  * for: the port gives a white dark scheme there.
@@ -85,7 +106,12 @@ internal fun seededDesign(colours: MaterialColours): SeededDesign {
     val neutral = Family(hand.onSurface, generated.onSurface)
     val variant = Family(KachokPalette.onSurfaceMuted, generated.onSurfaceVariant)
     val error = Family(hand.error, generated.error)
-    val warning = Family(KachokWarning.warning, KachokWarning.warning.harmonize(generated.primary))
+    val warning =
+        Family(
+            KachokWarning.warning,
+            KachokWarning.warning.harmonize(generated.primary).turnedAwayFrom(accent(hand.primary)),
+        )
+    val surface = neutral(hand.surface)
     val colors =
         KachokColors(
             accent = accent(hand.primary),
@@ -99,7 +125,7 @@ internal fun seededDesign(colours: MaterialColours): SeededDesign {
             text = neutral(hand.onSurface),
             textMuted = variant(KachokPalette.onSurfaceMuted),
             textFaint = variant(hand.onSurfaceVariant),
-            surface = neutral(hand.surface),
+            surface = surface,
             raised = neutral(hand.surfaceVariant),
             raisedHigh = neutral(hand.surfaceContainerHigh),
             raisedHighest = neutral(hand.surfaceContainerHighest),
@@ -115,7 +141,7 @@ internal fun seededDesign(colours: MaterialColours): SeededDesign {
             warningContainer = warning(KachokWarning.warningContainer),
             onWarningContainer = warning(KachokWarning.onWarningContainer),
             errorFigure = error(KachokPalette.errorFigure),
-            errorRowTint = error(KachokPalette.errorRowTint),
+            errorRowTint = error(KachokPalette.errorRowTint).apartFrom(surface, DESIGN_TINT_GAP),
             errorTrack = error(KachokPalette.errorTrack),
             stoppingBar = variant(KachokPalette.stoppingBar),
             selectedFigure = accent(KachokPalette.selectedFigure),
@@ -186,4 +212,68 @@ private class Family(
     }
 }
 
+/**
+ * How far *checking*'s amber stays from the accent, in HCT hue: the width of one hue name — amber
+ * spans 66–98 degrees — plus two for the hue an 8-bit colour rounds to.
+ */
+private const val STATE_HUE_GAP = 32.0
+
+/** How far `harmonize` may turn a colour from its own hue, and so how far `warning` may be off amber. */
+private const val MAX_HARMONY = 15.0
+
+/**
+ * `this` warning turned, if it has to, until it is [STATE_HUE_GAP] from [accent]'s hue: away from
+ * the accent, and kept within [MAX_HARMONY] of the design's amber.
+ */
+private fun Color.turnedAwayFrom(accent: Color): Color {
+    val own = toHct()
+    val from = accent.toHct().hue
+    val towards = signedTurn(from, own.hue)
+    if (abs(towards) >= STATE_HUE_GAP) return this
+    val amber = KachokWarning.warning.toHct().hue
+    val wanted = from + if (towards >= 0) STATE_HUE_GAP else -STATE_HUE_GAP
+    val turn = signedTurn(amber, wanted).coerceIn(-MAX_HARMONY, MAX_HARMONY)
+    return Hct.from((amber + turn).mod(FULL_TURN), own.chroma, own.tone).toColor()
+}
+
+/** The turn from [from] to [to], in degrees, the short way round: −180 to 180. */
+private fun signedTurn(
+    from: Double,
+    to: Double,
+): Double = (to - from + HALF_TURN).mod(FULL_TURN) - HALF_TURN
+
+/**
+ * `this` with as much more chroma, in its own hue and tone, as it takes to be [gap] from [ground]
+ * in Oklab's a–b plane — or as much as sRGB has at that tone.
+ */
+private fun Color.apartFrom(
+    ground: Color,
+    gap: Float,
+): Color {
+    val own = toHct()
+    var chroma = own.chroma
+    var colour = this
+    while (abDistance(colour, ground) < gap && chroma < MAX_TINT_CHROMA) {
+        chroma += CHROMA_STEP
+        colour = Hct.from(own.hue, chroma, own.tone).toColor()
+    }
+    return colour
+}
+
+/** The distance between two colours in Oklab's a–b plane: how far apart they are leaving lightness out. */
+private fun abDistance(
+    a: Color,
+    b: Color,
+): Float {
+    val x = a.convert(ColorSpaces.Oklab)
+    val y = b.convert(ColorSpaces.Oklab)
+    return hypot(x.green - y.green, x.blue - y.blue)
+}
+
+/** The hand-written error row tint's distance from the hand-written surface, leaving lightness out. */
+private val DESIGN_TINT_GAP: Float = abDistance(KachokPalette.errorRowTint, KachokDarkColors.surface)
+
+private const val CHROMA_STEP = 0.5
+private const val MAX_TINT_CHROMA = 48.0
+private const val HALF_TURN = 180.0
 private const val FULL_TURN = 360.0
