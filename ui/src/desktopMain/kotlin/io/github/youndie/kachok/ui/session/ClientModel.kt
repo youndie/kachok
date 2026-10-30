@@ -7,6 +7,9 @@ import io.github.youndie.kachok.control.mcp.McpServer
 import io.github.youndie.kachok.control.store.StoredTorrent
 import io.github.youndie.kachok.control.store.StoredTorrentsKeeper
 import io.github.youndie.kachok.control.store.forgetTorrent
+import io.github.youndie.kachok.control.store.keepLimits
+import io.github.youndie.kachok.control.store.limitsFile
+import io.github.youndie.kachok.control.store.loadLimits
 import io.github.youndie.kachok.control.store.loadStoredTorrents
 import io.github.youndie.kachok.control.store.rememberDirectory
 import io.github.youndie.kachok.control.store.rememberPaused
@@ -18,6 +21,7 @@ import io.github.youndie.kachok.engine.hex
 import io.github.youndie.kachok.engine.io.EngineDispatchers
 import io.github.youndie.kachok.engine.metainfo.MetainfoParser
 import io.github.youndie.kachok.engine.runtime.RuntimeOptions
+import io.github.youndie.kachok.engine.runtime.SetLimits
 import io.github.youndie.kachok.engine.runtime.SetOptions
 import io.github.youndie.kachok.engine.runtime.TorrentSet
 import io.github.youndie.kachok.engine.runtime.fetchMetainfo
@@ -144,6 +148,9 @@ internal class ClientModel(
      * three on the way are worth nothing to a running session.
      */
     val retuned: Channel<RuntimeOptions> = Channel(Channel.CONFLATED)
+
+    /** The client's own limits as the settings screen last left them (B-151); conflated likewise. */
+    val limited: Channel<SetLimits> = Channel(Channel.CONFLATED)
     val commanded: Channel<TorrentCommand> = Channel(Channel.UNLIMITED)
 
     /** Where the last torrent actually went, back from the engine loop. Only the latest is the answer. */
@@ -230,8 +237,20 @@ internal class ClientModel(
                 dispatchers = dispatchers,
                 scope = scope,
                 // The records next to the remembered torrents, not in the download folder (B-150).
-                options = SetOptions(dht = preferences.value.dht, resumeDirectory = torrents.resolveSibling("resume")),
+                options =
+                    SetOptions(
+                        dht = preferences.value.dht,
+                        resumeDirectory = torrents.resolveSibling("resume"),
+                        // The file the CLI's engine writes too, so a limit set there holds here; the
+                        // screen's own figures only when nobody has set one yet (B-151).
+                        limits =
+                            loadLimits(limitsFile(torrents)) { System.err.println("kachok: $it") }
+                                ?: preferences.value.setLimits(),
+                    ),
             )
+        scope.keepLimits(set, limitsFile(torrents)) { System.err.println("kachok: $it") }
+        // And the screen follows the set, so a limit an agent sets is the one the settings show.
+        scope.launch { set.limits.collect { limits -> preferences.value = preferences.value.withLimits(limits) } }
         // **An agent drives this engine, not one of its own** (B-117). Registered here and not in
         // `main`, because the set is built on this effect: a socket that answered before there was
         // one would hand an agent a client whose torrent list is empty and whose `add_torrent` has
@@ -310,6 +329,9 @@ internal class ClientModel(
                 for (options in retuned) {
                     set.torrents.forEach { it.reconfigure(options) }
                 }
+            }
+            scope.launch {
+                for (limits in limited) set.limit(limits)
             }
             scope.launch {
                 for (command in commanded) {

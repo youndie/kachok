@@ -6,10 +6,14 @@ import io.github.youndie.kachok.control.configDirectory
 import io.github.youndie.kachok.control.mcp.McpKeeper
 import io.github.youndie.kachok.control.mcp.McpServer
 import io.github.youndie.kachok.control.store.StoredTorrentsKeeper
+import io.github.youndie.kachok.control.store.keepLimits
+import io.github.youndie.kachok.control.store.limitsFile
+import io.github.youndie.kachok.control.store.loadLimits
 import io.github.youndie.kachok.control.store.loadStoredTorrents
 import io.github.youndie.kachok.control.store.reopenStored
 import io.github.youndie.kachok.engine.io.EngineDispatchers
 import io.github.youndie.kachok.engine.runtime.RuntimeOptions
+import io.github.youndie.kachok.engine.runtime.SetLimits
 import io.github.youndie.kachok.engine.runtime.SetOptions
 import io.github.youndie.kachok.engine.runtime.TorrentSet
 import kotlinx.coroutines.CompletableDeferred
@@ -127,9 +131,16 @@ internal object Mcp {
                             dht = options.dht,
                             // Next to the remembered torrents, not in the download folder (B-150).
                             resumeDirectory = store?.resolveSibling(RESUME),
+                            // The limits the window or the last run left, in the file both share (B-151).
+                            limits =
+                                store
+                                    ?.let(::limitsFile)
+                                    ?.let { loadLimits(it) { problem -> err.appendLine("kachok: $problem") } }
+                                    ?: SetLimits(),
                         ),
                     onBindFailure = { err.appendLine("kachok: $it") },
                 )
+            store?.let { scope.keepLimits(set, limitsFile(it)) { problem -> err.appendLine("kachok: $problem") } }
             val keeper = store?.let { StoredTorrentsKeeper(it) } ?: McpKeeper.NOTHING
 
             fun server(write: (String) -> Unit) =

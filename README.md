@@ -22,7 +22,8 @@ screenshot suite compares against, degraded banner and all.*
   the tracker offers it, and encrypted connections (MSE/PE) — dialled first, fallen back from when
   a peer will not have them, and accepted either way.
 * **Lets you choose what arrives and when**: files skipped or raised to the front of the queue,
-  sequential download, upload and download limits, pause and re-check.
+  sequential download, upload and download limits for the whole client, a cap on downloads at once
+  with the rest queued, pause and re-check.
 * **Stays out of the way**: a tray icon, file associations for `.torrent`, a clipboard offer when
   a magnet is on it, and installers for macOS, Windows and Linux.
 
@@ -63,6 +64,7 @@ what the WebSocket sends.
 | `set_file_priority` | one file to `skip`, `normal` or `high` on a running torrent |
 | `set_sequential` | a running torrent in order or rarest first |
 | `move_torrent` | the downloaded files to another directory, keeping the progress |
+| `set_limits` | the whole client's download and upload limits (`"10 Mbit/s"`, `"1.5 MB/s"`, `"off"`) and how many torrents download at once; the rest wait as `queued` |
 
 Every refusal is a sentence — which torrent, which path, what was wrong — because the thing on the
 other end shows words to a person and has nowhere to look up a code.

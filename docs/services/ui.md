@@ -162,6 +162,7 @@ Everything else the client remembers is in the platform's own configuration dire
 | What | File | Written when |
 |---|---|---|
 | the settings | `settings.properties` | half a second after the last keystroke in the settings screen |
+| the client's limits | `limits.properties` — download and upload bytes a second, downloads at once; shared with the CLI's engine | on every change, from the settings screen or an agent ([B-151](../backlog/B-151-one-limit-for-the-whole-client.md)) |
 | the list of torrents | `torrents/<info hash>.torrent` — a **copy**, not a pointer | a torrent is added |
 | each torrent's own choices | `torrents/<info hash>.properties` — name, directory, paused, unwanted files, sequential | added, paused, resumed |
 | which pieces are verified | `resume/<info hash>.resume` — here, and not beside the data since [B-150](../backlog/B-150-resume-records-live-with-the-client.md) | the engine's own rule ([B-23](../backlog/B-23-atomic-resume-file.md)) |

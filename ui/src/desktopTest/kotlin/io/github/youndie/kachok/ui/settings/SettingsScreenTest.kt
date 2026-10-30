@@ -12,6 +12,7 @@ import androidx.compose.ui.test.v2.runComposeUiTest
 import io.github.youndie.kachok.engine.runtime.RuntimeOptions
 import io.github.youndie.kachok.engine.session.SessionConfig
 import io.github.youndie.kachok.ui.session.Preferences
+import io.github.youndie.kachok.ui.session.setLimits
 import io.github.youndie.kachok.ui.session.settingsOf
 import io.github.youndie.kachok.ui.theme.KachokTheme
 import kotlin.test.Test
@@ -204,11 +205,16 @@ class SettingsScreenTest {
                 .typed(SettingKey.MaxPeers, "80")
                 .typed(SettingKey.PipelineDepth, "24")
                 .typed(SettingKey.DownloadLimit, "12000")
+                .typed(SettingKey.MaxActiveDownloads, "3")
         val options = changed.runtimeOptions()
         assertEquals(80, options.maxPeers)
         assertEquals(24, options.pipelineDepth)
-        assertEquals(12_000L * 1024, options.downloadLimitBytesPerSecond, "KiB/s on screen, bytes to the engine")
-        assertEquals(0L, options.uploadLimitBytesPerSecond, "and nothing typed is still no limit")
+        // B-151: the limits are the whole client's, so no torrent carries one of its own.
+        assertEquals(0L, options.downloadLimitBytesPerSecond, "a torrent was given the client's limit as its own")
+        val limits = changed.setLimits()
+        assertEquals(12_000L * 1024, limits.downloadBytesPerSecond, "KiB/s on screen, bytes to the engine")
+        assertEquals(0L, limits.uploadBytesPerSecond, "and nothing typed is still no limit")
+        assertEquals(3, limits.maxActiveDownloads)
     }
 
     /** A half-cleared field is not a zero. */

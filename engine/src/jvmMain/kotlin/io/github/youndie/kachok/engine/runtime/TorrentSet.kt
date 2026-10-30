@@ -18,9 +18,14 @@ import io.github.youndie.kachok.engine.storage.FileSet
 import io.github.youndie.kachok.engine.tracker.TrackerProtocol
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import java.io.IOException
 import java.net.BindException
 import java.net.DatagramSocket
@@ -28,6 +33,8 @@ import java.net.SocketException
 import java.nio.file.Files
 import java.nio.file.Path
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.CopyOnWriteArrayList
+import kotlin.time.Duration.Companion.milliseconds
 
 /** What the whole process chooses, as opposed to what one torrent does. */
 public class SetOptions(
@@ -61,6 +68,42 @@ public class SetOptions(
      * the directory they were given. A record still beside the files is read once and moved.
      */
     public val resumeDirectory: Path? = null,
+    /** What the set starts with; [TorrentSet.limit] changes it while it runs (B-151). */
+    public val limits: SetLimits = SetLimits(),
+)
+
+/**
+ * The client's own limits, across every torrent it runs
+ * ([B-151](../../../../../../../../docs/backlog/B-151-one-limit-for-the-whole-client.md)).
+ *
+ * **One budget for the client, not one per torrent.** A limit exists because a link is shared, and
+ * a per-torrent limit times however many torrents happen to be running is not a limit: eleven
+ * torrents at 10 Mbit/s each is 110. A torrent's own limit, where somebody set one, still applies on
+ * top of this.
+ */
+public data class SetLimits(
+    /** Bytes a second the whole client asks for. Zero means no limit. */
+    public val downloadBytesPerSecond: Long = 0,
+    /** Bytes a second the whole client serves. Zero means no limit. */
+    public val uploadBytesPerSecond: Long = 0,
+    /**
+     * Downloads that run at once; the rest wait, queued, in the order they were added, and start
+     * as turns free up. Seeding is not a download and never waits. Zero means no limit.
+     */
+    public val maxActiveDownloads: Int = 0,
+) {
+    init {
+        require(downloadBytesPerSecond >= 0) { "a download limit of $downloadBytesPerSecond" }
+        require(uploadBytesPerSecond >= 0) { "an upload limit of $uploadBytesPerSecond" }
+        require(maxActiveDownloads >= 0) { "$maxActiveDownloads downloads at once" }
+    }
+}
+
+/** How the queue stands: downloads running, downloads waiting, and the most that may run. */
+public data class QueueStatus(
+    public val active: Int,
+    public val queued: Int,
+    public val maxActive: Int,
 )
 
 /**
@@ -287,6 +330,103 @@ public class TorrentSet(
 
     public val torrents: List<TorrentRuntime> get() = byInfoHash.values.toList()
 
+    /** Info hashes in the order they were added, which is the order queued torrents get turns in. */
+    private val added = CopyOnWriteArrayList<String>()
+
+    private val sharedDownload = SharedRateLimit(options.limits.downloadBytesPerSecond)
+    private val sharedUpload = SharedRateLimit(options.limits.uploadBytesPerSecond)
+    private val limitsState = MutableStateFlow(options.limits)
+
+    /** The client's own limits as they stand (B-151); every surface reads them from here. */
+    public val limits: StateFlow<SetLimits> = limitsState.asStateFlow()
+
+    /** New limits for every torrent, running ones included; they take effect within a tick. */
+    public fun limit(limits: SetLimits) {
+        sharedDownload.retune(limits.downloadBytesPerSecond)
+        sharedUpload.retune(limits.uploadBytesPerSecond)
+        limitsState.value = limits
+        queueWake.trySend(Unit)
+    }
+
+    /** Running, waiting and allowed downloads, counted from the torrents' own states. */
+    public val queueStatus: QueueStatus
+        get() {
+            val downloading = inOrder().filter { it.isStarted && it.wantsToDownload() }
+            return QueueStatus(
+                active = downloading.count { !it.state.value.queued },
+                queued = downloading.count { it.state.value.queued },
+                maxActive = limitsState.value.maxActiveDownloads,
+            )
+        }
+
+    private val queueWake = Channel<Unit>(Channel.CONFLATED)
+
+    /**
+     * The queue's one loop: hold what is over the limit, release what fits.
+     *
+     * A loop over states rather than a reaction to each change, because the changes come from
+     * everywhere — a piece completing a torrent, a person pausing one, an agent raising the limit —
+     * and every one of them is answered by the same count. Twice a second is quick enough that a
+     * finished download's turn is taken before anybody notices it was free, and costs a pass over a
+     * list of torrents. A torrent that starts while the queue is full is held from its first moment
+     * instead ([TorrentRuntime.holdOnStart]): waiting for this loop would let it announce first.
+     */
+    private val queueJob =
+        scope.launch {
+            while (isActive) {
+                try {
+                    balanceQueue()
+                } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                    throw cancelled
+                } catch (failed: Exception) {
+                    // A torrent removed under the pass: the next one counts again from scratch.
+                    lastQueueError = failed.message ?: failed::class.simpleName
+                }
+                withTimeoutOrNull(QUEUE_TICK) { queueWake.receive() }
+            }
+        }
+
+    /** What the queue's last failed pass said, for whoever is looking; null while it works. */
+    @Volatile
+    public var lastQueueError: String? = null
+        private set
+
+    private suspend fun balanceQueue() {
+        val started = inOrder().filter { it.isStarted }
+        // A held torrent that has nothing left to fetch — its files were skipped while it waited —
+        // is not a download any more, and holding it would keep a seed off the swarm.
+        started.filter { it.state.value.queued && !it.wantsToDownload() }.forEach { it.queue(held = false) }
+        val downloading = started.filter { it.wantsToDownload() }
+        val running = downloading.filter { !it.state.value.queued }
+        val waiting = downloading.filter { it.state.value.queued }
+        val max = limitsState.value.maxActiveDownloads
+        when {
+            max <= 0 -> waiting.forEach { it.queue(held = false) }
+
+            // The newest wait, so a lowered limit keeps the downloads that have been running longest.
+            running.size > max -> running.drop(max).forEach { it.queue(held = true) }
+
+            else -> waiting.take(max - running.size).forEach { it.queue(held = false) }
+        }
+        lastQueueError = null
+    }
+
+    /** Whether a torrent that starts now has to wait for a turn. */
+    private fun holdsOnStart(runtime: TorrentRuntime): Boolean {
+        val max = limitsState.value.maxActiveDownloads
+        if (max <= 0 || runtime.state.value.isComplete) return false
+        val running =
+            inOrder().count { it !== runtime && it.isStarted && it.wantsToDownload() && !it.state.value.queued }
+        return running >= max
+    }
+
+    private fun TorrentRuntime.wantsToDownload(): Boolean {
+        val state = this.state.value
+        return !state.paused && !state.isComplete && state.sessionError == null
+    }
+
+    private fun inOrder(): List<TorrentRuntime> = added.mapNotNull { byInfoHash[it] }
+
     /**
      * Starts accepting, once.
      *
@@ -324,8 +464,13 @@ public class TorrentSet(
                 dht = if (metainfo.isPrivate) null else dht,
                 onResumeFailure = onResumeFailure,
                 resumeDirectory = resumeDirectory,
+                sharedUpload = sharedUpload,
+                sharedDownload = sharedDownload,
             )
+        runtime.holdOnStart = { holdsOnStart(runtime) }
         byInfoHash[key] = runtime
+        added += key
+        queueWake.trySend(Unit)
         startAccepting()
         return runtime
     }
@@ -361,6 +506,8 @@ public class TorrentSet(
         forgetProgress: Boolean = false,
     ) {
         byInfoHash.remove(runtime.metainfo.infoHash.hex()) ?: return
+        added.remove(runtime.metainfo.infoHash.hex())
+        queueWake.trySend(Unit)
         runtime.stop()
         if (forgetProgress) runtime.awaitStopped()
         runtime.close()
@@ -501,7 +648,10 @@ public class TorrentSet(
                 dht = if (metainfo.isPrivate) null else dht,
                 onResumeFailure = runtime.onResumeFailure,
                 resumeDirectory = resumeDirectory,
+                sharedUpload = sharedUpload,
+                sharedDownload = sharedDownload,
             )
+        reopened.holdOnStart = { holdsOnStart(reopened) }
         byInfoHash[key] = reopened
         return Moved(reopened, paused = state.paused, failure = failure)
     }
@@ -620,6 +770,7 @@ public class TorrentSet(
     }
 
     override fun close() {
+        queueJob.cancel()
         // **The mapping is given back before anything else goes**, and it is best effort by
         // design: a client that maps a port and exits without releasing leaves a hole in a router
         // it does not own for the rest of the lease. The cancel comes first so the renewal loop
@@ -636,6 +787,9 @@ public class TorrentSet(
     }
 
     private companion object {
+        /** How often the queue counts again when nothing woke it; see [queueJob]. */
+        val QUEUE_TICK = 500.milliseconds
+
         private fun AutoCloseable.closeQuietly() {
             try {
                 close()

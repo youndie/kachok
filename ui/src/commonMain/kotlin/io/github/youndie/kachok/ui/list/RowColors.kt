@@ -61,13 +61,15 @@ private val ZERO = io.github.youndie.kachok.ui.session.Figures.NO_SPEED
 /**
  * Two states rewrite every emphasis in their row.
  *
- * *Paused* drops the whole row — the design says so in as many words. *Stopping* demotes the
+ * *Paused* drops the whole row — the design says so in as many words — and *Queued* with it: a
+ * torrent waiting for a turn is not transferring either, and differs from a paused one only in who
+ * decided (B-151). *Stopping* demotes the
  * headline but keeps the rest: its numbers are the last ones the session saw, and a frozen figure
  * that still looks live is the row telling a lie for up to ten seconds.
  */
 private fun TorrentState.settle(emphasis: Emphasis): Emphasis =
     when (this) {
-        TorrentState.Paused -> Emphasis.Muted
+        TorrentState.Paused, TorrentState.Queued -> Emphasis.Muted
         TorrentState.Stopping -> if (emphasis == Emphasis.Live) Emphasis.Figure else emphasis
         else -> emphasis
     }
@@ -198,7 +200,7 @@ private fun labelColor(
         TorrentState.Checking, TorrentState.Stopping -> warning.warning
         TorrentState.Downloading -> scheme.onSurface
         TorrentState.Seeding -> scheme.primary
-        TorrentState.Paused -> scheme.onSurfaceVariant
+        TorrentState.Paused, TorrentState.Queued -> scheme.onSurfaceVariant
         TorrentState.Error -> scheme.error
     }
 
@@ -236,7 +238,7 @@ private fun plainRowColor(
     return when (cell) {
         RowCell.Glyph -> {
             when (state) {
-                TorrentState.Metadata, TorrentState.Paused -> scheme.onSurfaceVariant
+                TorrentState.Metadata, TorrentState.Paused, TorrentState.Queued -> scheme.onSurfaceVariant
                 TorrentState.Checking, TorrentState.Stopping -> warning.warning
                 TorrentState.Downloading, TorrentState.Seeding -> scheme.primary
                 TorrentState.Error -> scheme.error
@@ -248,7 +250,7 @@ private fun plainRowColor(
                 // A magnet has no name; the info hash it shows instead is a figure, not a title.
                 TorrentState.Metadata -> KachokPalette.onSurfaceMuted
 
-                TorrentState.Paused -> scheme.onSurfaceVariant
+                TorrentState.Paused, TorrentState.Queued -> scheme.onSurfaceVariant
 
                 TorrentState.Error -> scheme.error
 
@@ -261,7 +263,7 @@ private fun plainRowColor(
                 TorrentState.Metadata -> scheme.primary.copy(alpha = METADATA_BAR_ALPHA)
                 TorrentState.Checking -> warning.warning
                 TorrentState.Downloading, TorrentState.Seeding -> scheme.primary
-                TorrentState.Paused -> scheme.onSurfaceVariant
+                TorrentState.Paused, TorrentState.Queued -> scheme.onSurfaceVariant
                 TorrentState.Stopping -> KachokPalette.stoppingBar
                 TorrentState.Error -> scheme.error
             }

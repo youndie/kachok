@@ -321,6 +321,10 @@ internal class ToolbarState(
                         ToolbarAction(Icons.CAMPAIGN, REANNOUNCE, disabledBecause = NO_TORRENT_YET)
                     }
 
+                    TorrentState.Queued -> {
+                        ToolbarAction(Icons.CAMPAIGN, REANNOUNCE, disabledBecause = QUEUED_SAYS_NOTHING)
+                    }
+
                     else -> {
                         ToolbarAction(Icons.CAMPAIGN, REANNOUNCE, ToolbarCommand.Reannounce)
                     }
@@ -344,6 +348,8 @@ internal class ToolbarState(
         const val REANNOUNCE = "Force re-announce"
         const val PAUSED_SAYS_NOTHING =
             "This torrent is paused; it has told its trackers it stopped."
+        const val QUEUED_SAYS_NOTHING =
+            "This torrent is waiting for a turn; it has told its trackers it stopped."
         const val NO_TORRENT_YET =
             "There is no torrent yet, only a magnet looking for one."
     }

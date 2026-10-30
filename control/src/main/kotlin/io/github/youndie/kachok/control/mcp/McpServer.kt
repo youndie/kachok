@@ -1,5 +1,6 @@
 package io.github.youndie.kachok.control.mcp
 
+import io.github.youndie.kachok.control.Rates
 import io.github.youndie.kachok.control.onTheWire
 import io.github.youndie.kachok.control.snapshot
 import io.github.youndie.kachok.engine.hex
@@ -8,6 +9,7 @@ import io.github.youndie.kachok.engine.metainfo.MagnetParser
 import io.github.youndie.kachok.engine.metainfo.Metainfo
 import io.github.youndie.kachok.engine.metainfo.MetainfoParser
 import io.github.youndie.kachok.engine.runtime.RuntimeOptions
+import io.github.youndie.kachok.engine.runtime.SetLimits
 import io.github.youndie.kachok.engine.runtime.TorrentRuntime
 import io.github.youndie.kachok.engine.runtime.TorrentSet
 import io.github.youndie.kachok.engine.runtime.fetchMetainfo
@@ -384,7 +386,12 @@ public class McpServer(
             torrents.joinToString("\n") { runtime ->
                 val state = runtime.state.value.onTheWire()
                 val percent = if (state.pieceCount == 0) 0 else state.completedPieces * PERCENT / state.pieceCount
-                "${state.infoHash}  ${state.name}  ${stateWord(state.paused, state.isComplete, state.sessionError)}  " +
+                "${state.infoHash}  ${state.name}  ${stateWord(
+                    state.paused,
+                    state.isComplete,
+                    state.sessionError,
+                    state.queued,
+                )}  " +
                     "$percent%  down ${human(state.downBytesPerSecond)}/s  up ${human(state.upBytesPerSecond)}/s  " +
                     "peers ${state.connectedPeers}/${state.knownPeers}" + if (state.sequential) "  in order" else ""
             },
@@ -401,6 +408,7 @@ public class McpServer(
                         state.paused,
                         state.isComplete,
                         state.sessionError,
+                        state.queued,
                     )}",
                 )
                 appendLine(
@@ -632,8 +640,9 @@ public class McpServer(
                     "DHT: " + (set.dhtForLookups?.let { "${it.table.size} node(s) in the routing table" } ?: "off"),
                 )
                 set.dhtPortMapping?.let { appendLine("DHT udp port ${set.dhtPort}: $it") }
+                appendLine(limitLines())
                 val torrents = set.torrents.map { it.state.value }
-                val running = torrents.filter { !it.paused }
+                val running = torrents.filter { !it.paused && !it.queued }
                 append(
                     "torrents: ${torrents.size}, ${running.size} running, " +
                         "${running.sumOf {
@@ -642,6 +651,38 @@ public class McpServer(
                 )
             },
         )
+
+    /**
+     * The client's own limits, changed while it runs (B-151). A field left out stays as it was, so
+     * an agent can raise one limit without restating the others.
+     */
+    private fun setLimits(arguments: JsonObject): Outcome {
+        val now = set.limits.value
+        val download = arguments.string("download")?.let(::rate) ?: now.downloadBytesPerSecond
+        val upload = arguments.string("upload")?.let(::rate) ?: now.uploadBytesPerSecond
+        val maxActive = arguments["max_active_downloads"]?.jsonPrimitive?.intOrNull ?: now.maxActiveDownloads
+        if (maxActive < 0) {
+            throw Refusal("max_active_downloads is how many downloads run at once: 0 for no limit, never below")
+        }
+        set.limit(SetLimits(download, upload, maxActive))
+        return Outcome("Limits for the whole client, in effect now:\n${limitLines()}")
+    }
+
+    private fun rate(text: String): Long =
+        try {
+            Rates.parse(text)
+        } catch (nonsense: IllegalArgumentException) {
+            throw Refusal(nonsense.message ?: "\"$text\" is not a rate")
+        }
+
+    private fun limitLines(): String {
+        val limits = set.limits.value
+        val queue = set.queueStatus
+        val turns = if (queue.maxActive == 0) "no limit" else "${queue.maxActive}"
+        return "download limit: ${Rates.describe(limits.downloadBytesPerSecond)}, for the whole client\n" +
+            "upload limit: ${Rates.describe(limits.uploadBytesPerSecond)}, for the whole client\n" +
+            "downloads at once: $turns (${queue.active} running, ${queue.queued} queued)"
+    }
 
     private fun runtimeFor(arguments: JsonObject): TorrentRuntime {
         val hash =
@@ -715,9 +756,11 @@ public class McpServer(
             paused: Boolean,
             complete: Boolean,
             sessionError: String?,
+            queued: Boolean = false,
         ): String =
             when {
                 sessionError != null -> "error"
+                queued -> "queued"
                 paused -> "paused"
                 complete -> "seeding"
                 else -> "downloading"
@@ -799,9 +842,31 @@ public class McpServer(
                 Tool(
                     "network_status",
                     "How reachable this client is: the listen port, whether the router forwards it and why not, how " +
-                        "many DHT nodes it knows, and how many peers its running torrents are connected to.",
+                        "many DHT nodes it knows, the client's speed limits and download queue, and how many peers " +
+                        "its running torrents are connected to.",
                     schema(emptyList()) {},
                 ) { networkStatus() },
+                Tool(
+                    "set_limits",
+                    "Limit the whole client, across every torrent: how fast it downloads, how fast it uploads, " +
+                        "and how many torrents download at once — the rest wait as queued and start, in the order " +
+                        "they were added, as turns free up; seeding never waits. Takes effect at once and is kept " +
+                        "between runs. Leave a field out to keep it as it is.",
+                    schema(emptyList()) {
+                        property(
+                            "download",
+                            "string",
+                            "A rate such as \"10 Mbit/s\", \"1.5 MB/s\" or \"800 KiB/s\", or \"off\" for no limit. " +
+                                "Lowercase b is bits, uppercase B is bytes.",
+                        )
+                        property("upload", "string", "The same, for what this client serves.")
+                        property(
+                            "max_active_downloads",
+                            "integer",
+                            "How many torrents download at once; 0 for no limit.",
+                        )
+                    },
+                ) { setLimits(it) },
                 Tool(
                     "list_torrents",
                     "Every torrent this client holds: hash, name, state, percentage, rates, peers. One line each.",

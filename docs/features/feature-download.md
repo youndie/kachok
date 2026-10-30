@@ -63,6 +63,9 @@ happens in.
 * **The rate limits are applied at the two ends they belong to**: an upload limit is what the
   unchoked peers share between them, and a download limit is applied by *not asking* rather than by
   reading slowly, because a request already sent is bytes already on their way.
+* **The client's limits cover every torrent together**, on top of any one torrent's own, and a cap on
+  downloads at once makes the rest wait as *queued*, in the order they were added; seeding never
+  waits ([B-151](../backlog/B-151-one-limit-for-the-whole-client.md)).
 
 ## 3. Flow
 

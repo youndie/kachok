@@ -1,6 +1,7 @@
 package io.github.youndie.kachok.ui.session
 
 import androidx.compose.ui.unit.Dp
+import io.github.youndie.kachok.engine.runtime.SetLimits
 import io.github.youndie.kachok.ui.add.AddTorrentState
 import io.github.youndie.kachok.ui.details.Details
 import io.github.youndie.kachok.ui.details.DetailsState
@@ -23,11 +24,13 @@ internal fun statusOf(
     dhtNodes: Int?,
     heapUsedBytes: Long,
     heapMaxBytes: Long,
+    /** The client's own limits; the status bar says a rate is capped and how many may run (B-151). */
+    limits: SetLimits = SetLimits(),
 ): SessionStatus =
     SessionStatus(
-        down = Figures.speed(rates.down),
-        up = Figures.speed(rates.up),
-        torrents = torrentsLine(rows),
+        down = capped(rates.down, limits.downloadBytesPerSecond),
+        up = capped(rates.up, limits.uploadBytesPerSecond),
+        torrents = torrentsLine(rows, limits.maxActiveDownloads),
         // Null is "not asked for" and zero is "asked for and nothing answered yet"; the status bar
         // draws those differently, so they must not arrive here as the same value.
         dht = dhtNodes?.let { "DHT $it nodes" },
@@ -51,11 +54,23 @@ internal fun statusOf(
  * anyway, because a status line that silently drops a word is one that stops being a promise. It
  * counts something now ([B-57](../../../../../../../../docs/backlog/B-57-a-paused-torrent.md)).
  */
-private fun torrentsLine(rows: List<TorrentRowModel>): String {
+private fun torrentsLine(
+    rows: List<TorrentRowModel>,
+    maxActive: Int = 0,
+): String {
     val seeding = rows.count { it.state == TorrentState.Seeding }
     val paused = rows.count { it.state == TorrentState.Paused }
-    return "${rows.size} ${if (rows.size == 1) "torrent" else "torrents"}, $seeding seeding, $paused paused"
+    val queued = rows.count { it.state == TorrentState.Queued }
+    val base = "${rows.size} ${if (rows.size == 1) "torrent" else "torrents"}, $seeding seeding, $paused paused"
+    // Said only when there is a queue to speak of, so the line everybody else sees is unchanged.
+    return if (maxActive > 0 || queued > 0) "$base, $queued queued, $maxActive at once" else base
 }
+
+/** `1.2 MiB/s of 1.19 MiB/s` when the client is capped, the plain rate when it is not (B-151). */
+private fun capped(
+    rate: Long,
+    limit: Long,
+): String = if (limit > 0) "${Figures.speed(rate)} of ${Figures.speed(limit)}" else Figures.speed(rate)
 
 /**
  * The whole window, from one running torrent.
@@ -103,6 +118,8 @@ internal fun windowOf(
      * ([B-81](../../../../../../../../docs/backlog/B-81-the-torrent-list-survives-a-restart.md)).
      */
     unopenable: Pair<String, String>? = null,
+    /** The client's own limits, for the status bar (B-151). */
+    limits: SetLimits = SetLimits(),
 ): MainWindowState =
     MainWindowState(
         torrents = rows,
@@ -115,7 +132,17 @@ internal fun windowOf(
         dropping = dropping,
         clipboardMagnet = clipboardMagnet,
         detailsWidth = detailsWidth,
-        status = statusOf(allRows, rates, listenPort, mappedExternalPort, dhtNodes, heapUsedBytes, heapMaxBytes),
+        status =
+            statusOf(
+                allRows,
+                rates,
+                listenPort,
+                mappedExternalPort,
+                dhtNodes,
+                heapUsedBytes,
+                heapMaxBytes,
+                limits,
+            ),
         // What Pause and Resume may do is decided by the row that is selected, so the bar is built
         // from the list rather than defaulted and left.
         toolbar = ToolbarState(filter = filter).forSelection(rows.firstOrNull { it.selected }?.state),

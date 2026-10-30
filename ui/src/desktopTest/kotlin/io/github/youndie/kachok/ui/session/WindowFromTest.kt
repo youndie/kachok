@@ -44,6 +44,9 @@ class WindowFromTest {
         rates: Rates = Rates(),
         dhtNodes: Int? = null,
         mappedExternalPort: Int? = null,
+        limits: io.github.youndie.kachok.engine.runtime.SetLimits =
+            io.github.youndie.kachok.engine.runtime
+                .SetLimits(),
     ) = windowOf(
         rows = rows,
         rates = rates,
@@ -53,6 +56,7 @@ class WindowFromTest {
         heapUsedBytes = 13L * 1024 * 1024,
         heapMaxBytes = 128L * 1024 * 1024,
         allRows = all,
+        limits = limits,
     )
 
     @Test
@@ -131,6 +135,22 @@ class WindowFromTest {
     fun aForwardedPortIsNamedAndAnUnforwardedOneIsNot() {
         assertEquals("port 6881 to 49152", window(listOf(row()), mappedExternalPort = 49_152).status.port)
         assertEquals("port 6881 listening", window(listOf(row()), mappedExternalPort = null).status.port)
+    }
+
+    /**
+     * B-151: a capped rate says what it is capped at, and the queue is counted once there is one —
+     * a client nobody limited keeps the line it always had.
+     */
+    @Test
+    fun theStatusLineSaysTheClientsLimitsWhenThereAreAny() {
+        val rows = listOf(row(), row(state = TorrentState.Queued), row(state = TorrentState.Queued))
+        val limits =
+            io.github.youndie.kachok.engine.runtime
+                .SetLimits(downloadBytesPerSecond = 1_250_000, maxActiveDownloads = 1)
+        val status = window(rows, rates = Rates(down = 1_200_000), limits = limits).status
+        assertEquals("1.14 MiB/s of 1.19 MiB/s", status.down)
+        assertEquals("0 B/s", status.up, "an uncapped rate grew a cap")
+        assertEquals("3 torrents, 0 seeding, 0 paused, 2 queued, 1 at once", status.torrents)
     }
 
     @Test

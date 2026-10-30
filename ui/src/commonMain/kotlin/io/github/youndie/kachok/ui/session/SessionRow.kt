@@ -81,6 +81,10 @@ internal fun stateOf(
         // and a complete one that is paused is still not uploading.
         state.paused -> TorrentState.Paused
 
+        // Not transferring either, and not because anybody asked: a turn under the client's limit
+        // on downloads at once (B-151).
+        state.queued -> TorrentState.Queued
+
         state.verifyingOf > 0 && state.verifiedPieces < state.verifyingOf -> TorrentState.Checking
 
         state.isComplete -> TorrentState.Seeding

@@ -30,6 +30,9 @@ public fun TorrentSet.snapshot(sequence: Long): Snapshot =
         dhtNodes = dhtForLookups?.table?.size,
         mappedPort = mappedExternalPort,
         portMapping = portMapping,
+        downloadLimitBytesPerSecond = limits.value.downloadBytesPerSecond,
+        uploadLimitBytesPerSecond = limits.value.uploadBytesPerSecond,
+        maxActiveDownloads = limits.value.maxActiveDownloads,
         sequence = sequence,
     )
 
@@ -60,6 +63,7 @@ public fun SessionState.onTheWire(): TorrentState =
         downBytesPerSecond = peers.sumOf { it.downBytesPerSecond },
         upBytesPerSecond = peers.sumOf { it.upBytesPerSecond },
         paused = paused,
+        queued = queued,
         isComplete = isComplete,
         sequential = sequential,
         trackerError = trackerError,
