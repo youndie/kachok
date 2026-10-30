@@ -1,7 +1,7 @@
 ---
 id: B-156
 title: "The desktop runtime is linked compressed, as the CLI's already is"
-status: question
+status: dropped
 priority: P3
 size: S
 stage: phase-2-ui
@@ -64,3 +64,10 @@ Which size is the one to make smaller?
    more in every download, updates included.
 2. **The download: do not.** Keep the runtime as it is and close this item; the number stays in
    research §1.3i so the question is not reopened without a new reason.
+
+## Decision — 2026-10-30, the owner
+
+**The download matters more: the runtime stays uncompressed.** Option 2 above. The numbers stay in
+research §1.3i, so the question is not reopened without a new reason — a change in how the
+installers compress, say, or the installed size becoming the complaint. Commit `f7c5924` on
+`feat/b-156-compressed-runtime` is the change, guard included, if it ever is.

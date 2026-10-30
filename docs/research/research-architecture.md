@@ -758,6 +758,9 @@ nothing left to take from them. **Consequence:** this is a trade of 29 MB on the
 more to download, every update included — not a saving with a hidden cost, but two sizes moving
 in opposite directions. B-156 asks which one matters.
 
+**Decided on 2026-10-30 by the owner: the download.** The runtime stays as Compose links it; the
+change (`f7c5924`, with its guard) is on the B-156 branch for the day the other size matters more.
+
 ### 1.3j Conveyor, read against what the packaging already does
 
 Read on 2026-10-30 for [B-158](../backlog/B-158-conveyor-as-the-packager.md), from Conveyor's and

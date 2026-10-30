@@ -48,7 +48,7 @@ which is also the order of work.
 
 <!-- BEGIN INDEX -->
 
-## Open (16)
+## Open (15)
 
 | Task | | Priority | Size | Blocked by |
 |---|---|---|---|---|
@@ -59,7 +59,6 @@ which is also the order of work.
 | [B-165](docs/backlog/B-165-a-russian-name-is-drawn-in-the-rows-face.md) `[ ]` | A Russian torrent name is drawn in the row's own face under the Material kit | P2 | S | - |
 | [B-166](docs/backlog/B-166-the-preflight-reruns-when-the-image-changes.md) `[ ]` | The packaged preflight runs again whenever the image it checks changes | P2 | S | - |
 | [B-80](docs/backlog/B-80-the-ui-moves-to-commonmain.md) `[~]` | The UI moves to commonMain | P2 | L | B-79 |
-| [B-156](docs/backlog/B-156-the-desktop-runtime-is-compressed.md) `[?]` | The desktop runtime is linked compressed, as the CLI's already is | P3 | S | - |
 | [B-167](docs/backlog/B-167-a-seeded-scheme-keeps-its-states-apart.md) `[ ]` | Every seeded scheme keeps the error row's tint and the accent apart from the surface and the warning | P3 | S | - |
 | [B-168](docs/backlog/B-168-oldge-skins-own-their-footnote-and-dialog-border.md) `[?]` | The oldge skins draw the footnote band and the dialog border from their own tokens | P3 | S | - |
 | [B-169](docs/backlog/B-169-a-number-field-shows-its-whole-value.md) `[ ]` | A settings number field shows its whole value: "no limit" is not cut to "no lim" | P3 | XS | - |
@@ -69,7 +68,7 @@ which is also the order of work.
 | [B-87](docs/backlog/B-87-a-server-with-a-web-face.md) `[ ]` | Phase 3: a headless server with a web face, installable on a box that is always on | P3 | XL | B-80 |
 | [B-02](docs/backlog/B-02-ci-runs-build-and-docs-gates.md) `[ ]` | CI runs the build and the documentation gates on every push | infra | S | B-01 |
 
-## Closed (153)
+## Closed (154)
 
 **M0 — The build and its gates**
 
@@ -192,6 +191,7 @@ which is also the order of work.
 - [B-144](docs/backlog/B-144-the-toolbar-says-what-its-buttons-do.md) `[x]` - The toolbar's icon buttons say what they do on hover, and Force re-announce is one of them
 - [B-145](docs/backlog/B-145-a-speed-says-its-unit.md) `[x]` - A speed says its unit: scaled B/s, KiB/s, MiB/s instead of a bare number of KiB/s
 - [B-155](docs/backlog/B-155-the-desktop-distribution-ships-shrunk-classes.md) `[x]` - The desktop distribution ships its classes through ProGuard, and the preflight checks that image
+- [B-156](docs/backlog/B-156-the-desktop-runtime-is-compressed.md) `[-]` - The desktop runtime is linked compressed, as the CLI's already is
 - [B-158](docs/backlog/B-158-conveyor-as-the-packager.md) `[-]` - Decide whether Conveyor replaces jpackage as the desktop packager
 - [B-159](docs/backlog/B-159-the-screens-draw-through-a-kit-not-through-material.md) `[x]` - The screens draw through a kit of their own, and Material becomes one implementation of it
 - [B-160](docs/backlog/B-160-oldge-ui-is-a-kit-the-window-can-wear.md) `[x]` - oldge-ui is a second kit, and the settings choose between the two
