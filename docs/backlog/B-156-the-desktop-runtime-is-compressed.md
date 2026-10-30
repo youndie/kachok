@@ -1,7 +1,7 @@
 ---
 id: B-156
 title: "The desktop runtime is linked compressed, as the CLI's already is"
-status: open
+status: question
 priority: P3
 size: S
 stage: phase-2-ui
@@ -37,3 +37,30 @@ setting for it, and nothing in the plugin sets it.
 - AC: research §1.3e has the image size and the time to the first frame with and without
   compression, per platform it was measured on, and the item records which one ships and why.
 - Anchors: `ui/build.gradle.kts`, `docs/research/research-architecture.md`.
+
+## Iteration 1 — 2026-10-30
+
+Measured, research §1.3i. `--compress 2` (`zip`), set through the jlink task's internal
+`compressionLevel` by reflection, takes the JDK's classes from 57 to 26 MB. At start: fifteen
+interleaved pairs on the Linux box, medians 1145 ms uncompressed and 1047 ms compressed, the paired
+median −64 ms inside a spread of ±500 ms — **no cost this machine can see**. Built and checked on all
+three runners (`checkDistributable`, `checkDownload`, the installers; run 41108125361).
+
+What the item did not expect: **the installers grow.** Installed 134 → 105 / 122 → 93 /
+115 → 86 MB (Linux / macOS / Windows); installers `.deb` 44 → 56, `.dmg` 57 → 63, `.msi` 49 → 56 MB.
+Every installer compresses its payload already, and does it better than `jlink`'s `zip`; classes
+compressed inside `modules` leave it nothing.
+
+The change is commit `f7c5924` on `feat/b-156-compressed-runtime`, with the guard that fails the
+build when Compose stops passing `--compress` (checked by removing the setting: the build failed
+with the guard's message). It is reverted on the branch, so `main` keeps the uncompressed runtime
+until this is decided.
+
+## Question — for the owner
+
+Which size is the one to make smaller?
+
+1. **The disk: ship it.** Take `f7c5924` as it is: 29 MB less installed on every platform, 6–12 MB
+   more in every download, updates included.
+2. **The download: do not.** Keep the runtime as it is and close this item; the number stays in
+   research §1.3i so the question is not reopened without a new reason.

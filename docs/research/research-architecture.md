@@ -716,6 +716,48 @@ into the same package — per format, because each copies differently (the `.deb
 `patchDesktopEntry` already does; the `.dmg` by `hdiutil`; the `.msi` from a cabinet whose times
 have a resolution of two seconds). Whether the 750 ms is worth that and 63 MB is B-157's question.
 
+### 1.3i The desktop runtime, compressed
+
+Measured on 2026-10-30 for [B-156](../backlog/B-156-the-desktop-runtime-is-compressed.md), on the
+Linux box (x64, Ubuntu's `openjdk-25` 25.0.4.1, WSLg), release image at `b618eb0`. The same seven
+modules and flags, once as Compose links them and once with `--compress 2` (`zip`, set through the
+jlink task's internal `compressionLevel`):
+
+| | `modules` | the image |
+|---|---|---|
+| as Compose links it | 57.1 MB | 128 MB |
+| `--compress 2` | 26.0 MB | **99 MB** |
+
+**What it costs at start: nothing this machine can see.** Fifteen interleaved pairs, launch to the
+lock answering `kachok/mcp` (§1.3h's measure), each run in a home of its own:
+
+| | min | median | max |
+|---|---|---|---|
+| uncompressed | 848 ms | 1145 ms | 1816 ms |
+| compressed | 901 ms | 1047 ms | 1856 ms |
+
+The median of the fifteen paired differences is −64 ms, and one start differs from the next by up to
+±500 ms on this box, so the honest reading is "not distinguishable from the spread", not "faster".
+What would have shown is a cost the size of the start itself; inflating 26 MB of classes on demand
+is not that. The CLI took the same trade in §1.3 without a number for it; this is the number, for the
+window.
+
+**What it costs in the download: the installers grow.** B-156 expected them to "barely move"; on the
+runners (`distributions.yml` run 41108125361, Temurin 25.0.5, against §1.3g's run of the
+uncompressed image):
+
+| | Installed | Installer |
+|---|---|---|
+| Linux x64 | 134 → **105 MB** | `.deb` 44 → **56 MB** |
+| macOS aarch64 | 122 → **93 MB** | `.dmg` 57 → **63 MB** |
+| Windows x64 | 115 → **86 MB** | `.msi` 49 → **56 MB** |
+
+Every installer compresses its payload, and it compressed the JDK's classes better than `jlink`'s
+`zip` does: once the classes are compressed inside `modules`, the installer's own compression has
+nothing left to take from them. **Consequence:** this is a trade of 29 MB on the disk for 6–12 MB
+more to download, every update included — not a saving with a hidden cost, but two sizes moving
+in opposite directions. B-156 asks which one matters.
+
 ### 1.3a Sparse files: the mechanism is not interchangeable
 
 Measured on this machine (macOS 27, APFS, JDK 25.0.2, 2026-09-05) by creating a 4 MB file four
