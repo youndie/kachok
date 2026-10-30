@@ -48,7 +48,7 @@ which is also the order of work.
 
 <!-- BEGIN INDEX -->
 
-## Open (14)
+## Open (13)
 
 | Task | | Priority | Size | Blocked by |
 |---|---|---|---|---|
@@ -59,7 +59,6 @@ which is also the order of work.
 | [B-166](docs/backlog/B-166-the-preflight-reruns-when-the-image-changes.md) `[ ]` | The packaged preflight runs again whenever the image it checks changes | P2 | S | - |
 | [B-80](docs/backlog/B-80-the-ui-moves-to-commonmain.md) `[~]` | The UI moves to commonMain | P2 | L | B-79 |
 | [B-167](docs/backlog/B-167-a-seeded-scheme-keeps-its-states-apart.md) `[ ]` | Every seeded scheme keeps the error row's tint and the accent apart from the surface and the warning | P3 | S | - |
-| [B-168](docs/backlog/B-168-oldge-skins-own-their-footnote-and-dialog-border.md) `[~]` | The oldge skins draw the footnote band and the dialog border from their own tokens | P3 | S | - |
 | [B-169](docs/backlog/B-169-a-number-field-shows-its-whole-value.md) `[ ]` | A settings number field shows its whole value: "no limit" is not cut to "no lim" | P3 | XS | - |
 | [B-37](docs/backlog/B-37-v2-and-hybrid-torrents.md) `[?]` | v2 and hybrid torrents (BEP 52): SHA-256 piece layers | P3 | L | B-04 |
 | [B-40](docs/backlog/B-40-wasmjs-ui-is-a-client-of-the-headless-engine.md) `[ ]` | The browser build of the UI is a client of the headless engine | P3 | L | B-80 |
@@ -67,7 +66,7 @@ which is also the order of work.
 | [B-87](docs/backlog/B-87-a-server-with-a-web-face.md) `[ ]` | Phase 3: a headless server with a web face, installable on a box that is always on | P3 | XL | B-80 |
 | [B-02](docs/backlog/B-02-ci-runs-build-and-docs-gates.md) `[ ]` | CI runs the build and the documentation gates on every push | infra | S | B-01 |
 
-## Closed (155)
+## Closed (156)
 
 **M0 — The build and its gates**
 
@@ -197,6 +196,7 @@ which is also the order of work.
 - [B-160](docs/backlog/B-160-oldge-ui-is-a-kit-the-window-can-wear.md) `[x]` - oldge-ui is a second kit, and the settings choose between the two
 - [B-161](docs/backlog/B-161-the-material-kit-takes-its-colours-from-a-seed.md) `[x]` - The Material kit takes its colours from a seed the person picks, through MaterialKolor
 - [B-162](docs/backlog/B-162-the-oldge-ui-kit-offers-its-skins.md) `[x]` - The oldge-ui kit offers its skins as its colour choice
+- [B-168](docs/backlog/B-168-oldge-skins-own-their-footnote-and-dialog-border.md) `[x]` - The oldge skins draw the footnote band and the dialog border from their own tokens
 - [B-39](docs/backlog/B-39-compose-ui-desktop.md) `[x]` - Phase 2: a Compose Multiplatform desktop UI on the engine's StateFlow
 - [B-46](docs/backlog/B-46-ui-theme-and-calibration.md) `[x]` - The theme: colour roles, type, and the desktop calibration
 - [B-47](docs/backlog/B-47-torrent-row-and-states.md) `[x]` - The torrent row and its seven states

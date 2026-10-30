@@ -405,42 +405,14 @@ internal fun kachokColorsOf(skin: OldgeSkin): KachokColors =
             neutralCard = o.surface2,
             tooltip = o.balloon,
             onTooltip = o.onBalloon,
-            footnoteGround = if (skin == OldgeSkin.Toxic) TOXIC_FOOTNOTE_GROUND else footnoteGroundOf(o),
-            dialogBorder = if (skin == OldgeSkin.Toxic) TOXIC_DIALOG_BORDER else dialogBorderOf(o),
+            // From the skin's own vocabulary (B-168, the owner's decision): the settings footnote on the
+            // raised `surface2` the library puts secondary panels on, a dialog's border on `edge`, the
+            // line the library draws around a framed thing. Until B-168 these were the Material
+            // design's greys carried over, which every skin drew almost as its surface and its line.
+            footnoteGround = o.surface2,
+            dialogBorder = o.edge,
         )
     }
-
-/**
- * The settings footnote's ground: the skin's `surface`, a step towards its `ground`.
- *
- * **Toxic keeps the literal it had** ([TOXIC_FOOTNOTE_GROUND]). Before B-161 made it a role it was a
- * colour written in the screen — the Material design's teal-grey `#111716` — and no Toxic token and
- * no mix of two is that grey: Toxic's grounds and lines are green, the literal has almost no
- * chroma. What *can* be carried to the other skins is its place between their tokens, which is what this is: the
- * literal sits at [FOOTNOTE_TOWARDS_GROUND] of the way from Toxic's `surface` to its `ground` in
- * lightness (Oklab L, the space `lerp` mixes in), and every other skin's footnote sits at the same
- * place between its own two. `OldgeSkinsTest` holds the fraction to that claim.
- */
-internal fun footnoteGroundOf(o: OldgeColors): Color = lerp(o.surface, o.ground, FOOTNOTE_TOWARDS_GROUND)
-
-/**
- * A dialog's border: the skin's `line`, a step towards its `edge` — by the same reasoning as
- * [footnoteGroundOf], from the Material design's `#303836` ([TOXIC_DIALOG_BORDER]), which Toxic
- * keeps and which sits at [DIALOG_BORDER_TOWARDS_EDGE] of the way from Toxic's `line` to its `edge`.
- */
-internal fun dialogBorderOf(o: OldgeColors): Color = lerp(o.line, o.edge, DIALOG_BORDER_TOWARDS_EDGE)
-
-/** The Material design's footnote ground, which the Toxic skin has drawn since B-160. */
-internal val TOXIC_FOOTNOTE_GROUND: Color = Color(0xFF111716)
-
-/** The Material design's dialog border, likewise. */
-internal val TOXIC_DIALOG_BORDER: Color = Color(0xFF303836)
-
-/** Where [TOXIC_FOOTNOTE_GROUND]'s lightness sits from Toxic's `surface` to its `ground`: 0.070. */
-internal const val FOOTNOTE_TOWARDS_GROUND: Float = 0.07f
-
-/** Where [TOXIC_DIALOG_BORDER]'s lightness sits from Toxic's `line` to its `edge`: 0.021. */
-internal const val DIALOG_BORDER_TOWARDS_EDGE: Float = 0.02f
 
 /**
  * The Material scheme `AppFrame` and anything left over in Material read, from the same tokens.

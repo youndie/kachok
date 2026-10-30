@@ -1,23 +1,11 @@
 package io.github.youndie.kachok.ui.theme
 
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.colorspace.ColorSpaces
-import androidx.compose.ui.graphics.lerp
-import io.github.youndie.kachok.ui.theme.oldge.DIALOG_BORDER_TOWARDS_EDGE
-import io.github.youndie.kachok.ui.theme.oldge.FOOTNOTE_TOWARDS_GROUND
 import io.github.youndie.kachok.ui.theme.oldge.OldgeKit
-import io.github.youndie.kachok.ui.theme.oldge.TOXIC_DIALOG_BORDER
-import io.github.youndie.kachok.ui.theme.oldge.TOXIC_FOOTNOTE_GROUND
-import io.github.youndie.kachok.ui.theme.oldge.dialogBorderOf
-import io.github.youndie.kachok.ui.theme.oldge.footnoteGroundOf
 import io.github.youndie.oldge.theme.OldgeSkin
-import kotlin.math.abs
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertNotEquals
 import kotlin.test.assertNull
 import kotlin.test.assertSame
-import kotlin.test.assertTrue
 
 /**
  * The oldge kit in each of the library's skins (B-162): one kit per skin, every role from that
@@ -57,33 +45,16 @@ class OldgeSkinsTest {
     }
 
     /**
-     * Toxic keeps the two values the screens once wrote as literals, so its goldens do not move; the
-     * other skins mix theirs from their own tokens and get colours of their own.
+     * The footnote band and a dialog's border are the skin's own `surface2` and `edge` (B-168), in
+     * every skin, Toxic included — not the Material design's greys the kit once carried over.
      */
     @Test
-    fun toxicKeepsItsLiteralsAndTheOthersDeriveTheirs() {
-        val toxic = OldgeKit.of(OldgeSkin.Toxic).colors
-        assertEquals(Color(0xFF111716), toxic.footnoteGround)
-        assertEquals(Color(0xFF303836), toxic.dialogBorder)
-        OldgeSkin.entries.filter { it != OldgeSkin.Toxic }.forEach { skin ->
+    fun theFootnoteAndTheDialogBorderAreTheSkinsOwn() {
+        OldgeSkin.entries.forEach { skin ->
             val colors = OldgeKit.of(skin).colors
-            assertEquals(footnoteGroundOf(skin.colors), colors.footnoteGround, "$skin footnote")
-            assertEquals(dialogBorderOf(skin.colors), colors.dialogBorder, "$skin dialog border")
-            assertNotEquals(TOXIC_FOOTNOTE_GROUND, colors.footnoteGround, "$skin footnote is Toxic's")
-            assertNotEquals(TOXIC_DIALOG_BORDER, colors.dialogBorder, "$skin dialog border is Toxic's")
+            assertEquals(skin.colors.surface2, colors.footnoteGround, "$skin footnote")
+            assertEquals(skin.colors.edge, colors.dialogBorder, "$skin dialog border")
         }
-    }
-
-    /**
-     * The two fractions say where Toxic's literals sit between Toxic's tokens, and they do: mixed
-     * from Toxic's own tokens, each derivation has the literal's lightness. That is the whole claim
-     * that the other skins' values are "the same place between their tokens".
-     */
-    @Test
-    fun theFractionsAreWhereToxicsLiteralsSit() {
-        val o = OldgeSkin.Toxic.colors
-        assertLightness(TOXIC_FOOTNOTE_GROUND, lerp(o.surface, o.ground, FOOTNOTE_TOWARDS_GROUND), "footnote")
-        assertLightness(TOXIC_DIALOG_BORDER, lerp(o.line, o.edge, DIALOG_BORDER_TOWARDS_EDGE), "dialog border")
     }
 
     /** A stored name is the library's own; one it no longer has is its first skin; none is none. */
@@ -93,20 +64,5 @@ class OldgeSkinsTest {
         assertEquals(OldgeSkin.entries.first(), OldgeKit.skinOf("Plasma"))
         assertEquals(OldgeSkin.entries.first(), OldgeKit.skinOf("media"), "names are the library's, case included")
         assertNull(OldgeKit.skinOf(null))
-    }
-
-    private fun assertLightness(
-        expected: Color,
-        actual: Color,
-        what: String,
-    ) {
-        val want = expected.convert(ColorSpaces.Oklab).red
-        val got = actual.convert(ColorSpaces.Oklab).red
-        assertTrue(abs(want - got) < LIGHTNESS_SLACK, "$what: Oklab L $got where the literal's is $want")
-    }
-
-    private companion object {
-        /** An 8-bit channel's rounding at these tones, and nothing more. */
-        const val LIGHTNESS_SLACK = 0.002f
     }
 }
