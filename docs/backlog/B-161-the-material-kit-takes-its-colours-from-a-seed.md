@@ -10,7 +10,7 @@ blocked_by: [B-159]
 
 # B-161 — The Material kit's colours come from a seed
 
-The current colours are one hand-written `darkColorScheme` (`ui/theme/Colors.kt`), read off the
+The current colours are one hand-written `darkColorScheme` (`ui/theme/material/Colors.kt`), read off the
 design's swatch row: teal accent, dark only. The person is to be able to pick the colour instead.
 [MaterialKolor](https://github.com/jordond/materialkolor) is the Compose port of Google's
 material-color-utilities: a `ColorScheme` from one seed colour, with a choice of scheme style and
@@ -38,7 +38,7 @@ contrast level.
 - AC: the person picks a colour and a style in the settings and the window redraws in a generated
   scheme without a restart, warning states still amber; the default seed renders the current
   goldens unchanged.
-- Anchors: `ui/src/commonMain/kotlin/io/github/youndie/kachok/ui/theme/Colors.kt`,
+- Anchors: `ui/src/commonMain/kotlin/io/github/youndie/kachok/ui/theme/material/Colors.kt`,
   `ui/src/commonMain/kotlin/io/github/youndie/kachok/ui/theme/Theme.kt`,
   `ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/session/StoredPreferences.kt`,
   `gradle/libs.versions.toml`.

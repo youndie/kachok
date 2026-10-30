@@ -13,8 +13,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -26,12 +24,12 @@ import androidx.compose.ui.unit.dp
 import io.github.youndie.kachok.ui.icons.Glyph
 import io.github.youndie.kachok.ui.icons.Icons
 import io.github.youndie.kachok.ui.main.SortColumn
-import io.github.youndie.kachok.ui.theme.KachokPalette
+import io.github.youndie.kachok.ui.theme.KachokTheme
 import io.github.youndie.kachok.ui.theme.MonoFigure
 import io.github.youndie.kachok.ui.theme.RowName
 import io.github.youndie.kachok.ui.theme.RowNameMono
 import io.github.youndie.kachok.ui.theme.RowStateLabel
-import io.github.youndie.kachok.ui.theme.warningColors
+import io.github.youndie.kachok.ui.theme.Text
 
 /**
  * The nine columns, at the widths the design lays them out at.
@@ -117,8 +115,7 @@ public data class TorrentRowModel(
  */
 @Composable
 private fun ProgressCell(model: TorrentRowModel) {
-    val scheme = MaterialTheme.colorScheme
-    val warning = MaterialTheme.warningColors
+    val scheme = KachokTheme.colors
     Row(
         Modifier.width(TorrentColumns.progress),
         verticalAlignment = Alignment.CenterVertically,
@@ -128,19 +125,19 @@ private fun ProgressCell(model: TorrentRowModel) {
             Modifier
                 .weight(1f)
                 .height(BAR_HEIGHT)
-                .background(rowColor(model, RowCell.Track, scheme, warning), RoundedCornerShape(BAR_HEIGHT / 2)),
+                .background(rowColor(model, RowCell.Track, scheme), RoundedCornerShape(BAR_HEIGHT / 2)),
         ) {
             Box(
                 Modifier
                     .fillMaxWidth(model.progress ?: METADATA_BAR_FRACTION)
                     .height(BAR_HEIGHT)
-                    .background(rowColor(model, RowCell.Bar, scheme, warning), RoundedCornerShape(BAR_HEIGHT / 2)),
+                    .background(rowColor(model, RowCell.Bar, scheme), RoundedCornerShape(BAR_HEIGHT / 2)),
             )
         }
         Text(
             model.percent,
             style = MonoFigure,
-            color = rowColor(model, RowCell.Percent, scheme, warning),
+            color = rowColor(model, RowCell.Percent, scheme),
             textAlign = TextAlign.End,
             maxLines = 1,
             modifier = Modifier.width(PERCENT_WIDTH),
@@ -178,10 +175,9 @@ private fun ColumnScope.Cells(
     model: TorrentRowModel,
     visible: Set<SortColumn>,
 ) {
-    val scheme = MaterialTheme.colorScheme
-    val warning = MaterialTheme.warningColors
+    val scheme = KachokTheme.colors
 
-    fun color(cell: RowCell) = rowColor(model, cell, scheme, warning)
+    fun color(cell: RowCell) = rowColor(model, cell, scheme)
     Row(
         Modifier
             .fillMaxWidth()
@@ -247,12 +243,12 @@ public fun TorrentRow(
     // the one the person just did.
     val tint =
         when {
-            model.selected -> MaterialTheme.colorScheme.primaryContainer
-            model.state == TorrentState.Error -> KachokPalette.errorRowTint
+            model.selected -> KachokTheme.colors.accentContainer
+            model.state == TorrentState.Error -> KachokTheme.colors.errorRowTint
             else -> Color.Transparent
         }
     val hairline =
-        if (model.selected) KachokPalette.primaryContainerHigh else KachokPalette.rowHairline
+        if (model.selected) KachokTheme.colors.accentContainerHigh else KachokTheme.colors.rowHairline
     Column(
         modifier
             .fillMaxWidth()

@@ -2,8 +2,7 @@ package io.github.youndie.kachok.ui.list
 
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
-import io.github.youndie.kachok.ui.theme.KachokDarkColors
-import io.github.youndie.kachok.ui.theme.KachokWarning
+import io.github.youndie.kachok.ui.theme.material.MaterialKit
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -148,7 +147,7 @@ class RowColorsTest {
     private fun color(
         model: TorrentRowModel,
         cell: RowCell,
-    ) = rowColor(model, cell, KachokDarkColors, KachokWarning)
+    ) = rowColor(model, cell, MaterialKit.colors)
 
     private fun Color.hex(): String = "%08X".format(toArgb())
 

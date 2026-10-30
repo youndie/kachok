@@ -7,8 +7,6 @@ import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -36,13 +34,13 @@ internal fun RowScope.DialogButton(
     destructive: Boolean = false,
     onClick: () -> Unit,
 ) {
-    val scheme = MaterialTheme.colorScheme
+    val scheme = KachokTheme.colors
     val ground =
         when {
             !primary -> Color.Transparent
-            !enabled -> scheme.surfaceContainerHighest
+            !enabled -> scheme.raisedHighest
             destructive -> scheme.error
-            else -> scheme.primary
+            else -> scheme.accent
         }
     Box(
         Modifier
@@ -58,10 +56,10 @@ internal fun RowScope.DialogButton(
             style = if (primary) ChromeButton.copy(fontWeight = FontWeight.SemiBold) else ChromeButton,
             color =
                 when {
-                    !enabled -> scheme.onSurfaceVariant
+                    !enabled -> scheme.textFaint
                     destructive -> scheme.onError
-                    primary -> scheme.onPrimary
-                    else -> KachokPalette.onSurfaceMuted
+                    primary -> scheme.onAccent
+                    else -> KachokTheme.colors.textMuted
                 },
             maxLines = 1,
         )

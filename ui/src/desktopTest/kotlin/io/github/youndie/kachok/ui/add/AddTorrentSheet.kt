@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -23,7 +22,7 @@ import io.github.youndie.viddik.annotations.ViddikScreenshot
 internal fun AddTorrentSheet() {
     KachokTheme {
         Box(
-            Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface),
+            Modifier.fillMaxSize().background(KachokTheme.colors.surface),
             contentAlignment = Alignment.Center,
         ) {
             AddTorrentDialog(designTorrentToAdd)
@@ -43,7 +42,7 @@ internal fun AddTorrentSheet() {
 internal fun AddMagnetSheet() {
     KachokTheme {
         Box(
-            Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface),
+            Modifier.fillMaxSize().background(KachokTheme.colors.surface),
             contentAlignment = Alignment.Center,
         ) {
             AddTorrentDialog(designMagnetToAdd)
@@ -57,7 +56,7 @@ internal fun AddMagnetSheet() {
 internal fun AddGesturesSheet() {
     KachokTheme {
         Column(
-            Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface).padding(16.dp),
+            Modifier.fillMaxSize().background(KachokTheme.colors.surface).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             Box(Modifier.width(728.dp).height(150.dp)) {

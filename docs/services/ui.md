@@ -52,7 +52,8 @@ asked for it in a conversation, through the same `TorrentSet` a click goes throu
 |---|---|
 | `ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/App.kt` | `main`, the window, and the platform it reaches for: the file chooser, the clipboard, the drop target, the tray |
 | `.../ui/session/ClientModel.kt` | what the window *is*, held where a window is not: its state, its channels, and the loop that samples every session and stops them cleanly |
-| `.../ui/theme/` | the eight roles, the `warning` M3 does not ship, the three bundled families, the 4 dp calibration |
+| `.../ui/theme/` | the kit the screens draw through — `KachokColors` (the design's roles by what they are for), `KachokType`, `Text` — the three bundled families and the interface scale |
+| `.../ui/theme/material/` | the Material kit: the eight roles read off the design, the `warning` M3 does not ship, the palette beside them, the 4 dp calibration; the only place `make check` lets name `material3` |
 | `.../ui/icons/Icons.kt` | the twenty-one Material Symbols codepoints and the subset font they index into |
 | `.../ui/list/TorrentRow.kt` | the nine columns at the design's widths, and the row's own hairline |
 | `.../ui/list/RowColors.kt` | which colour every cell of every state is, as a function of the scheme rather than of a composition |
@@ -82,6 +83,15 @@ fixed-width cells because `ListItem` cannot do nine, the progress cell is a 4 dp
 `LinearProgressIndicator` brings a wave that fights a figure updating at 1 Hz, and three toolbar
 controls are drawn because `FilledTonalButton` and `OutlinedTextField` cannot be 28 dp high with
 what they reserve. Everything else is stock M3.
+
+**The screens do not name Material; they draw through a kit** (B-159). `KachokTheme.colors` holds
+the design's roles by purpose — `accent`, three text levels (`text`, `textMuted`, `textFaint`),
+grounds, lines, the row and card tints — and `KachokTheme.type` the three type roles a screen names.
+`Text` and the hover hint's raised surface are the kit's to draw; the rest is drawn on `foundation`
+from those tokens, as it always was. The Material kit is the only implementation so far and draws
+exactly what the window drew before: the twelve goldens did not move. `make check` fails on any file
+outside `ui/theme/material/` that imports `androidx.compose.material3` or reads its palette.
+`AppFrame` is the exception it cannot police: the title bar it draws reads `MaterialTheme` itself.
 
 The colour rule lives outside the composables (`RowColors.kt`) so that "is this cell `#BEC9C6` or
 `#DDE4E1`" is a question a test answers rather than a screenshot.

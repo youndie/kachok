@@ -70,11 +70,13 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 # **Found rather than spelled.** This used to name `ui/src/desktopMain/...`, and the day the screens
 # moved to `commonMain` the gate failed on a missing file rather than on a wrong icon — loudly,
 # which is the good version of what a guard with a coordinate written inside it does (B-80). The
-# theme's colours are one file whatever source set holds them.
+# theme's colours are one file whatever source set holds them. It failed the same way, as loudly,
+# when B-159 moved them into the Material kit — and the mark stays the design's teal whatever
+# colours a kit draws the window in.
 def _colours_kt() -> Path:
-    found = sorted(ROOT.glob("ui/src/*/kotlin/io/github/youndie/kachok/ui/theme/Colors.kt"))
+    found = sorted(ROOT.glob("ui/src/*/kotlin/io/github/youndie/kachok/ui/theme/material/Colors.kt"))
     if len(found) != 1:
-        raise SystemExit(f"expected one theme/Colors.kt under ui/src, found {[str(f) for f in found]}")
+        raise SystemExit(f"expected one theme/material/Colors.kt under ui/src, found {[str(f) for f in found]}")
     return found[0]
 
 

@@ -10,8 +10,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -25,9 +23,10 @@ import io.github.youndie.kachok.ui.icons.Glyph
 import io.github.youndie.kachok.ui.icons.Icons
 import io.github.youndie.kachok.ui.theme.ChromeText
 import io.github.youndie.kachok.ui.theme.DialogButton
-import io.github.youndie.kachok.ui.theme.KachokPalette
+import io.github.youndie.kachok.ui.theme.KachokTheme
 import io.github.youndie.kachok.ui.theme.MonoSmall
 import io.github.youndie.kachok.ui.theme.RowName
+import io.github.youndie.kachok.ui.theme.Text
 
 /**
  * What the dialog is asking about.
@@ -65,30 +64,30 @@ internal fun RemoveTorrentDialog(
     onToggleData: (Boolean) -> Unit = {},
     onRemove: () -> Unit = {},
 ) {
-    val scheme = MaterialTheme.colorScheme
+    val scheme = KachokTheme.colors
     Column(
         modifier
             .width(DIALOG_WIDTH)
-            .background(scheme.surfaceContainerHigh, RoundedCornerShape(6.dp))
+            .background(scheme.raisedHigh, RoundedCornerShape(6.dp))
             .border(HAIRLINE, DIALOG_BORDER, RoundedCornerShape(6.dp)),
     ) {
         Text(
             "Remove torrent",
-            style = MaterialTheme.typography.headlineSmall,
-            color = scheme.onSurface,
+            style = KachokTheme.type.headline,
+            color = scheme.text,
             modifier = Modifier.padding(start = EDGE, end = EDGE, top = 18.dp, bottom = 14.dp),
         )
         Column(
             Modifier
                 .padding(horizontal = EDGE)
                 .fillMaxWidth()
-                .background(KachokPalette.neutralCard, RoundedCornerShape(4.dp))
+                .background(KachokTheme.colors.neutralCard, RoundedCornerShape(4.dp))
                 .border(HAIRLINE, scheme.outline, RoundedCornerShape(4.dp))
                 .padding(12.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
-            Text(state.name, style = RowName, color = scheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(state.howMuch, style = MonoSmall, color = KachokPalette.onSurfaceMuted, maxLines = 1)
+            Text(state.name, style = RowName, color = scheme.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(state.howMuch, style = MonoSmall, color = KachokTheme.colors.textMuted, maxLines = 1)
         }
         Row(
             Modifier
@@ -100,18 +99,18 @@ internal fun RemoveTorrentDialog(
             Glyph(
                 if (state.deleteData) Icons.CHECK_BOX else Icons.CHECK_BOX_OUTLINE_BLANK,
                 size = CONTROL_GLYPH,
-                tint = if (state.deleteData) scheme.error else scheme.onSurfaceVariant,
+                tint = if (state.deleteData) scheme.error else scheme.textFaint,
             )
             Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
                 Text(
                     DELETE_DATA,
                     style = CHOICE,
-                    color = if (state.deleteData) scheme.error else scheme.onSurface,
+                    color = if (state.deleteData) scheme.error else scheme.text,
                 )
                 Text(
                     state.where,
                     style = MonoSmall,
-                    color = scheme.onSurfaceVariant,
+                    color = scheme.textFaint,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )

@@ -5,17 +5,16 @@ import androidx.compose.foundation.TooltipArea
 import androidx.compose.foundation.TooltipPlacement
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import io.github.youndie.kachok.ui.theme.ChromeText
+import io.github.youndie.kachok.ui.theme.KachokTheme
+import io.github.youndie.kachok.ui.theme.Text
 
 /**
- * `TooltipArea`, drawn in the inverse surface so it reads against the bar it covers, and placed
+ * `TooltipArea`, on the kit's raised hint surface so it reads against the bar it covers, and placed
  * below the pointer rather than on it: a tooltip under the cursor hides the glyph it is naming.
  */
 @OptIn(ExperimentalFoundationApi::class)
@@ -24,14 +23,14 @@ internal actual fun Hint(
     text: String,
     content: @Composable () -> Unit,
 ) {
-    val scheme = MaterialTheme.colorScheme
+    val scheme = KachokTheme.colors
     TooltipArea(
         tooltip = {
-            Surface(shape = RoundedCornerShape(4.dp), color = scheme.inverseSurface, shadowElevation = 4.dp) {
+            KachokTheme.kit.Tooltip(RoundedCornerShape(4.dp)) {
                 Text(
                     text,
                     style = ChromeText,
-                    color = scheme.inverseOnSurface,
+                    color = scheme.onTooltip,
                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                 )
             }

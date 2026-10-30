@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -36,6 +35,7 @@ import io.github.youndie.kachok.ui.remove.RemoveTorrentDialog
 import io.github.youndie.kachok.ui.settings.SettingChange
 import io.github.youndie.kachok.ui.settings.SettingsScreen
 import io.github.youndie.kachok.ui.settings.SettingsState
+import io.github.youndie.kachok.ui.theme.KachokTheme
 
 /**
  * What the window is showing.
@@ -128,7 +128,7 @@ internal fun MainWindow(
         // panel is over it rather than beside it.
         val forTable = if (panelOpen && !narrow) maxWidth - state.detailsWidth else maxWidth
         val visible = NarrowTable.columnsFor(forTable)
-        Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)) {
+        Column(Modifier.fillMaxSize().background(KachokTheme.colors.surface)) {
             // The toggle says what the panel is doing rather than carrying its own opinion: two
             // places recording "the panel is open" is one place for it to be wrong.
             Toolbar(

@@ -10,13 +10,13 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import io.github.youndie.kachok.ui.theme.KachokTheme
 
 /**
  * The pieces every bar of the window is built out of.
@@ -85,7 +85,7 @@ internal fun ToolbarSeparator() {
             .padding(horizontal = 2.dp)
             .width(Chrome.hairline)
             .height(Chrome.separatorHeight)
-            .background(MaterialTheme.colorScheme.outlineVariant),
+            .background(KachokTheme.colors.divider),
     )
 }
 

@@ -72,7 +72,7 @@ private fun Sheet() {
                 Swatch("tertiary", MaterialTheme.colorScheme.tertiary)
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Swatch("warning*", MaterialTheme.warningColors.warning)
+                Swatch("warning*", KachokTheme.colors.warning)
                 Swatch("error", MaterialTheme.colorScheme.error)
                 Swatch("surface", MaterialTheme.colorScheme.surface)
                 Swatch("on surface", MaterialTheme.colorScheme.onSurface)

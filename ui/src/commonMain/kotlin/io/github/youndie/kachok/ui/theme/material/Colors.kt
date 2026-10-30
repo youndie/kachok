@@ -1,8 +1,7 @@
-package io.github.youndie.kachok.ui.theme
+package io.github.youndie.kachok.ui.theme.material
 
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Immutable
-import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 
 /**
@@ -65,8 +64,6 @@ internal val KachokWarning =
         warningContainer = Color(0xFF4A3608),
         onWarningContainer = Color(0xFFF3C46B),
     )
-
-internal val LocalWarningColors = staticCompositionLocalOf { KachokWarning }
 
 /** Values the design uses throughout that M3 has no role for at all. */
 @Immutable

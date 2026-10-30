@@ -13,8 +13,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -30,7 +28,8 @@ import io.github.youndie.kachok.ui.icons.Icons
 import io.github.youndie.kachok.ui.list.TorrentState
 import io.github.youndie.kachok.ui.theme.ChromeButton
 import io.github.youndie.kachok.ui.theme.ChromeText
-import io.github.youndie.kachok.ui.theme.KachokPalette
+import io.github.youndie.kachok.ui.theme.KachokTheme
+import io.github.youndie.kachok.ui.theme.Text
 
 /**
  * What a toolbar control asks for when it is pressed.
@@ -92,13 +91,13 @@ private fun IconAction(
     action: ToolbarAction,
     onClick: () -> Unit,
 ) {
-    val scheme = MaterialTheme.colorScheme
-    val background = if (action.active) scheme.primaryContainer else Color.Transparent
+    val scheme = KachokTheme.colors
+    val background = if (action.active) scheme.accentContainer else Color.Transparent
     val tint =
         when {
-            action.active -> KachokPalette.primaryBright
-            action.enabled -> KachokPalette.onSurfaceMuted
-            else -> scheme.onSurfaceVariant
+            action.active -> KachokTheme.colors.accentBright
+            action.enabled -> KachokTheme.colors.textMuted
+            else -> scheme.textFaint
         }
     Hint(action.hint) {
         Box(
@@ -132,15 +131,15 @@ private fun AddTorrentButton(onClick: () -> Unit) {
     Row(
         Modifier
             .height(Chrome.controlHeight)
-            .background(MaterialTheme.colorScheme.primaryContainer, RoundedCornerShape(CONTROL_RADIUS))
+            .background(KachokTheme.colors.accentContainer, RoundedCornerShape(CONTROL_RADIUS))
             .clickable(onClick = onClick)
             .semantics { contentDescription = "Add torrent" }
             .padding(horizontal = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        Glyph(Icons.ADD, size = BUTTON_GLYPH, tint = KachokPalette.primaryBright)
-        Text("Add torrent", style = ChromeButton, color = KachokPalette.primaryBright, maxLines = 1)
+        Glyph(Icons.ADD, size = BUTTON_GLYPH, tint = KachokTheme.colors.accentBright)
+        Text("Add torrent", style = ChromeButton, color = KachokTheme.colors.accentBright, maxLines = 1)
     }
 }
 
@@ -161,7 +160,7 @@ private fun FilterField(
     onFilter: (String) -> Unit,
     narrow: Boolean,
 ) {
-    val scheme = MaterialTheme.colorScheme
+    val scheme = KachokTheme.colors
     Row(
         Modifier
             .height(Chrome.controlHeight)
@@ -171,17 +170,17 @@ private fun FilterField(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        Glyph(Icons.SEARCH, size = SEARCH_GLYPH, tint = scheme.onSurfaceVariant)
+        Glyph(Icons.SEARCH, size = SEARCH_GLYPH, tint = scheme.textFaint)
         Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
             if (text.isEmpty()) {
-                Text("Filter", style = ChromeText, color = scheme.onSurfaceVariant, maxLines = 1)
+                Text("Filter", style = ChromeText, color = scheme.textFaint, maxLines = 1)
             }
             BasicTextField(
                 value = text,
                 onValueChange = onFilter,
                 singleLine = true,
-                textStyle = ChromeText.copy(color = scheme.onSurface),
-                cursorBrush = SolidColor(scheme.primary),
+                textStyle = ChromeText.copy(color = scheme.text),
+                cursorBrush = SolidColor(scheme.accent),
                 modifier = Modifier.fillMaxWidth().semantics { contentDescription = "Filter" },
             )
         }
@@ -189,7 +188,7 @@ private fun FilterField(
             Glyph(
                 Icons.CLOSE,
                 size = SEARCH_GLYPH,
-                tint = scheme.onSurfaceVariant,
+                tint = scheme.textFaint,
                 modifier =
                     Modifier
                         .clickable { onFilter("") }
@@ -372,8 +371,8 @@ internal fun Toolbar(
 ) {
     Bar(
         height = Chrome.toolbarHeight,
-        background = MaterialTheme.colorScheme.surface,
-        line = MaterialTheme.colorScheme.surfaceContainerHigh,
+        background = KachokTheme.colors.surface,
+        line = KachokTheme.colors.raisedHigh,
         modifier = modifier,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {

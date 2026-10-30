@@ -7,8 +7,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -17,9 +15,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.youndie.kachok.ui.icons.Glyph
 import io.github.youndie.kachok.ui.icons.Icons
-import io.github.youndie.kachok.ui.theme.KachokPalette
+import io.github.youndie.kachok.ui.theme.KachokTheme
 import io.github.youndie.kachok.ui.theme.MonoSmall
 import io.github.youndie.kachok.ui.theme.RowStateLabel
+import io.github.youndie.kachok.ui.theme.Text
 
 /**
  * A session is degraded, and somebody has to look.
@@ -42,20 +41,20 @@ internal fun DegradedBanner(
     modifier: Modifier = Modifier,
     onShow: () -> Unit = {},
 ) {
-    val scheme = MaterialTheme.colorScheme
+    val scheme = KachokTheme.colors
     Bar(
         height = Chrome.bannerHeight,
-        background = KachokPalette.degradedBanner,
+        background = KachokTheme.colors.degradedBanner,
         line = scheme.errorContainer,
         modifier = modifier,
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         Glyph(Icons.ERROR, size = BANNER_GLYPH, tint = scheme.error)
-        Text(summary, style = MaterialTheme.typography.labelLarge, color = scheme.error, maxLines = 1)
+        Text(summary, style = KachokTheme.type.action, color = scheme.error, maxLines = 1)
         Text(
             detail,
             style = MonoSmall,
-            color = KachokPalette.errorFigure,
+            color = KachokTheme.colors.errorFigure,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             // One weight, not a weight and a spacer: two of them share the leftover evenly and

@@ -1,11 +1,9 @@
 package io.github.youndie.kachok.ui.list
 
-import androidx.compose.material3.ColorScheme
-import androidx.compose.material3.MaterialTheme
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
-import io.github.youndie.kachok.ui.theme.KachokPalette
-import io.github.youndie.kachok.ui.theme.WarningColors
-import io.github.youndie.kachok.ui.theme.warningColors
+import io.github.youndie.kachok.ui.theme.KachokColors
+import io.github.youndie.kachok.ui.theme.KachokTheme
 
 /**
  * Every colour in a row, as a function rather than as a composable.
@@ -135,16 +133,16 @@ internal fun TorrentRowModel.emphasisOf(cell: RowCell): Emphasis =
 
 private fun Emphasis.color(
     state: TorrentState,
-    scheme: ColorScheme,
+    scheme: KachokColors,
 ): Color =
     if (state == TorrentState.Error) {
         // An error row has its own two tones: what says what happened, and everything else.
-        if (this == Emphasis.Live) scheme.error else KachokPalette.errorFigure
+        if (this == Emphasis.Live) scheme.error else scheme.errorFigure
     } else {
         when (this) {
-            Emphasis.Live -> scheme.onSurface
-            Emphasis.Figure -> KachokPalette.onSurfaceMuted
-            Emphasis.Muted -> scheme.onSurfaceVariant
+            Emphasis.Live -> scheme.text
+            Emphasis.Figure -> scheme.textMuted
+            Emphasis.Muted -> scheme.textFaint
         }
     }
 
@@ -169,13 +167,13 @@ private const val SELECTED_MUTED_ALPHA = 0.6f
  * All twelve cells of the design's own selected row come out of this mapping; none of them is
  * listed anywhere as a special case.
  */
-private fun Color.onContainer(scheme: ColorScheme): Color =
+private fun Color.onContainer(scheme: KachokColors): Color =
     when (this) {
-        scheme.primary -> KachokPalette.primaryBright
-        scheme.onSurface -> scheme.onPrimaryContainer
-        KachokPalette.onSurfaceMuted -> KachokPalette.selectedFigure
-        scheme.onSurfaceVariant -> scheme.onPrimaryContainer.copy(alpha = SELECTED_MUTED_ALPHA)
-        scheme.outlineVariant -> KachokPalette.selectedTrack
+        scheme.accent -> scheme.accentBright
+        scheme.text -> scheme.onAccentContainer
+        scheme.textMuted -> scheme.selectedFigure
+        scheme.textFaint -> scheme.onAccentContainer.copy(alpha = SELECTED_MUTED_ALPHA)
+        scheme.divider -> scheme.selectedTrack
         else -> this
     }
 
@@ -186,21 +184,19 @@ private fun Color.onContainer(scheme: ColorScheme): Color =
  * colour — a header that called a stopping torrent something other than what the list calls it
  * would be two answers to one question.
  */
-@androidx.compose.runtime.Composable
-internal fun stateLabelColor(state: TorrentState): Color =
-    labelColor(state, androidx.compose.material3.MaterialTheme.colorScheme, MaterialTheme.warningColors)
+@Composable
+internal fun stateLabelColor(state: TorrentState): Color = labelColor(state, KachokTheme.colors)
 
 private fun labelColor(
     state: TorrentState,
-    scheme: ColorScheme,
-    warning: WarningColors,
+    scheme: KachokColors,
 ): Color =
     when (state) {
-        TorrentState.Metadata -> KachokPalette.onSurfaceMuted
-        TorrentState.Checking, TorrentState.Stopping -> warning.warning
-        TorrentState.Downloading -> scheme.onSurface
-        TorrentState.Seeding -> scheme.primary
-        TorrentState.Paused, TorrentState.Queued -> scheme.onSurfaceVariant
+        TorrentState.Metadata -> scheme.textMuted
+        TorrentState.Checking, TorrentState.Stopping -> scheme.warning
+        TorrentState.Downloading -> scheme.text
+        TorrentState.Seeding -> scheme.accent
+        TorrentState.Paused, TorrentState.Queued -> scheme.textFaint
         TorrentState.Error -> scheme.error
     }
 
@@ -221,26 +217,24 @@ private const val METADATA_BAR_ALPHA = 0.55f
 internal fun rowColor(
     model: TorrentRowModel,
     cell: RowCell,
-    scheme: ColorScheme,
-    warning: WarningColors,
+    scheme: KachokColors,
 ): Color {
-    val plain = plainRowColor(model, cell, scheme, warning)
+    val plain = plainRowColor(model, cell, scheme)
     return if (model.selected) plain.onContainer(scheme) else plain
 }
 
 private fun plainRowColor(
     model: TorrentRowModel,
     cell: RowCell,
-    scheme: ColorScheme,
-    warning: WarningColors,
+    scheme: KachokColors,
 ): Color {
     val state = model.state
     return when (cell) {
         RowCell.Glyph -> {
             when (state) {
-                TorrentState.Metadata, TorrentState.Paused, TorrentState.Queued -> scheme.onSurfaceVariant
-                TorrentState.Checking, TorrentState.Stopping -> warning.warning
-                TorrentState.Downloading, TorrentState.Seeding -> scheme.primary
+                TorrentState.Metadata, TorrentState.Paused, TorrentState.Queued -> scheme.textFaint
+                TorrentState.Checking, TorrentState.Stopping -> scheme.warning
+                TorrentState.Downloading, TorrentState.Seeding -> scheme.accent
                 TorrentState.Error -> scheme.error
             }
         }
@@ -248,43 +242,43 @@ private fun plainRowColor(
         RowCell.Name -> {
             when (state) {
                 // A magnet has no name; the info hash it shows instead is a figure, not a title.
-                TorrentState.Metadata -> KachokPalette.onSurfaceMuted
+                TorrentState.Metadata -> scheme.textMuted
 
-                TorrentState.Paused, TorrentState.Queued -> scheme.onSurfaceVariant
+                TorrentState.Paused, TorrentState.Queued -> scheme.textFaint
 
                 TorrentState.Error -> scheme.error
 
-                else -> scheme.onSurface
+                else -> scheme.text
             }
         }
 
         RowCell.Bar -> {
             when (state) {
-                TorrentState.Metadata -> scheme.primary.copy(alpha = METADATA_BAR_ALPHA)
-                TorrentState.Checking -> warning.warning
-                TorrentState.Downloading, TorrentState.Seeding -> scheme.primary
-                TorrentState.Paused, TorrentState.Queued -> scheme.onSurfaceVariant
-                TorrentState.Stopping -> KachokPalette.stoppingBar
+                TorrentState.Metadata -> scheme.accent.copy(alpha = METADATA_BAR_ALPHA)
+                TorrentState.Checking -> scheme.warning
+                TorrentState.Downloading, TorrentState.Seeding -> scheme.accent
+                TorrentState.Paused, TorrentState.Queued -> scheme.textFaint
+                TorrentState.Stopping -> scheme.stoppingBar
                 TorrentState.Error -> scheme.error
             }
         }
 
         RowCell.Track -> {
-            if (state == TorrentState.Error) KachokPalette.errorTrack else scheme.outlineVariant
+            if (state == TorrentState.Error) scheme.errorTrack else scheme.divider
         }
 
         // Checking is the one state whose percentage is its own progress rather than the
         // download's, so it is drawn in the role that says "not downloading".
         RowCell.Percent -> {
             if (state == TorrentState.Checking) {
-                warning.warning
+                scheme.warning
             } else {
                 model.emphasisOf(cell).color(state, scheme)
             }
         }
 
         RowCell.Label -> {
-            labelColor(state, scheme, warning)
+            labelColor(state, scheme)
         }
 
         else -> {
