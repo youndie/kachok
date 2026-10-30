@@ -1,7 +1,7 @@
 ---
 id: B-157
 title: "The desktop distribution ships an AOT cache trained through its own launcher, and proves it maps"
-status: question
+status: wip
 priority: P2
 size: M
 stage: phase-2-ui
@@ -84,3 +84,8 @@ top of B-155's 115–134). The choices:
    it. Nothing extra to download, the first start stays slow, and the cache has to live in the
    install directory, which on Linux (`/opt`) the user cannot write.
 3. **Not now.** Keep the numbers; reopen when start-up is the complaint. The CLI keeps its cache.
+
+## Decision — 2026-10-30, the owner
+
+**Option 1, and dropped if it does not hold.** The cache is trained on each installer's own files
+after packaging and put back into it, one format at a time, the `.deb` first.
