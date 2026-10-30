@@ -506,3 +506,38 @@ viddik {
     // that would run in the wrong place.
     verifyOnCheck.set(System.getProperty("os.name").orEmpty().startsWith("Mac"))
 }
+
+// **The runtime is linked compressed, as the CLI's is** (B-156, research §1.3i).
+//
+// The JDK's classes were 57 MB of the 128 MB a person installs; `--compress` takes them to 26 MB, and
+// the start was measured not to notice — ten seconds of class loading would have, a hundred
+// milliseconds of it is inside what one start differs from the next. The installers barely move,
+// because they were compressed already: this is disk, not download.
+//
+// **Compose has the setting and keeps it to itself.** `AbstractJLinkTask.compressionLevel` exists and
+// is passed to `jlink` when set, but it and its `RuntimeCompressionLevel` are `internal`, and nothing
+// in `nativeDistributions` sets it — so it is set here by reflection, which is the fragile part. A
+// plugin that renames the getter fails this block loudly; one that keeps the property and stops
+// passing it would not, so the task's own argument file is read afterwards and the build fails if
+// `--compress` is not in it.
+tasks.withType<org.jetbrains.compose.desktop.application.tasks.AbstractJLinkTask>().configureEach {
+    @Suppress("UNCHECKED_CAST")
+    val level = javaClass.getMethod("getCompressionLevel\$compose").invoke(this) as Property<Any>
+    val type =
+        org.jetbrains.compose.desktop.application.tasks.AbstractJLinkTask::class.java.classLoader
+            .loadClass("org.jetbrains.compose.desktop.application.internal.RuntimeCompressionLevel")
+    level.set(type.enumConstants.first { (it as Enum<*>).name == "ZIP" })
+    val arguments = project.layout.buildDirectory.file("compose/tmp/$name.args.txt")
+    doLast {
+        check(
+            arguments
+                .get()
+                .asFile
+                .readText()
+                .contains("--compress"),
+        ) {
+            "the runtime was linked without --compress: the Compose plugin no longer passes the " +
+                "compression level this build sets by reflection (B-156)"
+        }
+    }
+}
