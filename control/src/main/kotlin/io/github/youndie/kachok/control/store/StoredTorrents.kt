@@ -64,6 +64,14 @@ public class StoredTorrent(
     /** Files fetched first, by index — the third tier of B-106, kept beside the other two decisions about this torrent. */
     public val high: Set<Int> = emptySet(),
     public val problem: String? = null,
+    /**
+     * When it was added, in milliseconds since the epoch, or 0 when nothing says (B-153).
+     *
+     * The list is reopened in this order, and the set's download queue gives turns in the order
+     * torrents were opened — so this is what keeps "added first, downloaded first" true across a
+     * restart instead of turning into "lowest info hash first".
+     */
+    public val added: Long = 0,
 )
 
 /**
@@ -83,10 +91,14 @@ public fun loadStoredTorrents(directory: Path): List<StoredTorrent> {
             System.err.println("kachok: cannot read $directory: ${unreadable.message}")
             return emptyList()
         }
-    // By info hash, so two runs of the same client produce the list in the same order. Which order
-    // a person wants is a separate question the item leaves open; an arbitrary one that changes
-    // between restarts is not an answer to it.
-    return entries.map { readEntry(it) }.sortedBy { it.infoHash }
+    // In the order the torrents were added, and by info hash among those that say nothing, so two
+    // runs of the same client produce the list in the same order. It used to be by info hash alone,
+    // which is a stable order and not one a person chose: since the download queue (B-151) gives
+    // turns in the order torrents were opened, a restart handed them to whichever hashes sorted
+    // first, and three downloads half done waited behind three not started (B-153).
+    return entries
+        .map { readEntry(it) }
+        .sortedWith(compareBy<StoredTorrent>({ it.added == 0L }, { it.added }, { it.infoHash }))
 }
 
 private fun readEntry(file: Path): StoredTorrent {
@@ -107,6 +119,15 @@ private fun readEntry(file: Path): StoredTorrent {
     val high = properties.indices(HIGH)
 
     val copy = file.resolveSibling("$infoHash$TORRENT_SUFFIX")
+    // The copy of the `.torrent` is written once, when the torrent is added — `rememberTorrent`
+    // leaves one that is already there — so its time is when it was added. The filesystem's clock
+    // and not this process's, read for an order and never compared with anybody else's (B-153).
+    val added =
+        try {
+            Files.getLastModifiedTime(copy).toMillis()
+        } catch (gone: IOException) {
+            0L
+        }
     val metainfo =
         try {
             MetainfoParser.parse(Files.readAllBytes(copy))
@@ -126,7 +147,7 @@ private fun readEntry(file: Path): StoredTorrent {
             paused,
         )
     }
-    return StoredTorrent(infoHash, metainfo, name, directory, paused, unwanted, sequential, high)
+    return StoredTorrent(infoHash, metainfo, name, directory, paused, unwanted, sequential, high, added = added)
 }
 
 /** A comma-separated list of file indices, or the empty set for a key that is absent or blank. */
@@ -168,8 +189,11 @@ public fun rememberTorrent(
     val infoHash = metainfo.infoHash.hex()
     try {
         Files.createDirectories(directory)
-        writeAtomically(directory.resolve("$infoHash$TORRENT_SUFFIX")) {
-            it.write(MetainfoWriter.toTorrentFile(metainfo))
+        // A copy already there is left alone: it is the same torrent — the name says which — and its
+        // time is the torrent's place in the line, which remembering it again must not move (B-153).
+        val copy = directory.resolve("$infoHash$TORRENT_SUFFIX")
+        if (!Files.exists(copy)) {
+            writeAtomically(copy) { it.write(MetainfoWriter.toTorrentFile(metainfo)) }
         }
         val properties =
             Properties().apply {
