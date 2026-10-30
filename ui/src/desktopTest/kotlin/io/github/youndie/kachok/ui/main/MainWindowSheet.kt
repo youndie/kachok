@@ -69,6 +69,41 @@ internal fun MainWindowSheet() {
 }
 
 /**
+ * The design's window under the Material kit with one Russian name (B-165): the third row, between
+ * two Latin names, so the face its Cyrillic is drawn in stands beside Archivo's. Archivo has no
+ * Cyrillic; the words are its bundled companion, the year and the extension stay Archivo.
+ */
+@ViddikScreenshot(name = "window-cyrillic", group = "main", width = 1440, height = 912)
+@Composable
+internal fun MainWindowCyrillicSheet() {
+    KachokTheme {
+        Column(Modifier.fillMaxSize().background(KachokTheme.colors.surface)) {
+            TitleBar(
+                state = rememberWindowState(size = DpSize(1200.dp, 760.dp)),
+                onCloseRequest = {},
+                title = "kachok",
+                style = KACHOK_TITLE_BAR.copy(cornerRadius = 0.dp),
+            )
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .height(1.dp)
+                    .background(KachokTheme.colors.raisedHigh),
+            )
+            MainWindow(
+                MainWindowState(
+                    torrents = cyrillicTorrents,
+                    status = designStatus,
+                    degradedSummary = DEGRADED_SUMMARY,
+                    degradedDetail = DEGRADED_DETAIL,
+                    details = designDetails(),
+                ),
+            )
+        }
+    }
+}
+
+/**
  * The same window in the oldge kit (B-160), its title bar included — `AppFrame` draws it from the
  * Material scheme the kit's root builds out of the skin's bezel.
  *
@@ -118,16 +153,7 @@ private fun OldgeWindow(skin: OldgeSkin) {
             )
             MainWindow(
                 MainWindowState(
-                    torrents =
-                        designTorrents.mapIndexed { at, row ->
-                            if (at ==
-                                2
-                            ) {
-                                row.copy(name = CYRILLIC_NAME)
-                            } else {
-                                row
-                            }
-                        },
+                    torrents = cyrillicTorrents,
                     status = designStatus,
                     degradedSummary = DEGRADED_SUMMARY,
                     degradedDetail = DEGRADED_DETAIL,
@@ -189,6 +215,10 @@ private fun SeededWindow(colours: MaterialColours) {
 
 /** A Russian torrent name, as they come: a title, a year, an extension. */
 internal const val CYRILLIC_NAME: String = "Мастер и Маргарита (1994).mkv"
+
+/** The design's rows with [CYRILLIC_NAME] as the third, between two Latin names. */
+private val cyrillicTorrents
+    get() = designTorrents.mapIndexed { at, row -> if (at == 2) row.copy(name = CYRILLIC_NAME) else row }
 
 /**
  * The three tabs the engine cannot fill, side by side the way the design lays them out.

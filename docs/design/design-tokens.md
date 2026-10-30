@@ -60,6 +60,12 @@ Verified by reading the `color:` of all 28 row cells in the document.
 | Archivo | every label, button and column head |
 | JetBrains Mono | **every number, hash and verbatim error** |
 
+Archivo has no Cyrillic. Under the Material kit its Cyrillic runs are drawn in a bundled companion,
+Onest cut to its Cyrillic letters — the same x-height and stems as Archivo, Archivo's vertical
+metrics — so a Russian name keeps the row's face and line height
+([B-165](../backlog/B-165-a-russian-name-is-drawn-in-the-rows-face.md)). Source Serif 4 and JetBrains
+Mono have Cyrillic of their own.
+
 The third row is the load-bearing one: the design puts every figure in a monospaced face with
 tabular figures, so a row does not reflow when a speed changes at 1 Hz.
 

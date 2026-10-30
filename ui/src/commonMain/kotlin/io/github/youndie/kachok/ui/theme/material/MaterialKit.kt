@@ -9,6 +9,7 @@ import androidx.compose.material3.Shapes
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ReadOnlyComposable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
@@ -98,17 +99,35 @@ internal class MaterialKit private constructor(
         maxLines: Int,
         onTextLayout: ((TextLayoutResult) -> Unit)?,
     ) {
-        androidx.compose.material3.Text(
-            text = text,
-            modifier = modifier,
-            color = color,
-            textAlign = textAlign,
-            overflow = overflow,
-            softWrap = softWrap,
-            maxLines = maxLines,
-            onTextLayout = onTextLayout,
-            style = style.orRoot(),
-        )
+        val resolved = style.orRoot()
+        // Archivo has no Cyrillic: a Russian run is drawn in its bundled companion (B-165). A text
+        // without one takes the String path it always took, so no other golden can move.
+        val joined = remember(text, resolved.fontFamily) { withCyrillicCompanion(text, resolved.fontFamily) }
+        if (joined == null) {
+            androidx.compose.material3.Text(
+                text = text,
+                modifier = modifier,
+                color = color,
+                textAlign = textAlign,
+                overflow = overflow,
+                softWrap = softWrap,
+                maxLines = maxLines,
+                onTextLayout = onTextLayout,
+                style = resolved,
+            )
+        } else {
+            androidx.compose.material3.Text(
+                text = joined,
+                modifier = modifier,
+                color = color,
+                textAlign = textAlign,
+                overflow = overflow,
+                softWrap = softWrap,
+                maxLines = maxLines,
+                onTextLayout = onTextLayout ?: {},
+                style = resolved,
+            )
+        }
     }
 
     @Composable
@@ -123,8 +142,10 @@ internal class MaterialKit private constructor(
         maxLines: Int,
         onTextLayout: (TextLayoutResult) -> Unit,
     ) {
+        val resolved = style.orRoot()
+        val joined = remember(text, resolved.fontFamily) { withCyrillicCompanion(text, resolved.fontFamily) }
         androidx.compose.material3.Text(
-            text = text,
+            text = joined ?: text,
             modifier = modifier,
             color = color,
             textAlign = textAlign,
@@ -132,7 +153,7 @@ internal class MaterialKit private constructor(
             softWrap = softWrap,
             maxLines = maxLines,
             onTextLayout = onTextLayout,
-            style = style.orRoot(),
+            style = resolved,
         )
     }
 

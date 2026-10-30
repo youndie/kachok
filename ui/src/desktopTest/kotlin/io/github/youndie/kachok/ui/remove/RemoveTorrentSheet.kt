@@ -9,6 +9,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import io.github.youndie.kachok.ui.main.CYRILLIC_NAME
 import io.github.youndie.kachok.ui.theme.KachokTheme
 import io.github.youndie.kachok.ui.theme.oldge.OldgeKit
 import io.github.youndie.oldge.theme.OldgeSkin
@@ -25,6 +26,27 @@ import io.github.youndie.viddik.annotations.ViddikScreenshot
 internal fun RemoveTorrentSheet() {
     val state =
         RemoveState(name = "Sintel-2010-1080p-DCP.tar", where = "~/Downloads", howMuch = "2.89 GiB on disk")
+    KachokTheme {
+        Box(
+            Modifier.fillMaxSize().background(KachokTheme.colors.surface),
+            contentAlignment = Alignment.Center,
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                RemoveTorrentDialog(state)
+                RemoveTorrentDialog(state.withData(true))
+            }
+        }
+    }
+}
+
+/**
+ * The same two answers under the Material kit about a torrent with a Russian name (B-165): the name
+ * is the dialog's one line in Archivo with Cyrillic in it, drawn in Archivo's bundled companion.
+ */
+@ViddikScreenshot(name = "dialog-cyrillic", group = "remove", width = 576, height = 672)
+@Composable
+internal fun RemoveTorrentCyrillicSheet() {
+    val state = RemoveState(name = CYRILLIC_NAME, where = "~/Downloads", howMuch = "2.89 GiB on disk")
     KachokTheme {
         Box(
             Modifier.fillMaxSize().background(KachokTheme.colors.surface),

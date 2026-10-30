@@ -48,12 +48,11 @@ which is also the order of work.
 
 <!-- BEGIN INDEX -->
 
-## Open (13)
+## Open (12)
 
 | Task | | Priority | Size | Blocked by |
 |---|---|---|---|---|
 | [B-116](docs/backlog/B-116-a-torrent-whose-name-is-not-ascii-cannot-be-opened-on-windows.md) `[~]` | A `.torrent` whose name is not ASCII cannot be opened on Windows: the launcher hands the path over as question marks | P2 | S | - |
-| [B-165](docs/backlog/B-165-a-russian-name-is-drawn-in-the-rows-face.md) `[~]` | A Russian torrent name is drawn in the row's own face under the Material kit | P2 | S | - |
 | [B-166](docs/backlog/B-166-the-preflight-reruns-when-the-image-changes.md) `[ ]` | The packaged preflight runs again whenever the image it checks changes | P2 | S | - |
 | [B-171](docs/backlog/B-171-the-dmg-carries-an-aot-cache-trained-on-its-own-files.md) `[ ]` | The .dmg carries an AOT cache trained on its own files | P2 | M | B-157 |
 | [B-172](docs/backlog/B-172-the-msi-carries-an-aot-cache-trained-on-its-own-files.md) `[ ]` | The .msi carries an AOT cache trained on its own files | P2 | L | B-157 |
@@ -66,7 +65,7 @@ which is also the order of work.
 | [B-87](docs/backlog/B-87-a-server-with-a-web-face.md) `[ ]` | Phase 3: a headless server with a web face, installable on a box that is always on | P3 | XL | B-80 |
 | [B-02](docs/backlog/B-02-ci-runs-build-and-docs-gates.md) `[ ]` | CI runs the build and the documentation gates on every push | infra | S | B-01 |
 
-## Closed (158)
+## Closed (159)
 
 **M0 — The build and its gates**
 
@@ -198,6 +197,7 @@ which is also the order of work.
 - [B-161](docs/backlog/B-161-the-material-kit-takes-its-colours-from-a-seed.md) `[x]` - The Material kit takes its colours from a seed the person picks, through MaterialKolor
 - [B-162](docs/backlog/B-162-the-oldge-ui-kit-offers-its-skins.md) `[x]` - The oldge-ui kit offers its skins as its colour choice
 - [B-164](docs/backlog/B-164-accent-text-reads-on-a-light-skin.md) `[x]` - Text drawn in the accent stays readable on a light skin: an accent-as-text role in the kit
+- [B-165](docs/backlog/B-165-a-russian-name-is-drawn-in-the-rows-face.md) `[x]` - A Russian torrent name is drawn in the row's own face under the Material kit
 - [B-168](docs/backlog/B-168-oldge-skins-own-their-footnote-and-dialog-border.md) `[x]` - The oldge skins draw the footnote band and the dialog border from their own tokens
 - [B-39](docs/backlog/B-39-compose-ui-desktop.md) `[x]` - Phase 2: a Compose Multiplatform desktop UI on the engine's StateFlow
 - [B-46](docs/backlog/B-46-ui-theme-and-calibration.md) `[x]` - The theme: colour roles, type, and the desktop calibration
