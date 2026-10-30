@@ -6,7 +6,9 @@ import io.github.youndie.kachok.ui.main.MainWindowState
 import io.github.youndie.kachok.ui.main.designStatus
 import io.github.youndie.kachok.ui.session.Preferences
 import io.github.youndie.kachok.ui.session.settingsOf
+import io.github.youndie.kachok.ui.theme.InterfaceKit
 import io.github.youndie.kachok.ui.theme.KachokTheme
+import io.github.youndie.kachok.ui.theme.oldge.OldgeKit
 import io.github.youndie.viddik.annotations.ViddikScreenshot
 
 /**
@@ -28,6 +30,35 @@ internal fun SettingsSheet() {
         SettingsScreen(
             settingsOf(
                 Preferences(directory = "~/Downloads", downloadLimitKibPerSecond = 12_000),
+            ),
+        )
+    }
+}
+
+/**
+ * The settings screen in the oldge kit, with the *Interface* row on it set to oldge-ui (B-160).
+ *
+ * The section is the screen's last, below the fold at this height, so the sheet puts it first: the
+ * golden is of the switches (`OldgeSwitch`), the segmented choice and the fields in this kit's
+ * colours, and a picture of the row that chose them is the one worth having.
+ */
+@ViddikScreenshot(name = "screen-oldge", group = "settings", width = 744, height = 912)
+@Composable
+internal fun SettingsOldgeSheet() {
+    val state =
+        settingsOf(
+            Preferences(
+                directory = "~/Downloads",
+                downloadLimitKibPerSecond = 12_000,
+                interfaceKit = InterfaceKit.Oldge,
+            ),
+        )
+    KachokTheme(kit = OldgeKit) {
+        SettingsScreen(
+            SettingsState(
+                sections = state.sections.takeLast(1) + state.sections.dropLast(1),
+                footnote = state.footnote,
+                footnotePlanned = state.footnotePlanned,
             ),
         )
     }

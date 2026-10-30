@@ -98,10 +98,16 @@ gate: docs-gate
 	@# wrong thing under any other — nothing else would notice until somebody switched kits. A file
 	@# list rather than `grep -v`: on a mac `grep` is ugrep, whose inverted exit codes have already
 	@# let one red check through.
+	@#
+	@# `ui/theme/oldge/` is the one other directory allowed it, and for one reason (B-160): `AppFrame`
+	@# draws the title bar from `MaterialTheme.colorScheme` itself, so the oldge kit's root has to
+	@# provide a Material scheme built from its own tokens or the bar keeps Material's colours over an
+	@# oldge window. The Material kit's palette is still refused there — only the scheme's API.
 	@bad=$$(grep -rlE 'androidx\.compose\.material3|KachokPalette|KachokDarkColors' --include='*.kt' \
-		ui/src/commonMain ui/src/desktopMain | awk '!/\/theme\/material\//'); \
-	if [ -n "$$bad" ]; then \
-		echo "outside ui/theme/material/, these name Material 3 instead of the kit:"; echo "$$bad"; exit 1; \
+		ui/src/commonMain ui/src/desktopMain | awk '!/\/theme\/material\// && !/\/theme\/oldge\//'); \
+	oldge=$$(grep -rlE 'KachokPalette|KachokDarkColors' --include='*.kt' ui/src/commonMain/kotlin/io/github/youndie/kachok/ui/theme/oldge); \
+	if [ -n "$$bad$$oldge" ]; then \
+		echo "outside ui/theme/material/, these name Material 3 or its palette instead of the kit:"; echo "$$bad$$oldge"; exit 1; \
 	fi
 	@# The UI's goldens, on the machine that recorded them — **and the condition is the machine, not
 	@# the directory**. This used to ask whether `snapshots/` exists, which is true everywhere the

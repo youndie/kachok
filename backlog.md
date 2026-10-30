@@ -58,7 +58,6 @@ which is also the order of work.
 | [B-80](docs/backlog/B-80-the-ui-moves-to-commonmain.md) `[~]` | The UI moves to commonMain | P2 | L | B-79 |
 | [B-156](docs/backlog/B-156-the-desktop-runtime-is-compressed.md) `[ ]` | The desktop runtime is linked compressed, as the CLI's already is | P3 | S | - |
 | [B-158](docs/backlog/B-158-conveyor-as-the-packager.md) `[ ]` | Decide whether Conveyor replaces jpackage as the desktop packager | P3 | M | - |
-| [B-160](docs/backlog/B-160-oldge-ui-is-a-kit-the-window-can-wear.md) `[~]` | oldge-ui is a second kit, and the settings choose between the two | P3 | L | B-159 |
 | [B-161](docs/backlog/B-161-the-material-kit-takes-its-colours-from-a-seed.md) `[ ]` | The Material kit takes its colours from a seed the person picks, through MaterialKolor | P3 | M | B-159 |
 | [B-162](docs/backlog/B-162-the-oldge-ui-kit-offers-its-skins.md) `[ ]` | The oldge-ui kit offers its skins as its colour choice | P3 | S | B-160 |
 | [B-37](docs/backlog/B-37-v2-and-hybrid-torrents.md) `[?]` | v2 and hybrid torrents (BEP 52): SHA-256 piece layers | P3 | L | B-04 |
@@ -191,6 +190,7 @@ which is also the order of work.
 - [B-145](docs/backlog/B-145-a-speed-says-its-unit.md) `[x]` - A speed says its unit: scaled B/s, KiB/s, MiB/s instead of a bare number of KiB/s
 - [B-155](docs/backlog/B-155-the-desktop-distribution-ships-shrunk-classes.md) `[x]` - The desktop distribution ships its classes through ProGuard, and the preflight checks that image
 - [B-159](docs/backlog/B-159-the-screens-draw-through-a-kit-not-through-material.md) `[x]` - The screens draw through a kit of their own, and Material becomes one implementation of it
+- [B-160](docs/backlog/B-160-oldge-ui-is-a-kit-the-window-can-wear.md) `[x]` - oldge-ui is a second kit, and the settings choose between the two
 - [B-39](docs/backlog/B-39-compose-ui-desktop.md) `[x]` - Phase 2: a Compose Multiplatform desktop UI on the engine's StateFlow
 - [B-46](docs/backlog/B-46-ui-theme-and-calibration.md) `[x]` - The theme: colour roles, type, and the desktop calibration
 - [B-47](docs/backlog/B-47-torrent-row-and-states.md) `[x]` - The torrent row and its seven states

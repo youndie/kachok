@@ -14,6 +14,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import io.github.youndie.kachok.ui.theme.KachokTheme
+import io.github.youndie.kachok.ui.theme.oldge.OldgeKit
 import io.github.youndie.viddik.annotations.ViddikScreenshot
 
 /** The dialog for a `.torrent`, which is the case that can say everything. */
@@ -21,6 +22,20 @@ import io.github.youndie.viddik.annotations.ViddikScreenshot
 @Composable
 internal fun AddTorrentSheet() {
     KachokTheme {
+        Box(
+            Modifier.fillMaxSize().background(KachokTheme.colors.surface),
+            contentAlignment = Alignment.Center,
+        ) {
+            AddTorrentDialog(designTorrentToAdd)
+        }
+    }
+}
+
+/** The same dialog in the oldge kit (B-160): its two buttons are the library's. */
+@ViddikScreenshot(name = "dialog-oldge", group = "add", width = 672, height = 760)
+@Composable
+internal fun AddTorrentOldgeSheet() {
+    KachokTheme(kit = OldgeKit) {
         Box(
             Modifier.fillMaxSize().background(KachokTheme.colors.surface),
             contentAlignment = Alignment.Center,

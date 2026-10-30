@@ -7,13 +7,15 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
@@ -22,9 +24,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -76,6 +78,9 @@ internal enum class SettingKey(
     Dht,
     Autostart,
     CloseToTray,
+
+    /** Which kit draws the window (B-160). */
+    Interface,
     ;
 
     val editable: Boolean get() = disabledBecause == null
@@ -107,6 +112,17 @@ internal class Setting(
      * there would be a promise the close button does not keep.
      */
     val enabled: Boolean = true,
+    /**
+     * One of a few named values rather than a number or a switch: a segmented control, with
+     * [value] the chosen one's [Choice.value]. The *Interface* row's kits are the first (B-160).
+     */
+    val choices: List<Choice>? = null,
+)
+
+/** One segment of a choice: what is stored, and what the segment says. */
+internal class Choice(
+    val value: String,
+    val label: String,
 )
 
 internal class SettingsSection(
@@ -136,6 +152,12 @@ internal sealed interface SettingChange {
 
     class Browsed(
         val key: SettingKey,
+    ) : SettingChange
+
+    /** A segment of a [Setting.choices] row was picked; [value] is its [Choice.value]. */
+    class Chose(
+        val key: SettingKey,
+        val value: String,
     ) : SettingChange
 }
 
@@ -211,9 +233,18 @@ private fun SettingRow(
                 Text("default ${setting.default}", style = DEFAULT, color = scheme.textFaint)
                 when {
                     setting.toggle != null -> {
-                        Toggle(setting.toggle, setting.key, setting.label, setting.enabled) {
+                        // The kit's switch since B-160; whether it can be pressed is decided here.
+                        KachokTheme.kit.Toggle(
+                            setting.toggle,
+                            setting.label,
+                            setting.enabled && setting.key.editable,
+                        ) {
                             onChange(SettingChange.Toggled(setting.key, !setting.toggle))
                         }
+                    }
+
+                    setting.choices != null -> {
+                        Segmented(setting, setting.choices) { onChange(SettingChange.Chose(setting.key, it)) }
                     }
 
                     setting.folder -> {
@@ -338,45 +369,49 @@ private fun FolderField(
     }
 }
 
+/**
+ * A few named values side by side, the chosen one filled with the accent.
+ *
+ * Drawn here from the kit's tokens rather than asked of the kit: it is a row of boxes and text, and
+ * under any kit it is that kit's colours on this screen's shape — the same footing as the fields
+ * beside it. The group carries the row's label; each segment is a radio button with its own.
+ */
 @Composable
-private fun Toggle(
-    on: Boolean,
-    key: SettingKey,
-    label: String,
-    enabled: Boolean,
-    onToggle: () -> Unit,
+private fun Segmented(
+    setting: Setting,
+    choices: List<Choice>,
+    onChose: (String) -> Unit,
 ) {
     val scheme = KachokTheme.colors
-    Box(
+    Row(
         Modifier
-            .semantics {
-                contentDescription = label
-                // **The switch says which way it is.** It is a drawn `Box` and not a `Switch`, so
-                // until this it announced nothing: a screen reader read the label and stopped, and
-                // a test could press it but not read it. The column heads have said their sort
-                // order this way since B-58.
-                stateDescription = if (on) "on" else "off"
-            }.clickable(enabled = enabled && key.editable, onClick = onToggle)
-            .width(TOGGLE_WIDTH)
-            .height(TOGGLE_HEIGHT)
-            .background(
-                if (on) scheme.accent else scheme.raisedHighest,
-                RoundedCornerShape(TOGGLE_HEIGHT / 2),
-            ).border(
-                if (on) 0.dp else HAIRLINE,
-                if (on) scheme.accent else scheme.outline,
-                RoundedCornerShape(TOGGLE_HEIGHT / 2),
-            ).padding(horizontal = 3.dp),
-        contentAlignment = if (on) Alignment.CenterEnd else Alignment.CenterStart,
+            .height(FIELD_HEIGHT)
+            .border(HAIRLINE, scheme.outline, RoundedCornerShape(4.dp))
+            .semantics { contentDescription = setting.label }
+            .selectableGroup(),
     ) {
-        Box(
-            Modifier
-                .size(KNOB)
-                .background(
-                    if (on) scheme.onAccent else scheme.textFaint,
-                    RoundedCornerShape(KNOB / 2),
-                ),
-        )
+        choices.forEach { choice ->
+            val chosen = choice.value == setting.value
+            Box(
+                Modifier
+                    .fillMaxHeight()
+                    .background(if (chosen) scheme.accent else Color.Transparent, RoundedCornerShape(4.dp))
+                    .selectable(
+                        selected = chosen,
+                        enabled = setting.enabled && setting.key.editable,
+                        role = Role.RadioButton,
+                        onClick = { if (!chosen) onChose(choice.value) },
+                    ).padding(horizontal = 11.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    choice.label,
+                    style = ChromeText.copy(fontSize = 12.sp),
+                    color = if (chosen) scheme.onAccent else scheme.textMuted,
+                    maxLines = 1,
+                )
+            }
+        }
     }
 }
 
@@ -430,12 +465,6 @@ private val UNIT_WIDTH = 38.dp
 private val PATH_WIDTH = 210.dp
 
 private val FOLDER_GLYPH = 16.sp
-
-private val TOGGLE_WIDTH = 34.dp
-
-private val TOGGLE_HEIGHT = 20.dp
-
-private val KNOB = 14.dp
 
 private val FOOTNOTE_GLYPH = 15.sp
 

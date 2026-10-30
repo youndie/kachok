@@ -1,23 +1,10 @@
 package io.github.youndie.kachok.ui.theme
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.RowScope
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
 
 /**
- * The button both dialogs end with.
+ * The button both dialogs end with, drawn by the current kit.
  *
  * Shared rather than copied. Two dialogs whose buttons are two private functions are two dialogs
  * that drift, and the drift is invisible until they are on screen together — which they never are.
@@ -25,6 +12,8 @@ import androidx.compose.ui.unit.dp
  * [destructive] is a third appearance and not a colour argument: what makes *Remove* different from
  * *Add* is that it cannot be undone, and a caller that had to remember to pass the error colour is
  * a caller that will one day forget.
+ *
+ * The defaults live here and not on [KachokKit.DialogButton], for the reason `Text`'s do (B-160).
  */
 @Composable
 internal fun RowScope.DialogButton(
@@ -34,43 +23,5 @@ internal fun RowScope.DialogButton(
     destructive: Boolean = false,
     onClick: () -> Unit,
 ) {
-    val scheme = KachokTheme.colors
-    val ground =
-        when {
-            !primary -> Color.Transparent
-            !enabled -> scheme.raisedHighest
-            destructive -> scheme.error
-            else -> scheme.accent
-        }
-    Box(
-        Modifier
-            .height(BUTTON_HEIGHT)
-            .background(ground, RoundedCornerShape(4.dp))
-            .clickable(enabled = enabled, onClick = onClick)
-            .semantics { contentDescription = label }
-            .padding(horizontal = if (primary) 18.dp else 14.dp),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(
-            label,
-            style = if (primary) ChromeButton.copy(fontWeight = FontWeight.SemiBold) else ChromeButton,
-            color =
-                when {
-                    !enabled -> scheme.textFaint
-                    destructive -> scheme.onError
-                    primary -> scheme.onAccent
-                    else -> KachokTheme.colors.textMuted
-                },
-            maxLines = 1,
-        )
-    }
+    KachokTheme.kit.DialogButton(label, primary, enabled, destructive, onClick)
 }
-
-/**
- * 32 dp, which is what the add dialog drew before this function was shared.
- *
- * Written down because moving the button here silently made it 30 and shifted every row in
- * `add_dialog.png` by a pixel — a regression the golden caught only because the golden was
- * re-recorded and read, not because anything failed.
- */
-private val BUTTON_HEIGHT = 32.dp

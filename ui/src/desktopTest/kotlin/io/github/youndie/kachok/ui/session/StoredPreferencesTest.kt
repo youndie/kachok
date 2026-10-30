@@ -1,6 +1,7 @@
 package io.github.youndie.kachok.ui.session
 
 import io.github.youndie.kachok.ui.settings.SettingKey
+import io.github.youndie.kachok.ui.theme.InterfaceKit
 import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.io.path.deleteRecursively
@@ -47,6 +48,36 @@ class StoredPreferencesTest {
         assertEquals(80, read.maxPeers)
         assertEquals(12_000L, read.downloadLimitKibPerSecond)
         assertEquals(null, read.uploadLimitKibPerSecond, "a limit nobody set is still no limit")
+    }
+
+    /** The kit somebody picked is the kit the next launch opens in (B-160). */
+    @Test
+    fun theChosenKitComesBack() {
+        savePreferences(file, defaults.chose(SettingKey.Interface, InterfaceKit.Oldge.stored))
+        assertEquals(InterfaceKit.Oldge, loadPreferences(file, defaults).interfaceKit)
+    }
+
+    /**
+     * A kit this build has never heard of is the Material kit, and the file still opens.
+     *
+     * A settings file written by a newer build — one with a third kit — must not stop an older one
+     * from starting, nor leave it guessing. Read against a fallback that is *not* Material, so a
+     * reader that merely ignored the key would fail here too: an unknown name says nothing about
+     * what somebody wanted, and Material is the one kit every build can draw.
+     */
+    @Test
+    fun anUnknownKitIsMaterial() {
+        file.writeText("interface=a-kit-from-a-newer-build\ndirectory=/srv/torrents\n")
+        val read = loadPreferences(file, defaults.copy(interfaceKit = InterfaceKit.Oldge))
+        assertEquals(InterfaceKit.Material, read.interfaceKit)
+        assertEquals("/srv/torrents", read.directory, "the rest of the file was read")
+    }
+
+    /** A file from before the setting existed keeps whatever the caller would have had. */
+    @Test
+    fun aFileWithNoKitKeepsTheDefault() {
+        file.writeText("directory=/srv/torrents\n")
+        assertEquals(InterfaceKit.Material, loadPreferences(file, defaults).interfaceKit)
     }
 
     /**

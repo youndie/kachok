@@ -63,6 +63,8 @@ kotlin {
                 implementation(compose.material3)
                 implementation(compose.ui)
                 implementation(compose.components.resources)
+                // The second kit (B-160): `ui/theme/oldge/` draws the window in oldge-ui.
+                implementation(libs.oldge.core)
             }
         }
         val desktopMain by getting {

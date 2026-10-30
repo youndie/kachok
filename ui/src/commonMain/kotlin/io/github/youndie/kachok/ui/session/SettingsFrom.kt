@@ -4,10 +4,12 @@ import io.github.youndie.kachok.engine.runtime.RuntimeOptions
 import io.github.youndie.kachok.engine.runtime.SetLimits
 import io.github.youndie.kachok.engine.session.SessionConfig
 import io.github.youndie.kachok.engine.tracker.TrackerProtocol
+import io.github.youndie.kachok.ui.settings.Choice
 import io.github.youndie.kachok.ui.settings.Setting
 import io.github.youndie.kachok.ui.settings.SettingKey
 import io.github.youndie.kachok.ui.settings.SettingsSection
 import io.github.youndie.kachok.ui.settings.SettingsState
+import io.github.youndie.kachok.ui.theme.InterfaceKit
 
 /**
  * What a person has actually changed, plus what the process actually did.
@@ -70,6 +72,11 @@ internal data class Preferences(
      * it is to drag it.
      */
     val detailsWidth: Float = DEFAULT_DETAILS_WIDTH,
+    /**
+     * Which kit draws the window (B-160). Applied as it is chosen: the kit is a composition local,
+     * so the window redraws in it without a restart.
+     */
+    val interfaceKit: InterfaceKit = InterfaceKit.DEFAULT,
 ) {
     /** The same preferences with the port the listener actually bound written into them. */
     fun boundTo(port: Int): Preferences = copy(port = port)
@@ -93,6 +100,16 @@ internal data class Preferences(
             SettingKey.AllTrackers -> copy(announceToAllTrackers = on)
             SettingKey.Autostart -> copy(autostart = on)
             SettingKey.CloseToTray -> copy(closeToTray = on)
+            else -> this
+        }
+
+    /** A segment picked on a choice row; a value nobody offered changes nothing it does not know. */
+    fun chose(
+        key: SettingKey,
+        value: String,
+    ): Preferences =
+        when (key) {
+            SettingKey.Interface -> copy(interfaceKit = InterfaceKit.of(value))
             else -> this
         }
 
@@ -376,6 +393,22 @@ internal fun settingsOf(
                             default = "on",
                             value = "",
                             toggle = preferences.dht,
+                        ),
+                    ),
+                ),
+                // Last, below everything the client *does*: how it looks is the one setting that
+                // changes nothing about a torrent (B-160).
+                SettingsSection(
+                    "INTERFACE",
+                    listOf(
+                        Setting(
+                            key = SettingKey.Interface,
+                            label = "Interface",
+                            note = "How the window is drawn. Applies at once.",
+                            default = InterfaceKit.DEFAULT.label,
+                            value = preferences.interfaceKit.stored,
+                            choices = InterfaceKit.entries.map { Choice(it.stored, it.label) },
+                            changed = preferences.interfaceKit != InterfaceKit.DEFAULT,
                         ),
                     ),
                 ),
