@@ -1,7 +1,7 @@
 ---
 id: B-155
 title: "The desktop distribution ships its classes through ProGuard, and the preflight checks that image"
-status: open
+status: wip
 priority: P2
 size: M
 stage: phase-2-ui

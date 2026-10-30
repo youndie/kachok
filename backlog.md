@@ -53,7 +53,7 @@ which is also the order of work.
 | Task | | Priority | Size | Blocked by |
 |---|---|---|---|---|
 | [B-116](docs/backlog/B-116-a-torrent-whose-name-is-not-ascii-cannot-be-opened-on-windows.md) `[~]` | A `.torrent` whose name is not ASCII cannot be opened on Windows: the launcher hands the path over as question marks | P2 | S | - |
-| [B-155](docs/backlog/B-155-the-desktop-distribution-ships-shrunk-classes.md) `[ ]` | The desktop distribution ships its classes through ProGuard, and the preflight checks that image | P2 | M | - |
+| [B-155](docs/backlog/B-155-the-desktop-distribution-ships-shrunk-classes.md) `[~]` | The desktop distribution ships its classes through ProGuard, and the preflight checks that image | P2 | M | - |
 | [B-157](docs/backlog/B-157-the-desktop-distribution-ships-an-aot-cache.md) `[ ]` | The desktop distribution ships an AOT cache trained through its own launcher, and proves it maps | P2 | M | B-155 |
 | [B-80](docs/backlog/B-80-the-ui-moves-to-commonmain.md) `[~]` | The UI moves to commonMain | P2 | L | B-79 |
 | [B-156](docs/backlog/B-156-the-desktop-runtime-is-compressed.md) `[ ]` | The desktop runtime is linked compressed, as the CLI's already is | P3 | S | - |
