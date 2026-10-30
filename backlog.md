@@ -58,7 +58,7 @@ which is also the order of work.
 | [B-80](docs/backlog/B-80-the-ui-moves-to-commonmain.md) `[~]` | The UI moves to commonMain | P2 | L | B-79 |
 | [B-156](docs/backlog/B-156-the-desktop-runtime-is-compressed.md) `[ ]` | The desktop runtime is linked compressed, as the CLI's already is | P3 | S | - |
 | [B-158](docs/backlog/B-158-conveyor-as-the-packager.md) `[ ]` | Decide whether Conveyor replaces jpackage as the desktop packager | P3 | M | - |
-| [B-159](docs/backlog/B-159-the-screens-draw-through-a-kit-not-through-material.md) `[ ]` | The screens draw through a kit of their own, and Material becomes one implementation of it | P3 | L | - |
+| [B-159](docs/backlog/B-159-the-screens-draw-through-a-kit-not-through-material.md) `[~]` | The screens draw through a kit of their own, and Material becomes one implementation of it | P3 | L | - |
 | [B-160](docs/backlog/B-160-oldge-ui-is-a-kit-the-window-can-wear.md) `[ ]` | oldge-ui is a second kit, and the settings choose between the two | P3 | L | B-159 |
 | [B-161](docs/backlog/B-161-the-material-kit-takes-its-colours-from-a-seed.md) `[ ]` | The Material kit takes its colours from a seed the person picks, through MaterialKolor | P3 | M | B-159 |
 | [B-162](docs/backlog/B-162-the-oldge-ui-kit-offers-its-skins.md) `[ ]` | The oldge-ui kit offers its skins as its colour choice | P3 | S | B-160 |
