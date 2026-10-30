@@ -120,13 +120,23 @@ The colour rule lives outside the composables (`RowColors.kt`) so that "is this 
 ### Building an installer
 
 `jpackage` cannot cross-compile, so each is produced on its own platform. One command each, and one
-format each — the host picks from `targetFormats`:
+format each — the host picks from `targetFormats`. **What ships is the `Release` variant**, whose
+classes went through ProGuard ([B-155](../backlog/B-155-the-desktop-distribution-ships-shrunk-classes.md));
+the tasks without `Release` in the name still build the unshrunk image, for comparison and nothing
+else:
 
 | Platform | Command | Output | Prerequisite |
 |---|---|---|---|
-| macOS | `LOCAL=1 ./gradlew :ui:packageDistributionForCurrentOS` | `kachok-1.0.0.dmg`, in the build directory under compose/binaries/main/dmg | — |
-| Linux | `~/.claude/bin/wsl-run './gradlew :ui:packageDeb'` | `kachok_0.1.0_amd64.deb`, next to it under deb | `fakeroot` |
-| Windows | `gradlew.bat :ui:packageMsi` | `kachok-0.1.0.msi`, under msi | none — the Compose plugin downloads WiX 3.11.2 into `~/.gradle/compose-jb/` and passes it as `WIX_PATH`; `compose.desktop.application.downloadWix=false` turns that off |
+| macOS | `LOCAL=1 ./gradlew :ui:packageReleaseDistributionForCurrentOS` | `kachok-1.0.<n>.dmg`, in the build directory under compose/binaries/main-release/dmg | — |
+| Linux | `~/.claude/bin/wsl-run './gradlew :ui:packageReleaseDeb'` | `kachok_0.1.<n>_amd64.deb`, next to it under deb | `fakeroot` |
+| Windows | `gradlew.bat :ui:packageReleaseMsi` | `kachok-0.1.<n>.msi`, under msi | none — the Compose plugin downloads WiX 3.11.2 into `~/.gradle/compose-jb/` and passes it as `WIX_PATH`; `compose.desktop.application.downloadWix=false` turns that off |
+
+Before any of them, `distributions.yml` runs two checks on the image that ships, on its own
+platform: `:ui:checkDistributable`, the launcher's `--preflight` against its trimmed runtime, and
+`:ui:checkDownload`, which starts the packaged window with a home of its own, waits for its engine
+on the single-instance lock and has its MCP server download a torrent from a seed on loopback. The
+second is the one that sees a window; it needs a display, so it is not on `check` (`xvfb-run` on
+the Linux runner, WSLg with `DISPLAY=:0` on the build machine).
 
 The client can be asked to **start with the computer**, from a checkbox in Settings: a launch agent
 on macOS, an `HKCU\…\Run` value on Windows, a freedesktop autostart entry on Linux — each written

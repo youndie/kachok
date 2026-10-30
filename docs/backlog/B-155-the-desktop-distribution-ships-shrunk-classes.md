@@ -1,7 +1,7 @@
 ---
 id: B-155
 title: "The desktop distribution ships its classes through ProGuard, and the preflight checks that image"
-status: wip
+status: done
 priority: P2
 size: M
 stage: phase-2-ui
@@ -50,3 +50,25 @@ inflated). **Nothing ran the result**, so this is a size and not yet a working b
   `ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/session/WideArguments.kt`,
   `ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/Preflight.kt`,
   `docs/research/research-architecture.md`.
+
+**Done.** The installers are the release variant, and every task that runs or packages the image
+moved with it: `checkDistributable`, the launcher path, `patchDesktopEntry` (now on
+`packageReleaseDeb`) and `distributions.yml`. The Linux image is 145 → 128 MB on the build machine;
+on the runners the shipped images are 134 / 122 / 115 MB (Linux / macOS / Windows), research §1.3g.
+
+Two things the item did not plan for:
+
+- **ProGuard had no JDK on CI.** Compose hands it `<java.home>/jmods`, and Temurin 25 ships none
+  (JEP 493), so the first three-platform run failed on `java.lang.Object`. `:ui:extractJdkClasses`
+  takes the classes out of `lib/modules` with `jimage` when the directory is absent.
+- **The preflight cannot see a window, so a new check does.** `:ui:checkDownload` runs
+  `DistributionDownloadTest`: the packaged launcher with a home of its own, its MCP server asked over
+  the single-instance lock to download a megabyte from `LocalSwarm`, the bytes compared. It is in
+  `distributions.yml` on all three runners (`xvfb-run` on Linux), not on `check`, which has no
+  display.
+
+- AC: release variant shipped — **met**, run 41099212492. `checkDistributable` on that image —
+  **met**. A real download through the packaged release build on each platform, MCP answering —
+  **met** by `checkDownload` on the three runners; it is the app image the installer is built from,
+  not an *installed* copy, which no runner does. Sizes per platform — **met**, research §1.3g, with
+  the before-and-after measured on Linux only.
