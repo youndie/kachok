@@ -37,8 +37,20 @@ enableFeaturePreview("TYPESAFE_PROJECT_ACCESSORS")
  * `exclusiveContent` avoids the question instead of answering it: the group is resolvable **only**
  * from here, so no other repository is asked for it whatever the declaration order is.
  *
- * `includeGroup` and not a regex: `io.github.youndie.viddik` is a different group and stays on
- * Maven Central, where it is.
+ * **By module, not by group** — it was `includeGroup("io.github.youndie")` until B-160, which made
+ * *every* coordinate of that group resolvable only from the releases server, and oldge-ui is
+ * published to the snapshot one. Two exclusive filters may not overlap: each one excludes what it
+ * claims from every other repository, so a group-wide filter here and a module filter below would
+ * leave `oldge-core` resolvable from nowhere.
+ *
+ * `io.github.youndie.viddik` is a different group and stays on Maven Central, where it is.
+ *
+ * **oldge-ui, from reposilite's snapshots ([B-160](docs/backlog/B-160-oldge-ui-is-a-kit-the-window-can-wear.md)).**
+ * The second kit's library is published there and nowhere else; the owner chose that over waiting
+ * for a Central release (2026-10-30), which is a later and separate step. sborka's settings plugin
+ * already declares the same server for `io.github.youndie.*`, filtered but not exclusive; this says
+ * it again for exactly the two coordinates this build takes from it, so that where `oldge-core`
+ * comes from is written here and does not depend on another plugin's filter staying as it is.
  */
 dependencyResolutionManagement {
     repositories {
@@ -46,7 +58,19 @@ dependencyResolutionManagement {
             forRepository {
                 maven("https://reposilite.kotlin.website/releases") { name = "wip-releases" }
             }
-            filter { includeGroup("io.github.youndie") }
+            filter {
+                includeModule("io.github.youndie", "appframe")
+                includeModule("io.github.youndie", "appframe-desktop")
+            }
+        }
+        exclusiveContent {
+            forRepository {
+                maven("https://reposilite.kotlin.website/snapshots") { name = "oldge-snapshots" }
+            }
+            filter {
+                includeModule("io.github.youndie", "oldge-core")
+                includeModule("io.github.youndie", "oldge-core-desktop")
+            }
         }
     }
 }

@@ -18,9 +18,14 @@ viddik = "0.4.0"
 # The window frame: a Compose-drawn title bar with the host's own window controls. The design draws
 # one in its own colours, which is a custom frame whether or not it says so.
 appframe = "0.1.24"
+# The second kit's library (B-160): the portfolio's mid-2000s design system. Published to
+# reposilite's snapshots only, as `<version>.<run>` from every push to its main; pinned to one run,
+# because a snapshot line that moved under a golden is a golden that fails for no change here.
+oldge = "0.1.1.14"
 
 [libraries]
 appframe = { module = "io.github.youndie:appframe-desktop", version.ref = "appframe" }
+oldge-core = { module = "io.github.youndie:oldge-core", version.ref = "oldge" }
 
 [plugins]
 sborkaBase = { id = "io.github.youndie.sborka.base", version.ref = "sborka" }

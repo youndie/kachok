@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -109,9 +108,9 @@ public data class TorrentRowModel(
 )
 
 /**
- * The bar, custom for a reason the design writes down: 4 dp, no M3-Expressive wave and no stop
- * indicator, because it redraws at 1 Hz and a wave animating under a number that changes once a
- * second is decoration fighting the data.
+ * The bar and its percentage. The bar is the kit's (B-160) — the Material kit's is 4 dp with no
+ * wave and no stop indicator, because it redraws at 1 Hz and a wave animating under a number that
+ * changes once a second is decoration fighting the data.
  */
 @Composable
 private fun ProgressCell(model: TorrentRowModel) {
@@ -121,19 +120,13 @@ private fun ProgressCell(model: TorrentRowModel) {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(CELL_GAP),
     ) {
-        Box(
-            Modifier
-                .weight(1f)
-                .height(BAR_HEIGHT)
-                .background(rowColor(model, RowCell.Track, scheme), RoundedCornerShape(BAR_HEIGHT / 2)),
-        ) {
-            Box(
-                Modifier
-                    .fillMaxWidth(model.progress ?: METADATA_BAR_FRACTION)
-                    .height(BAR_HEIGHT)
-                    .background(rowColor(model, RowCell.Bar, scheme), RoundedCornerShape(BAR_HEIGHT / 2)),
-            )
-        }
+        // The kit's bar since B-160; the colours stay this row's, decided in `RowColors.kt`.
+        KachokTheme.kit.ProgressBar(
+            fraction = model.progress ?: METADATA_BAR_FRACTION,
+            track = rowColor(model, RowCell.Track, scheme),
+            bar = rowColor(model, RowCell.Bar, scheme),
+            modifier = Modifier.weight(1f),
+        )
         Text(
             model.percent,
             style = MonoFigure,
@@ -267,8 +260,6 @@ public fun TorrentRow(
 
 /** The gap between a glyph and its text, and between the bar and its percentage. */
 private val CELL_GAP = 7.dp
-
-private val BAR_HEIGHT = 4.dp
 
 /** Wide enough for `100%` and no wider, so every percentage ends on the same pixel. */
 private val PERCENT_WIDTH = 29.dp

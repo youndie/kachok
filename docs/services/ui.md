@@ -52,8 +52,9 @@ asked for it in a conversation, through the same `TorrentSet` a click goes throu
 |---|---|
 | `ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/App.kt` | `main`, the window, and the platform it reaches for: the file chooser, the clipboard, the drop target, the tray |
 | `.../ui/session/ClientModel.kt` | what the window *is*, held where a window is not: its state, its channels, and the loop that samples every session and stops them cleanly |
-| `.../ui/theme/` | the kit the screens draw through — `KachokColors` (the design's roles by what they are for), `KachokType`, `Text` — the three bundled families and the interface scale |
-| `.../ui/theme/material/` | the Material kit: the eight roles read off the design, the `warning` M3 does not ship, the palette beside them, the 4 dp calibration; the only place `make check` lets name `material3` |
+| `.../ui/theme/` | the kit the screens draw through — `KachokColors` (the design's roles by what they are for), `KachokType`, `Text`, and the three components a kit draws itself (`Toggle`, `DialogButton`, `ProgressBar`) — `InterfaceKit`, the choice the settings store, the three bundled families and the interface scale |
+| `.../ui/theme/material/` | the Material kit: the eight roles read off the design, the `warning` M3 does not ship, the palette beside them, the 4 dp calibration, and its drawing of the three components (`MaterialComponents.kt`, the code the screens had, moved) |
+| `.../ui/theme/oldge/` | the oldge-ui kit (B-160): every role from the Toxic skin's tokens, `OldgeSwitch`, `OldgeButton`, the progress well's look, text through `OldgeText` in the design system's faces, and the Material scheme `AppFrame` reads; with `theme/material/`, the only place `make check` lets name `material3` |
 | `.../ui/icons/Icons.kt` | the twenty-one Material Symbols codepoints and the subset font they index into |
 | `.../ui/list/TorrentRow.kt` | the nine columns at the design's widths, and the row's own hairline |
 | `.../ui/list/RowColors.kt` | which colour every cell of every state is, as a function of the scheme rather than of a composition |
@@ -87,11 +88,27 @@ what they reserve. Everything else is stock M3.
 **The screens do not name Material; they draw through a kit** (B-159). `KachokTheme.colors` holds
 the design's roles by purpose — `accent`, three text levels (`text`, `textMuted`, `textFaint`),
 grounds, lines, the row and card tints — and `KachokTheme.type` the three type roles a screen names.
-`Text` and the hover hint's raised surface are the kit's to draw; the rest is drawn on `foundation`
-from those tokens, as it always was. The Material kit is the only implementation so far and draws
-exactly what the window drew before: the twelve goldens did not move. `make check` fails on any file
-outside `ui/theme/material/` that imports `androidx.compose.material3` or reads its palette.
-`AppFrame` is the exception it cannot police: the title bar it draws reads `MaterialTheme` itself.
+`Text` and the hover hint's raised surface are the kit's to draw, and since B-160 so are the three
+components a second kit draws differently — the settings switch, the dialog button and the row's
+progress bar; the rest is drawn on `foundation` from those tokens, as it always was. The Material
+kit draws exactly what the window drew before: the twelve goldens did not move, through B-159 or
+B-160. `make check` fails on any file outside `ui/theme/material/` and `ui/theme/oldge/` that imports
+`androidx.compose.material3`, and on any outside the first that reads its palette.
+
+**There are two kits, and the settings choose** ([B-160](../backlog/B-160-oldge-ui-is-a-kit-the-window-can-wear.md)).
+*Interface* on the settings screen picks Material or oldge-ui — the portfolio's mid-2000s design
+system, in its Toxic skin. The choice is stored in `settings.properties` as `interface`, read
+above `AppFrame` in `App.kt`, and applies without a restart because the kit is a composition local;
+a name the build does not know is Material. The oldge kit takes `OldgeSwitch` and `OldgeButton`
+from the library and draws the rest — the table, the header, the toolbar, the panel — from its
+tokens, because the library is a mobile kit with none of them. Its text goes through `OldgeText` in
+the design system's faces, and those decide who draws Cyrillic: Archivo, which has none, becomes
+DejaVu Sans Condensed; Source Serif becomes Fira Sans; JetBrains Mono stays, because Share Tech
+Mono has no Cyrillic either. `AppFrame` reads `MaterialTheme` itself, so the oldge kit's root
+provides a Material scheme from its tokens and the title bar is the skin's bezel.
+
+oldge-ui comes from reposilite's **snapshots**, pinned to one run; `settings.gradle.kts` names that
+repository exclusively for `oldge-core` and narrows the releases one to AppFrame's two modules.
 
 The colour rule lives outside the composables (`RowColors.kt`) so that "is this cell `#BEC9C6` or
 `#DDE4E1`" is a question a test answers rather than a screenshot.
@@ -106,7 +123,9 @@ The colour rule lives outside the composables (`RowColors.kt`) so that "is this 
 | Library | Compose Multiplatform 1.12 + Material 3 | the toolkit and the eight roles the design names |
 | Library | viddik 0.4 | `viddikRecord` / `viddikVerify`, the goldens |
 | Library | AppFrame 0.1.20 | the title bar the design draws, with the host's own window controls |
+| Library | oldge-core 0.1.1.14 (reposilite snapshots) | the second kit: `OldgeTheme`, its tokens and faces, `OldgeSwitch`, `OldgeButton`, `OldgeText` |
 | Fonts | Source Serif 4, Archivo, JetBrains Mono, Material Symbols Rounded | bundled, not asked of the machine |
+| Fonts | DejaVu Sans Condensed, Fira Sans Bold (inside oldge-core) | the oldge kit's faces; both cover Russian |
 
 ## 5. Infrastructure and deploy
 

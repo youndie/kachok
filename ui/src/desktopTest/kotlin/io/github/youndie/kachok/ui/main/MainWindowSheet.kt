@@ -20,6 +20,7 @@ import io.github.youndie.kachok.ui.details.DetailsTab
 import io.github.youndie.kachok.ui.session.Rates
 import io.github.youndie.kachok.ui.session.detailsOf
 import io.github.youndie.kachok.ui.theme.KachokTheme
+import io.github.youndie.kachok.ui.theme.oldge.OldgeKit
 import io.github.youndie.viddik.annotations.ViddikScreenshot
 
 /**
@@ -61,6 +62,56 @@ internal fun MainWindowSheet() {
         }
     }
 }
+
+/**
+ * The same window in the oldge kit (B-160), its title bar included — `AppFrame` draws it from the
+ * Material scheme the kit's root builds out of the skin's bezel.
+ *
+ * **One torrent has a Russian name**, which is what the kit's choice of faces is for: the design
+ * system's lcd and pixel faces have no Cyrillic, and torrent names here are often Russian. The row
+ * is the third, so it sits between two Latin names in the same face and a fallback font would show.
+ */
+@ViddikScreenshot(name = "window-oldge", group = "main", width = 1440, height = 912)
+@Composable
+internal fun MainWindowOldgeSheet() {
+    KachokTheme(kit = OldgeKit) {
+        Column(Modifier.fillMaxSize().background(KachokTheme.colors.surface)) {
+            TitleBar(
+                state = rememberWindowState(size = DpSize(1200.dp, 760.dp)),
+                onCloseRequest = {},
+                title = "kachok",
+                style = KACHOK_TITLE_BAR.copy(cornerRadius = 0.dp),
+            )
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .height(1.dp)
+                    .background(KachokTheme.colors.raisedHigh),
+            )
+            MainWindow(
+                MainWindowState(
+                    torrents =
+                        designTorrents.mapIndexed { at, row ->
+                            if (at ==
+                                2
+                            ) {
+                                row.copy(name = CYRILLIC_NAME)
+                            } else {
+                                row
+                            }
+                        },
+                    status = designStatus,
+                    degradedSummary = DEGRADED_SUMMARY,
+                    degradedDetail = DEGRADED_DETAIL,
+                    details = designDetails(),
+                ),
+            )
+        }
+    }
+}
+
+/** A Russian torrent name, as they come: a title, a year, an extension. */
+internal const val CYRILLIC_NAME: String = "Мастер и Маргарита (1994).mkv"
 
 /**
  * The three tabs the engine cannot fill, side by side the way the design lays them out.

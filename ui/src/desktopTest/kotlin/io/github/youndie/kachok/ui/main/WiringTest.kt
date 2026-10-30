@@ -257,6 +257,12 @@ class WiringTest {
                             .performClick()
                     }
 
+                    // A choice reports only a segment that is not already chosen.
+                    setting.choices != null -> {
+                        val other = setting.choices.first { it.value != setting.value }
+                        onNodeWithText(other.label).performScrollTo().performClick()
+                    }
+
                     else -> {
                         onNodeWithContentDescription(setting.label)
                             .performScrollTo()
@@ -413,5 +419,6 @@ class WiringTest {
             is SettingChange.Browsed -> key
             is SettingChange.Toggled -> key
             is SettingChange.Typed -> key
+            is SettingChange.Chose -> key
         }
 }

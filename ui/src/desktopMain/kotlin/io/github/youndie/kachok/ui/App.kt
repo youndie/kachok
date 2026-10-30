@@ -289,7 +289,11 @@ private fun run(args: Array<String>) {
             )
         }
 
-        KachokTheme {
+        // **The kit the settings chose, read here and nowhere else (B-160).** Above `AppFrame` for the
+        // reason the theme is: the title bar is drawn from the kit's root. A state read, so picking
+        // another kit on the settings screen recomposes from here down — the whole window, its
+        // bar included, redraws in it without a restart.
+        KachokTheme(kit = model.preferences.value.interfaceKit.kit) {
             var closing by remember { mutableStateOf(quitting) }
             LaunchedEffect(quitting) { if (quitting) closing = true }
             // The title bar is drawn, not the operating system's: the design draws it in its own
@@ -911,6 +915,11 @@ internal fun Client(
                             autostartProblem = null
                         }
                     }
+                }
+
+                is SettingChange.Chose -> {
+                    // The kit, today: `run` reads it above the window frame and redraws everything.
+                    preferences = preferences.chose(change.key, change.value)
                 }
 
                 is SettingChange.Typed -> {

@@ -13,6 +13,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import io.github.youndie.kachok.ui.theme.material.MaterialKit
+import io.github.youndie.kachok.ui.theme.oldge.OldgeKit
 
 /**
  * Every colour a screen asks for, by what it is for rather than by Material's name for it.
@@ -91,10 +92,17 @@ internal class KachokType(
 /**
  * One way of drawing the window: its tokens, and the few components it has to draw itself.
  *
- * The screens draw almost everything on `foundation` already — the table, the toggle, the fields,
- * the toolbar — and read their colours from [colors], so a kit is mostly its tokens. What is here
- * as a function is what a screen cannot draw without a library's own component: the text (whose
- * default style and colour the kit's root sets) and the hover hint's raised surface.
+ * The screens draw almost everything on `foundation` already — the table, the fields, the toolbar
+ * — and read their colours from [colors], so a kit is mostly its tokens. What is here as a function
+ * is what a screen cannot draw without a library's own component: the text (whose default style and
+ * colour the kit's root sets) and the hover hint's raised surface — and, since
+ * [B-160](../../../../../../../../docs/backlog/B-160-oldge-ui-is-a-kit-the-window-can-wear.md), each
+ * component the second kit's library draws differently from a recoloured box: the settings toggle,
+ * the dialog button and the row's progress bar. A component joins this list when a kit needs it to,
+ * not before.
+ *
+ * **No defaults on a member.** An abstract composable cannot have them, so the screens call a
+ * top-level wrapper that does, as `Text` does.
  */
 @Stable
 internal interface KachokKit {
@@ -142,9 +150,74 @@ internal interface KachokKit {
         shape: Shape,
         content: @Composable () -> Unit,
     )
+
+    /**
+     * An on/off switch with no label of its own: the row it sits in shows [label], and the switch
+     * carries it as its accessible name together with which way it is.
+     */
+    @Composable
+    fun Toggle(
+        on: Boolean,
+        label: String,
+        enabled: Boolean,
+        onToggle: () -> Unit,
+    )
+
+    /** The button a dialog ends with; [destructive] is an appearance, never a colour argument. */
+    @Composable
+    fun DialogButton(
+        label: String,
+        primary: Boolean,
+        enabled: Boolean,
+        destructive: Boolean,
+        onClick: () -> Unit,
+    )
+
+    /**
+     * A row's progress bar, [fraction] of the way along, in the two colours the row's state chose
+     * (`RowColors.kt` decides those, so a kit cannot get a state's colour wrong — only its shape).
+     */
+    @Composable
+    fun ProgressBar(
+        fraction: Float,
+        track: Color,
+        bar: Color,
+        modifier: androidx.compose.ui.Modifier,
+    )
 }
 
 internal val LocalKit = staticCompositionLocalOf<KachokKit> { MaterialKit }
+
+/**
+ * The kits a person can choose between on the settings screen, by the name the settings file
+ * stores.
+ *
+ * [stored] is what `settings.properties` holds and must never change once released: a file written
+ * by one build is read by the next. A name nobody knows — a newer build's third kit read by an
+ * older one — is [Material], never a refusal to start.
+ */
+internal enum class InterfaceKit(
+    val stored: String,
+    val label: String,
+) {
+    Material("material", "Material"),
+    Oldge("oldge-ui", "oldge-ui"),
+    ;
+
+    val kit: KachokKit
+        get() =
+            when (this) {
+                Material -> MaterialKit
+                Oldge -> OldgeKit
+            }
+
+    companion object {
+        val DEFAULT: InterfaceKit = Material
+
+        /** The kit a stored name means, and [DEFAULT] for a name this build does not know. */
+        fun of(stored: String?): InterfaceKit = entries.firstOrNull { it.stored == stored } ?: DEFAULT
+    }
+}
 
 /** The current kit's tokens, read the way `KachokTheme.colors` used to be. */
 internal object KachokTheme {

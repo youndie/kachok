@@ -25,8 +25,9 @@ import io.github.youndie.kachok.ui.theme.KachokType
  * The design as it was drawn: a dark Material 3 scheme, read off the design's swatch row, with the
  * roles Material does not ship beside it.
  *
- * **The only place in the module that names `androidx.compose.material3`** — `make check` greps for
- * it everywhere else (B-159). A screen that reached for `MaterialTheme` directly would draw the
+ * **One of the two places in the module that name `androidx.compose.material3`** — `make check`
+ * greps for it everywhere else (B-159); the other is the oldge kit, for the scheme `AppFrame` reads
+ * (B-160). A screen that reached for `MaterialTheme` directly would draw the
  * same thing under this kit and the wrong thing under any other, and nothing would say so until
  * somebody switched.
  */
@@ -148,6 +149,37 @@ internal object MaterialKit : KachokKit {
         content: @Composable () -> Unit,
     ) {
         Surface(shape = shape, color = colors.tooltip, shadowElevation = 4.dp, content = content)
+    }
+
+    @Composable
+    override fun Toggle(
+        on: Boolean,
+        label: String,
+        enabled: Boolean,
+        onToggle: () -> Unit,
+    ) {
+        MaterialToggle(on, label, enabled, onToggle)
+    }
+
+    @Composable
+    override fun DialogButton(
+        label: String,
+        primary: Boolean,
+        enabled: Boolean,
+        destructive: Boolean,
+        onClick: () -> Unit,
+    ) {
+        MaterialDialogButton(label, primary, enabled, destructive, onClick)
+    }
+
+    @Composable
+    override fun ProgressBar(
+        fraction: Float,
+        track: Color,
+        bar: Color,
+        modifier: Modifier,
+    ) {
+        MaterialProgressBar(fraction, track, bar, modifier)
     }
 }
 

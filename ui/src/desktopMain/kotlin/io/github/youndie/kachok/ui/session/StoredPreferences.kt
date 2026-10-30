@@ -1,6 +1,7 @@
 package io.github.youndie.kachok.ui.session
 
 import io.github.youndie.kachok.control.configDirectory
+import io.github.youndie.kachok.ui.theme.InterfaceKit
 import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.Path
@@ -80,6 +81,10 @@ internal fun loadPreferences(
                 ?.toFloatOrNull()
                 ?.let { fallback.withDetailsWidth(it).detailsWidth }
                 ?: fallback.detailsWidth,
+        // A kit this build does not know — a newer build's, read by an older one — is the Material
+        // kit and not a refusal to start, and not the fallback's either: an unknown name says
+        // nothing about what somebody wanted, and Material is what every build can draw (B-160).
+        interfaceKit = text(INTERFACE)?.let { InterfaceKit.of(it) } ?: fallback.interfaceKit,
     )
 }
 
@@ -104,6 +109,7 @@ internal fun savePreferences(
             setProperty(CLOSE_TO_TRAY, preferences.closeToTray.toString())
             setProperty(TRAY_EXPLAINED, preferences.trayExplained.toString())
             setProperty(DETAILS_WIDTH, preferences.detailsWidth.toString())
+            setProperty(INTERFACE, preferences.interfaceKit.stored)
             preferences.maxPeers?.let { setProperty(MAX_PEERS, it.toString()) }
             preferences.pipelineDepth?.let { setProperty(PIPELINE_DEPTH, it.toString()) }
             preferences.uploadLimitKibPerSecond?.let { setProperty(UPLOAD_LIMIT, it.toString()) }
@@ -140,3 +146,4 @@ private const val LAST_DIRECTORY = "lastDirectory"
 private const val CLOSE_TO_TRAY = "closeToTray"
 private const val TRAY_EXPLAINED = "trayExplained"
 private const val DETAILS_WIDTH = "detailsWidth"
+private const val INTERFACE = "interface"
