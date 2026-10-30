@@ -51,7 +51,7 @@ internal fun StatusBar(
         lineOnTop = true,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Rate(Icons.ARROW_DOWNWARD, scheme.accent, status.down)
+        Rate(Icons.ARROW_DOWNWARD, scheme.accentText, status.down)
         Rate(Icons.ARROW_UPWARD, KachokTheme.colors.textMuted, status.up)
         Dot()
         Figure(status.torrents)

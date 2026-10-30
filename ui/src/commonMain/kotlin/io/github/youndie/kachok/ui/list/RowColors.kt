@@ -165,11 +165,13 @@ private const val SELECTED_MUTED_ALPHA = 0.6f
  * a selected row that stopped saying "this one is broken" would be selection deleting information.
  *
  * All twelve cells of the design's own selected row come out of this mapping; none of them is
- * listed anywhere as a special case.
+ * listed anywhere as a special case. The accent as a fill and the accent as ink both brighten to
+ * the same [KachokColors.accentBright]: the ink that reads on the surface is not the one that reads
+ * on the container (B-164).
  */
 private fun Color.onContainer(scheme: KachokColors): Color =
     when (this) {
-        scheme.accent -> scheme.accentBright
+        scheme.accent, scheme.accentText -> scheme.accentBright
         scheme.text -> scheme.onAccentContainer
         scheme.textMuted -> scheme.selectedFigure
         scheme.textFaint -> scheme.onAccentContainer.copy(alpha = SELECTED_MUTED_ALPHA)
@@ -195,7 +197,7 @@ private fun labelColor(
         TorrentState.Metadata -> scheme.textMuted
         TorrentState.Checking, TorrentState.Stopping -> scheme.warning
         TorrentState.Downloading -> scheme.text
-        TorrentState.Seeding -> scheme.accent
+        TorrentState.Seeding -> scheme.accentText
         TorrentState.Paused, TorrentState.Queued -> scheme.textFaint
         TorrentState.Error -> scheme.error
     }
@@ -234,7 +236,7 @@ private fun plainRowColor(
             when (state) {
                 TorrentState.Metadata, TorrentState.Paused, TorrentState.Queued -> scheme.textFaint
                 TorrentState.Checking, TorrentState.Stopping -> scheme.warning
-                TorrentState.Downloading, TorrentState.Seeding -> scheme.accent
+                TorrentState.Downloading, TorrentState.Seeding -> scheme.accentText
                 TorrentState.Error -> scheme.error
             }
         }

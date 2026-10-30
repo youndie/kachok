@@ -377,7 +377,7 @@ private fun ColumnScope.Tabs(
                         },
                     color =
                         if (on) {
-                            KachokTheme.colors.accent
+                            KachokTheme.colors.accentText
                         } else {
                             KachokTheme.colors.textFaint
                         },
@@ -478,7 +478,7 @@ private fun Field(
                 val tone =
                     when (field.tone) {
                         FieldTone.Plain -> KachokTheme.colors.text
-                        FieldTone.Good -> KachokTheme.colors.accent
+                        FieldTone.Good -> KachokTheme.colors.accentText
                         FieldTone.Warning -> KachokTheme.colors.warning
                     }
                 if (field.path) {
@@ -591,8 +591,8 @@ private fun ColumnScope.Trackers(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
             ) {
-                Glyph(Icons.CAMPAIGN, size = COPY_GLYPH, tint = scheme.accent)
-                Text("Re-announce", style = FIELD_LABEL, color = scheme.accent, maxLines = 1)
+                Glyph(Icons.CAMPAIGN, size = COPY_GLYPH, tint = scheme.accentText)
+                Text("Re-announce", style = FIELD_LABEL, color = scheme.accentText, maxLines = 1)
             }
         }
         Box(Modifier.fillMaxWidth().height(HAIRLINE).background(KachokTheme.colors.rowHairline))
@@ -643,14 +643,14 @@ private fun DhtCard(detail: String) {
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         Text("DHT (BEP 5)", style = MonoSmall, color = KachokTheme.colors.text, maxLines = 1)
-        Text(detail, style = MonoSmall, color = KachokTheme.colors.accent, maxLines = 1)
+        Text(detail, style = MonoSmall, color = KachokTheme.colors.accentText, maxLines = 1)
     }
 }
 
 @Composable
 private fun toneColor(tone: FieldTone) =
     when (tone) {
-        FieldTone.Good -> KachokTheme.colors.accent
+        FieldTone.Good -> KachokTheme.colors.accentText
         FieldTone.Warning -> KachokTheme.colors.error
         FieldTone.Plain -> KachokTheme.colors.textMuted
     }
@@ -695,7 +695,7 @@ private fun ColumnScope.Files(
             Text(
                 if (state.sequential) "Ask rarest first" else "Ask in order",
                 style = FIELD_LABEL,
-                color = scheme.accent,
+                color = scheme.accentText,
                 maxLines = 1,
                 modifier =
                     Modifier
@@ -781,7 +781,7 @@ private fun FileLine(
                     FilePriority.SKIP -> Icons.CHECK_BOX_OUTLINE_BLANK
                 },
                 size = FILE_TICK,
-                tint = if (file.wanted) scheme.accent else scheme.textFaint,
+                tint = if (file.wanted) scheme.accentText else scheme.textFaint,
             )
         }
         // `PathText` and not `TextOverflow.StartEllipsis`, which type-checks against Compose
@@ -862,9 +862,9 @@ private fun ColumnScope.Peers(peers: List<PeerRow>) {
             Modifier.fillMaxWidth().padding(horizontal = Details.edge, vertical = 9.dp),
             horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            Legend("U", "unchoked", scheme.accent)
+            Legend("U", "unchoked", scheme.accentText)
             Legend("C", "choked", scheme.textFaint)
-            Legend("I", "interested", scheme.accent)
+            Legend("I", "interested", scheme.accentText)
         }
     }
 }
@@ -896,12 +896,12 @@ private fun PeerLine(peer: PeerRow) {
             Text(
                 if (peer.unchoked) "U" else "C",
                 style = PEER_FLAG,
-                color = if (peer.unchoked) scheme.accent else scheme.textFaint,
+                color = if (peer.unchoked) scheme.accentText else scheme.textFaint,
             )
             Text(
                 if (peer.interested) "I" else "·",
                 style = PEER_FLAG,
-                color = if (peer.interested) scheme.accent else scheme.textFaint,
+                color = if (peer.interested) scheme.accentText else scheme.textFaint,
             )
         }
         Text(
@@ -993,7 +993,7 @@ private fun CopyButton(
     Glyph(
         Icons.CONTENT_COPY,
         size = COPY_GLYPH,
-        tint = if (copied) KachokTheme.colors.accent else KachokTheme.colors.textFaint,
+        tint = if (copied) KachokTheme.colors.accentText else KachokTheme.colors.textFaint,
         modifier =
             Modifier
                 .clickable {
