@@ -237,7 +237,9 @@ tasks.register<JavaExec>("swarmHost") {
  * The proof is the point. A cache the VM refuses — a flag changed, a jar renamed, a different
  * collector — is not an error and not a slower error: it is a warning line and a completely normal
  * start, so a distribution that merely *has* a cache has no idea whether anyone benefits from it.
- * This task fails unless `-Xlog:aot=info` says the cache was opened.
+ * This task fails unless `-Xlog:aot=info` says the cache was mapped and in use, and on any error
+ * from `aot`. Not on `Opened AOT cache`: JDK 25 prints that line first and only then refuses a cache
+ * whose jars changed (research §1.3h, B-163).
  *
  * The training run is a whole download from a seed this task starts, not a start-up and exit: what
  * the cache is worth depends on which classes were loaded while it was recorded, and the wire, the
@@ -293,13 +295,13 @@ abstract class BuildAotCache : DefaultTask() {
             swarmAgain.waitFor()
         }
         val text = if (log.isFile) log.readText() else ""
-        if (!text.contains("Opened AOT cache")) {
+        if (AOT_ERROR.containsMatchIn(text) || !text.contains(AOT_MAPPED)) {
             throw GradleException(
-                "the cache was built but the VM did not open it, which is a silent slow start " +
+                "the cache was built but the VM did not map it, which is a silent slow start " +
                     "rather than an error — research Risk 3. -Xlog:aot=info said:\n$text",
             )
         }
-        logger.lifecycle("AOT cache ${cacheFile.length() / 1024} KB, and the VM opened it")
+        logger.lifecycle("AOT cache ${cacheFile.length() / 1024} KB, and the VM mapped it")
         File(root, "training").deleteRecursively()
         File(root, "training-check").deleteRecursively()
         if (torrent.exists()) torrent.delete()
@@ -348,6 +350,11 @@ abstract class BuildAotCache : DefaultTask() {
     }
 
     private companion object {
+        // Printed once the regions are mapped and the classes in them are taken into use; a refused
+        // cache has already printed `Opened AOT cache` and even `Mapped static region #0` by then,
+        // and unmaps them instead. Read off both logs on 25.0.4.1 (research §1.3h).
+        const val AOT_MAPPED = "Using AOT-linked classes: true"
+        val AOT_ERROR = Regex("""\[error\s*]\[aot""")
         const val SWARM_TIMEOUT_SECONDS = 60L
         const val NANOS_PER_SECOND = 1_000_000_000L
         const val POLL_MILLIS = 200L
@@ -356,7 +363,7 @@ abstract class BuildAotCache : DefaultTask() {
 
 tasks.register<BuildAotCache>("aotCache") {
     group = "distribution"
-    description = "Trains the distribution's AOT cache on a real download and proves the VM opens it"
+    description = "Trains the distribution's AOT cache on a real download and proves the VM maps it"
     dependsOn(tasks.named("runtimeImage"))
     image.set(layout.buildDirectory.dir("kachok"))
     cache.set(layout.buildDirectory.file("kachok/kachok.aot"))

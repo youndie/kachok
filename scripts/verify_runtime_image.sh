@@ -21,6 +21,11 @@ swarm_pid=""
 
 cleanup() {
   [ -n "$swarm_pid" ] && kill "$swarm_pid" 2>/dev/null || true
+  # The containers run as root, and on Linux what they leave in $work is root's: the runtime, the
+  # cache, the downloads. A container removes it, or the `rm` below fails and a pass exits 1.
+  if [ -d "$work/image/runtime" ]; then
+    docker run --rm -v "$work:/work" debian:stable-slim rm -rf /work/image /work/out || true
+  fi
   rm -rf "$work"
 }
 trap cleanup EXIT
@@ -94,13 +99,16 @@ docker run --rm --platform linux/amd64 \
       /opt/kachok/bin/kachok download /torrent/fixture.torrent --dir /out/cached
     cd /out/cached && sha256sum -c /torrent/expected.sha256
     cd /
-    # A cache the VM refuses is a warning and a normal start, so "it ran" proves nothing.
-    grep -q "Opened AOT cache" /out/aot.log || {
-      echo "the cache was built and the VM did not open it — a silent slow start, research Risk 3"
+    # A cache the VM refuses is a warning and a normal start, so "it ran" proves nothing. Nor does
+    # "Opened AOT cache": the VM prints it and then refuses a cache whose jars changed (research
+    # §1.3h, B-163). The line below comes only after the cache is mapped and in use, and any error
+    # from aot is a refusal whatever else the log says.
+    if grep -E "\[error *\]\[aot" /out/aot.log || ! grep -q "Using AOT-linked classes: true" /out/aot.log; then
+      echo "the cache was built and the VM did not map it — a silent slow start, research Risk 3"
       tail -20 /out/aot.log
       exit 1
-    }
-    grep "Opened AOT cache" /out/aot.log
+    fi
+    grep "Using AOT-linked classes" /out/aot.log
   '
 
-echo "==> ok: no JDK, the bytes are the torrent's, and the AOT cache was opened"
+echo "==> ok: no JDK, the bytes are the torrent's, and the AOT cache was mapped"

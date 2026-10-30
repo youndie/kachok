@@ -48,13 +48,12 @@ which is also the order of work.
 
 <!-- BEGIN INDEX -->
 
-## Open (15)
+## Open (14)
 
 | Task | | Priority | Size | Blocked by |
 |---|---|---|---|---|
 | [B-116](docs/backlog/B-116-a-torrent-whose-name-is-not-ascii-cannot-be-opened-on-windows.md) `[~]` | A `.torrent` whose name is not ASCII cannot be opened on Windows: the launcher hands the path over as question marks | P2 | S | - |
 | [B-157](docs/backlog/B-157-the-desktop-distribution-ships-an-aot-cache.md) `[?]` | The desktop distribution ships an AOT cache trained through its own launcher, and proves it maps | P2 | M | B-155 |
-| [B-163](docs/backlog/B-163-an-aot-cache-is-opened-before-it-is-refused.md) `[ ]` | The AOT checks look for a line the VM prints before it refuses the cache | P2 | S | - |
 | [B-164](docs/backlog/B-164-accent-text-reads-on-a-light-skin.md) `[ ]` | Text drawn in the accent stays readable on a light skin: an accent-as-text role in the kit | P2 | S/M | - |
 | [B-165](docs/backlog/B-165-a-russian-name-is-drawn-in-the-rows-face.md) `[ ]` | A Russian torrent name is drawn in the row's own face under the Material kit | P2 | S | - |
 | [B-166](docs/backlog/B-166-the-preflight-reruns-when-the-image-changes.md) `[ ]` | The packaged preflight runs again whenever the image it checks changes | P2 | S | - |
@@ -68,7 +67,7 @@ which is also the order of work.
 | [B-87](docs/backlog/B-87-a-server-with-a-web-face.md) `[ ]` | Phase 3: a headless server with a web face, installable on a box that is always on | P3 | XL | B-80 |
 | [B-02](docs/backlog/B-02-ci-runs-build-and-docs-gates.md) `[ ]` | CI runs the build and the documentation gates on every push | infra | S | B-01 |
 
-## Closed (154)
+## Closed (155)
 
 **M0 — The build and its gates**
 
@@ -135,6 +134,7 @@ which is also the order of work.
 - [B-123](docs/backlog/B-123-a-seed-that-holds-part-of-the-torrent.md) `[x]` - Every seed on the stand holds everything, so nothing on it can be rare
 - [B-125](docs/backlog/B-125-a-measurement-that-is-a-pair.md) `[x]` - A speed comparison needs a harness that cannot publish a lonely number
 - [B-126](docs/backlog/B-126-a-stand-with-more-than-one-leecher.md) `[x]` - The swarm cost of a picker cannot appear on a stand with one leecher
+- [B-163](docs/backlog/B-163-an-aot-cache-is-opened-before-it-is-refused.md) `[x]` - The AOT checks look for a line the VM prints before it refuses the cache
 - [B-26](docs/backlog/B-26-jfr-baseline-of-the-hot-path.md) `[x]` - A JFR baseline: allocations on the hot path, pinned threads, carrier count
 - [B-27](docs/backlog/B-27-measure-heap-and-collector.md) `[x]` - Measure the heap the engine needs, with G1 and with ZGC
 - [B-28](docs/backlog/B-28-aot-cache-in-the-distribution.md) `[x]` - Build the AOT cache with the launcher's flags and prove it maps

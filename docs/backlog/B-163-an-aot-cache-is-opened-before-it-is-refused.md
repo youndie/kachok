@@ -1,7 +1,7 @@
 ---
 id: B-163
 title: "The AOT checks look for a line the VM prints before it refuses the cache"
-status: open
+status: done
 priority: P2
 size: S
 stage: m7-measure
@@ -31,3 +31,33 @@ epic: feature-cli
 - AC: `:cli:aotCache` and `verify_runtime_image.sh` fail on an image with one jar touched after
   training, and pass on the untouched one.
 - Anchors: `cli/build.gradle.kts`, `scripts/verify_runtime_image.sh`.
+
+**Done.** Both checks now pass only on `Using AOT-linked classes: true` and fail on any line
+matching `[error …][aot`. The line was read off both logs on the Linux box (Ubuntu's `openjdk-25`
+25.0.4.1, x64), from the `:cli:aotCache` image run with `-Xlog:aot=info`, once as built and once
+with `annotations-23.0.0.jar` touched. Both logs print `Opened AOT cache` **and** `Mapped static
+region #0`/`#1`. The refused one then prints the timestamp warning, three `[error  ][aot]` lines and
+unmaps the regions; only the mapped one goes on to the heap data, the module graph and `Using
+AOT-linked classes: true`, its last line (research §1.3h).
+
+- **Positive control, run on the Linux box.** A temporary line touching that jar right after the
+  training run, in the task and in the script's container; neither is committed.
+
+  | | untouched | one jar touched |
+  |---|---|---|
+  | `:cli:aotCache`, before (`Opened AOT cache`) | — | **passes** |
+  | `:cli:aotCache`, after | passes | fails: `the VM did not map it`, the three errors |
+  | `:cli:aotCache`, mapped line only / error only | — | each fails alone |
+  | `verify_runtime_image.sh`, before | — | **passes**: `Unable to map shared spaces`, then `==> ok` |
+  | `verify_runtime_image.sh`, after | passes, exit 0 | fails, exit 1 |
+
+- **`verify_runtime_image.sh` exited 1 on Linux even when it passed.** The containers run as
+  root, so on Linux the runtime, the cache and the downloads they leave in `$work` are root's, and
+  the `rm -rf` in the exit trap failed after `==> ok` was printed. Docker Desktop maps the owner,
+  which is why it never showed on the Mac. The cleanup now removes those files through a container.
+  This is in the item only because without it the exit code could not tell the two cases apart.
+- Not changed: `scripts/aot_startup.py` (B-157's ruler) already reads `"[error" not in text`
+  beside `Opened`, and B-157's AC still names `Opened AOT cache` — that is the window's item.
+
+- AC: `:cli:aotCache` and `verify_runtime_image.sh` fail on an image with one jar touched after
+  training, and pass on the untouched one — **met**, the table above.
