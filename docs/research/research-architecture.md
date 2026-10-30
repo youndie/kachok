@@ -92,6 +92,9 @@ workflow (`-XX:AOTCacheOutput=<file>`), three configurations:
 | `-XX:+UseCompactObjectHeaders` | cache created, 12.5 MB; mapped; the log records `UseCompactObjectHeaders = 1` in the cache |
 | a G1-made cache run under `-XX:+UseZGC` | **refused**: *The saved state of UseCompressedOops and UseCompressedClassPointers is different from runtime, CDS will be disabled* — and the program then ran normally without it |
 
+"Mapped" in this table was read off *Opened AOT cache*, which §1.3h later showed the VM prints
+before a refusal as well; the rows were not read again with the line that does prove it (B-163).
+
 The AOT cache built from a `jlink`ed run-time image (the one in §1.3) is created the same way.
 
 **Consequence 1.** The cache is bound to the exact VM configuration — collector, compressed oops,
@@ -129,7 +132,8 @@ start-up alone would be smaller and worth less.
 
 **Consequence 2 — the cache is not bound to the directory it was built in.** Measured by copying
 the distribution elsewhere on the same machine: `Opened AOT cache` at the new path and the same
-51 ms. The launcher's class path is written relative to its own location, which is what makes that
+51 ms. Read again on 2026-10-30 with the line that proves the mapping (B-163): the image copied
+with `cp -a` on the Linux box, 25.0.4.1, logs `Using AOT-linked classes: true` at the new path. The launcher's class path is written relative to its own location, which is what makes that
 true; an absolute one would have made a moved distribution silently uncached.
 
 **Consequence 3 — the proof has to run through the launcher.** `scripts/verify_runtime_image.sh`
@@ -708,7 +712,11 @@ same sizes). The cache trained on the image, given to the launcher extracted fro
 
 **Consequence 1 — `Opened AOT cache` is printed before the refusal, so it proves nothing.** The line
 B-28's check and `verify_runtime_image.sh` look for is the first line of a *failed* mapping as much
-as of a successful one. Filed as [B-163](../backlog/B-163-an-aot-cache-is-opened-before-it-is-refused.md).
+as of a successful one. Filed as [B-163](../backlog/B-163-an-aot-cache-is-opened-before-it-is-refused.md). The
+line a mapped cache prints and a refused one does not, read off both logs on 25.0.4.1 (a refused
+one gets as far as `Mapped static region #1` before it unmaps them): `Using AOT-linked classes:
+true`. Both CLI checks now require it and fail on any `[error` from `aot`; with one jar touched
+after training both fail, and the old ones passed (B-163).
 
 **Consequence 2 — a cache in an installer has to be trained on that installer's files.** Not on
 the image beside it: after packaging, on what the package will put on the disk, and then put back
@@ -1693,8 +1701,10 @@ config exposes both numbers so a measurement can move them.
 
 **Risk 3. An AOT cache that fails to map fails silently.** Mechanism: §1.2 — a flag mismatch
 produces a warning and a normal, slow start. Mitigation: the distribution's smoke test runs the
-launcher with `-Xlog:aot=info` and asserts the *Opened AOT cache* line; a cache that does not map
-fails the build that would ship it.
+launcher with `-Xlog:aot=info` and asserts `Using AOT-linked classes: true` with no `[error` from
+`aot`; a cache that does not map fails the build that would ship it. This used to say it asserts
+the *Opened AOT cache* line; it cannot, because the VM prints that before it refuses a stale cache
+(§1.3h, B-163).
 
 **Risk 4. Phase 2's wasmJs target cannot be a BitTorrent peer.** Mechanism: a browser has no TCP
 or UDP sockets; the wire protocol is TCP. A wasmJs *engine* is therefore impossible; a wasmJs *UI*
