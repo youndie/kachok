@@ -1,7 +1,7 @@
 ---
 id: B-156
 title: "The desktop runtime is linked compressed, as the CLI's already is"
-status: open
+status: wip
 priority: P3
 size: S
 stage: phase-2-ui
