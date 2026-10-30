@@ -66,7 +66,30 @@ jobs:
 
       # **The release variant**, the one whose classes went through ProGuard (B-155) and the one
       # `checkDistributable` above just ran.
-      - run: ./gradlew :ui:packageReleaseDistributionForCurrentOS --stacktrace
+      - if: runner.os != 'Linux'
+        run: ./gradlew :ui:packageReleaseDistributionForCurrentOS --stacktrace
+      # On Linux the `.deb` is finished by `:ui:addAotCacheToDeb`, which trains its AOT cache through
+      # the packaged window and so needs the display `checkDownload` above had (B-157).
+      - if: runner.os == 'Linux'
+        run: xvfb-run -a ./gradlew :ui:packageReleaseDistributionForCurrentOS --stacktrace
+
+      # **The installed `.deb`, asked whether it maps its cache.** The build already checked an
+      # unpacked copy; this is `dpkg` putting it on a disk, which is what a person's machine does.
+      # `Using AOT-linked classes: true` is the line only a mapped cache prints (B-163).
+      - name: The installed client maps its AOT cache
+        if: runner.os == 'Linux'
+        run: |
+          # jpackage's postinst registers the menu entry with `xdg-desktop-menu`, which refuses with
+          # "No writable system menu directory found" unless each of `<XDG_CONFIG_DIRS>/menus`,
+          # `<XDG_DATA_DIRS>/desktop-directories` and `<XDG_DATA_DIRS>/applications` exists — read off
+          # the script. A desktop has all three; this headless runner had not.
+          sudo mkdir -p /etc/xdg/menus /usr/share/desktop-directories /usr/share/applications
+          sudo dpkg -i ui/build/compose/binaries/main-release/deb/*.deb
+          JAVA_TOOL_OPTIONS="-Xlog:aot=info:file=$RUNNER_TEMP/aot.log" /opt/kachok/bin/kachok --preflight "$RUNNER_TEMP/preflight.txt"
+          if grep -E '\[error *\]\[aot' "$RUNNER_TEMP/aot.log" || ! grep -q 'Using AOT-linked classes: true' "$RUNNER_TEMP/aot.log"; then
+            cat "$RUNNER_TEMP/aot.log"; exit 1
+          fi
+          grep 'Using AOT-linked classes' "$RUNNER_TEMP/aot.log"
 
       # So the log says what was built rather than only that something was.
       - name: What came out

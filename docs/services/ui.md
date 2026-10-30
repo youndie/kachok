@@ -183,6 +183,14 @@ on the single-instance lock and has its MCP server download a torrent from a see
 second is the one that sees a window; it needs a display, so it is not on `check` (`xvfb-run` on
 the Linux runner, WSLg with `DISPLAY=:0` on the build machine).
 
+The `.deb` carries an **AOT cache trained on its own files**: `packageReleaseDeb` is finalised by
+`unpackReleaseDeb`, `recordDebAotConfiguration` and `addAotCacheToDeb`, which record what the
+packaged window loads during the same download, assemble the cache, name it in `kachok.cfg`, repack,
+and fail the build unless an unpacked copy maps it
+([B-157](../backlog/B-157-the-desktop-distribution-ships-an-aot-cache.md)). So building the `.deb`
+needs a display too; `-Pkachok.aot=false` packages it without the cache. The `.dmg` and the `.msi`
+have none yet (B-171, B-172).
+
 The client can be asked to **start with the computer**, from a checkbox in Settings: a launch agent
 on macOS, an `HKCU\…\Run` value on Windows, a freedesktop autostart entry on Linux — each written
 by the client when the box is pressed, never by the installer, so the setting cannot disagree with
