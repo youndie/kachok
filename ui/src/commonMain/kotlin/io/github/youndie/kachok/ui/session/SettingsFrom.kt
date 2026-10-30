@@ -371,6 +371,7 @@ internal fun settingsOf(
                             value = preferences.maxActiveDownloads?.toString() ?: NO_LIMIT,
                             changed = preferences.maxActiveDownloads != null,
                             absent = preferences.maxActiveDownloads == null,
+                            absentAs = NO_LIMIT,
                         ),
                         Setting(
                             key = SettingKey.MaxConnections,
@@ -549,6 +550,7 @@ private fun limit(
         unit = "KiB/s",
         changed = chosen != null,
         absent = chosen == null,
+        absentAs = NO_LIMIT,
     )
 
 /** `12 000`, grouped the way every other figure in this UI is. */
