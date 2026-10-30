@@ -96,6 +96,64 @@ kotlin {
     }
 }
 
+// **The JDK's own classes, for ProGuard, from a JDK that ships no `jmods`.**
+//
+// ProGuard has to read the platform's classes to know what a library extends and calls, and
+// Compose gives it `<java.home>/jmods/*.jmod` — which the JDK on CI does not have. Temurin 25 is
+// built to link run-time images without JMODs (JEP 493), so `jlink` works and the directory Compose
+// reads is simply absent: on all three runners ProGuard started with no library at all, could not
+// find `java.lang.Object` as the superclass of anything, and refused (B-155). The JDKs it worked on
+// — Ubuntu's `openjdk-25` and JetBrains Runtime — both still ship `jmods`.
+//
+// So where there are none, the classes come out of the image the JDK runs from, `lib/modules`,
+// through its own `jimage`, one directory per module, and a generated rules file names each as a
+// library. Where there are `jmods` the rules file says so and names nothing, because Compose
+// already does and the same classes twice is a page of duplicate-definition notes.
+val jdkHome = File(compose.desktop.application.javaHome)
+val jdkHasJmods = File(jdkHome, "jmods").isDirectory
+val jdkClasses = layout.buildDirectory.dir("proguard/jdk-classes")
+
+val extractJdkClasses by tasks.registering(Exec::class) {
+    description = "Extracts the JDK's classes for ProGuard when the JDK has no jmods."
+    // Into a local, so the predicate closes over a boolean and not over the script.
+    val hasJmods = jdkHasJmods
+    onlyIf { !hasJmods }
+    val out = jdkClasses.get().asFile
+    outputs.dir(out)
+    doFirst { out.deleteRecursively() }
+    val jimage = File(jdkHome, if (File(jdkHome, "bin/jimage.exe").exists()) "bin/jimage.exe" else "bin/jimage")
+    commandLine(jimage.path, "extract", "--dir", out.path, File(jdkHome, "lib/modules").path)
+}
+
+val jdkLibraryRules by tasks.registering {
+    description = "Names the JDK's classes as ProGuard libraries, or says Compose already does."
+    dependsOn(extractJdkClasses)
+    val out = jdkClasses.get().asFile
+    val rules = layout.buildDirectory.file("proguard/jdk-library.pro")
+    val home = jdkHome.path
+    val hasJmods = jdkHasJmods
+    inputs.property("javaHome", home)
+    inputs.property("hasJmods", hasJmods)
+    outputs.file(rules)
+    doLast {
+        val modules =
+            out
+                .listFiles()
+                .orEmpty()
+                .filter { it.isDirectory }
+                .sortedBy { it.name }
+        check(hasJmods || modules.any { it.name == "java.base" }) { "jimage extracted no java.base from $home" }
+        rules.get().asFile.writeText(
+            if (hasJmods) {
+                "# $home has jmods, which Compose already passes as libraries.\n"
+            } else {
+                "# The classes of $home, which has no jmods, extracted by jimage.\n" +
+                    modules.joinToString("") { "-libraryjars '${it.invariantSeparatorsPath}'(!module-info.class)\n" }
+            },
+        )
+    }
+}
+
 // The desktop application, with the JVM flags the research settled on: the same three the headless
 // client pins in `cli/build.gradle.kts`. A UI does not get to run a different VM from the one every
 // measurement was taken on, and `-Xmx128m` is the budget the whole engine is designed against.
@@ -125,7 +183,10 @@ compose.desktop {
         // asking the old image while the installers carried the shrunk one would be B-78 again,
         // with a class ProGuard took out in place of a module `jlink` left out.
         buildTypes.release.proguard {
-            configurationFiles.from(project.file("proguard-rules.pro"))
+            configurationFiles.from(
+                project.file("proguard-rules.pro"),
+                jdkLibraryRules.map { it.outputs.files.singleFile },
+            )
         }
 
         // The app image `createDistributable` writes, and what it is called inside it.

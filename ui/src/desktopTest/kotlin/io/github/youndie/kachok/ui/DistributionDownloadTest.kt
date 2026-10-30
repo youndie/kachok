@@ -47,6 +47,7 @@ class DistributionDownloadTest {
         val swarm = LocalSwarm.start(content = LocalSwarm.content(1 shl 20))
         try {
             val torrent = home.resolve("smoke.torrent").also { it.writeBytes(swarm.torrent) }
+            val hash = swarm.metainfo.infoHash.hex()
             val log = home.resolve("window.log")
             val window =
                 ProcessBuilder(launcher)
@@ -65,18 +66,23 @@ class DistributionDownloadTest {
                         send(
                             2,
                             "tools/call",
-                            """{"name":"add_torrent","arguments":{"source":${json(torrent)},"directory":${json(downloads)}}}""",
+                            """{"name":"add_torrent","arguments":""" +
+                                """{"source":${json(torrent)},"directory":${json(downloads)}}}""",
                         )
                         val added = receive(2)
                         send(
                             3,
                             "tools/call",
-                            """{"name":"wait_for_completion","arguments":{"info_hash":"${swarm.metainfo.infoHash.hex()}",""" +
-                                """"timeout_seconds":$WAIT_SECONDS}}""",
+                            """{"name":"wait_for_completion","arguments":""" +
+                                """{"info_hash":"$hash","timeout_seconds":$WAIT_SECONDS}}""",
                         )
                         listOf(added, receive(3))
                     }
-                assertContains(answers[0], "Added ${swarm.metainfo.name}", message = "add_torrent answered: ${answers[0]}")
+                assertContains(
+                    answers[0],
+                    "Added ${swarm.metainfo.name}",
+                    message = "add_torrent answered: ${answers[0]}",
+                )
                 assertContains(answers[1], "has finished", message = "wait_for_completion answered: ${answers[1]}")
                 assertContentEquals(swarm.content, downloads.resolve(swarm.metainfo.name).readBytes())
             } finally {
@@ -115,7 +121,9 @@ class DistributionDownloadTest {
                     out.flush()
                     if (reader.readLine() == "kachok" && reader.readLine() == "kachok/mcp") {
                         val send = { id: Int, method: String, params: String ->
-                            out.write("""{"jsonrpc":"2.0","id":$id,"method":"$method","params":$params}""".toByteArray())
+                            out.write(
+                                """{"jsonrpc":"2.0","id":$id,"method":"$method","params":$params}""".toByteArray(),
+                            )
                             out.write("\n".toByteArray())
                             out.flush()
                         }
