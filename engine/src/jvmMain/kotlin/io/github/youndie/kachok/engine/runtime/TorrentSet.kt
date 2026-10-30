@@ -91,13 +91,47 @@ public data class SetLimits(
      * as turns free up. Seeding is not a download and never waits. Zero means no limit.
      */
     public val maxActiveDownloads: Int = 0,
+    /**
+     * Connections the whole client holds, dials in flight included
+     * ([B-152](../../../../../../../../docs/backlog/B-152-one-cap-on-connections-for-the-whole-client.md)).
+     * Shared out equally among the torrents that are transferring; one that is paused or queued
+     * holds none. Zero means no cap, and each torrent keeps its own `maxPeers`.
+     */
+    public val maxConnections: Int = 0,
+    /**
+     * Dials in flight at once, across every torrent (B-152). Each is a half-open entry in the
+     * router's table for up to the connect timeout, and most of a public swarm's never answer.
+     * Zero means no cap.
+     */
+    public val maxDialsInFlight: Int = 0,
 ) {
     init {
         require(downloadBytesPerSecond >= 0) { "a download limit of $downloadBytesPerSecond" }
         require(uploadBytesPerSecond >= 0) { "an upload limit of $uploadBytesPerSecond" }
         require(maxActiveDownloads >= 0) { "$maxActiveDownloads downloads at once" }
+        require(maxConnections >= 0) { "$maxConnections connections" }
+        require(maxDialsInFlight >= 0) { "$maxDialsInFlight dials at once" }
+    }
+
+    public companion object {
+        /**
+         * What a client a person runs starts with when nobody has chosen (B-152). Not the engine's
+         * default, which is no cap at all, for the reason the DHT is off there: a library caps
+         * nothing because it was constructed. 200 connections is a dozen torrents of useful peers;
+         * 20 dials is a swarm reached in a few seconds without a burst a router notices.
+         */
+        public val RECOMMENDED_MAX_CONNECTIONS: Int = 200
+        public val RECOMMENDED_MAX_DIALS: Int = 20
     }
 }
+
+/** How the client's connections stand against its caps (B-152). */
+public data class ConnectionStatus(
+    public val connections: Int,
+    public val dialling: Int,
+    public val maxConnections: Int,
+    public val maxDialsInFlight: Int,
+)
 
 /** How the queue stands: downloads running, downloads waiting, and the most that may run. */
 public data class QueueStatus(
@@ -336,6 +370,21 @@ public class TorrentSet(
     private val sharedDownload = SharedRateLimit(options.limits.downloadBytesPerSecond)
     private val sharedUpload = SharedRateLimit(options.limits.uploadBytesPerSecond)
     private val limitsState = MutableStateFlow(options.limits)
+    private val connectionBudget =
+        SharedConnectionBudget(options.limits.maxConnections, options.limits.maxDialsInFlight)
+
+    /** Each running torrent's share of the connections as last sent, so it is sent only when it changes. */
+    private val shares = ConcurrentHashMap<String, Int>()
+
+    /** Connections and dials held now, against the caps (B-152). */
+    public val connectionStatus: ConnectionStatus
+        get() =
+            ConnectionStatus(
+                connections = connectionBudget.connections,
+                dialling = connectionBudget.dialling,
+                maxConnections = limitsState.value.maxConnections,
+                maxDialsInFlight = limitsState.value.maxDialsInFlight,
+            )
 
     /** The client's own limits as they stand (B-151); every surface reads them from here. */
     public val limits: StateFlow<SetLimits> = limitsState.asStateFlow()
@@ -344,6 +393,7 @@ public class TorrentSet(
     public fun limit(limits: SetLimits) {
         sharedDownload.retune(limits.downloadBytesPerSecond)
         sharedUpload.retune(limits.uploadBytesPerSecond)
+        connectionBudget.retune(limits.maxConnections, limits.maxDialsInFlight)
         limitsState.value = limits
         queueWake.trySend(Unit)
     }
@@ -408,7 +458,33 @@ public class TorrentSet(
 
             else -> waiting.take(max - running.size).forEach { it.queue(held = false) }
         }
+        shareConnections(started)
         lastQueueError = null
+    }
+
+    /**
+     * The client's connections divided equally among the torrents transferring now (B-152).
+     *
+     * Equally rather than by need, because need is what a share decides: a torrent with more peers
+     * than it can use would keep them, and one that has just started would have none to take. A
+     * torrent that is paused or queued holds none, so its share goes to the others. Never below
+     * [MIN_SHARE], so a cap divided among many torrents still leaves each enough peers to finish.
+     */
+    private suspend fun shareConnections(started: List<TorrentRuntime>) {
+        val max = limitsState.value.maxConnections
+        val transferring =
+            started.filter {
+                val state = it.state.value
+                !state.paused && !state.queued && state.sessionError == null
+            }
+        val share = if (max <= 0 || transferring.isEmpty()) NO_SHARE else maxOf(MIN_SHARE, max / transferring.size)
+        transferring.forEach { runtime ->
+            val key = runtime.metainfo.infoHash.hex()
+            if (shares[key] != share) {
+                shares[key] = share
+                runtime.share(share.takeIf { it != NO_SHARE })
+            }
+        }
     }
 
     /** Whether a torrent that starts now has to wait for a turn. */
@@ -466,6 +542,7 @@ public class TorrentSet(
                 resumeDirectory = resumeDirectory,
                 sharedUpload = sharedUpload,
                 sharedDownload = sharedDownload,
+                connections = connectionBudget,
             )
         runtime.holdOnStart = { holdsOnStart(runtime) }
         byInfoHash[key] = runtime
@@ -507,6 +584,7 @@ public class TorrentSet(
     ) {
         byInfoHash.remove(runtime.metainfo.infoHash.hex()) ?: return
         added.remove(runtime.metainfo.infoHash.hex())
+        shares.remove(runtime.metainfo.infoHash.hex())
         queueWake.trySend(Unit)
         runtime.stop()
         if (forgetProgress) runtime.awaitStopped()
@@ -650,8 +728,10 @@ public class TorrentSet(
                 resumeDirectory = resumeDirectory,
                 sharedUpload = sharedUpload,
                 sharedDownload = sharedDownload,
+                connections = connectionBudget,
             )
         reopened.holdOnStart = { holdsOnStart(reopened) }
+        shares.remove(key)
         byInfoHash[key] = reopened
         return Moved(reopened, paused = state.paused, failure = failure)
     }
@@ -789,6 +869,12 @@ public class TorrentSet(
     private companion object {
         /** How often the queue counts again when nothing woke it; see [queueJob]. */
         val QUEUE_TICK = 500.milliseconds
+
+        /** The fewest connections a transferring torrent is left with, however many share the cap. */
+        const val MIN_SHARE = 10
+
+        /** "No share": the cap is off, and every torrent keeps its own `maxPeers`. */
+        const val NO_SHARE = -1
 
         private fun AutoCloseable.closeQuietly() {
             try {

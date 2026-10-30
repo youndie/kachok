@@ -64,7 +64,7 @@ what the WebSocket sends.
 | `set_file_priority` | one file to `skip`, `normal` or `high` on a running torrent |
 | `set_sequential` | a running torrent in order or rarest first |
 | `move_torrent` | the downloaded files to another directory, keeping the progress |
-| `set_limits` | the whole client's download and upload limits (`"10 Mbit/s"`, `"1.5 MB/s"`, `"off"`) and how many torrents download at once; the rest wait as `queued` |
+| `set_limits` | the whole client's download and upload limits (`"10 Mbit/s"`, `"1.5 MB/s"`, `"off"`), how many torrents download at once (the rest wait as `queued`), and caps on peer connections and on connection attempts in flight |
 
 Every refusal is a sentence — which torrent, which path, what was wrong — because the thing on the
 other end shows words to a person and has nowhere to look up a code.

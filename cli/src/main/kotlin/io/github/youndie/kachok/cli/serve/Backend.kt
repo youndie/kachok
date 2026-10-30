@@ -159,6 +159,8 @@ internal class Backend(
                             downloadBytesPerSecond = request.downloadBytesPerSecond ?: now.downloadBytesPerSecond,
                             uploadBytesPerSecond = request.uploadBytesPerSecond ?: now.uploadBytesPerSecond,
                             maxActiveDownloads = request.maxActiveDownloads ?: now.maxActiveDownloads,
+                            maxConnections = request.maxConnections ?: now.maxConnections,
+                            maxDialsInFlight = request.maxDialsInFlight ?: now.maxDialsInFlight,
                         ),
                     )
                 } catch (refused: IllegalArgumentException) {

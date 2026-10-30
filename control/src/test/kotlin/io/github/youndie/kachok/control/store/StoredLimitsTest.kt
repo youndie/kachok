@@ -30,6 +30,20 @@ class StoredLimitsTest {
         assertEquals(limits, loadLimits(file))
     }
 
+    /** B-152: a file from before the connection caps is a client that never chose, and gets the first run's. */
+    @Test
+    fun aFileWithoutTheConnectionCapsGetsTheRecommendedOnes() {
+        Files.createDirectories(file.parent)
+        file.writeText("downloadBytesPerSecond=1250000\nmaxActiveDownloads=3\n")
+        val loaded = loadLimits(file)
+        assertEquals(1_250_000, loaded?.downloadBytesPerSecond)
+        assertEquals(SetLimits.RECOMMENDED_MAX_CONNECTIONS, loaded?.maxConnections)
+        assertEquals(SetLimits.RECOMMENDED_MAX_DIALS, loaded?.maxDialsInFlight)
+        saveLimits(file, SetLimits(maxConnections = 0, maxDialsInFlight = 7))
+        assertEquals(0, loadLimits(file)?.maxConnections, "no cap, chosen, came back as the recommended one")
+        assertEquals(7, loadLimits(file)?.maxDialsInFlight)
+    }
+
     @Test
     fun aFileThatMakesNoSenseIsSaidAndIgnored() {
         Files.createDirectories(file.parent)

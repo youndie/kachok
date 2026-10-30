@@ -126,7 +126,7 @@ opens the same list.
   | `set_file_priority` | one file to `skip`, `normal` or `high` on a running torrent (B-106) |
   | `set_sequential` | a running torrent in order or rarest first, both ways (B-89, B-133) |
   | `move_torrent` | the files and the resume record to another directory, progress, tiers and order kept; refused with nothing touched when the target holds its files or lacks room (B-134) |
-  | `set_limits` | the whole client's `download` and `upload` limits as text in bits or bytes, and `max_active_downloads`; a field left out is kept, the result is read back in both units and kept in `limits.properties` beside the torrent list (B-151) |
+  | `set_limits` | the whole client's `download` and `upload` limits as text in bits or bytes, `max_active_downloads`, and `max_connections` / `max_dials` — peer connections and attempts in flight across every torrent, 200 and 20 on a first run; a field left out is kept, the result is read back in both units and kept in `limits.properties` beside the torrent list (B-151, B-152) |
 
   Both `sequential` descriptions say what the order is *not*: it follows the files as the torrent
   lists them, which is often by size or name, so "episode 1 before episode 2" is a job for

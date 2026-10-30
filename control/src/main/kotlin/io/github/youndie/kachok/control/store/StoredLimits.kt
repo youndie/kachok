@@ -23,6 +23,17 @@ import java.util.Properties
  */
 public fun limitsFile(torrents: Path): Path = torrents.resolveSibling("limits.properties")
 
+/**
+ * What a client a person runs starts with before anybody has chosen anything: no rate limits and no
+ * queue, but the caps on connections and dials (B-152), which a home router needs whether or not
+ * anybody thought to set them.
+ */
+public val firstRunLimits: SetLimits =
+    SetLimits(
+        maxConnections = SetLimits.RECOMMENDED_MAX_CONNECTIONS,
+        maxDialsInFlight = SetLimits.RECOMMENDED_MAX_DIALS,
+    )
+
 /** What was saved, or null when nothing was — or what was is unreadable, which is said on [report]. */
 public fun loadLimits(
     file: Path,
@@ -35,6 +46,10 @@ public fun loadLimits(
             downloadBytesPerSecond = properties.getProperty(DOWNLOAD)?.toLongOrNull() ?: 0,
             uploadBytesPerSecond = properties.getProperty(UPLOAD)?.toLongOrNull() ?: 0,
             maxActiveDownloads = properties.getProperty(MAX_ACTIVE)?.toIntOrNull() ?: 0,
+            // A file written before B-152 has neither key, and is a client that never chose: it
+            // gets the caps a first run would, not "no cap".
+            maxConnections = properties.getProperty(MAX_CONNECTIONS)?.toIntOrNull() ?: firstRunLimits.maxConnections,
+            maxDialsInFlight = properties.getProperty(MAX_DIALS)?.toIntOrNull() ?: firstRunLimits.maxDialsInFlight,
         )
     } catch (unreadable: IOException) {
         report("cannot read $file: ${unreadable.message}; running without limits")
@@ -55,6 +70,8 @@ public fun saveLimits(
             setProperty(DOWNLOAD, limits.downloadBytesPerSecond.toString())
             setProperty(UPLOAD, limits.uploadBytesPerSecond.toString())
             setProperty(MAX_ACTIVE, limits.maxActiveDownloads.toString())
+            setProperty(MAX_CONNECTIONS, limits.maxConnections.toString())
+            setProperty(MAX_DIALS, limits.maxDialsInFlight.toString())
         }
     Files.createDirectories(file.parent)
     val temporary = file.resolveSibling("${file.fileName}.new")
@@ -85,3 +102,5 @@ public fun CoroutineScope.keepLimits(
 private const val DOWNLOAD = "downloadBytesPerSecond"
 private const val UPLOAD = "uploadBytesPerSecond"
 private const val MAX_ACTIVE = "maxActiveDownloads"
+private const val MAX_CONNECTIONS = "maxConnections"
+private const val MAX_DIALS = "maxDialsInFlight"

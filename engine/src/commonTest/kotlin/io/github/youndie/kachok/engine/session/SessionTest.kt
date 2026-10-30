@@ -1887,6 +1887,109 @@ class SessionTest {
             job.cancelAndJoin()
         }
 
+    /**
+     * B-152: the client's cap on connections stops this session's dials, and a slot given back by a
+     * connection that ended is taken again on the next tick.
+     */
+    @Test
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    fun theClientsConnectionCapStopsTheDialsTheSessionWouldMake(): Unit =
+        runTest {
+            val metainfo = torrent(pieces = 2)
+            val dialer = FakeDialer(metainfo.infoHash)
+            val budget = CountedConnections(max = 2)
+            val session =
+                session(
+                    metainfo,
+                    dialer,
+                    FakeTracker(listOf(peerA, peerB, PeerAddress("10.0.0.3", 6881), PeerAddress("10.0.0.4", 6881))),
+                    FakeStorage(),
+                    AgreeableHasher(metainfo),
+                    config =
+                        SessionConfig(
+                            maxStartedPieces = 4,
+                            pipelineDepth = 2,
+                            maxPeers = 10,
+                            connections = budget,
+                        ),
+                )
+
+            val job = session.start(kotlinx.coroutines.CoroutineScope(coroutineContext + handler))
+            testScheduler.runCurrent()
+            assertEquals(2, dialer.dialled.size, "the session dialled past the client's cap")
+            assertEquals(2, budget.held)
+
+            dialer.connections
+                .getValue(dialer.dialled.first())
+                .incoming
+                .close()
+            testScheduler.runCurrent()
+            assertEquals(1, budget.held, "a connection that ended kept its slot")
+            testScheduler.advanceTimeBy(SessionConfig().tick.inWholeMilliseconds + 1)
+            testScheduler.runCurrent()
+            assertEquals(3, dialer.dialled.size, "the freed slot was not taken on the next tick")
+            assertEquals(2, budget.held)
+            job.cancelAndJoin()
+        }
+
+    /**
+     * B-152: a smaller share of the client's connections closes the excess at once, and the peers
+     * that are giving this torrent nothing go first.
+     */
+    @Test
+    fun aSmallerShareClosesTheLeastUsefulConnections(): Unit =
+        runTest {
+            val metainfo = torrent(pieces = 2)
+            val dialer = FakeDialer(metainfo.infoHash)
+            val third = PeerAddress("10.0.0.3", 6881)
+            val session =
+                session(
+                    metainfo,
+                    dialer,
+                    FakeTracker(listOf(peerA, peerB, third)),
+                    FakeStorage(),
+                    AgreeableHasher(metainfo),
+                )
+            val job = session.start(kotlinx.coroutines.CoroutineScope(coroutineContext + handler))
+            testScheduler.runCurrent()
+            // Only peerB unchokes us; the other two are choking, which is what makes them first to go.
+            dialer.connections
+                .getValue(peerB)
+                .incoming
+                .send(PeerEvent.Received(Message.Unchoke))
+            testScheduler.runCurrent()
+            assertEquals(3, session.state.value.connectedPeers)
+
+            session.send(Command.Share(maxPeers = 1))
+            testScheduler.runCurrent()
+            assertEquals(1, session.state.value.connectedPeers, "the share did not close the excess")
+            assertEquals(0, dialer.connections.getValue(peerB).closes, "the one peer giving us something was dropped")
+            job.cancelAndJoin()
+        }
+
+    /** The client's connection budget as a counter the test can read. */
+    private class CountedConnections(
+        private val max: Int,
+    ) : io.github.youndie.kachok.engine.peer.ConnectionBudget {
+        var held = 0
+
+        override fun tryDial(): Boolean = tryAccept()
+
+        override fun dialEnded(connected: Boolean) {
+            if (!connected) held--
+        }
+
+        override fun tryAccept(): Boolean {
+            if (held >= max) return false
+            held++
+            return true
+        }
+
+        override fun closed() {
+            held--
+        }
+    }
+
     /** A shared budget whose balance the test sets, standing in for the set's clock-driven one. */
     private class ScriptedBudget(
         var balance: Long,

@@ -33,6 +33,10 @@ public fun TorrentSet.snapshot(sequence: Long): Snapshot =
         downloadLimitBytesPerSecond = limits.value.downloadBytesPerSecond,
         uploadLimitBytesPerSecond = limits.value.uploadBytesPerSecond,
         maxActiveDownloads = limits.value.maxActiveDownloads,
+        maxConnections = limits.value.maxConnections,
+        maxDialsInFlight = limits.value.maxDialsInFlight,
+        connections = connectionStatus.connections,
+        dialling = connectionStatus.dialling,
         sequence = sequence,
     )
 

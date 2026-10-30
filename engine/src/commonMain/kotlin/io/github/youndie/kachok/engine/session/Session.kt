@@ -272,7 +272,13 @@ public class Session(
      * A field rather than `config.maxPeers` because a running session can be told a new number and
      * `SessionConfig` is the number it started with.
      */
-    private var maxPeers = config.maxPeers
+    private var ownMaxPeers = config.maxPeers
+
+    /** The set's share of the client's connections for this torrent; null when it gave none (B-152). */
+    private var shareOfPeers: Int? = null
+
+    /** The connections to keep up: this torrent's own number, or its share of the client's if smaller. */
+    private val maxPeers: Int get() = shareOfPeers?.let { minOf(it, ownMaxPeers) } ?: ownMaxPeers
 
     private var announceInterval = DEFAULT_ANNOUNCE_SECONDS
 
@@ -490,9 +496,20 @@ public class Session(
                         // Already talking to them, from our side — or paused, in which case the
                         // announce said `stopped` and answering anyway would contradict it.
                         command.connection.close()
+                    } else if (config.connections?.tryAccept() == false) {
+                        // The client's cap, not this torrent's (B-152): a peer that dials us is a
+                        // connection like any other, and taking it past the cap would make the cap a
+                        // limit on our dials only.
+                        command.connection.close()
                     } else {
                         known += address
-                        scope.launch { serve(scope, command.connection, dialled = false) }
+                        scope.launch {
+                            try {
+                                serve(scope, command.connection, dialled = false)
+                            } finally {
+                                config.connections?.closed()
+                            }
+                        }
                     }
                 }
 
@@ -509,6 +526,12 @@ public class Session(
                 Command.Resume -> {
                     // A held torrent waits for its turn; a resume is not a way to jump the queue.
                     if (!queued) resume(scope)
+                }
+
+                is Command.Share -> {
+                    shareOfPeers = command.maxPeers
+                    trimToMaxPeers()
+                    connectMore(scope)
                 }
 
                 is Command.Queue -> {
@@ -550,7 +573,10 @@ public class Session(
                 }
 
                 is Command.Reconfigure -> {
-                    command.maxPeers?.let { maxPeers = it }
+                    command.maxPeers?.let {
+                        ownMaxPeers = it
+                        trimToMaxPeers()
+                    }
                     // **What is already asked for is left alone**, and that is the decision this
                     // command took. Cancelling the outstanding requests is a `Cancel` per peer per
                     // block and a swarm asked for the same work twice; letting them land costs one
@@ -1018,6 +1044,10 @@ public class Session(
             }.take(room)
             .toList()
             .forEach { address ->
+                // The client's caps before this torrent's (B-152): one slot of the dials in flight
+                // and one of the connections, taken here so that two sessions cannot both see the
+                // last one free. The rest of the room waits for the next tick.
+                if (config.connections?.tryDial() == false) return
                 // Entered here and not inside the coroutine, because `launch` only schedules: the
                 // session's dispatcher runs one coroutine at a time, so a second `connectMore` can
                 // run before the first one's children have started and would see an empty set.
@@ -1054,10 +1084,12 @@ public class Session(
                 // well, and a peer that cannot be cancelled outlives the session it belongs to.
                 // Rethrow it first, always.
                 dialling -= address
+                config.connections?.dialEnded(connected = false)
                 made?.close()
                 throw cancelled
             } catch (refused: Exception) {
                 dialling -= address
+                config.connections?.dialEnded(connected = false)
                 dialFailed(address)
                 val label = dialFailureLabel(refused)
                 dialFailures[label] = (dialFailures[label] ?: 0) + 1
@@ -1086,7 +1118,34 @@ public class Session(
         failed -= address
         dialsHandshaked++
         publish { it.copy(dialsAttempted = dialsAttempted, dialsHandshaked = dialsHandshaked) }
-        serve(scope, connection, dialled = true)
+        // The dial's slot back, its connection slot kept until the connection is over (B-152).
+        config.connections?.dialEnded(connected = true)
+        try {
+            serve(scope, connection, dialled = true)
+        } finally {
+            config.connections?.closed()
+        }
+    }
+
+    /**
+     * Closes connections down to [maxPeers], the least useful first (B-152).
+     *
+     * Least useful is a peer that is choking us, and among those the one giving us least — what a
+     * person lowering the cap would choose by hand. Closed as this client's decision, so the peer is
+     * neither counted as a failure nor made to wait before it may be dialled again.
+     */
+    private fun trimToMaxPeers() {
+        val excess = connected.size - maxPeers
+        if (excess <= 0) return
+        val now = elapsedMillis()
+        connected
+            .snapshot()
+            .sortedWith(compareBy<PeerLink>({ !it.choked }, { it.download.bytesPerSecond(now) }))
+            .take(excess)
+            .forEach { link ->
+                closedByUs += link.connection.address
+                link.connection.close()
+            }
     }
 
     /**
