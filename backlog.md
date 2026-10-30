@@ -48,7 +48,7 @@ which is also the order of work.
 
 <!-- BEGIN INDEX -->
 
-## Open (11)
+## Open (10)
 
 | Task | | Priority | Size | Blocked by |
 |---|---|---|---|---|
@@ -57,14 +57,13 @@ which is also the order of work.
 | [B-172](docs/backlog/B-172-the-msi-carries-an-aot-cache-trained-on-its-own-files.md) `[ ]` | The .msi carries an AOT cache trained on its own files | P2 | L | B-157 |
 | [B-80](docs/backlog/B-80-the-ui-moves-to-commonmain.md) `[~]` | The UI moves to commonMain | P2 | L | B-79 |
 | [B-167](docs/backlog/B-167-a-seeded-scheme-keeps-its-states-apart.md) `[ ]` | Every seeded scheme keeps the error row's tint and the accent apart from the surface and the warning | P3 | S | - |
-| [B-169](docs/backlog/B-169-a-number-field-shows-its-whole-value.md) `[ ]` | A settings number field shows its whole value: "no limit" is not cut to "no lim" | P3 | XS | - |
 | [B-37](docs/backlog/B-37-v2-and-hybrid-torrents.md) `[?]` | v2 and hybrid torrents (BEP 52): SHA-256 piece layers | P3 | L | B-04 |
 | [B-40](docs/backlog/B-40-wasmjs-ui-is-a-client-of-the-headless-engine.md) `[ ]` | The browser build of the UI is a client of the headless engine | P3 | L | B-80 |
 | [B-41](docs/backlog/B-41-android-and-ios-targets.md) `[ ]` | Phase 3: Android and iOS targets on the engine | P3 | XL | B-39 |
 | [B-87](docs/backlog/B-87-a-server-with-a-web-face.md) `[ ]` | Phase 3: a headless server with a web face, installable on a box that is always on | P3 | XL | B-80 |
 | [B-02](docs/backlog/B-02-ci-runs-build-and-docs-gates.md) `[ ]` | CI runs the build and the documentation gates on every push | infra | S | B-01 |
 
-## Closed (160)
+## Closed (161)
 
 **M0 — The build and its gates**
 
@@ -199,6 +198,7 @@ which is also the order of work.
 - [B-165](docs/backlog/B-165-a-russian-name-is-drawn-in-the-rows-face.md) `[x]` - A Russian torrent name is drawn in the row's own face under the Material kit
 - [B-166](docs/backlog/B-166-the-preflight-reruns-when-the-image-changes.md) `[x]` - The packaged preflight runs again whenever the image it checks changes
 - [B-168](docs/backlog/B-168-oldge-skins-own-their-footnote-and-dialog-border.md) `[x]` - The oldge skins draw the footnote band and the dialog border from their own tokens
+- [B-169](docs/backlog/B-169-a-number-field-shows-its-whole-value.md) `[x]` - A settings number field shows its whole value: "no limit" is not cut to "no lim"
 - [B-39](docs/backlog/B-39-compose-ui-desktop.md) `[x]` - Phase 2: a Compose Multiplatform desktop UI on the engine's StateFlow
 - [B-46](docs/backlog/B-46-ui-theme-and-calibration.md) `[x]` - The theme: colour roles, type, and the desktop calibration
 - [B-47](docs/backlog/B-47-torrent-row-and-states.md) `[x]` - The torrent row and its seven states

@@ -26,11 +26,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
@@ -109,6 +112,14 @@ internal class Setting(
     val changed: Boolean = false,
     /** A value that is absent rather than zero: the field says the words. */
     val absent: Boolean = false,
+    /**
+     * The words the field says when the value is absent, if it can be.
+     *
+     * The field is sized for them even while a number is in it (B-169): sized for its widest number
+     * alone, `no limit` came out as `no lim`, and a field that widened only once it was cleared would
+     * move the row under the person's hands.
+     */
+    val absentAs: String? = null,
     /** A directory rather than a number: a wider field with a folder in it, and a Browse button. */
     val folder: Boolean = false,
     /**
@@ -333,13 +344,13 @@ private fun ValueField(
         Box(
             Modifier
                 .height(FIELD_HEIGHT)
-                .width(if (setting.unit == null) FIELD_WIDTH else WIDE_FIELD)
-                .padding(horizontal = 9.dp),
+                .width(fieldWidth(setting))
+                .padding(horizontal = FIELD_PADDING),
             contentAlignment = Alignment.CenterEnd,
         ) {
             Text(
                 setting.value,
-                style = MonoSmall.copy(fontSize = 12.sp),
+                style = FIELD_TEXT,
                 color = scheme.textFaint,
                 maxLines = 1,
             )
@@ -349,14 +360,14 @@ private fun ValueField(
     Box(
         Modifier
             .height(FIELD_HEIGHT)
-            .width(if (setting.unit == null) FIELD_WIDTH else WIDE_FIELD)
+            .width(fieldWidth(setting))
             // Outlined in primary when it is no longer the default: the one place this screen
             // says "you changed this", and it says it where the change is.
             .border(
                 HAIRLINE,
                 if (setting.changed) scheme.accentText else scheme.outline,
                 RoundedCornerShape(4.dp),
-            ).padding(horizontal = 9.dp),
+            ).padding(horizontal = FIELD_PADDING),
         contentAlignment = Alignment.CenterEnd,
     ) {
         BasicTextField(
@@ -364,8 +375,7 @@ private fun ValueField(
             onValueChange = onTyped,
             singleLine = true,
             textStyle =
-                MonoSmall.copy(
-                    fontSize = 12.sp,
+                FIELD_TEXT.copy(
                     // A value that is absent is dimmed; a zero would not be, and that is the
                     // difference the words are there to carry.
                     color = if (setting.absent) scheme.textFaint else scheme.text,
@@ -378,6 +388,27 @@ private fun ValueField(
                     .semantics { contentDescription = setting.label },
         )
     }
+}
+
+/**
+ * A number field's width: the design's, or wider when the words for an absent value need it.
+ *
+ * Measured in the field's own style rather than written as a number, because the words are the
+ * kit's text in the kit's face, and a width guessed for one face is a clipped word in another.
+ */
+@Composable
+private fun fieldWidth(setting: Setting): Dp {
+    val base = if (setting.unit == null) FIELD_WIDTH else WIDE_FIELD
+    val words = setting.absentAs ?: return base
+    val measurer = rememberTextMeasurer()
+    val measured =
+        with(LocalDensity.current) {
+            measurer
+                .measure(words, FIELD_TEXT)
+                .size.width
+                .toDp()
+        }
+    return maxOf(base, measured + FIELD_PADDING * 2 + CARET_ROOM)
 }
 
 @Composable
@@ -552,6 +583,15 @@ private val FIELD_HEIGHT = 30.dp
 private val FIELD_WIDTH = 76.dp
 
 private val WIDE_FIELD = 86.dp
+
+/** A number field's own text: the figures' mono, a point larger than the status bar's. */
+private val FIELD_TEXT = MonoSmall.copy(fontSize = 12.sp)
+
+/** The field's inner padding on each side. */
+private val FIELD_PADDING = 9.dp
+
+/** The caret's width beside the last character, so a full field does not scroll by a pixel. */
+private val CARET_ROOM = 2.dp
 
 private val UNIT_WIDTH = 38.dp
 
