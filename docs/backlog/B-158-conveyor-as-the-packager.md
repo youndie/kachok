@@ -1,7 +1,7 @@
 ---
 id: B-158
 title: "Decide whether Conveyor replaces jpackage as the desktop packager"
-status: open
+status: wip
 priority: P3
 size: M
 stage: phase-2-ui
