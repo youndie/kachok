@@ -1,0 +1,162 @@
+package io.github.youndie.kachok.ui.theme
+
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.ReadOnlyComposable
+import androidx.compose.runtime.Stable
+import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.TextLayoutResult
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import io.github.youndie.kachok.ui.theme.material.MaterialKit
+
+/**
+ * Every colour a screen asks for, by what it is for rather than by Material's name for it.
+ *
+ * **The names are the design's roles, not a kit's.** `text`, `textMuted` and `textFaint` are the
+ * three text levels the design has where Material has two (`docs/design/design-tokens.md` §1);
+ * `accent` is what Material calls `primary`, and a kit that has no "primary" still has an accent.
+ * The row- and card-specific values that used to live in a palette object beside Material's
+ * scheme are here too, because a second kit has to answer for them just the same — a recoloured
+ * scheme with the old error row tint under it is two designs in one window
+ * ([B-159](../../../../../../../../docs/backlog/B-159-the-screens-draw-through-a-kit-not-through-material.md)).
+ */
+@Immutable
+internal class KachokColors(
+    // The accent, and what sits on it.
+    val accent: Color,
+    val onAccent: Color,
+    val accentContainer: Color,
+    val onAccentContainer: Color,
+    /** The content of a control drawn *on* [accentContainer]: the Add button, a toggle that is on. */
+    val accentBright: Color,
+    /** A selected row's hairline, and the Add button under the pointer. */
+    val accentContainerHigh: Color,
+    // The three text levels: the headline figure, a figure that is merely true, a zero or absence.
+    val text: Color,
+    val textMuted: Color,
+    val textFaint: Color,
+    // Grounds, from the window down to the recessed details panel.
+    val surface: Color,
+    val raised: Color,
+    val raisedHigh: Color,
+    val raisedHighest: Color,
+    val panel: Color,
+    // Lines. The design has no elevation, so these are what separates everything.
+    val outline: Color,
+    val divider: Color,
+    val rowHairline: Color,
+    // Error and warning — warning exists for checking and stopping only.
+    val error: Color,
+    val onError: Color,
+    val errorContainer: Color,
+    val warning: Color,
+    val onWarning: Color,
+    val warningContainer: Color,
+    val onWarningContainer: Color,
+    // Rows in a state that colours them.
+    val errorFigure: Color,
+    val errorRowTint: Color,
+    val errorTrack: Color,
+    val stoppingBar: Color,
+    val selectedFigure: Color,
+    val selectedTrack: Color,
+    // Banners, cards and the hover hint.
+    val degradedBanner: Color,
+    val warningCard: Color,
+    val onWarningCard: Color,
+    val neutralCard: Color,
+    val tooltip: Color,
+    val onTooltip: Color,
+)
+
+/**
+ * The type roles a screen names. Everything else is written as a `TextStyle` beside the component
+ * that uses it, because a size is the component's and not the theme's.
+ */
+@Immutable
+internal class KachokType(
+    /** Dialog titles and the empty state. */
+    val headline: TextStyle,
+    /** Section heads: `DOWNLOADS`, `IDENTITY`. */
+    val section: TextStyle,
+    /** A command's label where it is not drawn by a button of its own. */
+    val action: TextStyle,
+)
+
+/**
+ * One way of drawing the window: its tokens, and the few components it has to draw itself.
+ *
+ * The screens draw almost everything on `foundation` already — the table, the toggle, the fields,
+ * the toolbar — and read their colours from [colors], so a kit is mostly its tokens. What is here
+ * as a function is what a screen cannot draw without a library's own component: the text (whose
+ * default style and colour the kit's root sets) and the hover hint's raised surface.
+ */
+@Stable
+internal interface KachokKit {
+    val colors: KachokColors
+    val type: KachokType
+
+    /** What the kit's library needs at the root, around the whole window. */
+    @Composable
+    fun Root(content: @Composable () -> Unit)
+
+    /** The colour text and glyphs take when nobody names one. */
+    val contentColor: Color
+        @Composable @ReadOnlyComposable
+        get
+
+    @Composable
+    fun Text(
+        text: String,
+        modifier: androidx.compose.ui.Modifier,
+        color: Color,
+        style: TextStyle,
+        textAlign: TextAlign?,
+        overflow: TextOverflow,
+        softWrap: Boolean,
+        maxLines: Int,
+        onTextLayout: ((TextLayoutResult) -> Unit)?,
+    )
+
+    @Composable
+    fun Text(
+        text: AnnotatedString,
+        modifier: androidx.compose.ui.Modifier,
+        color: Color,
+        style: TextStyle,
+        textAlign: TextAlign?,
+        overflow: TextOverflow,
+        softWrap: Boolean,
+        maxLines: Int,
+        onTextLayout: (TextLayoutResult) -> Unit,
+    )
+
+    /** The raised, shadowed surface a hover hint sits on. */
+    @Composable
+    fun Tooltip(
+        shape: Shape,
+        content: @Composable () -> Unit,
+    )
+}
+
+internal val LocalKit = staticCompositionLocalOf<KachokKit> { MaterialKit }
+
+/** The current kit's tokens, read the way `KachokTheme.colors` used to be. */
+internal object KachokTheme {
+    val kit: KachokKit
+        @Composable @ReadOnlyComposable
+        get() = LocalKit.current
+
+    val colors: KachokColors
+        @Composable @ReadOnlyComposable
+        get() = LocalKit.current.colors
+
+    val type: KachokType
+        @Composable @ReadOnlyComposable
+        get() = LocalKit.current.type
+}

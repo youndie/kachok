@@ -12,8 +12,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -30,8 +28,9 @@ import io.github.youndie.kachok.ui.icons.Icons
 import io.github.youndie.kachok.ui.theme.ChromeButton
 import io.github.youndie.kachok.ui.theme.ChromeText
 import io.github.youndie.kachok.ui.theme.JetBrainsMono
-import io.github.youndie.kachok.ui.theme.KachokPalette
+import io.github.youndie.kachok.ui.theme.KachokTheme
 import io.github.youndie.kachok.ui.theme.MonoSmall
+import io.github.youndie.kachok.ui.theme.Text
 
 /**
  * The filter matched nothing, which is not the same as having nothing.
@@ -48,7 +47,7 @@ internal fun NoMatches(
     modifier: Modifier = Modifier,
     onClear: () -> Unit = {},
 ) {
-    val scheme = MaterialTheme.colorScheme
+    val scheme = KachokTheme.colors
     Column(
         modifier.fillMaxSize().background(scheme.surface),
         verticalArrangement = Arrangement.spacedBy(14.dp, Alignment.CenterVertically),
@@ -57,35 +56,35 @@ internal fun NoMatches(
         Box(
             Modifier
                 .size(RING)
-                .border(HAIRLINE, scheme.outlineVariant, RoundedCornerShape(RING / 2)),
+                .border(HAIRLINE, scheme.divider, RoundedCornerShape(RING / 2)),
             contentAlignment = Alignment.Center,
         ) {
-            Glyph(Icons.SEARCH, size = RING_GLYPH, tint = scheme.onSurfaceVariant)
+            Glyph(Icons.SEARCH, size = RING_GLYPH, tint = scheme.textFaint)
         }
         Text(
             "Nothing matches \u201C$filter\u201D",
-            style = MaterialTheme.typography.headlineSmall.copy(fontSize = TITLE),
-            color = scheme.onSurface,
+            style = KachokTheme.type.headline.copy(fontSize = TITLE),
+            color = scheme.text,
         )
         Text(
             // The count, because "nothing matches" on its own leaves a person wondering whether
             // the torrents are gone or merely hidden.
             "${if (hidden == 1) "One torrent is" else "$hidden torrents are"} hidden by the filter.",
             style = ChromeText.copy(fontSize = 12.5.sp),
-            color = KachokPalette.onSurfaceMuted,
+            color = KachokTheme.colors.textMuted,
             textAlign = TextAlign.Center,
         )
         Row(
             Modifier
                 .height(BUTTON)
-                .background(scheme.primaryContainer, RoundedCornerShape(4.dp))
+                .background(scheme.accentContainer, RoundedCornerShape(4.dp))
                 .clickable(onClick = onClear)
                 .padding(horizontal = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {
-            Glyph(Icons.CLOSE, size = 15.sp, tint = KachokPalette.primaryBright)
-            Text("Clear the filter", style = ChromeButton, color = KachokPalette.primaryBright, maxLines = 1)
+            Glyph(Icons.CLOSE, size = 15.sp, tint = KachokTheme.colors.accentBright)
+            Text("Clear the filter", style = ChromeButton, color = KachokTheme.colors.accentBright, maxLines = 1)
         }
     }
 }
@@ -105,7 +104,7 @@ internal fun EmptyState(
     modifier: Modifier = Modifier,
     onAdd: () -> Unit = {},
 ) {
-    val scheme = MaterialTheme.colorScheme
+    val scheme = KachokTheme.colors
     Column(
         modifier.fillMaxSize().background(scheme.surface),
         verticalArrangement = Arrangement.spacedBy(18.dp, Alignment.CenterVertically),
@@ -114,10 +113,10 @@ internal fun EmptyState(
         Box(
             Modifier
                 .size(RING)
-                .border(HAIRLINE, scheme.outlineVariant, RoundedCornerShape(RING / 2)),
+                .border(HAIRLINE, scheme.divider, RoundedCornerShape(RING / 2)),
             contentAlignment = Alignment.Center,
         ) {
-            Glyph(Icons.ARROW_DOWNWARD, size = RING_GLYPH, tint = scheme.primary)
+            Glyph(Icons.ARROW_DOWNWARD, size = RING_GLYPH, tint = scheme.accent)
         }
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -125,33 +124,33 @@ internal fun EmptyState(
         ) {
             Text(
                 "Nothing downloading",
-                style = MaterialTheme.typography.headlineSmall.copy(fontSize = TITLE),
-                color = scheme.onSurface,
+                style = KachokTheme.type.headline.copy(fontSize = TITLE),
+                color = scheme.text,
             )
             Text(
                 invitation(),
                 style = ChromeText.copy(fontSize = 12.5.sp, lineHeight = 20.sp),
-                color = KachokPalette.onSurfaceMuted,
+                color = KachokTheme.colors.textMuted,
                 textAlign = TextAlign.Center,
             )
         }
         Row(
             Modifier
                 .height(BUTTON)
-                .background(scheme.primary, RoundedCornerShape(4.dp))
+                .background(scheme.accent, RoundedCornerShape(4.dp))
                 .clickable(onClick = onAdd)
                 .padding(horizontal = 18.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(7.dp),
         ) {
-            Glyph(Icons.ADD, size = BUTTON_GLYPH, tint = scheme.onPrimary)
+            Glyph(Icons.ADD, size = BUTTON_GLYPH, tint = scheme.onAccent)
             Text(
                 "Add a torrent",
                 style = ChromeButton.copy(fontWeight = FontWeight.SemiBold, fontSize = 13.sp),
-                color = scheme.onPrimary,
+                color = scheme.onAccent,
             )
         }
-        Text("⌘O  file    ⌘V  magnet", style = MonoSmall.copy(fontSize = 11.sp), color = scheme.onSurfaceVariant)
+        Text("⌘O  file    ⌘V  magnet", style = MonoSmall.copy(fontSize = 11.sp), color = scheme.textFaint)
     }
 }
 

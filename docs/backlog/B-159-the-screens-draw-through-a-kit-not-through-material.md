@@ -1,7 +1,7 @@
 ---
 id: B-159
 title: "The screens draw through a kit of their own, and Material becomes one implementation of it"
-status: open
+status: done
 priority: P3
 size: L
 stage: phase-2-ui
@@ -48,3 +48,43 @@ what oldge-ui is.
   `ui/src/commonMain/kotlin/io/github/youndie/kachok/ui/theme/Colors.kt`,
   `ui/src/commonMain/kotlin/io/github/youndie/kachok/ui/settings/Settings.kt`,
   `docs/design/design-tokens.md`.
+
+## Done — 2026-10-30
+
+**What exists.** `ui/theme/Kit.kt`: `KachokKit` with `KachokColors` (39 roles by purpose — the
+three text levels, `accent`, grounds, lines, the row and card tints, the warning family),
+`KachokType` (`headline`, `section`, `action`), a `Root` the kit's library needs, `Text` and the
+hover hint's `Tooltip`. `KachokTheme(kit = MaterialKit)` provides it under the interface scale, and
+`KachokTheme.colors`/`.type` replace every `MaterialTheme.colorScheme`, `MaterialTheme.typography`,
+`MaterialTheme.warningColors` and `KachokPalette` read in the screens. `ui/theme/material/` is the
+Material kit: the hand-written dark scheme, the palette, the warning role and the M3 typography
+and shapes, moved there unchanged. `make check` refuses any `*.kt` in `commonMain`/`desktopMain`
+outside that directory that names `androidx.compose.material3`, `KachokPalette` or
+`KachokDarkColors` — run against a planted import, it named the file; against the tree, nothing.
+
+**Narrower than the decision above, on purpose.** The decision put the components behind the kit
+too — button, toggle, field, menu, dialog, progress, table row, toolbar, banner. They are not: they
+are already drawn on `foundation` and now read only the kit's tokens, so under a second kit they
+recolour correctly and keep this design's *shape*. Which of them a second kit has to draw itself is
+something only the second kit can answer, and guessing an interface for nine components before it
+exists is the abstraction this repository's conventions warn against. **B-160 moves each component
+it needs into the kit** — that is now part of its scope. What *is* behind the kit is what no
+`foundation` drawing can do without a library: text (whose default style and colour the kit's root
+sets) and the shadowed hint surface.
+
+**The acceptance criterion's scope, narrowed.** The guard covers the main source sets, not the
+tests: `ThemeSheet` (the `theme - roles-and-type` golden) and `RowColorsTest` are tests *of* the
+Material kit and name it on purpose.
+
+**Verified.** The twelve viddik goldens pass unchanged on macOS (`:ui:viddikVerify`, 12 of 12) —
+the refactor drew the same pixels, which is the whole claim. `:ui:check` on the Linux box: 300
+tests in 48 classes, no failures, the packaged image's preflight included.
+
+**Found for B-160.** `AppFrame` draws the title bar from `MaterialTheme.colorScheme` itself
+(`docs/services/ui.md` §8), so under a non-Material kit the bar would keep Material's colours
+unless the kit's `Root` still provides a `MaterialTheme` built from its own tokens — or the bar
+becomes the kit's, which is the `OldgeWindowBar` question B-160 already asks. The three type
+styles that are not roles (`MonoFigure`, `RowName`, `ChromeText` and the rest in `theme/Type.kt`)
+name this design's families directly; a kit with other fonts replaces them, which B-160's Cyrillic
+question will force anyway.
+

@@ -17,8 +17,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -40,11 +38,11 @@ import io.github.youndie.kachok.ui.session.Figures
 import io.github.youndie.kachok.ui.theme.ChromeButton
 import io.github.youndie.kachok.ui.theme.ChromeText
 import io.github.youndie.kachok.ui.theme.DialogButton
-import io.github.youndie.kachok.ui.theme.KachokPalette
+import io.github.youndie.kachok.ui.theme.KachokTheme
 import io.github.youndie.kachok.ui.theme.MonoSmall
 import io.github.youndie.kachok.ui.theme.PathText
 import io.github.youndie.kachok.ui.theme.RowName
-import io.github.youndie.kachok.ui.theme.warningColors
+import io.github.youndie.kachok.ui.theme.Text
 
 /** One file inside a torrent, as the dialog lists it. */
 internal data class AddFile(
@@ -139,17 +137,17 @@ internal fun AddTorrentDialog(
     onFile: (Int, Boolean) -> Unit = { _, _ -> },
     onSequential: (Boolean) -> Unit = {},
 ) {
-    val scheme = MaterialTheme.colorScheme
+    val scheme = KachokTheme.colors
     Column(
         modifier
             .width(DIALOG_WIDTH)
-            .background(scheme.surfaceContainerHigh, RoundedCornerShape(6.dp))
+            .background(scheme.raisedHigh, RoundedCornerShape(6.dp))
             .border(HAIRLINE, DIALOG_BORDER, RoundedCornerShape(6.dp)),
     ) {
         Text(
             "Add torrent",
-            style = MaterialTheme.typography.headlineSmall,
-            color = scheme.onSurface,
+            style = KachokTheme.type.headline,
+            color = scheme.text,
             modifier = Modifier.padding(start = EDGE, end = EDGE, top = 18.dp, bottom = 14.dp),
         )
         SourceCard(state)
@@ -166,7 +164,7 @@ internal fun AddTorrentDialog(
                 Text(
                     it,
                     style = NOTE,
-                    color = MaterialTheme.warningColors.warning,
+                    color = KachokTheme.colors.warning,
                     modifier = Modifier.weight(1f),
                 )
             }
@@ -182,24 +180,24 @@ private fun SourceCard(state: AddTorrentState) {
         Modifier
             .fillMaxWidth()
             .padding(horizontal = EDGE)
-            .background(KachokPalette.neutralCard, RoundedCornerShape(4.dp))
-            .border(HAIRLINE, MaterialTheme.colorScheme.outline, RoundedCornerShape(4.dp))
+            .background(KachokTheme.colors.neutralCard, RoundedCornerShape(4.dp))
+            .border(HAIRLINE, KachokTheme.colors.outline, RoundedCornerShape(4.dp))
             .padding(horizontal = 12.dp, vertical = 11.dp),
         horizontalArrangement = Arrangement.spacedBy(11.dp),
     ) {
         Glyph(
             if (state.magnet) Icons.LINK else Icons.DESCRIPTION,
             size = SOURCE_GLYPH,
-            tint = MaterialTheme.colorScheme.primary,
+            tint = KachokTheme.colors.accent,
         )
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(
                 state.source,
                 style = ChromeButton,
-                color = MaterialTheme.colorScheme.onSurface,
+                color = KachokTheme.colors.text,
             )
-            Text(state.summary, style = CARD_MONO, color = KachokPalette.onSurfaceMuted)
-            Text(state.hash, style = CARD_MONO, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(state.summary, style = CARD_MONO, color = KachokTheme.colors.textMuted)
+            Text(state.hash, style = CARD_MONO, color = KachokTheme.colors.textFaint)
         }
     }
 }
@@ -209,12 +207,12 @@ private fun SaveTo(
     state: AddTorrentState,
     onBrowse: () -> Unit,
 ) {
-    val scheme = MaterialTheme.colorScheme
+    val scheme = KachokTheme.colors
     Column(
         Modifier.fillMaxWidth().padding(start = EDGE, end = EDGE, top = 16.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        Text("Save to", style = SECTION_LABEL, color = KachokPalette.onSurfaceMuted)
+        Text("Save to", style = SECTION_LABEL, color = KachokTheme.colors.textMuted)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(
                 Modifier
@@ -225,11 +223,11 @@ private fun SaveTo(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                Glyph(Icons.FOLDER, size = FIELD_GLYPH, tint = scheme.onSurfaceVariant)
+                Glyph(Icons.FOLDER, size = FIELD_GLYPH, tint = scheme.textFaint)
                 PathText(
                     state.saveTo,
                     MonoSmall.copy(fontSize = 12.sp),
-                    scheme.onSurface,
+                    scheme.text,
                     Modifier.weight(1f),
                     textAlign = TextAlign.Start,
                 )
@@ -243,10 +241,10 @@ private fun SaveTo(
                     .padding(horizontal = 14.dp),
                 contentAlignment = Alignment.Center,
             ) {
-                Text("Browse…", style = ChromeButton, color = scheme.onSurface, maxLines = 1)
+                Text("Browse…", style = ChromeButton, color = scheme.text, maxLines = 1)
             }
         }
-        Text(state.defaultNote, style = NOTE, color = scheme.onSurfaceVariant)
+        Text(state.defaultNote, style = NOTE, color = scheme.textFaint)
     }
 }
 
@@ -255,15 +253,15 @@ private fun Files(
     state: AddTorrentState,
     onFile: (Int, Boolean) -> Unit,
 ) {
-    val scheme = MaterialTheme.colorScheme
+    val scheme = KachokTheme.colors
     Column(
         Modifier.fillMaxWidth().padding(start = EDGE, end = EDGE, top = 16.dp),
         verticalArrangement = Arrangement.spacedBy(7.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("Files", style = SECTION_LABEL, color = KachokPalette.onSurfaceMuted)
+            Text("Files", style = SECTION_LABEL, color = KachokTheme.colors.textMuted)
             Box(Modifier.weight(1f))
-            Text(state.wantedSummary, style = CARD_MONO, color = scheme.onSurfaceVariant)
+            Text(state.wantedSummary, style = CARD_MONO, color = scheme.textFaint)
         }
         // Scrollable, because the box is four rows high and a torrent has as many files as it has.
         // Without this the fifth file and everything after it was drawn outside the box and could
@@ -272,7 +270,7 @@ private fun Files(
             Modifier
                 .fillMaxWidth()
                 .heightIn(max = FILE_LIST_HEIGHT)
-                .background(KachokPalette.neutralCard, RoundedCornerShape(4.dp))
+                .background(KachokTheme.colors.neutralCard, RoundedCornerShape(4.dp))
                 .border(HAIRLINE, scheme.outline, RoundedCornerShape(4.dp))
                 .verticalScroll(rememberScrollState()),
         ) {
@@ -290,12 +288,12 @@ private fun Files(
                     Glyph(
                         if (file.wanted) Icons.CHECK_BOX else Icons.CHECK_BOX_OUTLINE_BLANK,
                         size = LIST_GLYPH,
-                        tint = if (file.wanted) scheme.primary else scheme.onSurfaceVariant,
+                        tint = if (file.wanted) scheme.accent else scheme.textFaint,
                     )
                     Text(
                         file.name,
                         style = ChromeText.copy(fontSize = 11.5.sp),
-                        color = if (file.wanted) scheme.onSurface else scheme.onSurfaceVariant,
+                        color = if (file.wanted) scheme.text else scheme.textFaint,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f),
@@ -303,7 +301,7 @@ private fun Files(
                     Text(
                         file.size,
                         style = CARD_MONO,
-                        color = if (file.wanted) KachokPalette.onSurfaceMuted else scheme.onSurfaceVariant,
+                        color = if (file.wanted) KachokTheme.colors.textMuted else scheme.textFaint,
                         textAlign = TextAlign.End,
                         maxLines = 1,
                         modifier = Modifier.width(FILE_SIZE_COLUMN),
@@ -332,18 +330,18 @@ private fun Sequential(
             size = CONTROL_GLYPH,
             tint =
                 if (state.sequential) {
-                    MaterialTheme.colorScheme.primary
+                    KachokTheme.colors.accent
                 } else {
-                    MaterialTheme.colorScheme.onSurfaceVariant
+                    KachokTheme.colors.textFaint
                 },
         )
         Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(AddTorrentState.SEQUENTIAL, style = CHOICE, color = MaterialTheme.colorScheme.onSurface)
+            Text(AddTorrentState.SEQUENTIAL, style = CHOICE, color = KachokTheme.colors.text)
             Text(
                 "Ask for pieces in order rather than rarest first. Slower overall, and it makes " +
                     "this client a worse swarm member.",
                 style = NOTE,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = KachokTheme.colors.textFaint,
             )
         }
     }
@@ -378,12 +376,12 @@ private fun Choice(
         Glyph(
             if (on) Icons.RADIO_BUTTON_CHECKED else Icons.RADIO_BUTTON_UNCHECKED,
             size = CONTROL_GLYPH,
-            tint = if (on) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+            tint = if (on) KachokTheme.colors.accent else KachokTheme.colors.textFaint,
         )
         Text(
             label,
             style = CHOICE,
-            color = if (on) MaterialTheme.colorScheme.onSurface else KachokPalette.onSurfaceMuted,
+            color = if (on) KachokTheme.colors.text else KachokTheme.colors.textMuted,
         )
         if (planned) PlannedBadge()
     }
@@ -393,13 +391,13 @@ private fun Choice(
 private fun PlannedBadge() {
     Box(
         Modifier
-            .border(HAIRLINE, MaterialTheme.warningColors.warningContainer, RoundedCornerShape(2.dp))
+            .border(HAIRLINE, KachokTheme.colors.warningContainer, RoundedCornerShape(2.dp))
             .padding(horizontal = 3.dp),
     ) {
         Text(
             "planned",
             style = ChromeText.copy(fontSize = BADGE),
-            color = MaterialTheme.warningColors.warning,
+            color = KachokTheme.colors.warning,
             maxLines = 1,
         )
     }
@@ -420,13 +418,13 @@ internal fun DropOverlay(
     modifier: Modifier = Modifier,
 ) {
     val named = names.filter { it != UNNAMED_DROP }
-    val scheme = MaterialTheme.colorScheme
-    val primary = scheme.primary
+    val scheme = KachokTheme.colors
+    val primary = scheme.accent
     Box(
         modifier
             .fillMaxSize()
             .padding(8.dp)
-            .background(scheme.primaryContainer.copy(alpha = OVERLAY_ALPHA), RoundedCornerShape(4.dp))
+            .background(scheme.accentContainer.copy(alpha = OVERLAY_ALPHA), RoundedCornerShape(4.dp))
             // Dashed, which is the design's way of saying the edge is a target rather than a
             // component: a solid one reads as a panel that is already there.
             .drawBehind {
@@ -447,21 +445,21 @@ internal fun DropOverlay(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
-            Glyph(Icons.DOWNLOAD, size = OVERLAY_GLYPH, tint = scheme.primary)
+            Glyph(Icons.DOWNLOAD, size = OVERLAY_GLYPH, tint = scheme.accent)
             Text(
                 when {
                     named.isEmpty() -> "Drop to add a torrent"
                     named.size == 1 -> "Drop to add 1 torrent"
                     else -> "Drop to add ${named.size} torrents"
                 },
-                style = MaterialTheme.typography.headlineSmall.copy(fontSize = 15.sp),
-                color = scheme.onPrimaryContainer,
+                style = KachokTheme.type.headline.copy(fontSize = 15.sp),
+                color = scheme.onAccentContainer,
             )
             if (named.isNotEmpty()) {
                 Text(
                     named.joinToString(", "),
                     style = CARD_MONO,
-                    color = KachokPalette.primaryBright,
+                    color = KachokTheme.colors.accentBright,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -484,23 +482,23 @@ internal fun ClipboardMagnetPrompt(
     onAdd: () -> Unit = {},
     onDismiss: () -> Unit = {},
 ) {
-    val scheme = MaterialTheme.colorScheme
+    val scheme = KachokTheme.colors
     Row(
         modifier
             .fillMaxWidth()
-            .background(scheme.surfaceContainerHighest, RoundedCornerShape(4.dp))
+            .background(scheme.raisedHighest, RoundedCornerShape(4.dp))
             .border(HAIRLINE, DIALOG_BORDER, RoundedCornerShape(4.dp))
             .padding(horizontal = 12.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(11.dp),
     ) {
-        Glyph(Icons.LINK, size = CONTROL_GLYPH, tint = scheme.primary)
+        Glyph(Icons.LINK, size = CONTROL_GLYPH, tint = scheme.accent)
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text("A magnet link is on the clipboard.", style = ChromeText, color = scheme.onSurface)
+            Text("A magnet link is on the clipboard.", style = ChromeText, color = scheme.text)
             Text(
                 link,
                 style = MonoSmall.copy(fontSize = 10.5.sp),
-                color = scheme.onSurfaceVariant,
+                color = scheme.textFaint,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -508,12 +506,16 @@ internal fun ClipboardMagnetPrompt(
         Box(
             Modifier
                 .height(PROMPT_BUTTON)
-                .background(scheme.primaryContainer, RoundedCornerShape(4.dp))
+                .background(scheme.accentContainer, RoundedCornerShape(4.dp))
                 .clickable(onClick = onAdd)
                 .padding(horizontal = 13.dp),
             contentAlignment = Alignment.Center,
         ) {
-            Text("Add it", style = ChromeText.copy(fontWeight = FontWeight.Medium), color = KachokPalette.primaryBright)
+            Text(
+                "Add it",
+                style = ChromeText.copy(fontWeight = FontWeight.Medium),
+                color = KachokTheme.colors.accentBright,
+            )
         }
         Box(
             Modifier
@@ -523,7 +525,7 @@ internal fun ClipboardMagnetPrompt(
                 .semantics { contentDescription = "Dismiss" },
             contentAlignment = Alignment.Center,
         ) {
-            Glyph(Icons.CLOSE, size = CONTROL_GLYPH, tint = scheme.onSurfaceVariant)
+            Glyph(Icons.CLOSE, size = CONTROL_GLYPH, tint = scheme.textFaint)
         }
     }
 }

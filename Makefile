@@ -93,6 +93,16 @@ gate: docs-gate
 	@# runner the script writes the other two and compares those, and the container nobody can
 	@# rebuild there is checked on the mac. Both machines run the same command.
 	$(PY) scripts/make_icon.py --check
+	@# The screens draw through the kit, and only the Material kit may name Material (B-159). A
+	@# screen that reads `MaterialTheme` directly draws the same thing under the Material kit and the
+	@# wrong thing under any other — nothing else would notice until somebody switched kits. A file
+	@# list rather than `grep -v`: on a mac `grep` is ugrep, whose inverted exit codes have already
+	@# let one red check through.
+	@bad=$$(grep -rlE 'androidx\.compose\.material3|KachokPalette|KachokDarkColors' --include='*.kt' \
+		ui/src/commonMain ui/src/desktopMain | awk '!/\/theme\/material\//'); \
+	if [ -n "$$bad" ]; then \
+		echo "outside ui/theme/material/, these name Material 3 instead of the kit:"; echo "$$bad"; exit 1; \
+	fi
 	@# The UI's goldens, on the machine that recorded them — **and the condition is the machine, not
 	@# the directory**. This used to ask whether `snapshots/` exists, which is true everywhere the
 	@# repository is checked out: the first CI run on Linux therefore compared macOS pictures against

@@ -17,8 +17,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -35,10 +33,10 @@ import androidx.compose.ui.unit.sp
 import io.github.youndie.kachok.ui.icons.Glyph
 import io.github.youndie.kachok.ui.icons.Icons
 import io.github.youndie.kachok.ui.theme.ChromeText
-import io.github.youndie.kachok.ui.theme.KachokPalette
+import io.github.youndie.kachok.ui.theme.KachokTheme
 import io.github.youndie.kachok.ui.theme.MonoSmall
 import io.github.youndie.kachok.ui.theme.PathText
-import io.github.youndie.kachok.ui.theme.warningColors
+import io.github.youndie.kachok.ui.theme.Text
 
 /**
  * Which setting a row is, and whether it can be changed here at all.
@@ -157,7 +155,7 @@ internal fun SettingsScreen(
     modifier: Modifier = Modifier,
     onChange: (SettingChange) -> Unit = {},
 ) {
-    val scheme = MaterialTheme.colorScheme
+    val scheme = KachokTheme.colors
     Column(modifier.fillMaxSize().background(scheme.surface)) {
         // **Scrolls, and the footnote below it does not.** At the artboard's 620×760 the rows
         // filled the screen exactly, so the next setting added pushed the last one off it — not
@@ -168,8 +166,8 @@ internal fun SettingsScreen(
             state.sections.forEach { section ->
                 Text(
                     section.title,
-                    style = MaterialTheme.typography.labelSmall.copy(letterSpacing = SECTION_TRACKING),
-                    color = scheme.onSurfaceVariant,
+                    style = KachokTheme.type.section.copy(letterSpacing = SECTION_TRACKING),
+                    color = scheme.textFaint,
                     modifier = Modifier.padding(start = EDGE, end = EDGE, top = 16.dp, bottom = 6.dp),
                 )
                 section.settings.forEach { SettingRow(it, onChange) }
@@ -184,7 +182,7 @@ private fun SettingRow(
     setting: Setting,
     onChange: (SettingChange) -> Unit,
 ) {
-    val scheme = MaterialTheme.colorScheme
+    val scheme = KachokTheme.colors
     Column {
         Row(
             Modifier.fillMaxWidth().padding(horizontal = EDGE, vertical = 9.dp),
@@ -192,7 +190,7 @@ private fun SettingRow(
             verticalAlignment = if (setting.note != null) Alignment.Top else Alignment.CenterVertically,
         ) {
             Column(Modifier.weight(1f)) {
-                Text(setting.label, style = LABEL, color = scheme.onSurface)
+                Text(setting.label, style = LABEL, color = scheme.text)
                 val qualifier =
                     setting.key.disabledBecause?.let { "Not changeable here — $it." }
                         ?: setting.key.nextTorrentBecause?.let { "Applies to the next torrent — $it." }
@@ -201,7 +199,7 @@ private fun SettingRow(
                     Text(
                         it,
                         style = NOTE,
-                        color = scheme.onSurfaceVariant,
+                        color = scheme.textFaint,
                         modifier = Modifier.padding(top = 2.dp),
                     )
                 }
@@ -210,7 +208,7 @@ private fun SettingRow(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(if (setting.unit == null) 10.dp else 8.dp),
             ) {
-                Text("default ${setting.default}", style = DEFAULT, color = scheme.onSurfaceVariant)
+                Text("default ${setting.default}", style = DEFAULT, color = scheme.textFaint)
                 when {
                     setting.toggle != null -> {
                         Toggle(setting.toggle, setting.key, setting.label, setting.enabled) {
@@ -229,11 +227,11 @@ private fun SettingRow(
                     }
                 }
                 setting.unit?.let {
-                    Text(it, style = DEFAULT, color = scheme.onSurfaceVariant, modifier = Modifier.width(UNIT_WIDTH))
+                    Text(it, style = DEFAULT, color = scheme.textFaint, modifier = Modifier.width(UNIT_WIDTH))
                 }
             }
         }
-        Box(Modifier.fillMaxWidth().height(HAIRLINE).background(KachokPalette.rowHairline))
+        Box(Modifier.fillMaxWidth().height(HAIRLINE).background(KachokTheme.colors.rowHairline))
     }
 }
 
@@ -251,7 +249,7 @@ private fun ValueField(
     setting: Setting,
     onTyped: (String) -> Unit,
 ) {
-    val scheme = MaterialTheme.colorScheme
+    val scheme = KachokTheme.colors
     if (!setting.key.editable) {
         Box(
             Modifier
@@ -263,7 +261,7 @@ private fun ValueField(
             Text(
                 setting.value,
                 style = MonoSmall.copy(fontSize = 12.sp),
-                color = scheme.onSurfaceVariant,
+                color = scheme.textFaint,
                 maxLines = 1,
             )
         }
@@ -277,7 +275,7 @@ private fun ValueField(
             // says "you changed this", and it says it where the change is.
             .border(
                 HAIRLINE,
-                if (setting.changed) scheme.primary else scheme.outline,
+                if (setting.changed) scheme.accent else scheme.outline,
                 RoundedCornerShape(4.dp),
             ).padding(horizontal = 9.dp),
         contentAlignment = Alignment.CenterEnd,
@@ -291,10 +289,10 @@ private fun ValueField(
                     fontSize = 12.sp,
                     // A value that is absent is dimmed; a zero would not be, and that is the
                     // difference the words are there to carry.
-                    color = if (setting.absent) scheme.onSurfaceVariant else scheme.onSurface,
+                    color = if (setting.absent) scheme.textFaint else scheme.text,
                     textAlign = TextAlign.End,
                 ),
-            cursorBrush = SolidColor(scheme.primary),
+            cursorBrush = SolidColor(scheme.accent),
             modifier =
                 Modifier
                     .fillMaxWidth()
@@ -309,7 +307,7 @@ private fun FolderField(
     changed: Boolean,
     onBrowse: () -> Unit,
 ) {
-    val scheme = MaterialTheme.colorScheme
+    val scheme = KachokTheme.colors
     Row(horizontalArrangement = Arrangement.spacedBy(7.dp), verticalAlignment = Alignment.CenterVertically) {
         Row(
             Modifier
@@ -317,14 +315,14 @@ private fun FolderField(
                 .width(PATH_WIDTH)
                 .border(
                     HAIRLINE,
-                    if (changed) scheme.primary else scheme.outline,
+                    if (changed) scheme.accent else scheme.outline,
                     RoundedCornerShape(4.dp),
                 ).padding(horizontal = 9.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(7.dp),
         ) {
-            Glyph(Icons.FOLDER, size = FOLDER_GLYPH, tint = scheme.onSurfaceVariant)
-            PathText(path, MonoSmall, scheme.onSurface, Modifier.weight(1f), textAlign = TextAlign.Start)
+            Glyph(Icons.FOLDER, size = FOLDER_GLYPH, tint = scheme.textFaint)
+            PathText(path, MonoSmall, scheme.text, Modifier.weight(1f), textAlign = TextAlign.Start)
         }
         Box(
             Modifier
@@ -335,7 +333,7 @@ private fun FolderField(
                 .padding(horizontal = 11.dp),
             contentAlignment = Alignment.Center,
         ) {
-            Text("Browse…", style = ChromeText.copy(fontSize = 12.sp), color = scheme.onSurface, maxLines = 1)
+            Text("Browse…", style = ChromeText.copy(fontSize = 12.sp), color = scheme.text, maxLines = 1)
         }
     }
 }
@@ -348,7 +346,7 @@ private fun Toggle(
     enabled: Boolean,
     onToggle: () -> Unit,
 ) {
-    val scheme = MaterialTheme.colorScheme
+    val scheme = KachokTheme.colors
     Box(
         Modifier
             .semantics {
@@ -362,11 +360,11 @@ private fun Toggle(
             .width(TOGGLE_WIDTH)
             .height(TOGGLE_HEIGHT)
             .background(
-                if (on) scheme.primary else scheme.surfaceContainerHighest,
+                if (on) scheme.accent else scheme.raisedHighest,
                 RoundedCornerShape(TOGGLE_HEIGHT / 2),
             ).border(
                 if (on) 0.dp else HAIRLINE,
-                if (on) scheme.primary else scheme.outline,
+                if (on) scheme.accent else scheme.outline,
                 RoundedCornerShape(TOGGLE_HEIGHT / 2),
             ).padding(horizontal = 3.dp),
         contentAlignment = if (on) Alignment.CenterEnd else Alignment.CenterStart,
@@ -375,7 +373,7 @@ private fun Toggle(
             Modifier
                 .size(KNOB)
                 .background(
-                    if (on) scheme.onPrimary else scheme.onSurfaceVariant,
+                    if (on) scheme.onAccent else scheme.textFaint,
                     RoundedCornerShape(KNOB / 2),
                 ),
         )
@@ -384,9 +382,9 @@ private fun Toggle(
 
 @Composable
 private fun Footnote(state: SettingsState) {
-    val scheme = MaterialTheme.colorScheme
+    val scheme = KachokTheme.colors
     Column(Modifier.fillMaxWidth()) {
-        Box(Modifier.fillMaxWidth().height(HAIRLINE).background(scheme.surfaceContainerHigh))
+        Box(Modifier.fillMaxWidth().height(HAIRLINE).background(scheme.raisedHigh))
         Row(
             Modifier
                 .fillMaxWidth()
@@ -395,8 +393,8 @@ private fun Footnote(state: SettingsState) {
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Glyph(Icons.BOLT, size = FOOTNOTE_GLYPH, tint = scheme.onSurfaceVariant)
-            Text(state.footnote, style = NOTE.copy(fontSize = 11.sp), color = scheme.onSurfaceVariant)
+            Glyph(Icons.BOLT, size = FOOTNOTE_GLYPH, tint = scheme.textFaint)
+            Text(state.footnote, style = NOTE.copy(fontSize = 11.sp), color = scheme.textFaint)
             if (state.footnotePlanned) PlannedBadge()
         }
     }
@@ -406,13 +404,13 @@ private fun Footnote(state: SettingsState) {
 private fun PlannedBadge() {
     Box(
         Modifier
-            .border(HAIRLINE, MaterialTheme.warningColors.warningContainer, RoundedCornerShape(2.dp))
+            .border(HAIRLINE, KachokTheme.colors.warningContainer, RoundedCornerShape(2.dp))
             .padding(horizontal = 3.dp),
     ) {
         Text(
             "planned",
             style = ChromeText.copy(fontSize = BADGE),
-            color = MaterialTheme.warningColors.warning,
+            color = KachokTheme.colors.warning,
         )
     }
 }

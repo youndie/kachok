@@ -24,8 +24,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -55,12 +53,12 @@ import io.github.youndie.kachok.ui.list.TorrentState
 import io.github.youndie.kachok.ui.list.stateLabelColor
 import io.github.youndie.kachok.ui.session.Figures
 import io.github.youndie.kachok.ui.theme.ChromeText
-import io.github.youndie.kachok.ui.theme.KachokPalette
+import io.github.youndie.kachok.ui.theme.KachokTheme
 import io.github.youndie.kachok.ui.theme.MonoSmall
 import io.github.youndie.kachok.ui.theme.PathText
 import io.github.youndie.kachok.ui.theme.RowName
 import io.github.youndie.kachok.ui.theme.RowStateLabel
-import io.github.youndie.kachok.ui.theme.warningColors
+import io.github.youndie.kachok.ui.theme.Text
 import kotlinx.coroutines.delay
 import kotlin.time.Duration.Companion.milliseconds
 
@@ -280,7 +278,7 @@ internal fun DetailsPanel(
     width: Dp = Details.width,
     onResize: (Dp) -> Unit = {},
 ) {
-    val scheme = MaterialTheme.colorScheme
+    val scheme = KachokTheme.colors
     val density = LocalDensity.current
     Row(modifier.width(width + HAIRLINE)) {
         // The hairline between the list and the panel *is* the handle. A separate grab strip would
@@ -291,7 +289,7 @@ internal fun DetailsPanel(
             Modifier
                 .width(HAIRLINE)
                 .fillMaxHeight()
-                .background(scheme.outlineVariant)
+                .background(scheme.divider)
                 .pointerHoverIcon(horizontalResizeCursor)
                 .draggable(
                     orientation = Orientation.Horizontal,
@@ -303,7 +301,7 @@ internal fun DetailsPanel(
                         },
                 ).semantics { contentDescription = "Resize the details panel" },
         )
-        Column(Modifier.fillMaxSize().background(KachokPalette.panel)) {
+        Column(Modifier.fillMaxSize().background(KachokTheme.colors.panel)) {
             Header(state)
             Tabs(state.tab, onTab)
             when (state.tab) {
@@ -322,7 +320,7 @@ private fun ColumnScope.Header(state: DetailsState) {
         Text(
             state.name,
             style = RowName.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.Medium),
-            color = MaterialTheme.colorScheme.onSurface,
+            color = KachokTheme.colors.text,
             // Broken anywhere rather than ellipsized: a torrent's name is how somebody recognises
             // it, and the half that identifies it is as often at the end as at the start.
             softWrap = true,
@@ -338,17 +336,17 @@ private fun ColumnScope.Header(state: DetailsState) {
                 color = stateLabelColor(state.state),
                 maxLines = 1,
             )
-            Text("·", style = MonoSmall, color = MaterialTheme.colorScheme.outline)
+            Text("·", style = MonoSmall, color = KachokTheme.colors.outline)
             Text(
                 state.summary,
                 style = MonoSmall,
-                color = KachokPalette.onSurfaceMuted,
+                color = KachokTheme.colors.textMuted,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
         }
     }
-    Box(Modifier.fillMaxWidth().height(HAIRLINE).background(MaterialTheme.colorScheme.surfaceContainerHigh))
+    Box(Modifier.fillMaxWidth().height(HAIRLINE).background(KachokTheme.colors.raisedHigh))
 }
 
 @Composable
@@ -379,9 +377,9 @@ private fun ColumnScope.Tabs(
                         },
                     color =
                         if (on) {
-                            MaterialTheme.colorScheme.primary
+                            KachokTheme.colors.accent
                         } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant
+                            KachokTheme.colors.textFaint
                         },
                     maxLines = 1,
                     modifier = Modifier.padding(top = 8.dp, bottom = 7.dp),
@@ -390,12 +388,12 @@ private fun ColumnScope.Tabs(
                     Modifier
                         .fillMaxWidth()
                         .height(INDICATOR)
-                        .background(if (on) MaterialTheme.colorScheme.primary else Color.Transparent),
+                        .background(if (on) KachokTheme.colors.accent else Color.Transparent),
                 )
             }
         }
     }
-    Box(Modifier.fillMaxWidth().height(HAIRLINE).background(MaterialTheme.colorScheme.outlineVariant))
+    Box(Modifier.fillMaxWidth().height(HAIRLINE).background(KachokTheme.colors.divider))
 }
 
 @Composable
@@ -422,15 +420,15 @@ private fun ColumnScope.Overview(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
-                Text("Session", style = FIELD_LABEL, color = KachokPalette.onSurfaceMuted)
+                Text("Session", style = FIELD_LABEL, color = KachokTheme.colors.textMuted)
                 Text(
                     state.sessionError ?: "no error",
                     style = MonoSmall,
                     color =
                         if (state.sessionError == null) {
-                            MaterialTheme.colorScheme.onSurfaceVariant
+                            KachokTheme.colors.textFaint
                         } else {
-                            MaterialTheme.colorScheme.error
+                            KachokTheme.colors.error
                         },
                 )
             }
@@ -445,8 +443,8 @@ private fun SectionHead(
 ) {
     Text(
         title,
-        style = MaterialTheme.typography.labelSmall.copy(letterSpacing = SECTION_TRACKING),
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        style = KachokTheme.type.section.copy(letterSpacing = SECTION_TRACKING),
+        color = KachokTheme.colors.textFaint,
         modifier = Modifier.padding(top = if (first) 12.dp else 14.dp, bottom = 5.dp),
     )
 }
@@ -467,7 +465,7 @@ private fun Field(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(5.dp),
             ) {
-                Text(field.label, style = FIELD_LABEL, color = KachokPalette.onSurfaceMuted, maxLines = 1)
+                Text(field.label, style = FIELD_LABEL, color = KachokTheme.colors.textMuted, maxLines = 1)
                 if (field.planned) PlannedBadge()
             }
             Row(
@@ -479,9 +477,9 @@ private fun Field(
             ) {
                 val tone =
                     when (field.tone) {
-                        FieldTone.Plain -> MaterialTheme.colorScheme.onSurface
-                        FieldTone.Good -> MaterialTheme.colorScheme.primary
-                        FieldTone.Warning -> MaterialTheme.warningColors.warning
+                        FieldTone.Plain -> KachokTheme.colors.text
+                        FieldTone.Good -> KachokTheme.colors.accent
+                        FieldTone.Warning -> KachokTheme.colors.warning
                     }
                 if (field.path) {
                     PathText(field.value, MonoSmall, tone, Modifier.weight(1f, fill = false))
@@ -501,7 +499,7 @@ private fun Field(
                 onMove?.let { MoveButton(field, it) }
             }
         }
-        Box(Modifier.fillMaxWidth().height(HAIRLINE).background(KachokPalette.rowHairline))
+        Box(Modifier.fillMaxWidth().height(HAIRLINE).background(KachokTheme.colors.rowHairline))
     }
 }
 
@@ -515,13 +513,13 @@ private fun Field(
 private fun PlannedBadge() {
     Box(
         Modifier
-            .border(HAIRLINE, MaterialTheme.warningColors.warningContainer, RoundedCornerShape(2.dp))
+            .border(HAIRLINE, KachokTheme.colors.warningContainer, RoundedCornerShape(2.dp))
             .padding(horizontal = 3.dp),
     ) {
         Text(
             "planned",
             style = ChromeText.copy(fontSize = BADGE_SIZE),
-            color = MaterialTheme.warningColors.warning,
+            color = KachokTheme.colors.warning,
             maxLines = 1,
         )
     }
@@ -529,14 +527,14 @@ private fun PlannedBadge() {
 
 @Composable
 private fun ComplaintCard(complaint: Complaint) {
-    val scheme = MaterialTheme.colorScheme
-    val warning = MaterialTheme.warningColors
+    val scheme = KachokTheme.colors
+    val warning = KachokTheme.colors
     Column(
         Modifier
             .fillMaxWidth()
             .padding(bottom = 6.dp)
             .background(
-                if (complaint.warning) KachokPalette.warningCard else KachokPalette.neutralCard,
+                if (complaint.warning) KachokTheme.colors.warningCard else KachokTheme.colors.neutralCard,
                 RoundedCornerShape(4.dp),
             ).border(
                 HAIRLINE,
@@ -548,12 +546,12 @@ private fun ComplaintCard(complaint: Complaint) {
         Text(
             complaint.title,
             style = ChromeText.copy(fontSize = BADGE_SIZE, letterSpacing = CARD_TRACKING),
-            color = if (complaint.warning) warning.warning else scheme.onSurfaceVariant,
+            color = if (complaint.warning) warning.warning else scheme.textFaint,
         )
         Text(
             complaint.text,
             style = MonoSmall.copy(fontSize = CARD_TEXT, lineHeight = CARD_LINE),
-            color = if (complaint.warning) KachokPalette.onWarningCard else KachokPalette.onSurfaceMuted,
+            color = if (complaint.warning) KachokTheme.colors.onWarningCard else KachokTheme.colors.textMuted,
         )
     }
 }
@@ -574,7 +572,7 @@ private fun ColumnScope.Trackers(
     state: DetailsState,
     onAnnounce: () -> Unit,
 ) {
-    val scheme = MaterialTheme.colorScheme
+    val scheme = KachokTheme.colors
     Column(Modifier.fillMaxSize()) {
         Row(
             Modifier.fillMaxWidth().height(PEER_HEAD).padding(horizontal = Details.edge),
@@ -583,7 +581,7 @@ private fun ColumnScope.Trackers(
             Text(
                 state.trackersSummary,
                 style = FIELD_LABEL,
-                color = scheme.onSurfaceVariant,
+                color = scheme.textFaint,
                 modifier = Modifier.weight(1f),
             )
             Row(
@@ -593,17 +591,17 @@ private fun ColumnScope.Trackers(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
             ) {
-                Glyph(Icons.CAMPAIGN, size = COPY_GLYPH, tint = scheme.primary)
-                Text("Re-announce", style = FIELD_LABEL, color = scheme.primary, maxLines = 1)
+                Glyph(Icons.CAMPAIGN, size = COPY_GLYPH, tint = scheme.accent)
+                Text("Re-announce", style = FIELD_LABEL, color = scheme.accent, maxLines = 1)
             }
         }
-        Box(Modifier.fillMaxWidth().height(HAIRLINE).background(KachokPalette.rowHairline))
+        Box(Modifier.fillMaxWidth().height(HAIRLINE).background(KachokTheme.colors.rowHairline))
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
             if (state.trackers.isEmpty()) {
                 Text(
                     "This torrent names no trackers.",
                     style = FIELD_LABEL,
-                    color = scheme.onSurfaceVariant,
+                    color = scheme.textFaint,
                     modifier = Modifier.padding(horizontal = Details.edge, vertical = 10.dp),
                 )
             }
@@ -615,7 +613,7 @@ private fun ColumnScope.Trackers(
 
 @Composable
 private fun TrackerCard(tracker: TrackerRow) {
-    val scheme = MaterialTheme.colorScheme
+    val scheme = KachokTheme.colors
     Column(
         Modifier.fillMaxWidth().padding(horizontal = Details.edge, vertical = 9.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp),
@@ -623,18 +621,18 @@ private fun TrackerCard(tracker: TrackerRow) {
         Text(
             tracker.url,
             style = MonoSmall,
-            color = scheme.onSurface,
+            color = scheme.text,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(tracker.status, style = MonoSmall, color = toneColor(tracker.tone), maxLines = 1)
-            Text(tracker.detail, style = MonoSmall, color = scheme.onSurfaceVariant, maxLines = 1)
+            Text(tracker.detail, style = MonoSmall, color = scheme.textFaint, maxLines = 1)
         }
         tracker.message?.let {
-            Text(it, style = MonoSmall, color = KachokPalette.errorFigure, softWrap = true)
+            Text(it, style = MonoSmall, color = KachokTheme.colors.errorFigure, softWrap = true)
         }
-        Box(Modifier.fillMaxWidth().height(HAIRLINE).background(KachokPalette.rowHairline))
+        Box(Modifier.fillMaxWidth().height(HAIRLINE).background(KachokTheme.colors.rowHairline))
     }
 }
 
@@ -644,17 +642,17 @@ private fun DhtCard(detail: String) {
         Modifier.fillMaxWidth().padding(horizontal = Details.edge, vertical = 9.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        Text("DHT (BEP 5)", style = MonoSmall, color = MaterialTheme.colorScheme.onSurface, maxLines = 1)
-        Text(detail, style = MonoSmall, color = MaterialTheme.colorScheme.primary, maxLines = 1)
+        Text("DHT (BEP 5)", style = MonoSmall, color = KachokTheme.colors.text, maxLines = 1)
+        Text(detail, style = MonoSmall, color = KachokTheme.colors.accent, maxLines = 1)
     }
 }
 
 @Composable
 private fun toneColor(tone: FieldTone) =
     when (tone) {
-        FieldTone.Good -> MaterialTheme.colorScheme.primary
-        FieldTone.Warning -> MaterialTheme.colorScheme.error
-        FieldTone.Plain -> KachokPalette.onSurfaceMuted
+        FieldTone.Good -> KachokTheme.colors.accent
+        FieldTone.Warning -> KachokTheme.colors.error
+        FieldTone.Plain -> KachokTheme.colors.textMuted
     }
 
 /**
@@ -673,7 +671,7 @@ private fun ColumnScope.Files(
     onSequential: (Boolean) -> Unit,
     onFilePriority: (FileRow, FilePriority) -> Unit,
 ) {
-    val scheme = MaterialTheme.colorScheme
+    val scheme = KachokTheme.colors
     // Keyed on the torrent, so selecting another one does not leave a sentence about the last.
     var note by remember(state.name) { mutableStateOf<String?>(null) }
     Column(Modifier.fillMaxSize()) {
@@ -684,7 +682,7 @@ private fun ColumnScope.Files(
         ) {
             // No badge any more: the ticks in the add dialog are live, and since B-106 the glyph
             // at the head of every row here is live too — it cycles the file's tier.
-            Text(state.filesSummary, style = FIELD_LABEL, color = scheme.onSurfaceVariant)
+            Text(state.filesSummary, style = FIELD_LABEL, color = scheme.textFaint)
             Spacer(Modifier.weight(1f))
             // **A control and not an indicator**, like the row glyphs since B-106: the order can be
             // changed on a running torrent, and so can which file fills first.
@@ -697,7 +695,7 @@ private fun ColumnScope.Files(
             Text(
                 if (state.sequential) "Ask rarest first" else "Ask in order",
                 style = FIELD_LABEL,
-                color = scheme.primary,
+                color = scheme.accent,
                 maxLines = 1,
                 modifier =
                     Modifier
@@ -707,12 +705,12 @@ private fun ColumnScope.Files(
                         }.clickable { onSequential(!state.sequential) },
             )
         }
-        Box(Modifier.fillMaxWidth().height(HAIRLINE).background(KachokPalette.rowHairline))
+        Box(Modifier.fillMaxWidth().height(HAIRLINE).background(KachokTheme.colors.rowHairline))
         if (state.files.isEmpty()) {
             Text(
                 "No files yet — the metainfo has not arrived.",
                 style = FIELD_LABEL,
-                color = scheme.onSurfaceVariant,
+                color = scheme.textFaint,
                 modifier = Modifier.padding(horizontal = Details.edge, vertical = 10.dp),
             )
         }
@@ -724,11 +722,11 @@ private fun ColumnScope.Files(
         // Only when there is something to say. A permanent line would be a row of the list that is
         // never a file, and the design does not draw one.
         note?.let {
-            Box(Modifier.fillMaxWidth().height(HAIRLINE).background(KachokPalette.rowHairline))
+            Box(Modifier.fillMaxWidth().height(HAIRLINE).background(KachokTheme.colors.rowHairline))
             Text(
                 it,
                 style = FIELD_LABEL,
-                color = scheme.onSurfaceVariant,
+                color = scheme.textFaint,
                 modifier = Modifier.padding(horizontal = Details.edge, vertical = 8.dp),
             )
         }
@@ -742,7 +740,7 @@ private fun FileLine(
     onOpen: () -> Unit,
     onPriority: (FilePriority) -> Unit,
 ) {
-    val scheme = MaterialTheme.colorScheme
+    val scheme = KachokTheme.colors
     Row(
         Modifier
             .fillMaxWidth()
@@ -783,7 +781,7 @@ private fun FileLine(
                     FilePriority.SKIP -> Icons.CHECK_BOX_OUTLINE_BLANK
                 },
                 size = FILE_TICK,
-                tint = if (file.wanted) scheme.primary else scheme.onSurfaceVariant,
+                tint = if (file.wanted) scheme.accent else scheme.textFaint,
             )
         }
         // `PathText` and not `TextOverflow.StartEllipsis`, which type-checks against Compose
@@ -793,13 +791,13 @@ private fun FileLine(
         PathText(
             file.name,
             FIELD_LABEL,
-            if (file.wanted) scheme.onSurface else scheme.onSurfaceVariant,
+            if (file.wanted) scheme.text else scheme.textFaint,
             Modifier.weight(1f),
         )
         Text(
             file.size,
             style = MonoSmall,
-            color = KachokPalette.onSurfaceMuted,
+            color = KachokTheme.colors.textMuted,
             textAlign = TextAlign.End,
             maxLines = 1,
             modifier = Modifier.width(FILE_SIZE),
@@ -807,7 +805,7 @@ private fun FileLine(
         Text(
             file.progress,
             style = MonoSmall,
-            color = if (file.wanted) KachokPalette.onSurfaceMuted else scheme.onSurfaceVariant,
+            color = if (file.wanted) KachokTheme.colors.textMuted else scheme.textFaint,
             textAlign = TextAlign.End,
             maxLines = 1,
             modifier = Modifier.width(FILE_PERCENT),
@@ -827,7 +825,7 @@ private fun FileLine(
  */
 @Composable
 private fun ColumnScope.Peers(peers: List<PeerRow>) {
-    val scheme = MaterialTheme.colorScheme
+    val scheme = KachokTheme.colors
     Column(Modifier.fillMaxSize()) {
         Row(
             Modifier
@@ -836,44 +834,44 @@ private fun ColumnScope.Peers(peers: List<PeerRow>) {
                 .padding(horizontal = Details.edge),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text("ADDRESS", style = PEER_HEADING, color = scheme.onSurfaceVariant, modifier = Modifier.weight(1f))
-            Text("CLIENT", style = PEER_HEADING, color = scheme.onSurfaceVariant, modifier = Modifier.width(CLIENT))
-            Text("FLAG", style = PEER_HEADING, color = scheme.onSurfaceVariant, modifier = Modifier.width(FLAGS))
+            Text("ADDRESS", style = PEER_HEADING, color = scheme.textFaint, modifier = Modifier.weight(1f))
+            Text("CLIENT", style = PEER_HEADING, color = scheme.textFaint, modifier = Modifier.width(CLIENT))
+            Text("FLAG", style = PEER_HEADING, color = scheme.textFaint, modifier = Modifier.width(FLAGS))
             Text(
                 "SPEED",
                 style = PEER_HEADING,
-                color = scheme.onSurfaceVariant,
+                color = scheme.textFaint,
                 textAlign = TextAlign.End,
                 modifier = Modifier.width(PEER_RATE),
             )
         }
-        Box(Modifier.fillMaxWidth().height(HAIRLINE).background(KachokPalette.rowHairline))
+        Box(Modifier.fillMaxWidth().height(HAIRLINE).background(KachokTheme.colors.rowHairline))
         if (peers.isEmpty()) {
             Text(
                 "No peers connected.",
                 style = FIELD_LABEL,
-                color = scheme.onSurfaceVariant,
+                color = scheme.textFaint,
                 modifier = Modifier.padding(horizontal = Details.edge, vertical = 10.dp),
             )
         }
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
             peers.forEach { peer -> PeerLine(peer) }
         }
-        Box(Modifier.fillMaxWidth().height(HAIRLINE).background(KachokPalette.rowHairline))
+        Box(Modifier.fillMaxWidth().height(HAIRLINE).background(KachokTheme.colors.rowHairline))
         Row(
             Modifier.fillMaxWidth().padding(horizontal = Details.edge, vertical = 9.dp),
             horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            Legend("U", "unchoked", scheme.primary)
-            Legend("C", "choked", scheme.onSurfaceVariant)
-            Legend("I", "interested", scheme.primary)
+            Legend("U", "unchoked", scheme.accent)
+            Legend("C", "choked", scheme.textFaint)
+            Legend("I", "interested", scheme.accent)
         }
     }
 }
 
 @Composable
 private fun PeerLine(peer: PeerRow) {
-    val scheme = MaterialTheme.colorScheme
+    val scheme = KachokTheme.colors
     Row(
         Modifier.fillMaxWidth().height(Details.rowHeight).padding(horizontal = Details.edge),
         verticalAlignment = Alignment.CenterVertically,
@@ -881,7 +879,7 @@ private fun PeerLine(peer: PeerRow) {
         Text(
             peer.address,
             style = MonoSmall,
-            color = scheme.onSurface,
+            color = scheme.text,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f),
@@ -889,7 +887,7 @@ private fun PeerLine(peer: PeerRow) {
         Text(
             peer.client,
             style = FIELD_LABEL,
-            color = KachokPalette.onSurfaceMuted,
+            color = KachokTheme.colors.textMuted,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.width(CLIENT),
@@ -898,12 +896,12 @@ private fun PeerLine(peer: PeerRow) {
             Text(
                 if (peer.unchoked) "U" else "C",
                 style = PEER_FLAG,
-                color = if (peer.unchoked) scheme.primary else scheme.onSurfaceVariant,
+                color = if (peer.unchoked) scheme.accent else scheme.textFaint,
             )
             Text(
                 if (peer.interested) "I" else "·",
                 style = PEER_FLAG,
-                color = if (peer.interested) scheme.primary else scheme.onSurfaceVariant,
+                color = if (peer.interested) scheme.accent else scheme.textFaint,
             )
         }
         Text(
@@ -911,7 +909,7 @@ private fun PeerLine(peer: PeerRow) {
             style = MonoSmall,
             // A rate of nothing is drawn as a figure that is not there rather than as a number,
             // which is the same rule the table's own zero columns follow.
-            color = if (peer.rate == Figures.NO_SPEED) scheme.onSurfaceVariant else KachokPalette.onSurfaceMuted,
+            color = if (peer.rate == Figures.NO_SPEED) scheme.textFaint else KachokTheme.colors.textMuted,
             textAlign = TextAlign.End,
             maxLines = 1,
             modifier = Modifier.width(PEER_RATE),
@@ -927,7 +925,7 @@ private fun Legend(
 ) {
     Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) {
         Text(flag, style = PEER_FLAG, color = tint)
-        Text(meaning, style = FIELD_LABEL, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(meaning, style = FIELD_LABEL, color = KachokTheme.colors.textFaint)
     }
 }
 
@@ -995,7 +993,7 @@ private fun CopyButton(
     Glyph(
         Icons.CONTENT_COPY,
         size = COPY_GLYPH,
-        tint = if (copied) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+        tint = if (copied) KachokTheme.colors.accent else KachokTheme.colors.textFaint,
         modifier =
             Modifier
                 .clickable {
@@ -1013,7 +1011,7 @@ private fun MoveButton(
     Glyph(
         Icons.FOLDER,
         size = COPY_GLYPH,
-        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+        tint = KachokTheme.colors.textFaint,
         modifier = Modifier.clickable(onClick = onMove).semantics { contentDescription = "Move ${field.label}" },
     )
 }

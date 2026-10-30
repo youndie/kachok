@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -26,7 +25,7 @@ internal fun RemoveTorrentSheet() {
         RemoveState(name = "Sintel-2010-1080p-DCP.tar", where = "~/Downloads", howMuch = "2.89 GiB on disk")
     KachokTheme {
         Box(
-            Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface),
+            Modifier.fillMaxSize().background(KachokTheme.colors.surface),
             contentAlignment = Alignment.Center,
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {

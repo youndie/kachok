@@ -22,6 +22,11 @@ the second implementation of B-159's kit, and the window gains an *Interface* se
   splitter and no dense desktop row, which are most of this window. Those are drawn in its tokens
   here, and anything that turns out to be generally useful goes into oldge-ui rather than staying a
   copy in kachok.
+- **The components move into the kit here, not in B-159.** B-159 put the tokens and `Text` behind
+  `KachokKit` and left the window's own components — toggle, fields, dialog button, toolbar
+  action, progress cell, banner — drawn on `foundation` from those tokens. Each one oldge-ui draws
+  differently becomes a member of the kit in this item, with the Material kit's implementation
+  being the code that is there today.
 - The setting is stored with the others in `settings.properties`, applies without a restart, and
   falls back to the current kit on a value it does not know — a settings file written by a newer
   build must not stop an older one from opening.

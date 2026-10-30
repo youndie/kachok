@@ -5,8 +5,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.width
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -21,6 +19,8 @@ import androidx.compose.ui.unit.sp
 import io.github.youndie.kachok.ui.icons.Glyph
 import io.github.youndie.kachok.ui.icons.Icons
 import io.github.youndie.kachok.ui.list.TorrentColumns
+import io.github.youndie.kachok.ui.theme.KachokTheme
+import io.github.youndie.kachok.ui.theme.Text
 
 /**
  * The table's nine columns.
@@ -55,8 +55,8 @@ internal fun ColumnHeader(
 ) {
     Bar(
         height = Chrome.headerHeight,
-        background = MaterialTheme.colorScheme.surfaceVariant,
-        line = MaterialTheme.colorScheme.outlineVariant,
+        background = KachokTheme.colors.raised,
+        line = KachokTheme.colors.divider,
         modifier = modifier,
         horizontalArrangement = Arrangement.spacedBy(TorrentColumns.gap),
     ) {
@@ -113,12 +113,12 @@ private fun RowScope.Head(
     ) {
         Text(
             text,
-            style = MaterialTheme.typography.labelSmall.copy(letterSpacing = tracking),
+            style = KachokTheme.type.section.copy(letterSpacing = tracking),
             color =
                 if (sorted) {
-                    MaterialTheme.colorScheme.onSurface
+                    KachokTheme.colors.text
                 } else {
-                    MaterialTheme.colorScheme.onSurfaceVariant
+                    KachokTheme.colors.textFaint
                 },
             maxLines = 1,
         )
@@ -126,7 +126,7 @@ private fun RowScope.Head(
             Glyph(
                 if (sort.ascending) Icons.ARROW_UPWARD else Icons.ARROW_DOWNWARD,
                 size = SORT_GLYPH,
-                tint = MaterialTheme.colorScheme.primary,
+                tint = KachokTheme.colors.accent,
             )
         }
     }

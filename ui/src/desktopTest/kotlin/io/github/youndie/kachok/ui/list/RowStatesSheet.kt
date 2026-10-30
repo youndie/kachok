@@ -3,7 +3,6 @@ package io.github.youndie.kachok.ui.list
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import io.github.youndie.kachok.ui.theme.KachokTheme
@@ -24,7 +23,7 @@ import io.github.youndie.viddik.annotations.ViddikScreenshot
 private fun Sheet() {
     KachokTheme {
         Column(
-            Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface),
+            Modifier.fillMaxSize().background(KachokTheme.colors.surface),
         ) {
             designRows.forEach { model -> TorrentRow(model) }
         }

@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -223,7 +222,7 @@ private fun run(args: Array<String>) {
             ?: Path.of(System.getProperty("user.home"), "Downloads")
     application {
         // **The theme wraps the frame, not the frame's content.** `AppFrame` draws the title bar
-        // itself, from `MaterialTheme.colorScheme.surfaceVariant` — with `KachokTheme` one level
+        // itself, from `KachokTheme.colors.raised` — with `KachokTheme` one level
         // lower the bar came out of the *default* light scheme while everything under it was dark.
         // Nothing caught it: the golden renders the same bar inside the theme, because a golden
         // cannot open a window, so it drew the right thing while the application drew the wrong one.
@@ -358,7 +357,7 @@ private fun run(args: Array<String>) {
                         Modifier
                             .fillMaxWidth()
                             .height(1.dp)
-                            .background(MaterialTheme.colorScheme.surfaceContainerHigh),
+                            .background(KachokTheme.colors.raisedHigh),
                     )
                     Client(
                         torrent,

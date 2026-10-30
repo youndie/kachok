@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.DpSize
@@ -35,7 +34,7 @@ import io.github.youndie.viddik.annotations.ViddikScreenshot
 @Composable
 internal fun MainWindowSheet() {
     KachokTheme {
-        Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)) {
+        Column(Modifier.fillMaxSize().background(KachokTheme.colors.surface)) {
             TitleBar(
                 state = rememberWindowState(size = DpSize(1200.dp, 760.dp)),
                 onCloseRequest = {},
@@ -48,7 +47,7 @@ internal fun MainWindowSheet() {
                 Modifier
                     .fillMaxWidth()
                     .height(1.dp)
-                    .background(MaterialTheme.colorScheme.surfaceContainerHigh),
+                    .background(KachokTheme.colors.raisedHigh),
             )
             MainWindow(
                 MainWindowState(
@@ -75,7 +74,7 @@ internal fun MainWindowSheet() {
 internal fun DetailsTabsSheet() {
     KachokTheme {
         Row(
-            Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface),
+            Modifier.fillMaxSize().background(KachokTheme.colors.surface),
             horizontalArrangement = Arrangement.Start,
         ) {
             listOf(DetailsTab.Files, DetailsTab.Peers, DetailsTab.Trackers).forEach { tab ->

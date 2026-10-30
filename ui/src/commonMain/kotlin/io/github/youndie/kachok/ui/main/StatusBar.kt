@@ -4,8 +4,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.width
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -15,8 +13,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.youndie.kachok.ui.icons.Glyph
 import io.github.youndie.kachok.ui.icons.Icons
-import io.github.youndie.kachok.ui.theme.KachokPalette
+import io.github.youndie.kachok.ui.theme.KachokTheme
 import io.github.youndie.kachok.ui.theme.MonoSmall
+import io.github.youndie.kachok.ui.theme.Text
 
 /**
  * What the whole process is doing, in one 24 dp line.
@@ -43,24 +42,24 @@ internal fun StatusBar(
     status: SessionStatus,
     modifier: Modifier = Modifier,
 ) {
-    val scheme = MaterialTheme.colorScheme
+    val scheme = KachokTheme.colors
     Bar(
         height = Chrome.statusHeight,
-        background = scheme.surfaceVariant,
-        line = scheme.outlineVariant,
+        background = scheme.raised,
+        line = scheme.divider,
         modifier = modifier,
         lineOnTop = true,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Rate(Icons.ARROW_DOWNWARD, scheme.primary, status.down)
-        Rate(Icons.ARROW_UPWARD, KachokPalette.onSurfaceMuted, status.up)
+        Rate(Icons.ARROW_DOWNWARD, scheme.accent, status.down)
+        Rate(Icons.ARROW_UPWARD, KachokTheme.colors.textMuted, status.up)
         Dot()
         Figure(status.torrents)
         Spacer()
         // DHT off is dimmed rather than absent: "no nodes" and "not asked for" are different
         // answers to the same question, and a missing line answers neither.
         if (status.dht == null) {
-            Figure("DHT off", scheme.onSurfaceVariant)
+            Figure("DHT off", scheme.textFaint)
         } else {
             Figure(status.dht)
         }
@@ -82,14 +81,14 @@ private fun RowScope.Rate(
         horizontalArrangement = Arrangement.spacedBy(3.dp),
     ) {
         Glyph(glyph, size = STATUS_GLYPH, tint = tint)
-        Text(text, style = MonoSmall, color = MaterialTheme.colorScheme.onSurface, maxLines = 1)
+        Text(text, style = MonoSmall, color = KachokTheme.colors.text, maxLines = 1)
     }
 }
 
 @Composable
 private fun RowScope.Figure(
     text: String,
-    color: Color = KachokPalette.onSurfaceMuted,
+    color: Color = KachokTheme.colors.textMuted,
 ) {
     Text(text, style = MonoSmall, color = color, maxLines = 1)
 }
@@ -107,7 +106,7 @@ private fun RowScope.Dot(): Unit =
     Text(
         "·",
         style = MonoSmall,
-        color = MaterialTheme.colorScheme.outline,
+        color = KachokTheme.colors.outline,
         maxLines = 1,
         textAlign = TextAlign.Center,
         modifier = Modifier.width(DOT_WIDTH),
