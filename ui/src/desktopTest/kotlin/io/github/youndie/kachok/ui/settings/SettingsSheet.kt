@@ -11,7 +11,7 @@ import io.github.youndie.kachok.ui.theme.InterfaceKit
 import io.github.youndie.kachok.ui.theme.KachokTheme
 import io.github.youndie.kachok.ui.theme.material.MaterialColours
 import io.github.youndie.kachok.ui.theme.material.SchemeStyle
-import io.github.youndie.kachok.ui.theme.oldge.OldgeKit
+import io.github.youndie.oldge.theme.OldgeSkin
 import io.github.youndie.viddik.annotations.ViddikScreenshot
 
 /**
@@ -39,24 +39,40 @@ internal fun SettingsSheet() {
 }
 
 /**
- * The settings screen in the oldge kit, with the *Interface* row on it set to oldge-ui (B-160).
+ * The settings screen in the oldge kit, with the *Interface* row on it set to oldge-ui (B-160) and
+ * the *Colours* row under it offering the skins, Toxic ringed (B-162).
  *
  * The section is the screen's last, below the fold at this height, so the sheet puts it first: the
- * golden is of the switches (`OldgeSwitch`), the segmented choice and the fields in this kit's
- * colours, and a picture of the row that chose them is the one worth having.
+ * golden is of the switches (`OldgeSwitch`), the segmented choice, the skins and the fields in this
+ * kit's colours, and a picture of the rows that chose them is the one worth having.
  */
 @ViddikScreenshot(name = "screen-oldge", group = "settings", width = 744, height = 912)
 @Composable
 internal fun SettingsOldgeSheet() {
-    val state =
-        settingsOf(
-            Preferences(
-                directory = "~/Downloads",
-                downloadLimitKibPerSecond = 12_000,
-                interfaceKit = InterfaceKit.Oldge,
-            ),
+    OldgeSettings(OldgeSkin.Toxic)
+}
+
+/**
+ * And with Crystal chosen (B-162): the light skin, its swatch ringed in the skin's own `ink`, the
+ * footnote's ground mixed from its `surface` and `ground` where Toxic keeps its literal.
+ */
+@ViddikScreenshot(name = "screen-crystal", group = "settings", width = 744, height = 912)
+@Composable
+internal fun SettingsCrystalSheet() {
+    OldgeSettings(OldgeSkin.Crystal)
+}
+
+@Composable
+private fun OldgeSettings(skin: OldgeSkin) {
+    val preferences =
+        Preferences(
+            directory = "~/Downloads",
+            downloadLimitKibPerSecond = 12_000,
+            interfaceKit = InterfaceKit.Oldge,
+            oldgeSkin = skin,
         )
-    KachokTheme(kit = OldgeKit) {
+    val state = settingsOf(preferences)
+    KachokTheme(kit = preferences.kit) {
         SettingsScreen(
             SettingsState(
                 sections = state.sections.takeLast(1) + state.sections.dropLast(1),

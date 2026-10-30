@@ -25,6 +25,7 @@ import io.github.youndie.kachok.ui.theme.material.MaterialColours
 import io.github.youndie.kachok.ui.theme.material.MaterialKit
 import io.github.youndie.kachok.ui.theme.material.SchemeStyle
 import io.github.youndie.kachok.ui.theme.oldge.OldgeKit
+import io.github.youndie.oldge.theme.OldgeSkin
 import io.github.youndie.viddik.annotations.ViddikScreenshot
 
 /**
@@ -78,7 +79,30 @@ internal fun MainWindowSheet() {
 @ViddikScreenshot(name = "window-oldge", group = "main", width = 1440, height = 912)
 @Composable
 internal fun MainWindowOldgeSheet() {
-    KachokTheme(kit = OldgeKit) {
+    OldgeWindow(OldgeSkin.Toxic)
+}
+
+/**
+ * The window in oldge-ui's Media skin (B-162): royal blue, the lime accent kept. One frame per skin
+ * the library ships, so a skin whose tokens leave a text level or a warning row unreadable in this
+ * window's drawing — which the library's own mobile screens never draw — shows here.
+ */
+@ViddikScreenshot(name = "window-media", group = "main", width = 1440, height = 912)
+@Composable
+internal fun MainWindowMediaSheet() {
+    OldgeWindow(OldgeSkin.Media)
+}
+
+/** And in Crystal, the light skin: the one frame of this window on a light ground. */
+@ViddikScreenshot(name = "window-crystal", group = "main", width = 1440, height = 912)
+@Composable
+internal fun MainWindowCrystalSheet() {
+    OldgeWindow(OldgeSkin.Crystal)
+}
+
+@Composable
+private fun OldgeWindow(skin: OldgeSkin) {
+    KachokTheme(kit = OldgeKit.of(skin)) {
         Column(Modifier.fillMaxSize().background(KachokTheme.colors.surface)) {
             TitleBar(
                 state = rememberWindowState(size = DpSize(1200.dp, 760.dp)),

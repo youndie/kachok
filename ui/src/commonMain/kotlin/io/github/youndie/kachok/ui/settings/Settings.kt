@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
@@ -84,8 +85,8 @@ internal enum class SettingKey(
     Interface,
 
     /**
-     * The kit's colours (B-161): under the Material kit a seed and a scheme style. The row's
-     * contents are the kit's — under oldge-ui it is absent until its skins are a choice (B-162).
+     * The kit's colours, one row whose contents are the kit's: under the Material kit a seed and a
+     * scheme style (B-161), under oldge-ui its skins (B-162).
      */
     Colours,
     ;
@@ -138,6 +139,12 @@ internal class Swatch(
     val value: String,
     val color: Color,
     val label: String,
+    /**
+     * A second colour, drawn as a dot on [color]: an oldge skin's accent on its ground (B-162). A
+     * skin is not one colour, and two of the three share their lime — the ground is what tells them
+     * apart, and the dot is what says the square is a skin rather than a seed.
+     */
+    val mark: Color? = null,
 )
 
 /** One segment of a choice: what is stored, and what the segment says. */
@@ -458,7 +465,8 @@ private fun Segmented(
 }
 
 /**
- * A row of colours, each a square of itself; the chosen one ringed in the first text level.
+ * A row of colours, each a square of itself — with its [Swatch.mark] on it, for a skin — the chosen
+ * one ringed in the first text level.
  *
  * The ring and not a check mark: the swatch *is* the information, and a glyph on it would have to
  * be drawn in a colour that reads on all six. Each swatch is a radio button with the colour's name,
@@ -492,7 +500,10 @@ private fun Swatches(
                         onClick = { if (!chosen) onPicked(swatch.value) },
                     ).padding(4.dp)
                     .background(swatch.color, RoundedCornerShape(2.dp)),
-            )
+                contentAlignment = Alignment.Center,
+            ) {
+                swatch.mark?.let { Box(Modifier.size(MARK).background(it, CircleShape)) }
+            }
         }
     }
 }
@@ -547,6 +558,8 @@ private val UNIT_WIDTH = 38.dp
 private val PATH_WIDTH = 210.dp
 
 private val SWATCH = 24.dp
+
+private val MARK = 8.dp
 
 private val FOLDER_GLYPH = 16.sp
 

@@ -15,6 +15,8 @@ import io.github.youndie.kachok.ui.theme.KachokKit
 import io.github.youndie.kachok.ui.theme.material.MaterialColours
 import io.github.youndie.kachok.ui.theme.material.SEED_SWATCHES
 import io.github.youndie.kachok.ui.theme.material.SchemeStyle
+import io.github.youndie.kachok.ui.theme.oldge.OldgeKit
+import io.github.youndie.oldge.theme.OldgeSkin
 
 /**
  * What a person has actually changed, plus what the process actually did.
@@ -88,9 +90,14 @@ internal data class Preferences(
      * window redraws without a restart.
      */
     val materialColours: MaterialColours = MaterialColours.DEFAULT,
+    /**
+     * The oldge kit's skin (B-162), kept when another kit is chosen for the same reason as
+     * [materialColours]: each kit keeps its own colour choice, and switching away and back finds it.
+     */
+    val oldgeSkin: OldgeSkin = OldgeKit.DEFAULT_SKIN,
 ) {
-    /** The kit the window is drawn in: [interfaceKit], in [materialColours] when it is Material's. */
-    val kit: KachokKit get() = interfaceKit.kit(materialColours)
+    /** The kit the window is drawn in: [interfaceKit], in its own colour choice. */
+    val kit: KachokKit get() = interfaceKit.kit(materialColours, oldgeSkin)
 
     /** The same preferences with the port the listener actually bound written into them. */
     fun boundTo(port: Int): Preferences = copy(port = port)
@@ -128,21 +135,29 @@ internal data class Preferences(
             else -> this
         }
 
-    /** A swatch picked; a value that is not a colour is the design's teal, as it is in the file. */
+    /**
+     * A swatch picked, read as the colour choice of the kit the row was drawn for: a seed under the
+     * Material kit — a value that is not a colour is the design's teal, as it is in the file — and a
+     * skin under oldge-ui, where a name the library does not have is its first skin.
+     */
     fun swatched(
         key: SettingKey,
         value: String,
     ): Preferences =
-        when (key) {
-            SettingKey.Colours -> {
+        when {
+            key != SettingKey.Colours -> {
+                this
+            }
+
+            interfaceKit == InterfaceKit.Oldge -> {
+                copy(oldgeSkin = OldgeKit.skinOf(value) ?: OldgeKit.DEFAULT_SKIN)
+            }
+
+            else -> {
                 copy(
                     materialColours =
                         materialColours.copy(seed = MaterialColours.seedOf(value) ?: MaterialColours.DESIGN_SEED),
                 )
-            }
-
-            else -> {
-                this
             }
         }
 
@@ -443,7 +458,8 @@ internal fun settingsOf(
                             choices = InterfaceKit.entries.map { Choice(it.stored, it.label) },
                             changed = preferences.interfaceKit != InterfaceKit.DEFAULT,
                         ),
-                    ) + listOfNotNull(coloursOf(preferences)),
+                        coloursOf(preferences),
+                    ),
                 ),
             ),
         // The badge is gone from the footnote and moved onto the two rows it is still not true of.
@@ -457,15 +473,17 @@ internal fun settingsOf(
 }
 
 /**
- * The *Colours* row, whose contents are the kit's (B-161).
- *
- * Under the Material kit: the seeds as swatches and the scheme styles as segments. Under oldge-ui
- * the row is absent for now — the kit's colours are its skin, which is not a choice yet (B-162) —
- * rather than a row of the Material kit's swatches that would change nothing on the screen.
+ * The *Colours* row, whose contents are the kit's (B-161, B-162): one row rather than one per kit,
+ * because a row for the kit that is not drawing the window would change nothing on it.
  */
-private fun coloursOf(preferences: Preferences): Setting? {
-    if (preferences.interfaceKit != InterfaceKit.Material) return null
-    val colours = preferences.materialColours
+private fun coloursOf(preferences: Preferences): Setting =
+    when (preferences.interfaceKit) {
+        InterfaceKit.Material -> seedsOf(preferences.materialColours)
+        InterfaceKit.Oldge -> skinsOf(preferences.oldgeSkin)
+    }
+
+/** Under the Material kit: the seeds as swatches and the scheme styles as segments. */
+private fun seedsOf(colours: MaterialColours): Setting {
     val design = MaterialColours.DEFAULT
     return Setting(
         key = SettingKey.Colours,
@@ -479,6 +497,23 @@ private fun coloursOf(preferences: Preferences): Setting? {
         changed = colours != design,
     )
 }
+
+/**
+ * Under oldge-ui: its skins, as many as the library has — read from `OldgeSkin.entries`, so a skin a
+ * release adds is offered here with the version bump and nothing else. Each is drawn as its own
+ * ground with its accent on it, and stored by the library's name for it.
+ */
+private fun skinsOf(skin: OldgeSkin): Setting =
+    Setting(
+        key = SettingKey.Colours,
+        label = "Colours",
+        note = "The design system's skin: ${OldgeSkin.entries.joinToString { it.name }}. Applies at once.",
+        default = OldgeKit.DEFAULT_SKIN.name.lowercase(),
+        value = skin.name,
+        swatches = OldgeSkin.entries.map { Swatch(it.name, it.colors.ground, it.name, mark = it.colors.accent) },
+        swatch = skin.name,
+        changed = skin != OldgeKit.DEFAULT_SKIN,
+    )
 
 /**
  * Where a fresh install saves.
