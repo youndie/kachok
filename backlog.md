@@ -54,7 +54,7 @@ which is also the order of work.
 |---|---|---|---|---|
 | [B-116](docs/backlog/B-116-a-torrent-whose-name-is-not-ascii-cannot-be-opened-on-windows.md) `[~]` | A `.torrent` whose name is not ASCII cannot be opened on Windows: the launcher hands the path over as question marks | P2 | S | - |
 | [B-157](docs/backlog/B-157-the-desktop-distribution-ships-an-aot-cache.md) `[?]` | The desktop distribution ships an AOT cache trained through its own launcher, and proves it maps | P2 | M | B-155 |
-| [B-163](docs/backlog/B-163-an-aot-cache-is-opened-before-it-is-refused.md) `[ ]` | The AOT checks look for a line the VM prints before it refuses the cache | P2 | S | - |
+| [B-163](docs/backlog/B-163-an-aot-cache-is-opened-before-it-is-refused.md) `[~]` | The AOT checks look for a line the VM prints before it refuses the cache | P2 | S | - |
 | [B-164](docs/backlog/B-164-accent-text-reads-on-a-light-skin.md) `[ ]` | Text drawn in the accent stays readable on a light skin: an accent-as-text role in the kit | P2 | S/M | - |
 | [B-165](docs/backlog/B-165-a-russian-name-is-drawn-in-the-rows-face.md) `[ ]` | A Russian torrent name is drawn in the row's own face under the Material kit | P2 | S | - |
 | [B-166](docs/backlog/B-166-the-preflight-reruns-when-the-image-changes.md) `[ ]` | The packaged preflight runs again whenever the image it checks changes | P2 | S | - |
