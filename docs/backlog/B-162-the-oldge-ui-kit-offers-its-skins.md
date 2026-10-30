@@ -1,7 +1,7 @@
 ---
 id: B-162
 title: "The oldge-ui kit offers its skins as its colour choice"
-status: open
+status: wip
 priority: P3
 size: S
 stage: phase-2-ui
