@@ -1,7 +1,7 @@
 ---
 id: B-157
 title: "The desktop distribution ships an AOT cache trained through its own launcher, and proves it maps"
-status: open
+status: wip
 priority: P2
 size: M
 stage: phase-2-ui
