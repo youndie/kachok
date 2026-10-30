@@ -461,6 +461,110 @@ val checkDownload by tasks.registering(Test::class) {
     inputs.dir(layout.buildDirectory.dir("compose/binaries/main-release/app"))
 }
 
+// **The `.deb` carries an AOT cache trained on its own files** (B-157, research §1.3h).
+//
+// The cache is two thirds of the window's start — 936 → 388 ms on an installed copy — and it is
+// refused by any copy of the jars other than the one it was recorded with: the VM compares each
+// jar's modification time, and `packageReleaseDeb` copies the jars again, so a cache trained on
+// `createReleaseDistributable` is a warning and a slow start on every installed machine. So it is
+// trained *after* packaging, on the package: unpacked with `dpkg-deb -R`, which keeps the times the
+// package will put on the disk, recorded by the same download through the window `checkDownload`
+// makes, assembled by the image's own launcher (the image has no `java` for the one-step form),
+// named in `kachok.cfg`, and packed back into the same file.
+//
+// **What proves it is the installed copy, not this directory.** The package is unpacked once more
+// into a different place — `dpkg` keeps the times and the relocation is what the VM's path check
+// allows — and its launcher's `--preflight` is run with `-Xlog:aot`: the build fails unless the VM
+// says `Using AOT-linked classes: true` and no `aot` error, which is the line only a *mapped* cache
+// prints (B-163). `distributions.yml` then installs the package for real and asks again.
+//
+// It needs a display, like `checkDownload`; `-Pkachok.aot=false` packages without the cache.
+val debAot = providers.gradleProperty("kachok.aot").map { it != "false" }.getOrElse(true)
+val debAotWork = layout.buildDirectory.dir("aot/deb")
+
+val unpackReleaseDeb by tasks.registering(Exec::class) {
+    description = "Unpacks the release .deb, keeping its files' times, for the AOT cache to be trained on."
+    val linux = System.getProperty("os.name").orEmpty().let { !it.startsWith("Mac") && !it.startsWith("Windows") }
+    val wanted = debAot
+    onlyIf { linux && wanted }
+    mustRunAfter(patchDesktopEntry)
+    val debDir = layout.buildDirectory.dir("compose/binaries/main-release/deb")
+    commandLine(
+        "sh",
+        "-c",
+        """
+        set -eu
+        deb=${'$'}(find "${'$'}1" -maxdepth 1 -name '*.deb')
+        [ "${'$'}(echo "${'$'}deb" | wc -l)" = "1" ] && [ -n "${'$'}deb" ] || { echo "expected one .deb in ${'$'}1"; exit 1; }
+        rm -rf "${'$'}2" && mkdir -p "${'$'}2"
+        dpkg-deb -R "${'$'}deb" "${'$'}2/root"
+        """.trimIndent(),
+        "sh",
+        debDir.get().asFile.absolutePath,
+        debAotWork.get().asFile.absolutePath,
+    )
+}
+
+val recordDebAotConfiguration by tasks.registering(Test::class) {
+    description = "Records what the packaged window loads while it downloads a torrent, from the .deb's own files."
+    dependsOn(unpackReleaseDeb)
+    val linux = System.getProperty("os.name").orEmpty().let { !it.startsWith("Mac") && !it.startsWith("Windows") }
+    val wanted = debAot
+    onlyIf { linux && wanted }
+    testClassesDirs = desktopTests.get().testClassesDirs
+    classpath = desktopTests.get().classpath
+    filter { includeTestsMatching("*.DistributionDownloadTest") }
+    val work = debAotWork.get().asFile
+    systemProperty("kachok.launcher", File(work, "root/opt/kachok/bin/kachok").path)
+    systemProperty(
+        "kachok.jvmOptions",
+        "-XX:AOTMode=record -XX:AOTConfiguration=${File(work, "kachok.aotconf").path}",
+    )
+    outputs.upToDateWhen { false }
+}
+
+val addAotCacheToDeb by tasks.registering(Exec::class) {
+    description = "Assembles the AOT cache in the unpacked .deb, names it in kachok.cfg, repacks, and proves it maps."
+    dependsOn(recordDebAotConfiguration)
+    val linux = System.getProperty("os.name").orEmpty().let { !it.startsWith("Mac") && !it.startsWith("Windows") }
+    val wanted = debAot
+    onlyIf { linux && wanted }
+    val debDir = layout.buildDirectory.dir("compose/binaries/main-release/deb")
+    commandLine(
+        "sh",
+        "-c",
+        """
+        set -eu
+        deb=${'$'}(find "${'$'}1" -maxdepth 1 -name '*.deb')
+        work="${'$'}2"
+        app="${'$'}work/root/opt/kachok/lib/app"
+        [ -s "${'$'}work/kachok.aotconf" ] || { echo "the training run wrote no AOT configuration"; exit 1; }
+        home=${'$'}(mktemp -d)
+        trap 'rm -rf "${'$'}home"' EXIT
+        # Assembled by the package's own launcher: the image has no `java`, and the cache must be the
+        # one this runtime makes. In create mode the VM writes the cache and exits; no window opens.
+        JAVA_TOOL_OPTIONS="-Duser.home=${'$'}home -XX:AOTMode=create -XX:AOTConfiguration=${'$'}work/kachok.aotconf -XX:AOTCache=${'$'}app/kachok.aot"             "${'$'}work/root/opt/kachok/bin/kachok" > "${'$'}work/create.log" 2>&1 || { cat "${'$'}work/create.log"; exit 1; }
+        [ -s "${'$'}app/kachok.aot" ] || { cat "${'$'}work/create.log"; echo "no AOT cache was assembled"; exit 1; }
+        grep -q 'AOTCache=' "${'$'}app/kachok.cfg" || sed -i '/^\[JavaOptions\]/a java-options=-XX:AOTCache=${'$'}APPDIR/kachok.aot' "${'$'}app/kachok.cfg"
+        grep -q '^java-options=-XX:AOTCache=\${'$'}APPDIR/kachok.aot${'$'}' "${'$'}app/kachok.cfg" || { echo "kachok.cfg does not name the cache:"; cat "${'$'}app/kachok.cfg"; exit 1; }
+        fakeroot dpkg-deb -b "${'$'}work/root" "${'$'}deb" > /dev/null
+        # The installed copy: unpacked again somewhere else, the way dpkg would put it on a disk.
+        rm -rf "${'$'}work/installed" && mkdir -p "${'$'}work/installed"
+        dpkg-deb -x "${'$'}deb" "${'$'}work/installed"
+        JAVA_TOOL_OPTIONS="-Duser.home=${'$'}home -Xlog:aot=info:file=${'$'}work/aot.log"             "${'$'}work/installed/opt/kachok/bin/kachok" --preflight "${'$'}work/preflight.txt" > /dev/null 2>&1 || true
+        if grep -E '\[error *\]\[aot' "${'$'}work/aot.log" || ! grep -q 'Using AOT-linked classes: true' "${'$'}work/aot.log"; then
+            echo "the packaged AOT cache does not map in an installed copy:"; cat "${'$'}work/aot.log"; exit 1
+        fi
+        echo "the .deb carries an AOT cache of ${'$'}(du -m "${'$'}app/kachok.aot" | cut -f1) MB, and an installed copy maps it"
+        """.trimIndent(),
+        "sh",
+        debDir.get().asFile.absolutePath,
+        debAotWork.get().asFile.absolutePath,
+    )
+}
+
+tasks.matching { it.name == "packageReleaseDeb" }.configureEach { finalizedBy(addAotCacheToDeb) }
+
 // **A package whose version cannot go up is a package that cannot be installed over the last one.**
 //
 // That is not a style rule: an `.msi` at an unchanged `ProductVersion` is the same product at the
