@@ -1,7 +1,7 @@
 ---
 id: B-158
 title: "Decide whether Conveyor replaces jpackage as the desktop packager"
-status: question
+status: dropped
 priority: P3
 size: M
 stage: phase-2-ui
@@ -66,3 +66,10 @@ delta updates, and an updater. To take them:
    window on Windows. Size L, and the two virtualisation fixes are their own items.
 3. **Or keep jpackage** and close this item; §1.3j stays as the reason, and the shortcut from #27
    is fixed in the current `.msi` (`shortcut = true` in `windows {}`).
+
+## Decision — 2026-10-30, the owner
+
+**Deferred: too many compromises for what it buys.** The packaging stays on jpackage. Dropped rather
+than left `open`, so a loop does not pick it up again; it is a deferral, not a refusal, and the
+reason to reopen it is a new one — updates becoming the complaint, or a licence chosen for the
+repository for its own sake — with research §1.3j as the starting point rather than a fresh read.
