@@ -53,7 +53,7 @@ which is also the order of work.
 | Task | | Priority | Size | Blocked by |
 |---|---|---|---|---|
 | [B-116](docs/backlog/B-116-a-torrent-whose-name-is-not-ascii-cannot-be-opened-on-windows.md) `[~]` | A `.torrent` whose name is not ASCII cannot be opened on Windows: the launcher hands the path over as question marks | P2 | S | - |
-| [B-165](docs/backlog/B-165-a-russian-name-is-drawn-in-the-rows-face.md) `[ ]` | A Russian torrent name is drawn in the row's own face under the Material kit | P2 | S | - |
+| [B-165](docs/backlog/B-165-a-russian-name-is-drawn-in-the-rows-face.md) `[~]` | A Russian torrent name is drawn in the row's own face under the Material kit | P2 | S | - |
 | [B-166](docs/backlog/B-166-the-preflight-reruns-when-the-image-changes.md) `[ ]` | The packaged preflight runs again whenever the image it checks changes | P2 | S | - |
 | [B-171](docs/backlog/B-171-the-dmg-carries-an-aot-cache-trained-on-its-own-files.md) `[ ]` | The .dmg carries an AOT cache trained on its own files | P2 | M | B-157 |
 | [B-172](docs/backlog/B-172-the-msi-carries-an-aot-cache-trained-on-its-own-files.md) `[ ]` | The .msi carries an AOT cache trained on its own files | P2 | L | B-157 |

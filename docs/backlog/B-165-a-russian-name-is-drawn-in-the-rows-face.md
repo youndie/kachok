@@ -1,7 +1,7 @@
 ---
 id: B-165
 title: "A Russian torrent name is drawn in the row's own face under the Material kit"
-status: open
+status: wip
 priority: P2
 size: S
 stage: phase-2-ui
