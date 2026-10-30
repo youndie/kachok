@@ -79,6 +79,9 @@ jobs:
       - name: The installed client maps its AOT cache
         if: runner.os == 'Linux'
         run: |
+          # jpackage's postinst registers the menu entry with `xdg-desktop-menu`, which refuses on a
+          # machine with no system menu directory — a headless runner, not a desktop.
+          sudo mkdir -p /etc/xdg/menus
           sudo dpkg -i ui/build/compose/binaries/main-release/deb/*.deb
           JAVA_TOOL_OPTIONS="-Xlog:aot=info:file=$RUNNER_TEMP/aot.log" /opt/kachok/bin/kachok --preflight "$RUNNER_TEMP/preflight.txt"
           if grep -E '\[error *\]\[aot' "$RUNNER_TEMP/aot.log" || ! grep -q 'Using AOT-linked classes: true' "$RUNNER_TEMP/aot.log"; then
