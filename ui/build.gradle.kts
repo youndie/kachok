@@ -409,7 +409,10 @@ val checkDistributable by tasks.registering(Exec::class) {
     group = "verification"
     description = "Runs the packaged application's own launcher against its trimmed runtime."
     dependsOn(tasks.named("createReleaseDistributable"))
-    inputs.file(distributionLauncher)
+    // **The whole image, not the launcher** (B-166). The launcher is a native stub that does not
+    // change when ProGuard rewrites the jars beside it, so with only the stub declared a rebuilt image
+    // left this task up to date and the preflight reported green for an image it had never run.
+    inputs.dir(layout.buildDirectory.dir("compose/binaries/main-release/app"))
     outputs.file(preflightReport)
 
     commandLine(
