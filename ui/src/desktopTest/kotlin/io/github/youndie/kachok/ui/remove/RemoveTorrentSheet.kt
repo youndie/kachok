@@ -11,6 +11,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import io.github.youndie.kachok.ui.theme.KachokTheme
 import io.github.youndie.kachok.ui.theme.oldge.OldgeKit
+import io.github.youndie.oldge.theme.OldgeSkin
 import io.github.youndie.viddik.annotations.ViddikScreenshot
 
 /**
@@ -45,9 +46,25 @@ internal fun RemoveTorrentSheet() {
 @ViddikScreenshot(name = "dialog-oldge", group = "remove", width = 576, height = 760)
 @Composable
 internal fun RemoveTorrentOldgeSheet() {
+    OldgeRemoveDialogs(OldgeSkin.Toxic)
+}
+
+/**
+ * And in the Crystal skin (B-162), the light one: the dialog's border is the one role the main
+ * window does not show, mixed from the skin's `line` and `edge` where Toxic keeps its literal, and
+ * the destructive answer's red is the skin's own darker `danger` on a white plate.
+ */
+@ViddikScreenshot(name = "dialog-crystal", group = "remove", width = 576, height = 760)
+@Composable
+internal fun RemoveTorrentCrystalSheet() {
+    OldgeRemoveDialogs(OldgeSkin.Crystal)
+}
+
+@Composable
+private fun OldgeRemoveDialogs(skin: OldgeSkin) {
     val state =
         RemoveState(name = "Мастер и Маргарита (1994).mkv", where = "~/Downloads", howMuch = "2.89 GiB on disk")
-    KachokTheme(kit = OldgeKit) {
+    KachokTheme(kit = OldgeKit.of(skin)) {
         Box(
             Modifier.fillMaxSize().background(KachokTheme.colors.surface),
             contentAlignment = Alignment.Center,

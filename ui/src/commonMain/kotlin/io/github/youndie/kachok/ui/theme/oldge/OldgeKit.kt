@@ -61,7 +61,14 @@ import io.github.youndie.oldge.tokens.OldgeColors
 import io.github.youndie.oldge.type.OldgeText
 
 /**
- * The window in oldge-ui — the portfolio's mid-2000s design system — in its Toxic skin (B-160).
+ * The window in oldge-ui — the portfolio's mid-2000s design system — in one of its skins (B-160,
+ * B-162).
+ *
+ * **One instance per skin.** [of] hands back the same kit for the same skin, built once for every
+ * entry of `OldgeSkin`, so a skin the library adds is a kit here with a version bump and no change
+ * in kachok, and the root's recompositions never redraw the window for a skin that did not change.
+ * The skin is the kit's whole colour choice: its skins are drawn — gloss, glow and shadows tuned
+ * per skin — and a palette generated from a seed would be a skin nobody designed.
  *
  * **What is the library's and what is drawn here.** The settings switch is `OldgeSwitch` and the
  * dialog buttons are `OldgeButton`; the text goes through `OldgeText`, which sets the design
@@ -76,11 +83,37 @@ import io.github.youndie.oldge.type.OldgeText
  * from this kit's tokens; without it the bar would stay in the Material kit's colours over an
  * oldge window.
  */
-internal object OldgeKit : KachokKit {
-    /** The skin. One for now; choosing among the three is B-162's. */
-    private val SKIN: OldgeSkin = OldgeSkin.Toxic
+internal class OldgeKit private constructor(
+    val skin: OldgeSkin,
+) : KachokKit {
+    override val colors: KachokColors = kachokColorsOf(skin)
 
-    override val colors: KachokColors = kachokColorsOf(SKIN.colors)
+    override fun toString(): String = "OldgeKit(${skin.name})"
+
+    companion object {
+        /** The library's own default, and the skin the window was drawn in before it was a choice. */
+        val DEFAULT_SKIN: OldgeSkin = OldgeSkin.Toxic
+
+        private val BY_SKIN: Map<OldgeSkin, OldgeKit> = OldgeSkin.entries.associateWith { OldgeKit(it) }
+
+        /** The kit in [DEFAULT_SKIN]. */
+        val Default: OldgeKit = of(DEFAULT_SKIN)
+
+        /** The kit in [skin]: the same instance every time. */
+        fun of(skin: OldgeSkin): OldgeKit = BY_SKIN.getValue(skin)
+
+        /**
+         * The skin a stored name means — `OldgeSkin`'s own name for it — or `null` for no name.
+         *
+         * **A name the library no longer has is its first skin**, never a refusal to start: a file
+         * written against one release of oldge-ui is read by the next, and a skin it dropped or
+         * renamed says nothing about which of the remaining ones somebody wanted.
+         */
+        fun skinOf(stored: String?): OldgeSkin? {
+            val name = stored?.trim() ?: return null
+            return OldgeSkin.entries.firstOrNull { it.name == name } ?: OldgeSkin.entries.first()
+        }
+    }
 
     /**
      * The design system's own type styles, by role, at its sizes and weights. Its faces are compose
@@ -104,7 +137,7 @@ internal object OldgeKit : KachokKit {
 
     @Composable
     override fun Root(content: @Composable () -> Unit) {
-        OldgeTheme(skin = SKIN) {
+        OldgeTheme(skin = skin) {
             val ui = OldgeTheme.type.body.fontFamily
             val typography = remember(ui) { materialTypographyIn(ui) }
             // `MaterialTheme` provides a ripple as the indication of everything clickable under it,
@@ -112,7 +145,7 @@ internal object OldgeKit : KachokKit {
             // library's is taken from outside and put back inside.
             val indication = LocalIndication.current
             MaterialTheme(
-                colorScheme = materialSchemeOf(colors, SKIN.colors),
+                colorScheme = materialSchemeOf(colors, skin.colors),
                 typography = typography,
                 shapes = SHAPES,
             ) {
@@ -333,49 +366,81 @@ private fun oldgeStyle(
  * stays amber and the error family red because their sources are the skin's own `warning` and
  * `danger`.
  */
-internal fun kachokColorsOf(o: OldgeColors): KachokColors =
-    KachokColors(
-        accent = o.accent,
-        onAccent = o.onAccent,
-        accentContainer = o.select,
-        onAccentContainer = o.onSelect,
-        accentBright = o.accentHi,
-        accentContainerHigh = o.accentLo.copy(alpha = SELECTED_HAIRLINE).compositeOver(o.select),
-        text = o.ink,
-        textMuted = lerp(o.ink, o.inkMuted, HALF),
-        textFaint = o.inkMuted,
-        surface = o.surface,
-        raised = o.surface2,
-        raisedHigh = lerp(o.surface2, o.line, STEP),
-        raisedHighest = lerp(o.surface2, o.line, 2 * STEP),
-        panel = o.well,
-        outline = o.edge,
-        divider = o.line,
-        rowHairline = lerp(o.surface, o.line, HALF),
-        error = o.danger,
-        onError = o.ground,
-        errorContainer = o.danger.copy(alpha = CONTAINER).compositeOver(o.surface),
-        warning = o.warning,
-        onWarning = o.ground,
-        warningContainer = o.warning.copy(alpha = CONTAINER).compositeOver(o.surface),
-        onWarningContainer = o.warning,
-        errorFigure = lerp(o.danger, o.ink, HALF),
-        errorRowTint = o.danger.copy(alpha = TINT).compositeOver(o.surface),
-        errorTrack = o.danger.copy(alpha = CONTAINER).compositeOver(o.well),
-        stoppingBar = lerp(o.edge, o.surface, HALF),
-        selectedFigure = lerp(o.onSelect, o.accent, STEP),
-        selectedTrack = lerp(o.select, o.well, HALF),
-        degradedBanner = o.danger.copy(alpha = TINT).compositeOver(o.surface),
-        warningCard = o.warning.copy(alpha = TINT).compositeOver(o.surface),
-        onWarningCard = lerp(o.warning, o.ink, HALF),
-        neutralCard = o.surface2,
-        tooltip = o.balloon,
-        onTooltip = o.onBalloon,
-        // The values the screens drew as literals before B-161 made them roles, kept as they were so
-        // this kit's goldens did not move; mixing them from the skin is B-162's, with the skins.
-        footnoteGround = Color(0xFF111716),
-        dialogBorder = Color(0xFF303836),
-    )
+internal fun kachokColorsOf(skin: OldgeSkin): KachokColors =
+    skin.colors.let { o ->
+        KachokColors(
+            accent = o.accent,
+            onAccent = o.onAccent,
+            accentContainer = o.select,
+            onAccentContainer = o.onSelect,
+            accentBright = o.accentHi,
+            accentContainerHigh = o.accentLo.copy(alpha = SELECTED_HAIRLINE).compositeOver(o.select),
+            text = o.ink,
+            textMuted = lerp(o.ink, o.inkMuted, HALF),
+            textFaint = o.inkMuted,
+            surface = o.surface,
+            raised = o.surface2,
+            raisedHigh = lerp(o.surface2, o.line, STEP),
+            raisedHighest = lerp(o.surface2, o.line, 2 * STEP),
+            panel = o.well,
+            outline = o.edge,
+            divider = o.line,
+            rowHairline = lerp(o.surface, o.line, HALF),
+            error = o.danger,
+            onError = o.ground,
+            errorContainer = o.danger.copy(alpha = CONTAINER).compositeOver(o.surface),
+            warning = o.warning,
+            onWarning = o.ground,
+            warningContainer = o.warning.copy(alpha = CONTAINER).compositeOver(o.surface),
+            onWarningContainer = o.warning,
+            errorFigure = lerp(o.danger, o.ink, HALF),
+            errorRowTint = o.danger.copy(alpha = TINT).compositeOver(o.surface),
+            errorTrack = o.danger.copy(alpha = CONTAINER).compositeOver(o.well),
+            stoppingBar = lerp(o.edge, o.surface, HALF),
+            selectedFigure = lerp(o.onSelect, o.accent, STEP),
+            selectedTrack = lerp(o.select, o.well, HALF),
+            degradedBanner = o.danger.copy(alpha = TINT).compositeOver(o.surface),
+            warningCard = o.warning.copy(alpha = TINT).compositeOver(o.surface),
+            onWarningCard = lerp(o.warning, o.ink, HALF),
+            neutralCard = o.surface2,
+            tooltip = o.balloon,
+            onTooltip = o.onBalloon,
+            footnoteGround = if (skin == OldgeSkin.Toxic) TOXIC_FOOTNOTE_GROUND else footnoteGroundOf(o),
+            dialogBorder = if (skin == OldgeSkin.Toxic) TOXIC_DIALOG_BORDER else dialogBorderOf(o),
+        )
+    }
+
+/**
+ * The settings footnote's ground: the skin's `surface`, a step towards its `ground`.
+ *
+ * **Toxic keeps the literal it had** ([TOXIC_FOOTNOTE_GROUND]). Before B-161 made it a role it was a
+ * colour written in the screen — the Material design's teal-grey `#111716` — and no Toxic token and
+ * no mix of two is that grey: Toxic's grounds and lines are green, the literal has almost no
+ * chroma. What *can* be carried to the other skins is its place between their tokens, which is what this is: the
+ * literal sits at [FOOTNOTE_TOWARDS_GROUND] of the way from Toxic's `surface` to its `ground` in
+ * lightness (Oklab L, the space `lerp` mixes in), and every other skin's footnote sits at the same
+ * place between its own two. `OldgeSkinsTest` holds the fraction to that claim.
+ */
+internal fun footnoteGroundOf(o: OldgeColors): Color = lerp(o.surface, o.ground, FOOTNOTE_TOWARDS_GROUND)
+
+/**
+ * A dialog's border: the skin's `line`, a step towards its `edge` — by the same reasoning as
+ * [footnoteGroundOf], from the Material design's `#303836` ([TOXIC_DIALOG_BORDER]), which Toxic
+ * keeps and which sits at [DIALOG_BORDER_TOWARDS_EDGE] of the way from Toxic's `line` to its `edge`.
+ */
+internal fun dialogBorderOf(o: OldgeColors): Color = lerp(o.line, o.edge, DIALOG_BORDER_TOWARDS_EDGE)
+
+/** The Material design's footnote ground, which the Toxic skin has drawn since B-160. */
+internal val TOXIC_FOOTNOTE_GROUND: Color = Color(0xFF111716)
+
+/** The Material design's dialog border, likewise. */
+internal val TOXIC_DIALOG_BORDER: Color = Color(0xFF303836)
+
+/** Where [TOXIC_FOOTNOTE_GROUND]'s lightness sits from Toxic's `surface` to its `ground`: 0.070. */
+internal const val FOOTNOTE_TOWARDS_GROUND: Float = 0.07f
+
+/** Where [TOXIC_DIALOG_BORDER]'s lightness sits from Toxic's `line` to its `edge`: 0.021. */
+internal const val DIALOG_BORDER_TOWARDS_EDGE: Float = 0.02f
 
 /**
  * The Material scheme `AppFrame` and anything left over in Material read, from the same tokens.

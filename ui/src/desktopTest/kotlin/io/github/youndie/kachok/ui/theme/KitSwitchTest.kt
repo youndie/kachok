@@ -22,6 +22,7 @@ import io.github.youndie.kachok.ui.theme.material.MaterialColours
 import io.github.youndie.kachok.ui.theme.material.MaterialKit
 import io.github.youndie.kachok.ui.theme.material.SchemeStyle
 import io.github.youndie.kachok.ui.theme.oldge.OldgeKit
+import io.github.youndie.oldge.theme.OldgeSkin
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotEquals
@@ -55,7 +56,7 @@ class KitSwitchTest {
 
             onNodeWithText(InterfaceKit.Oldge.label).performScrollTo().performClick()
             waitForIdle()
-            assertSame(OldgeKit, seen.last(), "picking oldge-ui did not reach the composition")
+            assertSame(OldgeKit.Default, seen.last(), "picking oldge-ui did not reach the composition")
             onNodeWithText(InterfaceKit.Oldge.label).assertIsSelected()
             // The screen is still there and still answers, drawn by the other kit's components.
             onNodeWithContentDescription("Join the DHT (BEP 5)").performScrollTo().performClick()
@@ -63,7 +64,7 @@ class KitSwitchTest {
             onNodeWithText(InterfaceKit.Material.label).performScrollTo().performClick()
             waitForIdle()
             assertSame(MaterialKit.Default, seen.last(), "and back")
-            assertEquals(listOf<KachokKit>(MaterialKit.Default, OldgeKit, MaterialKit.Default), seen)
+            assertEquals(listOf<KachokKit>(MaterialKit.Default, OldgeKit.Default, MaterialKit.Default), seen)
         }
 
     /**
@@ -107,16 +108,111 @@ class KitSwitchTest {
             assertSame(MaterialKit.Default, seen.last(), "the design's teal and style are the hand-written kit")
         }
 
-    /** Under oldge-ui the row is absent: its colours are its skin, which B-162 makes a choice. */
+    /**
+     * Under oldge-ui the *Colours* row is the library's skins, every one of `OldgeSkin.entries` and
+     * nothing of the Material kit's (B-162): no seed swatch, no style segment.
+     */
     @Test
-    fun theColoursRowIsTheMaterialKits(): Unit =
+    fun theColoursRowIsTheKits(): Unit =
         runComposeUiTest {
             setContent {
-                KachokTheme(kit = OldgeKit) {
+                KachokTheme(kit = OldgeKit.Default) {
                     SettingsScreen(settingsOf(Preferences(directory = "/tmp/x", interfaceKit = InterfaceKit.Oldge)))
                 }
             }
-            onAllNodesWithContentDescription("Colours").assertCountEquals(0)
+            onNodeWithContentDescription("Colours").performScrollTo()
+            OldgeSkin.entries.forEach { onNodeWithContentDescription(it.name).performScrollTo() }
+            onNodeWithContentDescription(OldgeKit.DEFAULT_SKIN.name).assertIsSelected()
             onAllNodesWithContentDescription("Violet").assertCountEquals(0)
+            onAllNodesWithContentDescription("Colours style").assertCountEquals(0)
+        }
+
+    /**
+     * A skin picked under oldge-ui redraws the window in it, without a restart (B-162) — wired the
+     * way `run` wires it, and asserted on the kit the screen itself is composed under.
+     */
+    @Test
+    fun pickingASkinRedrawsTheWindowInIt(): Unit =
+        runComposeUiTest {
+            val seen = mutableListOf<KachokKit>()
+            setContent {
+                var preferences by remember {
+                    mutableStateOf(Preferences(directory = "/tmp/x", interfaceKit = InterfaceKit.Oldge))
+                }
+                KachokTheme(kit = preferences.kit) {
+                    val kit = LocalKit.current
+                    if (seen.lastOrNull() !== kit) seen += kit
+                    SettingsScreen(settingsOf(preferences)) { change ->
+                        if (change is SettingChange.Swatched) {
+                            preferences =
+                                preferences.swatched(change.key, change.value)
+                        }
+                    }
+                }
+            }
+            assertSame(OldgeKit.Default, seen.last())
+
+            onNodeWithContentDescription(OldgeSkin.Media.name).performScrollTo().performClick()
+            waitForIdle()
+            assertSame(OldgeKit.of(OldgeSkin.Media), seen.last(), "picking Media did not reach the composition")
+            assertEquals(OldgeSkin.Media.colors.surface, seen.last().colors.surface, "the window is not Media's")
+            onNodeWithContentDescription(OldgeSkin.Media.name).assertIsSelected()
+
+            onNodeWithContentDescription(OldgeSkin.Crystal.name).performScrollTo().performClick()
+            waitForIdle()
+            assertSame(OldgeKit.of(OldgeSkin.Crystal), seen.last())
+            // The screen still answers, drawn in the light skin.
+            onNodeWithContentDescription("Join the DHT (BEP 5)").performScrollTo().performClick()
+
+            onNodeWithContentDescription(OldgeSkin.Toxic.name).performScrollTo().performClick()
+            waitForIdle()
+            assertEquals(
+                listOf<KachokKit>(
+                    OldgeKit.Default,
+                    OldgeKit.of(OldgeSkin.Media),
+                    OldgeKit.of(OldgeSkin.Crystal),
+                    OldgeKit.Default,
+                ),
+                seen,
+            )
+        }
+
+    /**
+     * Each kit keeps its own colour choice: violet under Material, Media under oldge-ui, and
+     * switching Material, oldge-ui, Material, oldge-ui finds each where it was left.
+     */
+    @Test
+    fun eachKitKeepsItsOwnColours(): Unit =
+        runComposeUiTest {
+            var kit: KachokKit? = null
+            setContent {
+                var preferences by remember { mutableStateOf(Preferences(directory = "/tmp/x")) }
+                KachokTheme(kit = preferences.kit) {
+                    kit = LocalKit.current
+                    SettingsScreen(settingsOf(preferences)) { change ->
+                        when (change) {
+                            is SettingChange.Chose -> preferences = preferences.chose(change.key, change.value)
+                            is SettingChange.Swatched -> preferences = preferences.swatched(change.key, change.value)
+                            else -> Unit
+                        }
+                    }
+                }
+            }
+            val violet = MaterialColours(Color(0xFFA78BFA), SchemeStyle.TonalSpot)
+            onNodeWithContentDescription("Violet").performScrollTo().performClick()
+            onNodeWithText(InterfaceKit.Oldge.label).performScrollTo().performClick()
+            onNodeWithContentDescription(OldgeSkin.Media.name).performScrollTo().performClick()
+            waitForIdle()
+            assertSame(OldgeKit.of(OldgeSkin.Media), kit)
+
+            onNodeWithText(InterfaceKit.Material.label).performScrollTo().performClick()
+            waitForIdle()
+            assertEquals(violet, (kit as MaterialKit).colours, "coming back to Material lost the violet")
+            onNodeWithContentDescription("Violet").assertIsSelected()
+
+            onNodeWithText(InterfaceKit.Oldge.label).performScrollTo().performClick()
+            waitForIdle()
+            assertSame(OldgeKit.of(OldgeSkin.Media), kit, "coming back to oldge-ui lost the skin")
+            onNodeWithContentDescription(OldgeSkin.Media.name).assertIsSelected()
         }
 }

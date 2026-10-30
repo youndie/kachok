@@ -4,6 +4,7 @@ import io.github.youndie.kachok.control.configDirectory
 import io.github.youndie.kachok.ui.theme.InterfaceKit
 import io.github.youndie.kachok.ui.theme.material.MaterialColours
 import io.github.youndie.kachok.ui.theme.material.SchemeStyle
+import io.github.youndie.kachok.ui.theme.oldge.OldgeKit
 import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.Path
@@ -97,6 +98,10 @@ internal fun loadPreferences(
                         ?: fallback.materialColours.seed,
                 style = text(COLOUR_STYLE)?.let { SchemeStyle.of(it) } ?: fallback.materialColours.style,
             ),
+        // And for the oldge kit's skin (B-162): a name the library no longer has — a skin a later
+        // release of oldge-ui dropped or renamed — is its first skin, not the fallback's, because
+        // the name says nothing about which of the remaining ones somebody wanted.
+        oldgeSkin = OldgeKit.skinOf(text(OLDGE_SKIN)) ?: fallback.oldgeSkin,
     )
 }
 
@@ -124,6 +129,7 @@ internal fun savePreferences(
             setProperty(INTERFACE, preferences.interfaceKit.stored)
             setProperty(COLOUR_SEED, preferences.materialColours.storedSeed)
             setProperty(COLOUR_STYLE, preferences.materialColours.style.stored)
+            setProperty(OLDGE_SKIN, preferences.oldgeSkin.name)
             preferences.maxPeers?.let { setProperty(MAX_PEERS, it.toString()) }
             preferences.pipelineDepth?.let { setProperty(PIPELINE_DEPTH, it.toString()) }
             preferences.uploadLimitKibPerSecond?.let { setProperty(UPLOAD_LIMIT, it.toString()) }
@@ -163,3 +169,4 @@ private const val DETAILS_WIDTH = "detailsWidth"
 private const val INTERFACE = "interface"
 private const val COLOUR_SEED = "colourSeed"
 private const val COLOUR_STYLE = "colourStyle"
+private const val OLDGE_SKIN = "oldgeSkin"

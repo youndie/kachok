@@ -924,7 +924,8 @@ internal fun Client(
                 }
 
                 is SettingChange.Swatched -> {
-                    // The Material kit's seed (B-161), read in the same place.
+                    // The Material kit's seed (B-161) or the oldge kit's skin (B-162) — whichever
+                    // kit the row was drawn for — read in the same place.
                     preferences = preferences.swatched(change.key, change.value)
                 }
 

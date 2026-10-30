@@ -35,7 +35,7 @@ internal fun AddTorrentSheet() {
 @ViddikScreenshot(name = "dialog-oldge", group = "add", width = 672, height = 760)
 @Composable
 internal fun AddTorrentOldgeSheet() {
-    KachokTheme(kit = OldgeKit) {
+    KachokTheme(kit = OldgeKit.Default) {
         Box(
             Modifier.fillMaxSize().background(KachokTheme.colors.surface),
             contentAlignment = Alignment.Center,

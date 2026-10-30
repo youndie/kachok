@@ -5,6 +5,7 @@ import io.github.youndie.kachok.ui.settings.SettingKey
 import io.github.youndie.kachok.ui.theme.InterfaceKit
 import io.github.youndie.kachok.ui.theme.material.MaterialColours
 import io.github.youndie.kachok.ui.theme.material.SchemeStyle
+import io.github.youndie.oldge.theme.OldgeSkin
 import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.io.path.deleteRecursively
@@ -133,6 +134,43 @@ class StoredPreferencesTest {
         val violet = MaterialColours(Color(0xFFA78BFA), SchemeStyle.Neutral)
         assertEquals(violet, loadPreferences(file, defaults.copy(materialColours = violet)).materialColours)
         assertEquals(MaterialColours.DEFAULT, loadPreferences(file, defaults).materialColours)
+    }
+
+    /** The skin somebody picked under oldge-ui is the skin the next launch draws in (B-162). */
+    @Test
+    fun theChosenSkinComesBack() {
+        savePreferences(
+            file,
+            defaults
+                .chose(SettingKey.Interface, InterfaceKit.Oldge.stored)
+                .swatched(SettingKey.Colours, OldgeSkin.Media.name),
+        )
+        val read = loadPreferences(file, defaults)
+        assertEquals(OldgeSkin.Media, read.oldgeSkin)
+        assertEquals(MaterialColours.DEFAULT, read.materialColours, "the skin was read as a seed")
+        assertTrue("oldgeSkin=Media" in Files.readString(file), Files.readString(file))
+    }
+
+    /**
+     * A skin the library no longer has — a later oldge-ui dropped or renamed it — is the library's
+     * first skin, and the rest of the file is read. Against a fallback that is *not* the first skin,
+     * so a reader that merely ignored the name would fail here.
+     */
+    @Test
+    fun aSkinTheLibraryNoLongerHasIsItsFirst() {
+        file.writeText("oldgeSkin=Plasma\ninterface=oldge-ui\ndirectory=/srv/torrents\n")
+        val read = loadPreferences(file, defaults.copy(oldgeSkin = OldgeSkin.Crystal))
+        assertEquals(OldgeSkin.entries.first(), read.oldgeSkin)
+        assertEquals(InterfaceKit.Oldge, read.interfaceKit)
+        assertEquals("/srv/torrents", read.directory, "the rest of the file was read")
+    }
+
+    /** A file from before the setting existed keeps whatever the caller would have had. */
+    @Test
+    fun aFileWithNoSkinKeepsTheFallback() {
+        file.writeText("directory=/srv/torrents\n")
+        assertEquals(OldgeSkin.Crystal, loadPreferences(file, defaults.copy(oldgeSkin = OldgeSkin.Crystal)).oldgeSkin)
+        assertEquals(OldgeSkin.Toxic, loadPreferences(file, defaults).oldgeSkin)
     }
 
     /**

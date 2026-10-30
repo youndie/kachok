@@ -15,6 +15,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import io.github.youndie.kachok.ui.theme.material.MaterialColours
 import io.github.youndie.kachok.ui.theme.material.MaterialKit
 import io.github.youndie.kachok.ui.theme.oldge.OldgeKit
+import io.github.youndie.oldge.theme.OldgeSkin
 
 /**
  * Every colour a screen asks for, by what it is for rather than by Material's name for it.
@@ -212,13 +213,17 @@ internal enum class InterfaceKit(
     ;
 
     /**
-     * The kit itself. [colours] are the Material kit's seed and style (B-161); the oldge kit's colours
-     * are its skin, which is not chosen yet (B-162), so it ignores them.
+     * The kit itself, in its own colour choice: [colours] are the Material kit's seed and style
+     * (B-161), [skin] the oldge kit's skin (B-162). Each kit reads its own and ignores the other's,
+     * which is what lets a person come back to a kit and find the colours they left it in.
      */
-    fun kit(colours: MaterialColours = MaterialColours.DEFAULT): KachokKit =
+    fun kit(
+        colours: MaterialColours = MaterialColours.DEFAULT,
+        skin: OldgeSkin = OldgeKit.DEFAULT_SKIN,
+    ): KachokKit =
         when (this) {
             Material -> MaterialKit.of(colours)
-            Oldge -> OldgeKit
+            Oldge -> OldgeKit.of(skin)
         }
 
     companion object {
