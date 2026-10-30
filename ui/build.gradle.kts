@@ -96,6 +96,64 @@ kotlin {
     }
 }
 
+// **The JDK's own classes, for ProGuard, from a JDK that ships no `jmods`.**
+//
+// ProGuard has to read the platform's classes to know what a library extends and calls, and
+// Compose gives it `<java.home>/jmods/*.jmod` — which the JDK on CI does not have. Temurin 25 is
+// built to link run-time images without JMODs (JEP 493), so `jlink` works and the directory Compose
+// reads is simply absent: on all three runners ProGuard started with no library at all, could not
+// find `java.lang.Object` as the superclass of anything, and refused (B-155). The JDKs it worked on
+// — Ubuntu's `openjdk-25` and JetBrains Runtime — both still ship `jmods`.
+//
+// So where there are none, the classes come out of the image the JDK runs from, `lib/modules`,
+// through its own `jimage`, one directory per module, and a generated rules file names each as a
+// library. Where there are `jmods` the rules file says so and names nothing, because Compose
+// already does and the same classes twice is a page of duplicate-definition notes.
+val jdkHome = File(compose.desktop.application.javaHome)
+val jdkHasJmods = File(jdkHome, "jmods").isDirectory
+val jdkClasses = layout.buildDirectory.dir("proguard/jdk-classes")
+
+val extractJdkClasses by tasks.registering(Exec::class) {
+    description = "Extracts the JDK's classes for ProGuard when the JDK has no jmods."
+    // Into a local, so the predicate closes over a boolean and not over the script.
+    val hasJmods = jdkHasJmods
+    onlyIf { !hasJmods }
+    val out = jdkClasses.get().asFile
+    outputs.dir(out)
+    doFirst { out.deleteRecursively() }
+    val jimage = File(jdkHome, if (File(jdkHome, "bin/jimage.exe").exists()) "bin/jimage.exe" else "bin/jimage")
+    commandLine(jimage.path, "extract", "--dir", out.path, File(jdkHome, "lib/modules").path)
+}
+
+val jdkLibraryRules by tasks.registering {
+    description = "Names the JDK's classes as ProGuard libraries, or says Compose already does."
+    dependsOn(extractJdkClasses)
+    val out = jdkClasses.get().asFile
+    val rules = layout.buildDirectory.file("proguard/jdk-library.pro")
+    val home = jdkHome.path
+    val hasJmods = jdkHasJmods
+    inputs.property("javaHome", home)
+    inputs.property("hasJmods", hasJmods)
+    outputs.file(rules)
+    doLast {
+        val modules =
+            out
+                .listFiles()
+                .orEmpty()
+                .filter { it.isDirectory }
+                .sortedBy { it.name }
+        check(hasJmods || modules.any { it.name == "java.base" }) { "jimage extracted no java.base from $home" }
+        rules.get().asFile.writeText(
+            if (hasJmods) {
+                "# $home has jmods, which Compose already passes as libraries.\n"
+            } else {
+                "# The classes of $home, which has no jmods, extracted by jimage.\n" +
+                    modules.joinToString("") { "-libraryjars '${it.invariantSeparatorsPath}'(!module-info.class)\n" }
+            },
+        )
+    }
+}
+
 // The desktop application, with the JVM flags the research settled on: the same three the headless
 // client pins in `cli/build.gradle.kts`. A UI does not get to run a different VM from the one every
 // measurement was taken on, and `-Xmx128m` is the budget the whole engine is designed against.
@@ -112,6 +170,24 @@ compose.desktop {
                 "-Xmx$maxHeap",
                 "-XX:MaxDirectMemorySize=192m",
             )
+
+        // **What ships is the release variant: the classes through ProGuard** (B-155).
+        //
+        // 30 MB of jars were every class of every dependency, reached or not; through the shrinker
+        // the same jars are under half that. Compose's defaults are kept — optimisation on,
+        // obfuscation off, so a stack trace somebody sends still names the code it came from. The
+        // rules of this project's own are in the file, each with the failure that put it there.
+        //
+        // **A shrinker removes what nothing *names*, and a check has to run what ships.** So every
+        // task below that runs or packages the image is a `Release` one: `checkDistributable`
+        // asking the old image while the installers carried the shrunk one would be B-78 again,
+        // with a class ProGuard took out in place of a module `jlink` left out.
+        buildTypes.release.proguard {
+            configurationFiles.from(
+                project.file("proguard-rules.pro"),
+                jdkLibraryRules.map { it.outputs.files.singleFile },
+            )
+        }
 
         // The app image `createDistributable` writes, and what it is called inside it.
         //
@@ -265,7 +341,7 @@ val patchDesktopEntry by tasks.registering(Exec::class) {
     // version — a second place the package's version lived, and the moment `packageVersion` gained
     // a build number the two disagreed and CI failed with `no package at …kachok_0.1.0_amd64.deb`.
     // The directory holds exactly one `.deb`; the script insists on that rather than guessing which.
-    val debDir = layout.buildDirectory.dir("compose/binaries/main/deb")
+    val debDir = layout.buildDirectory.dir("compose/binaries/main-release/deb")
     commandLine(
         "sh",
         "-c",
@@ -293,9 +369,11 @@ val patchDesktopEntry by tasks.registering(Exec::class) {
     )
 }
 
-tasks.matching { it.name == "packageDeb" }.configureEach { finalizedBy(patchDesktopEntry) }
+// The release `.deb` is the one that ships (B-155), so it is the one patched; `packageDeb` still
+// builds the unshrunk variant for comparison and is left as jpackage wrote it.
+tasks.matching { it.name == "packageReleaseDeb" }.configureEach { finalizedBy(patchDesktopEntry) }
 
-// **The one thing that runs what `createDistributable` produced.**
+// **The one thing that runs what `createReleaseDistributable` produced** — the image that ships.
 //
 // A `jlink` runtime is the only place a missing module can exist, and until this task there was
 // nothing between "the image was linked" and "somebody downloaded it": `:ui:run` and every test use
@@ -310,15 +388,15 @@ val distributionLauncher =
     layout.buildDirectory.file(
         when {
             System.getProperty("os.name").orEmpty().startsWith("Mac") -> {
-                "compose/binaries/main/app/kachok.app/Contents/MacOS/kachok"
+                "compose/binaries/main-release/app/kachok.app/Contents/MacOS/kachok"
             }
 
             System.getProperty("os.name").orEmpty().startsWith("Windows") -> {
-                "compose/binaries/main/app/kachok/kachok.exe"
+                "compose/binaries/main-release/app/kachok/kachok.exe"
             }
 
             else -> {
-                "compose/binaries/main/app/kachok/bin/kachok"
+                "compose/binaries/main-release/app/kachok/bin/kachok"
             }
         },
     )
@@ -326,7 +404,7 @@ val distributionLauncher =
 val checkDistributable by tasks.registering(Exec::class) {
     group = "verification"
     description = "Runs the packaged application's own launcher against its trimmed runtime."
-    dependsOn(tasks.named("createDistributable"))
+    dependsOn(tasks.named("createReleaseDistributable"))
     inputs.file(distributionLauncher)
     outputs.file(preflightReport)
 
@@ -352,6 +430,31 @@ val checkDistributable by tasks.registering(Exec::class) {
 }
 
 tasks.named("check") { dependsOn(checkDistributable) }
+
+// **The shipped window, downloading** (B-155).
+//
+// The preflight exits before a window exists, so it cannot see what a shrinker breaks in one: a
+// composable, a renderer, the MCP server's serialisation. `DistributionDownloadTest` starts the
+// release image's launcher, waits for its engine on the single-instance lock and has its MCP
+// server download a torrent from a seed on loopback, then compares the bytes.
+//
+// A test task of its own rather than part of `desktopTest`: it needs the built image and a display,
+// neither of which the ordinary suite may assume. Not on `check` for the second reason — the Linux CI
+// job has no display — and run by `distributions.yml` on each of the three runners instead, which is
+// where an image that ships is built.
+val desktopTests = tasks.named<Test>("desktopTest")
+desktopTests.configure { filter { excludeTestsMatching("*.DistributionDownloadTest") } }
+
+val checkDownload by tasks.registering(Test::class) {
+    group = "verification"
+    description = "Starts the packaged window and has it download a torrent over MCP from a local seed."
+    dependsOn(tasks.named("createReleaseDistributable"))
+    testClassesDirs = desktopTests.get().testClassesDirs
+    classpath = desktopTests.get().classpath
+    filter { includeTestsMatching("*.DistributionDownloadTest") }
+    systemProperty("kachok.launcher", distributionLauncher.get().asFile.absolutePath)
+    inputs.dir(layout.buildDirectory.dir("compose/binaries/main-release/app"))
+}
 
 // **A package whose version cannot go up is a package that cannot be installed over the last one.**
 //

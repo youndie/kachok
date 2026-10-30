@@ -625,6 +625,50 @@ Two things this exercised that no local swarm can:
 * **Resume, on data somebody else's swarm produced.** A second run over the finished directory said
   `resuming with 3020 of 3020 pieces` and completed without asking the swarm for anything.
 
+### 1.3g What the desktop image is made of, and what ProGuard takes out of it
+
+Measured on 2026-10-30 for [B-155](../backlog/B-155-the-desktop-distribution-ships-shrunk-classes.md).
+The installed Linux app image at `ca74b97`, built on the Linux box with Ubuntu's `openjdk-25`
+25.0.4.1:
+
+| Part | Size |
+|---|---|
+| the runtime's `modules` file — the linked JDK classes, uncompressed | 55 MB |
+| the runtime's `libjvm.so` | 28 MB |
+| `libskiko-linux-x64.so` beside the jars — Skia | 29 MB |
+| the application's 59 jars | 30 MB (68.7 MB inflated) |
+| **the image** | **145 MB** |
+
+Through ProGuard (Compose's release build, 7.8.0, optimisation on, obfuscation off) the jars other
+than Skiko's go to about 13 MB, and the same image is **128 MB**. On the runners, Temurin 25.0.5,
+`distributions.yml` run 41099212492:
+
+| | Installed image | Installer |
+|---|---|---|
+| Linux x64 | 134 MB | `.deb` 44 MB |
+| macOS aarch64 | 122 MB | `.dmg` 57 MB |
+| Windows x64 | 115 MB | `.msi` 49 MB |
+
+The unshrunk image was not measured on the runners, so the before-and-after is the Linux box's
+145 → 128 alone; the runners' numbers are the image as it now ships. Neither Skiko nor the runtime is
+touched by a shrinker — together they are three quarters of what is left, and the runtime's half is
+[B-156](../backlog/B-156-the-desktop-runtime-is-compressed.md)'s.
+
+**Consequence 1 — a JDK without `jmods` is a ProGuard with no library.** Compose names
+`<java.home>/jmods/*.jmod` as ProGuard's library, and Temurin 25 is built to link run-time images
+without them (JEP 493): `jlink` works, the directory is absent, and ProGuard on all three runners
+failed with `can't find superclass or interface java.lang.Object` for every class it read. The two
+JDKs it was first tried on, Ubuntu's and JetBrains Runtime, both still ship `jmods`, which is why it
+passed there. `:ui:extractJdkClasses` takes the classes out of the JDK's own `modules` image with its
+`jimage` when there are no `jmods`, and a generated rules file names them; verified on the Linux box
+with a copy of the JDK whose `jmods` was removed (69 modules, no warnings) and on the runners.
+
+**Consequence 2 — the preflight could not have caught a shrinker.** It exits before
+`application {}`, so every class only a window reaches — the composables, the renderer, the MCP
+server and its serialisation — is outside it. `:ui:checkDownload` starts the packaged launcher and
+has its MCP server download a megabyte from `LocalSwarm`; it passed on all three runners and on the
+Linux box under WSLg, and fails against a seed that refuses (measured, as the mutation check).
+
 ### 1.3a Sparse files: the mechanism is not interchangeable
 
 Measured on this machine (macOS 27, APFS, JDK 25.0.2, 2026-09-05) by creating a 4 MB file four

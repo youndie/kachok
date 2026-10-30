@@ -30,7 +30,7 @@ screenshot suite compares against, degraded banner and all.*
 ## Three ways in
 
 **The window** — `./gradlew :ui:run`, or an installer from
-`./gradlew :ui:packageDistributionForCurrentOS` (`.dmg`, `.msi`, `.deb`).
+`./gradlew :ui:packageReleaseDistributionForCurrentOS` (`.dmg`, `.msi`, `.deb`).
 
 **The command line** — a headless client that prints one progress line a second:
 
