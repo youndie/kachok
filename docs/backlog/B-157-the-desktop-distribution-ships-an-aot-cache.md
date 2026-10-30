@@ -112,5 +112,12 @@ engine on the lock — **936 → 388 ms** median; installed **130 → 191 MB**; 
 57.2 MB**. Positive control: a jar touched after the cache was assembled fails `addAotCacheToDeb`
 with `timestamp has changed`.
 
+On the runner (`distributions.yml` run 41133211472, Temurin 25.0.5): a 60 MB cache, the `.deb`
+57 MB, and `/opt/kachok/bin/kachok` installed by `dpkg -i` logs `Using AOT-linked classes: true`.
+Installing it there first failed in jpackage's own `postinst`: `xdg-desktop-menu` refuses with
+"No writable system menu directory found" unless `/etc/xdg/menus`, `/usr/share/desktop-directories`
+and `/usr/share/applications` exist, which a desktop has and a headless runner had not; the workflow
+creates them before `dpkg -i`. A guess at one of the three did not fix it — the script was read.
+
 - AC for the `.deb` — **met**: the installed client maps its cache (`dpkg -i` on the runner), the
   times and the sizes are in research §1.3h. macOS and Windows — B-171 and B-172.
