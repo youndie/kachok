@@ -1,7 +1,7 @@
 ---
 id: B-166
 title: "The packaged preflight runs again whenever the image it checks changes"
-status: open
+status: wip
 priority: P2
 size: S
 stage: phase-2-ui
