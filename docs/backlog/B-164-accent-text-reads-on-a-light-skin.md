@@ -1,7 +1,7 @@
 ---
 id: B-164
 title: "Text drawn in the accent stays readable on a light skin: an accent-as-text role in the kit"
-status: open
+status: wip
 priority: P2
 size: S/M
 stage: phase-2-ui
