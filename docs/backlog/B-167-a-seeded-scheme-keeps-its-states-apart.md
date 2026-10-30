@@ -1,7 +1,7 @@
 ---
 id: B-167
 title: "Every seeded scheme keeps the error row's tint and the accent apart from the surface and the warning"
-status: open
+status: wip
 priority: P3
 size: S
 stage: phase-2-ui
