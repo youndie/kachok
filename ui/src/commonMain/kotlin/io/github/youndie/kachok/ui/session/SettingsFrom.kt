@@ -27,6 +27,9 @@ internal data class Preferences(
     val downloadLimitKibPerSecond: Long? = null,
     /** Downloads at once, the rest queued (B-151); `null` is no limit. */
     val maxActiveDownloads: Int? = null,
+    /** Connections and dials in flight for the whole client (B-152); `null` is the recommended cap, 0 none. */
+    val maxConnections: Int? = null,
+    val maxDials: Int? = null,
     /**
      * Join the DHT, and **on** since B-99.
      *
@@ -112,6 +115,8 @@ internal data class Preferences(
             SettingKey.UploadLimit -> copy(uploadLimitKibPerSecond = number)
             SettingKey.DownloadLimit -> copy(downloadLimitKibPerSecond = number)
             SettingKey.MaxActiveDownloads -> copy(maxActiveDownloads = number?.toInt())
+            SettingKey.MaxConnections -> copy(maxConnections = number?.toInt())
+            SettingKey.MaxDials -> copy(maxDials = number?.toInt())
             else -> this
         }
     }
@@ -154,6 +159,8 @@ internal fun Preferences.setLimits(): SetLimits =
         downloadBytesPerSecond = (downloadLimitKibPerSecond ?: 0) * KIB,
         uploadBytesPerSecond = (uploadLimitKibPerSecond ?: 0) * KIB,
         maxActiveDownloads = maxActiveDownloads ?: 0,
+        maxConnections = maxConnections ?: SetLimits.RECOMMENDED_MAX_CONNECTIONS,
+        maxDialsInFlight = maxDials ?: SetLimits.RECOMMENDED_MAX_DIALS,
     )
 
 /**
@@ -169,6 +176,8 @@ internal fun Preferences.withLimits(limits: SetLimits): Preferences =
             downloadLimitKibPerSecond = (limits.downloadBytesPerSecond / KIB).takeIf { it > 0 },
             uploadLimitKibPerSecond = (limits.uploadBytesPerSecond / KIB).takeIf { it > 0 },
             maxActiveDownloads = limits.maxActiveDownloads.takeIf { it > 0 },
+            maxConnections = limits.maxConnections.takeIf { it != SetLimits.RECOMMENDED_MAX_CONNECTIONS },
+            maxDials = limits.maxDialsInFlight.takeIf { it != SetLimits.RECOMMENDED_MAX_DIALS },
         )
     }
 
@@ -297,6 +306,25 @@ internal fun settingsOf(
                             value = preferences.maxActiveDownloads?.toString() ?: NO_LIMIT,
                             changed = preferences.maxActiveDownloads != null,
                             absent = preferences.maxActiveDownloads == null,
+                        ),
+                        Setting(
+                            key = SettingKey.MaxConnections,
+                            label = "Connections, all torrents",
+                            note = "Shared out among the torrents transferring. 0 is no cap.",
+                            default = "${SetLimits.RECOMMENDED_MAX_CONNECTIONS}",
+                            value = "${preferences.maxConnections ?: SetLimits.RECOMMENDED_MAX_CONNECTIONS}",
+                            changed =
+                                preferences.maxConnections != null &&
+                                    preferences.maxConnections != SetLimits.RECOMMENDED_MAX_CONNECTIONS,
+                        ),
+                        Setting(
+                            key = SettingKey.MaxDials,
+                            label = "Connection attempts at once",
+                            note = "Each waits in the router's table until it answers or times out. 0 is no cap.",
+                            default = "${SetLimits.RECOMMENDED_MAX_DIALS}",
+                            value = "${preferences.maxDials ?: SetLimits.RECOMMENDED_MAX_DIALS}",
+                            changed =
+                                preferences.maxDials != null && preferences.maxDials != SetLimits.RECOMMENDED_MAX_DIALS,
                         ),
                     ),
                 ),

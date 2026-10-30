@@ -73,6 +73,8 @@ internal enum class SettingKey(
     UploadLimit,
     DownloadLimit,
     MaxActiveDownloads,
+    MaxConnections,
+    MaxDials,
     Dht,
     Autostart,
     CloseToTray,

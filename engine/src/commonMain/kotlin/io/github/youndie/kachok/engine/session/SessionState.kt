@@ -329,6 +329,18 @@ public sealed interface Command {
     ) : Command
 
     /**
+     * This torrent's share of the client's connections, or null for no share (B-152).
+     *
+     * The set's cap divided among the torrents that are transferring. The session keeps the smaller
+     * of this and its own `maxPeers`, and closes the least useful connections at once when it holds
+     * more than that — a cap that only stopped new connections would take as long to bite as peers
+     * take to leave on their own, which on a good swarm is hours.
+     */
+    public class Share(
+        public val maxPeers: Int?,
+    ) : Command
+
+    /**
      * Read every piece off the disk and hash it, trusting the resume record for nothing.
      *
      * Not a stop and a start: the tracker is never told, because the swarm has no interest in a
@@ -527,6 +539,11 @@ public class SessionConfig(
     public val sharedUpload: RateBudget? = null,
     /** The client's own download limit, shared the same way as [sharedUpload]. */
     public val sharedDownload: RateBudget? = null,
+    /**
+     * The client's connections and dials in flight, shared with every other torrent, or null for
+     * none (B-152). Every dial and every accepted peer takes a slot from it and gives it back.
+     */
+    public val connections: io.github.youndie.kachok.engine.peer.ConnectionBudget? = null,
     /**
      * BEP 10's `m`: the extensions this client offers, and the message id it wants each sent under.
      *

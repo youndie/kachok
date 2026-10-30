@@ -6,6 +6,7 @@ import io.github.youndie.kachok.control.configDirectory
 import io.github.youndie.kachok.control.mcp.McpKeeper
 import io.github.youndie.kachok.control.mcp.McpServer
 import io.github.youndie.kachok.control.store.StoredTorrentsKeeper
+import io.github.youndie.kachok.control.store.firstRunLimits
 import io.github.youndie.kachok.control.store.keepLimits
 import io.github.youndie.kachok.control.store.limitsFile
 import io.github.youndie.kachok.control.store.loadLimits
@@ -13,7 +14,6 @@ import io.github.youndie.kachok.control.store.loadStoredTorrents
 import io.github.youndie.kachok.control.store.reopenStored
 import io.github.youndie.kachok.engine.io.EngineDispatchers
 import io.github.youndie.kachok.engine.runtime.RuntimeOptions
-import io.github.youndie.kachok.engine.runtime.SetLimits
 import io.github.youndie.kachok.engine.runtime.SetOptions
 import io.github.youndie.kachok.engine.runtime.TorrentSet
 import kotlinx.coroutines.CompletableDeferred
@@ -136,7 +136,7 @@ internal object Mcp {
                                 store
                                     ?.let(::limitsFile)
                                     ?.let { loadLimits(it) { problem -> err.appendLine("kachok: $problem") } }
-                                    ?: SetLimits(),
+                                    ?: firstRunLimits,
                         ),
                     onBindFailure = { err.appendLine("kachok: $it") },
                 )

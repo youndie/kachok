@@ -661,10 +661,14 @@ public class McpServer(
         val download = arguments.string("download")?.let(::rate) ?: now.downloadBytesPerSecond
         val upload = arguments.string("upload")?.let(::rate) ?: now.uploadBytesPerSecond
         val maxActive = arguments["max_active_downloads"]?.jsonPrimitive?.intOrNull ?: now.maxActiveDownloads
-        if (maxActive < 0) {
-            throw Refusal("max_active_downloads is how many downloads run at once: 0 for no limit, never below")
+        val maxConnections = arguments["max_connections"]?.jsonPrimitive?.intOrNull ?: now.maxConnections
+        val maxDials = arguments["max_dials"]?.jsonPrimitive?.intOrNull ?: now.maxDialsInFlight
+        if (maxActive < 0 || maxConnections < 0 || maxDials < 0) {
+            throw Refusal(
+                "a count is 0 for no limit, or more; max_active_downloads, max_connections and max_dials are never below 0",
+            )
         }
-        set.limit(SetLimits(download, upload, maxActive))
+        set.limit(SetLimits(download, upload, maxActive, maxConnections, maxDials))
         return Outcome("Limits for the whole client, in effect now:\n${limitLines()}")
     }
 
@@ -679,10 +683,15 @@ public class McpServer(
         val limits = set.limits.value
         val queue = set.queueStatus
         val turns = if (queue.maxActive == 0) "no limit" else "${queue.maxActive}"
+        val held = set.connectionStatus
         return "download limit: ${Rates.describe(limits.downloadBytesPerSecond)}, for the whole client\n" +
             "upload limit: ${Rates.describe(limits.uploadBytesPerSecond)}, for the whole client\n" +
-            "downloads at once: $turns (${queue.active} running, ${queue.queued} queued)"
+            "downloads at once: $turns (${queue.active} running, ${queue.queued} queued)\n" +
+            "connections: ${held.connections} of ${cap(held.maxConnections)}, " +
+            "dialling ${held.dialling} of ${cap(held.maxDialsInFlight)}"
     }
+
+    private fun cap(count: Int): String = if (count == 0) "no cap" else "$count"
 
     private fun runtimeFor(arguments: JsonObject): TorrentRuntime {
         val hash =
@@ -849,6 +858,7 @@ public class McpServer(
                 Tool(
                     "set_limits",
                     "Limit the whole client, across every torrent: how fast it downloads, how fast it uploads, " +
+                        "how many peer connections and connection attempts it holds, " +
                         "and how many torrents download at once — the rest wait as queued and start, in the order " +
                         "they were added, as turns free up; seeding never waits. Takes effect at once and is kept " +
                         "between runs. Leave a field out to keep it as it is.",
@@ -864,6 +874,18 @@ public class McpServer(
                             "max_active_downloads",
                             "integer",
                             "How many torrents download at once; 0 for no limit.",
+                        )
+                        property(
+                            "max_connections",
+                            "integer",
+                            "Peer connections across every torrent, shared out equally among those transferring; " +
+                                "lowering it closes the least useful at once. 0 for no cap.",
+                        )
+                        property(
+                            "max_dials",
+                            "integer",
+                            "Connection attempts in flight at once, across every torrent — each one is an entry " +
+                                "in the router's table until it answers or times out. 0 for no cap.",
                         )
                     },
                 ) { setLimits(it) },

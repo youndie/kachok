@@ -62,6 +62,8 @@ internal fun loadPreferences(
         uploadLimitKibPerSecond = number(UPLOAD_LIMIT) ?: fallback.uploadLimitKibPerSecond,
         downloadLimitKibPerSecond = number(DOWNLOAD_LIMIT) ?: fallback.downloadLimitKibPerSecond,
         maxActiveDownloads = number(MAX_ACTIVE)?.toInt() ?: fallback.maxActiveDownloads,
+        maxConnections = number(MAX_CONNECTIONS)?.toInt() ?: fallback.maxConnections,
+        maxDials = number(MAX_DIALS)?.toInt() ?: fallback.maxDials,
         dht = text(DHT)?.toBooleanStrictOrNull() ?: fallback.dht,
         announceToAllTrackers =
             text(ALL_TRACKERS)?.toBooleanStrictOrNull() ?: fallback.announceToAllTrackers,
@@ -107,6 +109,8 @@ internal fun savePreferences(
             preferences.uploadLimitKibPerSecond?.let { setProperty(UPLOAD_LIMIT, it.toString()) }
             preferences.downloadLimitKibPerSecond?.let { setProperty(DOWNLOAD_LIMIT, it.toString()) }
             preferences.maxActiveDownloads?.let { setProperty(MAX_ACTIVE, it.toString()) }
+            preferences.maxConnections?.let { setProperty(MAX_CONNECTIONS, it.toString()) }
+            preferences.maxDials?.let { setProperty(MAX_DIALS, it.toString()) }
         }
     try {
         Files.createDirectories(file.parent)
@@ -127,6 +131,8 @@ private const val PIPELINE_DEPTH = "pipelineDepth"
 private const val UPLOAD_LIMIT = "uploadLimitKibPerSecond"
 private const val DOWNLOAD_LIMIT = "downloadLimitKibPerSecond"
 private const val MAX_ACTIVE = "maxActiveDownloads"
+private const val MAX_CONNECTIONS = "maxConnections"
+private const val MAX_DIALS = "maxDials"
 private const val DHT = "dht"
 private const val ALL_TRACKERS = "announceToAllTrackers"
 private const val AUTOSTART = "autostart"

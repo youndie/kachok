@@ -45,6 +45,15 @@ public class Snapshot(
     public val uploadLimitBytesPerSecond: Long = 0,
     public val maxActiveDownloads: Int = 0,
     /**
+     * The caps on connections and on dials in flight across every torrent, and what is held now
+     * ([B-152](../../../../../../../../docs/backlog/B-152-one-cap-on-connections-for-the-whole-client.md)).
+     * Zero is no cap.
+     */
+    public val maxConnections: Int = 0,
+    public val maxDialsInFlight: Int = 0,
+    public val connections: Int = 0,
+    public val dialling: Int = 0,
+    /**
      * Which snapshot this is, counting from one. Not a timestamp.
      *
      * A client wants to know whether what it is holding is older than what just arrived, and a wall
@@ -198,6 +207,8 @@ public sealed interface Request {
         public val downloadBytesPerSecond: Long? = null,
         public val uploadBytesPerSecond: Long? = null,
         public val maxActiveDownloads: Int? = null,
+        public val maxConnections: Int? = null,
+        public val maxDialsInFlight: Int? = null,
     ) : Request
 
     @Serializable

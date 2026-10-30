@@ -259,6 +259,11 @@ class McpServerTest {
 
             assertContains(driver.call("network_status").first, "downloads at once: 2")
 
+            // B-152: the caps on connections and dials, set and read back the same way.
+            val (capped, _) = driver.call("set_limits", """{"max_connections":150,"max_dials":12}""")
+            assertContains(capped, "of 150, dialling")
+            assertContains(capped, "of 12")
+
             val (nonsense, wasRefused) = driver.call("set_limits", """{"download":"fast"}""")
             assertTrue(wasRefused, nonsense)
             assertContains(nonsense, "not a rate")

@@ -195,6 +195,9 @@ public class TorrentRuntime internal constructor(
     /** Holds the torrent for a turn, or gives it one; the set's queue calls this (B-151). */
     public suspend fun queue(held: Boolean): Unit = session.send(Command.Queue(held))
 
+    /** This torrent's share of the client's connections, or null for none; the set calls this (B-152). */
+    internal suspend fun share(maxPeers: Int?): Unit = session.send(Command.Share(maxPeers))
+
     private var running: Job? = null
 
     /**
@@ -294,6 +297,8 @@ public class TorrentRuntime internal constructor(
             /** The set's own limits, spent on top of this torrent's (B-151). */
             sharedUpload: RateBudget? = null,
             sharedDownload: RateBudget? = null,
+            /** The set's connections and dials, shared with every other torrent (B-152). */
+            connections: io.github.youndie.kachok.engine.peer.ConnectionBudget? = null,
         ): TorrentRuntime {
             Files.createDirectories(options.directory)
             val files = FileSet.open(options.directory, metainfo)
@@ -371,6 +376,7 @@ public class TorrentRuntime internal constructor(
                             downloadLimitBytesPerSecond = options.downloadLimitBytesPerSecond,
                             sharedUpload = sharedUpload,
                             sharedDownload = sharedDownload,
+                            connections = connections,
                         ),
                     unwantedFiles = options.unwantedFiles,
                     highFiles = options.highFiles,

@@ -61,6 +61,8 @@ What exists on `main` today:
 | `.../engine/runtime/TorrentSet.kt` (jvmMain) | several torrents in one process: one listener that reads a handshake before it routes it, one DHT, one dispatcher, where their resume records live when that is not beside the files (B-150), and the client's own limits and download queue (B-151) |
 | `.../engine/runtime/SharedRateLimit.kt` (jvmMain) | one rate limit spent by every session of a set, locked, and refilled by the clock rather than by any session's tick (B-151) |
 | `.../engine/choke/RateBudget.kt` | what a session spends bytes from, and `BothBudgets` — its own bucket and the client's, spent together (B-151) |
+| `.../engine/peer/ConnectionBudget.kt` | the slots a session takes for a dial and for a connection, from the client's caps (B-152) |
+| `.../engine/runtime/SharedConnectionBudget.kt` (jvmMain) | the set's count of connections and dials in flight against its two caps, behind one lock (B-152) |
 | `.../engine/runtime/TorrentRuntime.kt` (jvmMain) | one torrent, wired: every interface above meets its JVM implementation here, and both surfaces call it |
 | `engine/src/jvmMain/kotlin/io/github/youndie/kachok/engine/io/BufferPool.kt` | the capped pool of direct 16 KiB buffers and its `PooledBuffer` handle |
 | `.../engine/io/EngineDispatchers.kt` | the virtual-thread dispatcher every coroutine in the engine runs on |
@@ -253,6 +255,11 @@ them. Nothing is read from the environment by this module; that is [cli](cli.md)
   own bucket and from the set's `SharedRateLimit` together; a per-torrent limit times the torrents
   running is not a limit. The shared one is locked and refills from the clock, because eleven
   sessions each adding a tick's worth would be eleven times the rate.
+* **A dial is a connection from the moment it starts** (B-152). It takes a slot of the client's
+  connection cap and one of its dials-in-flight cap; a failed dial gives both back, a successful one
+  only the dial slot, and the connection's goes back when it closes. Each transferring torrent's
+  share of the cap is sent to it as `Command.Share`; the session keeps the smaller of that and its own
+  `maxPeers` and closes the excess at once, choking and slowest peers first.
 * **Queued is not paused.** The set's queue holds a torrent with `Command.Queue`, which pauses it
   and publishes `queued` rather than `paused`; a person's pause wins over it, a resume does not jump
   it, and a torrent that would have to wait is started held, so it never announces first. Turns go
