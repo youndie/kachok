@@ -1,7 +1,7 @@
 ---
 id: B-169
 title: "A settings number field shows its whole value: \"no limit\" is not cut to \"no lim\""
-status: open
+status: wip
 priority: P3
 size: XS
 stage: phase-2-ui
