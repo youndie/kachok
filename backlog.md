@@ -60,7 +60,7 @@ which is also the order of work.
 | [B-87](docs/backlog/B-87-a-server-with-a-web-face.md) `[ ]` | Phase 3: a headless server with a web face, installable on a box that is always on | P3 | XL | B-80 |
 | [B-02](docs/backlog/B-02-ci-runs-build-and-docs-gates.md) `[ ]` | CI runs the build and the documentation gates on every push | infra | S | B-01 |
 
-## Closed (146)
+## Closed (147)
 
 **M0 — The build and its gates**
 
@@ -96,6 +96,7 @@ which is also the order of work.
 - [B-151](docs/backlog/B-151-one-limit-for-the-whole-client.md) `[x]` - One download and upload limit for the whole client, and a cap on downloads at once with the rest queued
 - [B-152](docs/backlog/B-152-one-cap-on-connections-for-the-whole-client.md) `[x]` - One cap on connections and one on connection attempts in flight, for the whole client
 - [B-153](docs/backlog/B-153-the-queue-order-survives-a-restart.md) `[x]` - The remembered torrents come back in the order they were added, so the download queue keeps its order across a restart
+- [B-154](docs/backlog/B-154-each-torrent-gets-its-share-of-the-dials.md) `[x]` - Each transferring torrent gets an equal share of the client's dials in flight
 
 **M4 — A download, end to end**
 

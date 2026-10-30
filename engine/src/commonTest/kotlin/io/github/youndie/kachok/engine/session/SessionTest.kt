@@ -1967,6 +1967,37 @@ class SessionTest {
             job.cancelAndJoin()
         }
 
+    /**
+     * B-154: a torrent given a share of the client's dials keeps no more than that in flight, however
+     * many addresses it knows — the rest of the client's cap is left for the other torrents. The
+     * dialer never answers, which is what most of a public swarm's addresses do.
+     */
+    @Test
+    fun aShareOfTheDialsIsAllATorrentKeepsInFlight(): Unit =
+        runTest {
+            val metainfo = torrent(pieces = 2)
+            val dialled = mutableListOf<PeerAddress>()
+            val unanswered =
+                object : PeerDialer {
+                    override suspend fun connect(address: PeerAddress): PeerConnection {
+                        dialled += address
+                        kotlinx.coroutines.awaitCancellation()
+                    }
+                }
+            val session =
+                session(metainfo, unanswered, FakeTracker(emptyList()), FakeStorage(), AgreeableHasher(metainfo))
+            val job = session.start(kotlinx.coroutines.CoroutineScope(coroutineContext + handler))
+            testScheduler.runCurrent()
+
+            session.send(Command.Share(maxPeers = null, dials = 2))
+            session.send(
+                Command.AddPeers((1..6).map { PeerAddress("10.0.1.$it", 6881) }),
+            )
+            testScheduler.runCurrent()
+            assertEquals(2, dialled.size, "the torrent dialled past its share of the client's dials")
+            job.cancelAndJoin()
+        }
+
     /** The client's connection budget as a counter the test can read. */
     private class CountedConnections(
         private val max: Int,

@@ -259,7 +259,8 @@ them. Nothing is read from the environment by this module; that is [cli](cli.md)
   connection cap and one of its dials-in-flight cap; a failed dial gives both back, a successful one
   only the dial slot, and the connection's goes back when it closes. Each transferring torrent's
   share of the cap is sent to it as `Command.Share`; the session keeps the smaller of that and its own
-  `maxPeers` and closes the excess at once, choking and slowest peers first.
+  `maxPeers` and closes the excess at once, choking and slowest peers first. The dials in flight are
+  shared out the same way (B-154): the client's cap alone went to whichever session asked first.
 * **Queued is not paused.** The set's queue holds a torrent with `Command.Queue`, which pauses it
   and publishes `queued` rather than `paused`; a person's pause wins over it, a resume does not jump
   it, and a torrent that would have to wait is started held, so it never announces first. Turns go

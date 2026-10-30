@@ -195,8 +195,11 @@ public class TorrentRuntime internal constructor(
     /** Holds the torrent for a turn, or gives it one; the set's queue calls this (B-151). */
     public suspend fun queue(held: Boolean): Unit = session.send(Command.Queue(held))
 
-    /** This torrent's share of the client's connections, or null for none; the set calls this (B-152). */
-    internal suspend fun share(maxPeers: Int?): Unit = session.send(Command.Share(maxPeers))
+    /** This torrent's share of the client's connections and dials, null for none; the set calls this (B-152, B-154). */
+    internal suspend fun share(
+        maxPeers: Int?,
+        dials: Int?,
+    ): Unit = session.send(Command.Share(maxPeers, dials))
 
     private var running: Job? = null
 

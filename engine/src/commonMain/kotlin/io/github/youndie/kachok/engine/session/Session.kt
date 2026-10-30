@@ -277,6 +277,9 @@ public class Session(
     /** The set's share of the client's connections for this torrent; null when it gave none (B-152). */
     private var shareOfPeers: Int? = null
 
+    /** The set's share of the client's dials in flight for this torrent; null when it gave none (B-154). */
+    private var shareOfDials: Int? = null
+
     /** The connections to keep up: this torrent's own number, or its share of the client's if smaller. */
     private val maxPeers: Int get() = shareOfPeers?.let { minOf(it, ownMaxPeers) } ?: ownMaxPeers
 
@@ -530,6 +533,7 @@ public class Session(
 
                 is Command.Share -> {
                     shareOfPeers = command.maxPeers
+                    shareOfDials = command.dials
                     trimToMaxPeers()
                     connectMore(scope)
                 }
@@ -1034,7 +1038,10 @@ public class Session(
      */
     private fun connectMore(scope: CoroutineScope) {
         if (paused || stopping) return
-        val room = maxPeers - connected.size - dialling.size
+        // This torrent's share of the client's dials as well as its own room (B-154): the client's
+        // cap alone goes to whichever session asks first, every tick.
+        val dialRoom = shareOfDials?.let { it - dialling.size } ?: Int.MAX_VALUE
+        val room = minOf(maxPeers - connected.size - dialling.size, dialRoom)
         if (room <= 0) return
         known
             .asSequence()
