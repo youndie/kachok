@@ -55,19 +55,24 @@ jobs:
       # instead of reaching whoever downloads the artifact.
       - run: ./gradlew :ui:checkDistributable --stacktrace
 
-      - run: ./gradlew :ui:packageDistributionForCurrentOS --stacktrace
+      # **The release variant**, the one whose classes went through ProGuard (B-155) and the one
+      # `checkDistributable` above just ran.
+      - run: ./gradlew :ui:packageReleaseDistributionForCurrentOS --stacktrace
 
       # So the log says what was built rather than only that something was.
       - name: What came out
         shell: bash
-        run: ls -lh ui/build/compose/binaries/main/${{ matrix.format }}/
+        run: |
+          ls -lh ui/build/compose/binaries/main-release/${{ matrix.format }}/
+          # And what it installs to, which is the number B-155 and B-156 move.
+          du -sh ui/build/compose/binaries/main-release/app/*
 
       - uses: actions/upload-artifact@v7
         with:
           # The commit is in the name because two artifacts from two commits are otherwise told
           # apart only by the run they came from, and a downloaded file keeps none of that.
           name: kachok-${{ runner.os }}-${{ runner.arch }}-${{ github.sha }}
-          path: ui/build/compose/binaries/main/${{ matrix.format }}/*.${{ matrix.format }}
+          path: ui/build/compose/binaries/main-release/${{ matrix.format }}/*.${{ matrix.format }}
           # **The guard.** `packageDistributionForCurrentOS` with no format configured succeeded in
           # under a second and wrote nothing, which is how B-82 was filed; without this a run that
           # produces no installer is a green run.
