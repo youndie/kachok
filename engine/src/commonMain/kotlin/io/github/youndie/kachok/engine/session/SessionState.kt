@@ -338,6 +338,14 @@ public sealed interface Command {
      */
     public class Share(
         public val maxPeers: Int?,
+        /**
+         * This torrent's share of the client's dials in flight, or null for none (B-154).
+         *
+         * Without it the client's cap is taken by whichever session's tick asks first, and a torrent
+         * whose swarm is mostly dead addresses — every one a dial held for the connect timeout — can
+         * hold every slot while another torrent with live peers waits with none.
+         */
+        public val dials: Int? = null,
     ) : Command
 
     /**

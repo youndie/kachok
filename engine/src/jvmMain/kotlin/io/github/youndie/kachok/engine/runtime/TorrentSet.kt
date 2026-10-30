@@ -373,8 +373,8 @@ public class TorrentSet(
     private val connectionBudget =
         SharedConnectionBudget(options.limits.maxConnections, options.limits.maxDialsInFlight)
 
-    /** Each running torrent's share of the connections as last sent, so it is sent only when it changes. */
-    private val shares = ConcurrentHashMap<String, Int>()
+    /** Each running torrent's share of the connections and dials as last sent, so it is sent only on change. */
+    private val shares = ConcurrentHashMap<String, Pair<Int?, Int?>>()
 
     /** Connections and dials held now, against the caps (B-152). */
     public val connectionStatus: ConnectionStatus
@@ -471,18 +471,23 @@ public class TorrentSet(
      * [MIN_SHARE], so a cap divided among many torrents still leaves each enough peers to finish.
      */
     private suspend fun shareConnections(started: List<TorrentRuntime>) {
-        val max = limitsState.value.maxConnections
+        val limits = limitsState.value
         val transferring =
             started.filter {
                 val state = it.state.value
                 !state.paused && !state.queued && state.sessionError == null
             }
-        val share = if (max <= 0 || transferring.isEmpty()) NO_SHARE else maxOf(MIN_SHARE, max / transferring.size)
+        if (transferring.isEmpty()) return
+        val peers = limits.maxConnections.takeIf { it > 0 }?.let { maxOf(MIN_SHARE, it / transferring.size) }
+        // The dials in flight the same way (B-154), at least one each: a torrent that may not dial at
+        // all is a torrent that never finds a peer.
+        val dials = limits.maxDialsInFlight.takeIf { it > 0 }?.let { maxOf(1, it / transferring.size) }
+        val share = peers to dials
         transferring.forEach { runtime ->
             val key = runtime.metainfo.infoHash.hex()
             if (shares[key] != share) {
                 shares[key] = share
-                runtime.share(share.takeIf { it != NO_SHARE })
+                runtime.share(peers, dials)
             }
         }
     }
@@ -872,9 +877,6 @@ public class TorrentSet(
 
         /** The fewest connections a transferring torrent is left with, however many share the cap. */
         const val MIN_SHARE = 10
-
-        /** "No share": the cap is off, and every torrent keeps its own `maxPeers`. */
-        const val NO_SHARE = -1
 
         private fun AutoCloseable.closeQuietly() {
             try {
