@@ -126,10 +126,9 @@ and Crystal in 0.1.1.14, so a skin a release adds appears with the version bump 
 its `ground` with its `accent` as a dot. Stored as `oldgeSkin=<the library's name>`, default Toxic,
 and a name the library no longer has reads as its first skin. Each kit keeps its own choice, so
 Material, oldge-ui, Material finds the seed where it was left. Every role comes from the chosen
-skin's tokens by the mapping B-160 wrote for Toxic; the settings footnote's ground and a dialog's
-border, literals of the Material design that Toxic still draws so its goldens did not move, are
-mixed for the other skins at the place those literals sit between Toxic's tokens (Oklab
-lightness). Crystal is a light skin, and its lime `accent` used as text — *Seeding*, the accent
+skin's tokens by the mapping B-160 wrote for Toxic; since [B-168](../backlog/B-168-oldge-skins-own-their-footnote-and-dialog-border.md)
+that includes the settings footnote's ground (`surface2`) and a dialog's border (`edge`), which
+B-162 had still drawn from the Material design's greys. Crystal is a light skin, and its lime `accent` used as text — *Seeding*, the accent
 figures — was 1.6:1 on its white surface; since [B-164](../backlog/B-164-accent-text-reads-on-a-light-skin.md)
 every such use reads `accentText`, which the oldge kit fills with the skin's `accentInk` in every
 skin (Crystal 6.05:1 on `surface`), and the Material kits with `accent` itself, so their goldens
