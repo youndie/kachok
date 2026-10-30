@@ -72,6 +72,7 @@ internal enum class SettingKey(
     AllTrackers,
     UploadLimit,
     DownloadLimit,
+    MaxActiveDownloads,
     Dht,
     Autostart,
     CloseToTray,

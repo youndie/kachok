@@ -1779,6 +1779,133 @@ class SessionTest {
         }
 
     /**
+     * B-151: the set's queue holds a session and gives it back its turn, and the state says which
+     * of the two it is — queued is not paused.
+     */
+    @Test
+    fun aHeldTorrentSaysQueuedAndItsTurnResumesIt(): Unit =
+        runTest {
+            val metainfo = torrent(pieces = 2)
+            val tracker = FakeTracker(listOf(peerA))
+            val session =
+                session(metainfo, FakeDialer(metainfo.infoHash), tracker, FakeStorage(), AgreeableHasher(metainfo))
+
+            val job = session.start(kotlinx.coroutines.CoroutineScope(coroutineContext + handler))
+            testScheduler.runCurrent()
+            session.send(Command.Queue(held = true))
+            testScheduler.runCurrent()
+
+            val held = session.state.value
+            assertTrue(held.queued, "a held torrent did not say so")
+            assertFalse(held.paused, "a held torrent claims a person paused it")
+            assertEquals(0, held.connectedPeers)
+
+            session.send(Command.Resume)
+            testScheduler.runCurrent()
+            assertTrue(session.state.value.queued, "a resume jumped the queue")
+
+            session.send(Command.Queue(held = false))
+            testScheduler.runCurrent()
+            assertFalse(session.state.value.queued)
+            assertFalse(session.state.value.paused)
+            assertEquals(
+                listOf<AnnounceEvent?>(AnnounceEvent.STARTED, AnnounceEvent.STOPPED, AnnounceEvent.STARTED),
+                tracker.events,
+                "the swarm was not told the torrent left and came back",
+            )
+            job.cancelAndJoin()
+        }
+
+    /** B-151: a person's pause wins over the queue, and a paused torrent is never held. */
+    @Test
+    fun pausingAHeldTorrentMakesItPausedAndNotQueued(): Unit =
+        runTest {
+            val metainfo = torrent(pieces = 2)
+            val session =
+                session(
+                    metainfo,
+                    FakeDialer(metainfo.infoHash),
+                    FakeTracker(listOf(peerA)),
+                    FakeStorage(),
+                    AgreeableHasher(metainfo),
+                )
+
+            val job = session.start(kotlinx.coroutines.CoroutineScope(coroutineContext), startQueued = true)
+            testScheduler.runCurrent()
+            assertTrue(session.state.value.queued, "a torrent started held did not say so")
+
+            session.send(Command.Pause)
+            testScheduler.runCurrent()
+            assertTrue(session.state.value.paused)
+            assertFalse(session.state.value.queued)
+
+            session.send(Command.Queue(held = false))
+            testScheduler.runCurrent()
+            assertTrue(session.state.value.paused, "a released turn undid a person's pause")
+            job.cancelAndJoin()
+        }
+
+    /**
+     * B-151: the client's own download limit stops requests the session's own budget would allow,
+     * and the requests resume when it has tokens again.
+     */
+    @Test
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    fun theClientsDownloadLimitIsSpentBeforeAnythingIsAsked(): Unit =
+        runTest {
+            val metainfo = torrent(pieces = 4)
+            val dialer = FakeDialer(metainfo.infoHash)
+            val shared = ScriptedBudget(0)
+            val session =
+                session(
+                    metainfo,
+                    dialer,
+                    FakeTracker(listOf(peerA)),
+                    FakeStorage(),
+                    AgreeableHasher(metainfo),
+                    config =
+                        SessionConfig(
+                            maxStartedPieces = 4,
+                            pipelineDepth = 4,
+                            maxPeers = 10,
+                            sharedDownload = shared,
+                        ),
+                )
+
+            val job = session.start(kotlinx.coroutines.CoroutineScope(coroutineContext + handler))
+            testScheduler.runCurrent()
+            val connection = dialer.connections.getValue(peerA)
+            connection.incoming.send(PeerEvent.Received(Message.Bitfield(allOf(metainfo.pieceCount))))
+            connection.incoming.send(PeerEvent.Received(Message.Unchoke))
+            testScheduler.runCurrent()
+            assertEquals(0, connection.sent.count { it is Message.Request }, "a request went out with no tokens")
+
+            shared.balance = 2L * PeerWire.BLOCK_SIZE
+            testScheduler.advanceTimeBy(SessionConfig().tick.inWholeMilliseconds + 1)
+            testScheduler.runCurrent()
+            assertEquals(2, connection.sent.count { it is Message.Request }, "the tick did not spend the new tokens")
+            job.cancelAndJoin()
+        }
+
+    /** A shared budget whose balance the test sets, standing in for the set's clock-driven one. */
+    private class ScriptedBudget(
+        var balance: Long,
+    ) : io.github.youndie.kachok.engine.choke.RateBudget {
+        override val isUnlimited: Boolean get() = false
+        override val available: Long get() = balance
+
+        override fun take(bytes: Long): Boolean {
+            if (bytes > balance) return false
+            balance -= bytes
+            return true
+        }
+
+        override fun giveBack(bytes: Long) {
+            balance += bytes
+        }
+    }
+
+    /**
      * And nothing is re-verified on the way back.
      *
      * The hasher is the oracle: a resume that rebuilt the session would run the start-up pass

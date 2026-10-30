@@ -238,6 +238,32 @@ class McpServerTest {
         assertTrue("moved to elsewhere" in keeper.calls, keeper.calls.toString())
     }
 
+    /**
+     * B-151: one limit for the whole client and a cap on downloads at once, set while it runs and
+     * read back the same way, in the units a person used.
+     */
+    @Test
+    fun theClientsLimitsAreSetAndReadBack(): Unit =
+        serving { _, driver ->
+            val (set, refused) =
+                driver.call("set_limits", """{"download":"10 Mbit/s","max_active_downloads":2}""")
+            assertFalse(refused, set)
+            assertContains(set, "download limit: 10 Mbit/s")
+            assertContains(set, "upload limit: no limit")
+            assertContains(set, "downloads at once: 2")
+
+            // A field left out is kept.
+            val (raised, _) = driver.call("set_limits", """{"upload":"1 MB/s"}""")
+            assertContains(raised, "download limit: 10 Mbit/s")
+            assertContains(raised, "upload limit: 8 Mbit/s")
+
+            assertContains(driver.call("network_status").first, "downloads at once: 2")
+
+            val (nonsense, wasRefused) = driver.call("set_limits", """{"download":"fast"}""")
+            assertTrue(wasRefused, nonsense)
+            assertContains(nonsense, "not a rate")
+        }
+
     /** The order goes in with the torrent, reads back in the status, and switches both ways (B-133). */
     @Test
     fun theOrderIsSetOnAddAndSwitchedOnARunningTorrent(): Unit =

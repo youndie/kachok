@@ -151,6 +151,21 @@ internal class Backend(
                 }
             }
 
+            is Request.SetLimits -> {
+                val now = set.limits.value
+                try {
+                    set.limit(
+                        io.github.youndie.kachok.engine.runtime.SetLimits(
+                            downloadBytesPerSecond = request.downloadBytesPerSecond ?: now.downloadBytesPerSecond,
+                            uploadBytesPerSecond = request.uploadBytesPerSecond ?: now.uploadBytesPerSecond,
+                            maxActiveDownloads = request.maxActiveDownloads ?: now.maxActiveDownloads,
+                        ),
+                    )
+                } catch (refused: IllegalArgumentException) {
+                    refuse(connection, "setLimits", refused.message.orEmpty())
+                }
+            }
+
             is Request.Remove -> {
                 onTorrent(connection, request, request.infoHash) { set.remove(it) }
             }

@@ -37,6 +37,14 @@ public class Snapshot(
      */
     public val portMapping: String? = null,
     /**
+     * The client's own limits, across every torrent
+     * ([B-151](../../../../../../../../docs/backlog/B-151-one-limit-for-the-whole-client.md)): bytes a
+     * second asked for and served, and how many downloads run at once. Zero is no limit, in each.
+     */
+    public val downloadLimitBytesPerSecond: Long = 0,
+    public val uploadLimitBytesPerSecond: Long = 0,
+    public val maxActiveDownloads: Int = 0,
+    /**
      * Which snapshot this is, counting from one. Not a timestamp.
      *
      * A client wants to know whether what it is holding is older than what just arrived, and a wall
@@ -74,6 +82,8 @@ public class TorrentState(
     public val downBytesPerSecond: Long = 0,
     public val upBytesPerSecond: Long = 0,
     public val paused: Boolean = false,
+    /** Waiting for a turn under [Snapshot.maxActiveDownloads]; never together with [paused] (B-151). */
+    public val queued: Boolean = false,
     public val isComplete: Boolean = false,
     /** Pieces are asked for in order, both ends of each file first, rather than rarest first (B-89, B-121). */
     public val sequential: Boolean = false,
@@ -174,6 +184,20 @@ public sealed interface Request {
     public class Move(
         public val infoHash: String,
         public val directory: String,
+    ) : Request
+
+    /**
+     * The client's own limits (B-151). A null field is left as it is; zero is no limit.
+     *
+     * Not per torrent: one budget for the whole client is what a link that is shared needs, and a
+     * per-torrent limit times the torrents running is not a limit.
+     */
+    @Serializable
+    @SerialName("setLimits")
+    public class SetLimits(
+        public val downloadBytesPerSecond: Long? = null,
+        public val uploadBytesPerSecond: Long? = null,
+        public val maxActiveDownloads: Int? = null,
     ) : Request
 
     @Serializable

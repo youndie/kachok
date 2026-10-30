@@ -1,6 +1,7 @@
 package io.github.youndie.kachok.engine.runtime
 
 import io.github.youndie.kachok.engine.PeerId
+import io.github.youndie.kachok.engine.choke.RateBudget
 import io.github.youndie.kachok.engine.dht.Dht
 import io.github.youndie.kachok.engine.dht.NodeId
 import io.github.youndie.kachok.engine.hash.MessageDigestPieceHasher
@@ -177,7 +178,22 @@ public class TorrentRuntime internal constructor(
     public fun start(
         scope: CoroutineScope,
         paused: Boolean = false,
-    ): Job = session.start(scope, paused).also { running = it }
+    ): Job =
+        session
+            .start(scope, startPaused = paused, startQueued = !paused && holdOnStart())
+            .also { running = it }
+
+    /**
+     * Whether the set's queue has no turn for this torrent when it starts (B-151). Asked at the
+     * start rather than a moment after, so a torrent that has to wait never announces itself first.
+     */
+    internal var holdOnStart: () -> Boolean = { false }
+
+    /** Whether this torrent has been started, which is when the set's queue may hold or release it. */
+    public val isStarted: Boolean get() = running != null
+
+    /** Holds the torrent for a turn, or gives it one; the set's queue calls this (B-151). */
+    public suspend fun queue(held: Boolean): Unit = session.send(Command.Queue(held))
 
     private var running: Job? = null
 
@@ -275,6 +291,9 @@ public class TorrentRuntime internal constructor(
             dht: Dht?,
             onResumeFailure: (String) -> Unit = {},
             resumeDirectory: Path? = null,
+            /** The set's own limits, spent on top of this torrent's (B-151). */
+            sharedUpload: RateBudget? = null,
+            sharedDownload: RateBudget? = null,
         ): TorrentRuntime {
             Files.createDirectories(options.directory)
             val files = FileSet.open(options.directory, metainfo)
@@ -350,6 +369,8 @@ public class TorrentRuntime internal constructor(
                             dhtBootstrap = if (dht != null) BOOTSTRAP_NODES else emptyList(),
                             uploadLimitBytesPerSecond = options.uploadLimitBytesPerSecond,
                             downloadLimitBytesPerSecond = options.downloadLimitBytesPerSecond,
+                            sharedUpload = sharedUpload,
+                            sharedDownload = sharedDownload,
                         ),
                     unwantedFiles = options.unwantedFiles,
                     highFiles = options.highFiles,

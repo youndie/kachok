@@ -89,6 +89,7 @@ import io.github.youndie.kachok.ui.session.ratesOf
 import io.github.youndie.kachok.ui.session.rowOf
 import io.github.youndie.kachok.ui.session.savePreferences
 import io.github.youndie.kachok.ui.session.scaleTrayMenu
+import io.github.youndie.kachok.ui.session.setLimits
 import io.github.youndie.kachok.ui.session.settingsOf
 import io.github.youndie.kachok.ui.session.trayTooltip
 import io.github.youndie.kachok.ui.session.wideArguments
@@ -698,6 +699,7 @@ internal fun Client(
             dhtNodes = snapshot.dhtNodes,
             heapUsedBytes = snapshot.heapUsedBytes,
             heapMaxBytes = snapshot.heapMaxBytes,
+            limits = preferences.setLimits(),
             // The banner names one session because one session failed; which one it is is the row
             // that is tinted.
             sessionError = degraded?.state?.sessionError,
@@ -917,6 +919,7 @@ internal fun Client(
                     // The screen's own footnote says changes apply immediately, and three of them
                     // now do. The rest say on their row why they cannot.
                     retuned.trySend(preferences.typed(change.key, change.text).runtimeOptions())
+                    model.limited.trySend(preferences.setLimits())
                 }
             }
         },

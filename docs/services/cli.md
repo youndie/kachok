@@ -118,7 +118,7 @@ opens the same list.
   |---|---|
   | `add_torrent` | a `.torrent` path or a magnet link → started; answers with the info hash every other tool takes; `sequential: true` starts it in order |
   | `list_torrents` | one line per torrent: hash, name, state, percentage, rates, peers |
-  | `network_status` | listen port, whether the router forwards it and why not, DHT nodes and whether its UDP port is forwarded, peers held (B-140, B-143) |
+  | `network_status` | listen port, whether the router forwards it and why not, DHT nodes and whether its UDP port is forwarded, the client's limits and its download queue, peers held (B-140, B-143, B-151) |
   | `torrent_status` | one torrent in detail, files with their tier and the order included, and how many pool buffers are on loan (B-147) |
   | `wait_for_completion` | **blocks** until done, failed, or `timeout_seconds` (default 600, at most 3600); says which |
   | `pause_torrent`, `resume_torrent` | as the toolbar's |
@@ -126,6 +126,7 @@ opens the same list.
   | `set_file_priority` | one file to `skip`, `normal` or `high` on a running torrent (B-106) |
   | `set_sequential` | a running torrent in order or rarest first, both ways (B-89, B-133) |
   | `move_torrent` | the files and the resume record to another directory, progress, tiers and order kept; refused with nothing touched when the target holds its files or lacks room (B-134) |
+  | `set_limits` | the whole client's `download` and `upload` limits as text in bits or bytes, and `max_active_downloads`; a field left out is kept, the result is read back in both units and kept in `limits.properties` beside the torrent list (B-151) |
 
   Both `sequential` descriptions say what the order is *not*: it follows the files as the torrent
   lists them, which is often by size or name, so "episode 1 before episode 2" is a job for

@@ -80,6 +80,9 @@ public enum class TorrentState(
     Downloading("Downloading", Icons.ARROW_DOWNWARD),
     Seeding("Seeding", Icons.ARROW_UPWARD),
     Paused("Paused", Icons.PAUSE),
+
+    /** Waiting for a turn under the client's limit on downloads at once (B-151); the hourglass is the wait. */
+    Queued("Queued", Icons.HOURGLASS_TOP),
     Stopping("Stopping", Icons.HOURGLASS_TOP),
     Error("Error", Icons.ERROR),
 }

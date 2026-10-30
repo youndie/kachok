@@ -58,7 +58,9 @@ What exists on `main` today:
 | `.../engine/platform/Sha1.kt` + `engine/src/jvmMain/kotlin/io/github/youndie/kachok/engine/platform/Sha1.jvm.kt` | the one-shot SHA-1 primitive, `expect`/`actual` |
 | `.../engine/wire/` | `Handshake`, the sealed `Message`, `PeerWire` — framing, the identifier table, in-place `piece` decoding |
 | `.../engine/peer/Peer.kt` | `PeerAddress`, `Block`, `PeerEvent`, `PeerConnection` — what the session is allowed to know about a connection |
-| `.../engine/runtime/TorrentSet.kt` (jvmMain) | several torrents in one process: one listener that reads a handshake before it routes it, one DHT, one dispatcher, and where their resume records live when that is not beside the files (B-150) |
+| `.../engine/runtime/TorrentSet.kt` (jvmMain) | several torrents in one process: one listener that reads a handshake before it routes it, one DHT, one dispatcher, where their resume records live when that is not beside the files (B-150), and the client's own limits and download queue (B-151) |
+| `.../engine/runtime/SharedRateLimit.kt` (jvmMain) | one rate limit spent by every session of a set, locked, and refilled by the clock rather than by any session's tick (B-151) |
+| `.../engine/choke/RateBudget.kt` | what a session spends bytes from, and `BothBudgets` — its own bucket and the client's, spent together (B-151) |
 | `.../engine/runtime/TorrentRuntime.kt` (jvmMain) | one torrent, wired: every interface above meets its JVM implementation here, and both surfaces call it |
 | `engine/src/jvmMain/kotlin/io/github/youndie/kachok/engine/io/BufferPool.kt` | the capped pool of direct 16 KiB buffers and its `PooledBuffer` handle |
 | `.../engine/io/EngineDispatchers.kt` | the virtual-thread dispatcher every coroutine in the engine runs on |
@@ -247,6 +249,14 @@ them. Nothing is read from the environment by this module; that is [cli](cli.md)
 * **A `.torrent` is input from a stranger, and `MetainfoParser` treats it as one.** Path
   components that are empty, `.`, `..`, or that contain a separator are refused at parse time, so
   no code below has to remember that a torrent can ask to be written outside its own directory.
+* **The client's limits are one budget, not one per torrent** (B-151). Every session spends from its
+  own bucket and from the set's `SharedRateLimit` together; a per-torrent limit times the torrents
+  running is not a limit. The shared one is locked and refills from the clock, because eleven
+  sessions each adding a tick's worth would be eleven times the rate.
+* **Queued is not paused.** The set's queue holds a torrent with `Command.Queue`, which pauses it
+  and publishes `queued` rather than `paused`; a person's pause wins over it, a resume does not jump
+  it, and a torrent that would have to wait is started held, so it never announces first. Turns go
+  in the order torrents were added; a lowered limit holds the newest.
 * **A rate limit is applied by not asking, never by reading slowly.** Reading slowly does not stop
   a peer sending — the bytes reach the kernel either way — and writing slowly blocks a virtual
   thread inside a socket write. A block never requested is never sent, and a `request` left

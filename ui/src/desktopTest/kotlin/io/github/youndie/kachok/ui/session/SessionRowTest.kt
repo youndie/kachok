@@ -30,6 +30,7 @@ class SessionRowTest {
         outstanding: Int = 0,
         sessionError: String? = null,
         paused: Boolean = false,
+        queued: Boolean = false,
     ) = SessionState(
         infoHash = InfoHash(ByteArray(20)),
         name = "payload.bin",
@@ -46,6 +47,7 @@ class SessionRowTest {
         sessionError = sessionError,
         isComplete = complete,
         paused = paused,
+        queued = queued,
     )
 
     @Test
@@ -106,6 +108,12 @@ class SessionRowTest {
         assertEquals(Figures.DASH, fetching.ratio)
         assertEquals(Figures.DASH, fetching.eta)
         assertNull(fetching.progress, "a magnet has no percentage to draw")
+    }
+
+    /** B-151: a torrent waiting for a turn is drawn as waiting, not as downloading at 0 B/s. */
+    @Test
+    fun aHeldTorrentIsQueued() {
+        assertEquals(TorrentState.Queued, stateOf(state(queued = true), Lifecycle.Running))
     }
 
     /**

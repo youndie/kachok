@@ -61,6 +61,7 @@ internal fun loadPreferences(
         pipelineDepth = number(PIPELINE_DEPTH)?.toInt() ?: fallback.pipelineDepth,
         uploadLimitKibPerSecond = number(UPLOAD_LIMIT) ?: fallback.uploadLimitKibPerSecond,
         downloadLimitKibPerSecond = number(DOWNLOAD_LIMIT) ?: fallback.downloadLimitKibPerSecond,
+        maxActiveDownloads = number(MAX_ACTIVE)?.toInt() ?: fallback.maxActiveDownloads,
         dht = text(DHT)?.toBooleanStrictOrNull() ?: fallback.dht,
         announceToAllTrackers =
             text(ALL_TRACKERS)?.toBooleanStrictOrNull() ?: fallback.announceToAllTrackers,
@@ -105,6 +106,7 @@ internal fun savePreferences(
             preferences.pipelineDepth?.let { setProperty(PIPELINE_DEPTH, it.toString()) }
             preferences.uploadLimitKibPerSecond?.let { setProperty(UPLOAD_LIMIT, it.toString()) }
             preferences.downloadLimitKibPerSecond?.let { setProperty(DOWNLOAD_LIMIT, it.toString()) }
+            preferences.maxActiveDownloads?.let { setProperty(MAX_ACTIVE, it.toString()) }
         }
     try {
         Files.createDirectories(file.parent)
@@ -124,6 +126,7 @@ private const val MAX_PEERS = "maxPeers"
 private const val PIPELINE_DEPTH = "pipelineDepth"
 private const val UPLOAD_LIMIT = "uploadLimitKibPerSecond"
 private const val DOWNLOAD_LIMIT = "downloadLimitKibPerSecond"
+private const val MAX_ACTIVE = "maxActiveDownloads"
 private const val DHT = "dht"
 private const val ALL_TRACKERS = "announceToAllTrackers"
 private const val AUTOSTART = "autostart"

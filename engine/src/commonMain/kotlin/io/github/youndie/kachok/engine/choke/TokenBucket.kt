@@ -28,13 +28,13 @@ public class TokenBucket(
      * limit is trying to prevent.
      */
     burstSeconds: Double = 1.0,
-) {
+) : RateBudget {
     public var bytesPerSecond: Long = bytesPerSecond
         private set
 
     private val burst = burstSeconds
 
-    public val isUnlimited: Boolean get() = bytesPerSecond <= 0
+    override val isUnlimited: Boolean get() = bytesPerSecond <= 0
 
     private var capacity: Long = capacityFor(bytesPerSecond)
 
@@ -58,7 +58,7 @@ public class TokenBucket(
     private fun capacityFor(rate: Long): Long = if (rate <= 0) 0 else (rate * burst).toLong().coerceAtLeast(1)
 
     /** What may be spent right now. [Long.MAX_VALUE] when there is no limit. */
-    public val available: Long get() = if (isUnlimited) Long.MAX_VALUE else balance
+    override val available: Long get() = if (isUnlimited) Long.MAX_VALUE else balance
 
     /** Adds the tokens [elapsed] is worth, up to the bucket's depth. */
     public fun refill(elapsed: Duration) {
@@ -73,11 +73,16 @@ public class TokenBucket(
      * All or nothing on purpose. A partial take would mean half a block, and there is no such
      * message in BEP 3 — the caller's question is always "may I send this whole block".
      */
-    public fun take(bytes: Long): Boolean {
+    override fun take(bytes: Long): Boolean {
         if (isUnlimited) return true
         if (bytes > balance) return false
         balance -= bytes
         return true
+    }
+
+    override fun giveBack(bytes: Long) {
+        if (isUnlimited) return
+        balance = minOf(capacity, balance + bytes)
     }
 
     private companion object {

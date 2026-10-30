@@ -1,6 +1,7 @@
 package io.github.youndie.kachok.engine.session
 
 import io.github.youndie.kachok.engine.InfoHash
+import io.github.youndie.kachok.engine.choke.RateBudget
 import io.github.youndie.kachok.engine.wire.Handshake
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.minutes
@@ -140,6 +141,15 @@ public class SessionState(
      * its peers and kept everything it had verified.
      */
     public val paused: Boolean = false,
+    /**
+     * Waiting for a turn: not transferring because the client runs no more downloads at once than
+     * it was told to, and not because anybody paused it
+     * ([B-151](../../../../../../../../docs/backlog/B-151-one-limit-for-the-whole-client.md)).
+     *
+     * Never true together with [paused]. A person's pause wins: pausing a queued torrent makes it
+     * paused, and only a torrent that is neither is a candidate for the next free turn.
+     */
+    public val queued: Boolean = false,
     /**
      * Pieces are asked for in order rather than rarest first.
      *
@@ -305,6 +315,18 @@ public sealed interface Command {
 
     /** Announce `started` and start dialling again. A no-op on a session that is not paused. */
     public data object Resume : Command
+
+    /**
+     * Hold the torrent for a turn, or give it one (B-151).
+     *
+     * The set's queue says this, not a person: holding is a pause that leaves [SessionState.paused]
+     * false and [SessionState.queued] true, and releasing one is a resume. A torrent a person paused
+     * is not held — their pause is the stronger statement — and releasing a torrent that is not held
+     * does nothing.
+     */
+    public class Queue(
+        public val held: Boolean,
+    ) : Command
 
     /**
      * Read every piece off the disk and hash it, trusting the resume record for nothing.
@@ -496,6 +518,15 @@ public class SessionConfig(
     public val uploadLimitBytesPerSecond: Long = 0,
     /** Bytes a second this client will ask for, across every peer. Zero means no limit. */
     public val downloadLimitBytesPerSecond: Long = 0,
+    /**
+     * The client's own upload limit, shared with every other torrent it runs, or null (B-151).
+     *
+     * On top of [uploadLimitBytesPerSecond], not instead of it: a byte goes out only when both have
+     * it. The session never refills this one — whoever owns it does, from the clock.
+     */
+    public val sharedUpload: RateBudget? = null,
+    /** The client's own download limit, shared the same way as [sharedUpload]. */
+    public val sharedDownload: RateBudget? = null,
     /**
      * BEP 10's `m`: the extensions this client offers, and the message id it wants each sent under.
      *

@@ -116,7 +116,9 @@ started before `D:` answered opened none of ten torrents.
 | `control/src/main/kotlin/io/github/youndie/kachok/control/SingleInstance.kt` | the lock, both halves of its handshake, `claimForWindow` and `onYield`, and `McpRelay` — the attached session a headless process pumps |
 | `control/src/main/kotlin/io/github/youndie/kachok/control/store/Reopen.kt` | `reopenStored`, the one loop both the window and `kachok mcp` reopen the list with: a failure is that torrent's, and an unreachable one is tried again (B-138) |
 | `control/src/main/kotlin/io/github/youndie/kachok/control/store/StoredTorrents.kt` | the torrent list on the disk, and `StoredTorrentsKeeper`, which writes an agent's changes into it |
-| `control/src/main/kotlin/io/github/youndie/kachok/control/mcp/McpServer.kt` | JSON-RPC 2.0, the eleven tools, the one resource |
+| `control/src/main/kotlin/io/github/youndie/kachok/control/mcp/McpServer.kt` | JSON-RPC 2.0, the twelve tools, the one resource |
+| `control/src/main/kotlin/io/github/youndie/kachok/control/Rates.kt` | a rate as a person writes it — `10 Mbit/s`, `1.5 MB/s`, `off` — and said back in bits and in bytes (B-151) |
+| `control/src/main/kotlin/io/github/youndie/kachok/control/store/StoredLimits.kt` | the client's limits in `limits.properties` beside the torrent list, read by whichever process owns the engine and written on every change (B-151) |
 | `control/src/main/kotlin/io/github/youndie/kachok/control/mcp/McpKeeper.kt` | what an agent changed, for a host that keeps a torrent list; the list's is `store/StoredTorrents.kt`'s `StoredTorrentsKeeper` |
 | `control/src/main/kotlin/io/github/youndie/kachok/control/Snapshot.kt` | the engine's state as `:wire`'s, shared by the socket and the MCP resource so the two cannot drift |
 | `control/src/main/kotlin/io/github/youndie/kachok/control/ConfigDirectory.kt` | where this user's kachok keeps things, on each platform |

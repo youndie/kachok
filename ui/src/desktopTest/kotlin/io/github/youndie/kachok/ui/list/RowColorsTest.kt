@@ -92,7 +92,8 @@ class RowColorsTest {
                 )
             }
 
-            TorrentState.Paused -> {
+            // B-151: a queued row is drawn as a paused one; the label and the glyph say which.
+            TorrentState.Paused, TorrentState.Queued -> {
                 mapOf(
                     RowCell.Glyph to 0xFF889390,
                     RowCell.Name to 0xFF889390,

@@ -1,6 +1,7 @@
 package io.github.youndie.kachok.ui.session
 
 import io.github.youndie.kachok.engine.runtime.RuntimeOptions
+import io.github.youndie.kachok.engine.runtime.SetLimits
 import io.github.youndie.kachok.engine.session.SessionConfig
 import io.github.youndie.kachok.engine.tracker.TrackerProtocol
 import io.github.youndie.kachok.ui.settings.Setting
@@ -21,8 +22,11 @@ internal data class Preferences(
     val port: Int? = null,
     val maxPeers: Int? = null,
     val pipelineDepth: Int? = null,
+    /** The whole client's, not each torrent's, since B-151; `null` is no limit. */
     val uploadLimitKibPerSecond: Long? = null,
     val downloadLimitKibPerSecond: Long? = null,
+    /** Downloads at once, the rest queued (B-151); `null` is no limit. */
+    val maxActiveDownloads: Int? = null,
     /**
      * Join the DHT, and **on** since B-99.
      *
@@ -107,6 +111,7 @@ internal data class Preferences(
             SettingKey.PipelineDepth -> copy(pipelineDepth = number?.toInt())
             SettingKey.UploadLimit -> copy(uploadLimitKibPerSecond = number)
             SettingKey.DownloadLimit -> copy(downloadLimitKibPerSecond = number)
+            SettingKey.MaxActiveDownloads -> copy(maxActiveDownloads = number?.toInt())
             else -> this
         }
     }
@@ -132,14 +137,40 @@ internal data class Preferences(
                     .of(directory),
             maxPeers = maxPeers ?: RuntimeOptions.DEFAULT_MAX_PEERS,
             pipelineDepth = pipelineDepth ?: RuntimeOptions.DEFAULT_PIPELINE,
-            uploadLimitBytesPerSecond = (uploadLimitKibPerSecond ?: 0) * KIB,
-            downloadLimitBytesPerSecond = (downloadLimitKibPerSecond ?: 0) * KIB,
+            // Not per torrent any more: the limits are the set's (B-151), and a torrent that carried
+            // the same number on its own would be limited twice by one setting.
+            uploadLimitBytesPerSecond = RuntimeOptions.NO_LIMIT,
+            downloadLimitBytesPerSecond = RuntimeOptions.NO_LIMIT,
             announceToAllTrackers = announceToAllTrackers,
             unwantedFiles = unwanted,
             highFiles = high,
             sequential = sequential,
         )
 }
+
+/** The set's limits as this screen chose them (B-151). Empty is no limit, which the engine calls 0. */
+internal fun Preferences.setLimits(): SetLimits =
+    SetLimits(
+        downloadBytesPerSecond = (downloadLimitKibPerSecond ?: 0) * KIB,
+        uploadBytesPerSecond = (uploadLimitKibPerSecond ?: 0) * KIB,
+        maxActiveDownloads = maxActiveDownloads ?: 0,
+    )
+
+/**
+ * The screen's figures for limits somebody else set — an agent, a browser — so the screen shows
+ * what the client is doing rather than what was typed last. A rate that is not a whole number of
+ * kibibytes is shown rounded down; it is changed only if somebody edits the row.
+ */
+internal fun Preferences.withLimits(limits: SetLimits): Preferences =
+    if (setLimits() == limits) {
+        this
+    } else {
+        copy(
+            downloadLimitKibPerSecond = (limits.downloadBytesPerSecond / KIB).takeIf { it > 0 },
+            uploadLimitKibPerSecond = (limits.uploadBytesPerSecond / KIB).takeIf { it > 0 },
+            maxActiveDownloads = limits.maxActiveDownloads.takeIf { it > 0 },
+        )
+    }
 
 /** The design's own three: 340 drawn, 280–520 allowed. Floats because a drag is in fractions. */
 internal const val DEFAULT_DETAILS_WIDTH: Float = 340f
@@ -245,16 +276,27 @@ internal fun settingsOf(
                         limit(
                             SettingKey.UploadLimit,
                             "Upload limit",
-                            "One budget for the session, not one per peer.",
+                            "Every torrent together, not each one. 1 220 KiB/s is 10 Mbit/s.",
                             preferences.uploadLimitKibPerSecond,
                             defaults.uploadLimitBytesPerSecond,
                         ),
                         limit(
                             SettingKey.DownloadLimit,
                             "Download limit",
-                            null,
+                            "Every torrent together, not each one.",
                             preferences.downloadLimitKibPerSecond,
                             defaults.downloadLimitBytesPerSecond,
+                        ),
+                        Setting(
+                            key = SettingKey.MaxActiveDownloads,
+                            label = "Downloads at once",
+                            note =
+                                "The others wait as Queued and start in the order they were added. " +
+                                    "Seeding never waits.",
+                            default = "none",
+                            value = preferences.maxActiveDownloads?.toString() ?: NO_LIMIT,
+                            changed = preferences.maxActiveDownloads != null,
+                            absent = preferences.maxActiveDownloads == null,
                         ),
                     ),
                 ),

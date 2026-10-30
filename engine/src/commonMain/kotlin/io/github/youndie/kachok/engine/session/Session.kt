@@ -2,6 +2,7 @@ package io.github.youndie.kachok.engine.session
 
 import io.github.youndie.kachok.engine.PeerId
 import io.github.youndie.kachok.engine.PieceIndex
+import io.github.youndie.kachok.engine.choke.BothBudgets
 import io.github.youndie.kachok.engine.choke.Choker
 import io.github.youndie.kachok.engine.choke.PeerRates
 import io.github.youndie.kachok.engine.choke.RateMeter
@@ -309,6 +310,19 @@ public class Session(
     private val uploadBudget = TokenBucket(config.uploadLimitBytesPerSecond)
     private val downloadBudget = TokenBucket(config.downloadLimitBytesPerSecond)
 
+    /**
+     * What a byte is spent from: this session's bucket and the client's, together (B-151). The
+     * session refills and retunes only its own; the client's refills itself.
+     */
+    private val upload = BothBudgets(uploadBudget, config.sharedUpload)
+    private val download = BothBudgets(downloadBudget, config.sharedDownload)
+
+    /**
+     * Held by the set's queue rather than paused by a person (B-151). While true, [paused] is true
+     * as well — the session is not transferring — and the published state says queued, not paused.
+     */
+    private var queued = false
+
     /** Rotated every tick so that a limited uplink is shared rather than taken by whoever asked first. */
     private var uploadTurn = 0
 
@@ -414,10 +428,16 @@ public class Session(
     public fun start(
         scope: CoroutineScope,
         startPaused: Boolean = false,
+        /** Start held by the set's queue (B-151): not transferring, and saying so as queued. */
+        startQueued: Boolean = false,
     ): Job {
         if (startPaused) {
             paused = true
             publish { it.copy(paused = true) }
+        } else if (startQueued) {
+            paused = true
+            queued = true
+            publish { it.copy(queued = true) }
         }
         val sessionJob = SupervisorJob(scope.coroutineContext[Job])
         // **One thread for the session's own state, and this is not an optimisation.**
@@ -477,11 +497,26 @@ public class Session(
                 }
 
                 Command.Pause -> {
-                    pause()
+                    if (queued) {
+                        // Already not transferring; a person's pause only changes what it is called.
+                        queued = false
+                        publish { it.copy(paused = true, queued = false) }
+                    } else {
+                        pause()
+                    }
                 }
 
                 Command.Resume -> {
-                    resume(scope)
+                    // A held torrent waits for its turn; a resume is not a way to jump the queue.
+                    if (!queued) resume(scope)
+                }
+
+                is Command.Queue -> {
+                    if (command.held) {
+                        if (!paused) pause(held = true)
+                    } else if (queued) {
+                        resume(scope)
+                    }
                 }
 
                 Command.Recheck -> {
@@ -582,7 +617,9 @@ public class Session(
         val wasPaused = paused
         paused = true
         publish {
-            it.copy(paused = true, connectedPeers = 0, unchokedPeers = 0, outstandingRequests = 0)
+            // A held torrent stays queued through the pass rather than turning paused for good: the
+            // pass ends by leaving a torrent that was not transferring as it was.
+            it.copy(paused = !queued, connectedPeers = 0, unchokedPeers = 0, outstandingRequests = 0)
         }
         closedByUs += connected.keys
         connected.snapshot().forEach { it.connection.close() }
@@ -638,11 +675,18 @@ public class Session(
      * The counters are zeroed with it rather than left to drift down as the peers close, so the
      * row does not spend those seconds claiming peers it has already hung up on.
      */
-    private suspend fun pause() {
+    private suspend fun pause(held: Boolean = false) {
         if (paused || stopping) return
         paused = true
+        queued = held
         publish {
-            it.copy(paused = true, connectedPeers = 0, unchokedPeers = 0, outstandingRequests = 0)
+            it.copy(
+                paused = !held,
+                queued = held,
+                connectedPeers = 0,
+                unchokedPeers = 0,
+                outstandingRequests = 0,
+            )
         }
         announce(AnnounceEvent.STOPPED)
         closedByUs += connected.keys
@@ -669,7 +713,8 @@ public class Session(
     private suspend fun resume(scope: CoroutineScope) {
         if (!paused || stopping) return
         paused = false
-        publish { it.copy(paused = false) }
+        queued = false
+        publish { it.copy(paused = false, queued = false) }
         val peers = announce(AnnounceEvent.STARTED)
         if (peers.isNotEmpty()) {
             known += peers
@@ -1462,7 +1507,7 @@ public class Session(
         val block = metainfo.infoBytes.copyOfRange(from.toInt(), to)
         // Through the upload budget, so a peer cannot ask for the same block a thousand times to
         // get around a rate limit. BEP 9 gives `reject` for exactly this: a refusal that says so.
-        if (!uploadBudget.take(block.size.toLong())) {
+        if (!upload.take(block.size.toLong())) {
             link.send(Message.Extended(METADATA_ID, MetadataMessage.reject(request.piece).encode()))
             return
         }
@@ -1565,7 +1610,7 @@ public class Session(
             if (picker.completed[index]) continue
             val requests = picker.nextFrom(link.connection.address, PieceIndex(index), left, elapsedMillis())
             for (request in requests) {
-                if (!downloadBudget.take(request.length.toLong())) return
+                if (!download.take(request.length.toLong())) return
                 if (!link.send(Message.Request(request.piece, request.begin, request.length))) return
                 link.outstanding++
                 left--
@@ -1660,7 +1705,7 @@ public class Session(
             if (link.fast) link.send(Message.Reject(request.piece, request.begin, request.length))
             return
         }
-        if (uploadBudget.take(request.length.toLong())) {
+        if (upload.take(request.length.toLong())) {
             serveNow(link, request)
             return
         }
@@ -1692,7 +1737,7 @@ public class Session(
      * checking after spending would throw the tokens away with it.
      */
     private suspend fun drainWaitingUploads() {
-        if (uploadBudget.isUnlimited) return
+        if (upload.isUnlimited) return
         val links = connected.snapshot()
         if (links.isEmpty()) return
         uploadTurn = (uploadTurn + 1) % links.size
@@ -1704,7 +1749,7 @@ public class Session(
                     link.waiting.removeFirst()
                     continue
                 }
-                if (!uploadBudget.take(next.length.toLong())) return
+                if (!upload.take(next.length.toLong())) return
                 link.waiting.removeFirst()
                 serveNow(link, next)
             }
@@ -1771,14 +1816,14 @@ public class Session(
         // in flight. Taking more than the limit pays for and then not sending them would leave the
         // picker holding blocks nobody is fetching until the request timeout expired them.
         val affordable =
-            if (downloadBudget.isUnlimited) {
+            if (download.isUnlimited) {
                 room
             } else {
-                minOf(room.toLong(), downloadBudget.available / PeerWire.BLOCK_SIZE).toInt()
+                minOf(room.toLong(), download.available / PeerWire.BLOCK_SIZE).toInt()
             }
         if (affordable <= 0) return
         picker.next(link.connection.address, affordable, elapsedMillis()).forEach { request ->
-            downloadBudget.take(request.length.toLong())
+            download.take(request.length.toLong())
             if (!link.send(Message.Request(request.piece, request.begin, request.length))) return
             link.outstanding++
             link.everRequested = true
@@ -1884,11 +1929,11 @@ public class Session(
      * The refill is what breaks that circle, which is why it also asks every peer for more.
      */
     private suspend fun refillRateLimits() {
-        if (uploadBudget.isUnlimited && downloadBudget.isUnlimited) return
+        if (upload.isUnlimited && download.isUnlimited) return
         uploadBudget.refill(config.tick)
         downloadBudget.refill(config.tick)
         drainWaitingUploads()
-        if (!downloadBudget.isUnlimited) connected.snapshot().forEach { requestMore(it) }
+        if (!download.isUnlimited) connected.snapshot().forEach { requestMore(it) }
     }
 
     /**
@@ -2239,6 +2284,7 @@ private fun SessionState.copy(
     sessionError: String? = this.sessionError,
     isComplete: Boolean = this.isComplete,
     paused: Boolean = this.paused,
+    queued: Boolean = this.queued,
     sequential: Boolean = this.sequential,
     dhtAnnouncedSecondsAgo: Long? = this.dhtAnnouncedSecondsAgo,
     dhtNextInSeconds: Long? = this.dhtNextInSeconds,
@@ -2279,6 +2325,7 @@ private fun SessionState.copy(
         sessionError = sessionError,
         isComplete = isComplete,
         paused = paused,
+        queued = queued,
         sequential = sequential,
         dhtAnnouncedSecondsAgo = dhtAnnouncedSecondsAgo,
         dhtNextInSeconds = dhtNextInSeconds,
