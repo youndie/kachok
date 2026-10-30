@@ -758,6 +758,41 @@ nothing left to take from them. **Consequence:** this is a trade of 29 MB on the
 more to download, every update included — not a saving with a hidden cost, but two sizes moving
 in opposite directions. B-156 asks which one matters.
 
+### 1.3j Conveyor, read against what the packaging already does
+
+Read on 2026-10-30 for [B-158](../backlog/B-158-conveyor-as-the-packager.md), from Conveyor's and
+Microsoft's documentation — **not** from an installed build: running Conveyor means downloading it
+and accepting its licence, which is the owner's to do. Every row below is therefore what a document
+says, with where, and the last column is whether this repository already depends on the behaviour.
+
+| The packaging today | What Conveyor does, per its documentation | Already relied on |
+|---|---|---|
+| jpackage, one runner per platform | Builds all three from one machine, Windows and macOS included ([overview](https://conveyor.hydraulic.dev/latest/)) | — |
+| Whole installer per update | Windows: delta "from anything to anything"; macOS: Sparkle with `.delta` patches; Linux: an apt repository, deltas not mentioned ([updates](https://conveyor.hydraulic.dev/latest/understanding-updates/)) | — |
+| `.torrent` association on all three (B-84) | `app.file-associations`; on Linux it appends the `%f` jpackage leaves out, which `patchDesktopEntry` does today ([OS integration](https://conveyor.hydraulic.dev/latest/configs/os-integration/)) | yes |
+| A runtime linked from `nativeDistributions.modules`, checked by the preflight (B-78) | Its own `jlink`, modules by `jdeps` (`app.jvm.modules = [ detect ]`), flags through `app.jvm.jlink-flags` ([JVM](https://conveyor.hydraulic.dev/latest/configs/jvm/)) — the module list and the preflight move to it | yes |
+| The classes through ProGuard (B-155) | Its Gradle plugin "doesn't yet know about the ProGuard output"; a manual configuration is described ([JVM](https://conveyor.hydraulic.dev/latest/configs/jvm/)) | yes |
+| An AOT cache (B-157, a question) | AppCDS "isn't used by Conveyor yet" ([JVM](https://conveyor.hydraulic.dev/latest/configs/jvm/)) | asked |
+| A per-user `.msi` | MSIX, plus an `.exe` installer ([Windows](https://conveyor.hydraulic.dev/latest/configs/windows/)); migration from an installed `.msi` is not covered | yes — #27's user has one |
+| Autostart: a value under `HKCU\…\Run` written by the client (B-83, `Autostart.kt`) | In a packaged app "all writes under *HKCU* are copied on write to a private per-user, per-app location" ([Microsoft](https://learn.microsoft.com/en-us/windows/msix/desktop/desktop-to-uwp-behind-the-scenes)) — Windows' own `Run` key never sees it | yes |
+| `<config>` in `%APPDATA%\kachok`, read by the window *and* a headless `kachok mcp` (B-117, B-136) | New files under `AppData\Roaming` "are redirected to a per-user, per-package private location" ([Microsoft](https://learn.microsoft.com/en-us/windows/msix/desktop/desktop-to-uwp-behind-the-scenes)); an unpackaged `kachok mcp` would not find the window's lock. Conveyor can exclude a directory (`virtualization.excluded-directories`), which turns on the `unvirtualizedResources` capability ([Windows](https://conveyor.hydraulic.dev/latest/configs/windows/)) | yes |
+| A desktop shortcut (#27, still missing) | Not documented; MSIX entries go to the Start menu | asked for |
+| Unsigned installers | Self-signed by default. Windows: the download page has the user run a PowerShell script that installs the certificate, which "requires local administrator access"; macOS: a shell script that removes the quarantine flag; notarisation needs an Apple developer account ([keys and certificates](https://conveyor.hydraulic.dev/latest/configs/keys-and-certificates/)) | — |
+| — | Free for projects under an OSI-approved licence ([pricing](https://www.hydraulic.software/pricing.html)). **This repository has no licence**: `gh repo view` reports none, and there is no `LICENSE` file | — |
+
+**Consequence 1 — on Windows it is not the same client in a different box.** The two virtualisation
+rules reach two features that work today: autostart, and one engine for the window and the agent.
+Both have answers — MSIX's own startup task instead of the `Run` key, an excluded directory for the
+configuration — but each is a change to the client and a re-test on Windows, not a packaging switch.
+
+**Consequence 2 — it undoes, or does not take, the two size items.** The runtime would be Conveyor's
+`jlink` and not Compose's, the ProGuard output has to be fed to it by hand, and there is no cache to
+take. B-155's check that downloads through the packaged window would have to be rebuilt around
+Conveyor's output.
+
+**Consequence 3 — nothing here can be adopted before a licence is chosen.** The free tier is for
+OSI-licensed projects, and this one is public without a licence.
+
 ### 1.3a Sparse files: the mechanism is not interchangeable
 
 Measured on this machine (macOS 27, APFS, JDK 25.0.2, 2026-09-05) by creating a 4 MB file four
