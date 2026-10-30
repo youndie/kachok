@@ -1,7 +1,7 @@
 ---
 id: B-157
 title: "The desktop distribution ships an AOT cache trained through its own launcher, and proves it maps"
-status: wip
+status: done
 priority: P2
 size: M
 stage: phase-2-ui
@@ -89,3 +89,28 @@ top of B-155's 115–134). The choices:
 
 **Option 1, and dropped if it does not hold.** The cache is trained on each installer's own files
 after packaging and put back into it, one format at a time, the `.deb` first.
+
+## Iteration 2 — 2026-10-30: the `.deb`
+
+**Done for the `.deb`; the other two formats are their own items** —
+[B-171](B-171-the-dmg-carries-an-aot-cache-trained-on-its-own-files.md) for the `.dmg`,
+[B-172](B-172-the-msi-carries-an-aot-cache-trained-on-its-own-files.md) for the `.msi` — because
+each repacks differently and this one proved the mechanism without needing the other two.
+
+`packageReleaseDeb` is now finalised by three tasks: `unpackReleaseDeb` (`dpkg-deb -R`, which keeps
+the times the package carries), `recordDebAotConfiguration` (`DistributionDownloadTest` through the
+unpacked launcher with `-XX:AOTMode=record`) and `addAotCacheToDeb` (the cache assembled by that
+launcher in create mode, `-XX:AOTCache=$APPDIR/kachok.aot` added to `kachok.cfg`, the package
+rebuilt in place, then unpacked once more elsewhere and its `--preflight` run with `-Xlog:aot`).
+The build fails unless that log says `Using AOT-linked classes: true` with no `aot` error — the
+B-163 marker, not `Opened AOT cache`. `distributions.yml` packages under `xvfb-run` and then installs
+the package with `dpkg -i` and asks `/opt/kachok/bin/kachok` the same question.
+`-Pkachok.aot=false` packages without the cache.
+
+Measured on the Linux box (research §1.3h): installed copies, ten interleaved pairs, launch to an
+engine on the lock — **936 → 388 ms** median; installed **130 → 191 MB**; the `.deb` **44.9 →
+57.2 MB**. Positive control: a jar touched after the cache was assembled fails `addAotCacheToDeb`
+with `timestamp has changed`.
+
+- AC for the `.deb` — **met**: the installed client maps its cache (`dpkg -i` on the runner), the
+  times and the sizes are in research §1.3h. macOS and Windows — B-171 and B-172.

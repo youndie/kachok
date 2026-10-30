@@ -724,6 +724,21 @@ into the same package — per format, because each copies differently (the `.deb
 `patchDesktopEntry` already does; the `.dmg` by `hdiutil`; the `.msi` from a cabinet whose times
 have a resolution of two seconds). Whether the 750 ms is worth that and 63 MB is B-157's question.
 
+**Shipped for the `.deb`, 2026-10-30, on the owner's choice.** Trained after packaging on the
+package's own files and packed back in (`:ui:addAotCacheToDeb`; B-157 has the mechanism), the cache
+is accepted by a copy unpacked anywhere else — the VM's path check allows the relocation, `dpkg`
+keeps the times. Installed copies of the same build, with and without it, ten interleaved pairs on
+the Linux box:
+
+| | min | median | max | installed | `.deb` |
+|---|---|---|---|---|---|
+| without the cache | 809 ms | 936 ms | 1310 ms | 130 MB | 44.9 MB |
+| with it | 347 ms | **388 ms** | 834 ms | **191 MB** | **57.2 MB** |
+
+The cache compresses to about 12 MB in the package. A jar touched after the cache was assembled
+fails the build (`timestamp has changed`), which is the check's positive control. The `.dmg` and the
+`.msi` are B-171 and B-172.
+
 ### 1.3i The desktop runtime, compressed
 
 Measured on 2026-10-30 for [B-156](../backlog/B-156-the-desktop-runtime-is-compressed.md), on the
