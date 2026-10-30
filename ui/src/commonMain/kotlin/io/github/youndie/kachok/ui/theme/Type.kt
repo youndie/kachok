@@ -41,6 +41,24 @@ internal val Archivo: FontFamily =
     )
 
 /**
+ * Archivo's Cyrillic: Onest, cut down to its Cyrillic letters and combining marks (B-165).
+ *
+ * Archivo has no Cyrillic at all, so without this a Russian torrent name is drawn in whatever face
+ * the operating system falls back to — another face from the rows around it, and another one on
+ * each machine. The Material kit's text draws the Cyrillic runs of an Archivo text in this family
+ * (`CyrillicRuns.kt`); nothing names it directly. Onest was chosen for its metrics beside
+ * Archivo's — the same x-height and the same stems at each of these three weights — and carries
+ * Archivo's vertical metrics, so a line with Russian in it is as tall as one without
+ * (`scripts/subset_cyrillic_font.py`).
+ */
+internal val ArchivoCyrillic: FontFamily =
+    FontFamily(
+        variable("fonts/OnestCyrillic.ttf", FontWeight.Normal),
+        variable("fonts/OnestCyrillic.ttf", FontWeight.Medium),
+        variable("fonts/OnestCyrillic.ttf", FontWeight.SemiBold),
+    )
+
+/**
  * Every number, hash and verbatim error.
  *
  * The load-bearing one. Figures are monospaced so that a row does not reflow when a speed changes

@@ -53,7 +53,7 @@ asked for it in a conversation, through the same `TorrentSet` a click goes throu
 | `ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/App.kt` | `main`, the window, and the platform it reaches for: the file chooser, the clipboard, the drop target, the tray |
 | `.../ui/session/ClientModel.kt` | what the window *is*, held where a window is not: its state, its channels, and the loop that samples every session and stops them cleanly |
 | `.../ui/theme/` | the kit the screens draw through — `KachokColors` (the design's roles by what they are for), `KachokType`, `Text`, and the three components a kit draws itself (`Toggle`, `DialogButton`, `ProgressBar`) — `InterfaceKit`, the choice the settings store, the three bundled families and the interface scale |
-| `.../ui/theme/material/` | the Material kit: the eight roles read off the design, the `warning` M3 does not ship, the palette beside them, the 4 dp calibration, and its drawing of the three components (`MaterialComponents.kt`, the code the screens had, moved); since B-161 `MaterialKit.of(seed, style)`, the seeds and styles offered (`MaterialColours.kt`) and the derivation of every role from MaterialKolor's scheme (`SeededDesign.kt`) — the only place `make check` lets name `com.materialkolor` |
+| `.../ui/theme/material/` | the Material kit: the Cyrillic runs of an Archivo text drawn in its companion (`CyrillicRuns.kt`, B-165), the eight roles read off the design, the `warning` M3 does not ship, the palette beside them, the 4 dp calibration, and its drawing of the three components (`MaterialComponents.kt`, the code the screens had, moved); since B-161 `MaterialKit.of(seed, style)`, the seeds and styles offered (`MaterialColours.kt`) and the derivation of every role from MaterialKolor's scheme (`SeededDesign.kt`) — the only place `make check` lets name `com.materialkolor` |
 | `.../ui/theme/oldge/` | the oldge-ui kit (B-160): `OldgeKit.of(skin)`, one instance per `OldgeSkin` (B-162), every role from that skin's tokens, `OldgeSwitch`, `OldgeButton`, the progress well's look, text through `OldgeText` in the design system's faces, and the Material scheme `AppFrame` reads; with `theme/material/`, the only place `make check` lets name `material3` |
 | `.../ui/icons/Icons.kt` | the twenty-one Material Symbols codepoints and the subset font they index into |
 | `.../ui/list/TorrentRow.kt` | the nine columns at the design's widths, and the row's own hairline |
@@ -93,7 +93,7 @@ text, a glyph, a figure or a thin outline (B-164), three text levels (`text`, `t
 components a second kit draws differently — the settings switch, the dialog button and the row's
 progress bar; the rest is drawn on `foundation` from those tokens, as it always was. The Material
 kit draws exactly what the window drew before: the twelve goldens did not move, through B-159,
-B-160, B-161, B-162 or B-164. `make check` fails on any file outside `ui/theme/material/` and `ui/theme/oldge/` that imports
+B-160, B-161, B-162, B-164 or B-165. `make check` fails on any file outside `ui/theme/material/` and `ui/theme/oldge/` that imports
 `androidx.compose.material3`, and on any outside the first that reads its palette.
 
 **There are two kits, and the settings choose** ([B-160](../backlog/B-160-oldge-ui-is-a-kit-the-window-can-wear.md)).
@@ -107,6 +107,15 @@ the design system's faces, and those decide who draws Cyrillic: Archivo, which h
 DejaVu Sans Condensed; Source Serif becomes Fira Sans; JetBrains Mono stays, because Share Tech
 Mono has no Cyrillic either. `AppFrame` reads `MaterialTheme` itself, so the oldge kit's root
 provides a Material scheme from its tokens and the title bar is the skin's bezel.
+
+**Under the Material kit a Russian name is drawn in Archivo's bundled companion** ([B-165](../backlog/B-165-a-russian-name-is-drawn-in-the-rows-face.md)).
+Archivo has no Cyrillic, so the kit's `Text` puts a span of `ArchivoCyrillic` — Onest 2.001, cut
+to its Cyrillic block and combining marks and given Archivo's vertical metrics
+(`scripts/subset_cyrillic_font.py`) — over each run of Cyrillic letters in a text whose face is
+Archivo (`theme/material/CyrillicRuns.kt`). The spaces, digits and punctuation stay Archivo's, so
+`Мастер и Маргарита (1994).mkv` has its year and extension in the same face as the Latin rows
+around it. A text with no Cyrillic, or in JetBrains Mono or Source Serif (both have Cyrillic), is
+drawn as it was; the oldge kit has its own faces for this.
 
 **The Material kit's colours come from a seed** ([B-161](../backlog/B-161-the-material-kit-takes-its-colours-from-a-seed.md)).
 *Colours*, under *Interface* and shown only with the Material kit, offers six seed swatches and
@@ -153,6 +162,7 @@ The colour rule lives outside the composables (`RowColors.kt`) so that "is this 
 | Library | oldge-core 0.1.1.14 (reposilite snapshots) | the second kit: `OldgeTheme`, its tokens and faces, `OldgeSwitch`, `OldgeButton`, `OldgeText` |
 | Library | MaterialKolor 5.0.1 (`com.materialkolor:material-kolor`, Maven Central) | the Material kit's scheme from a seed, `harmonize` for `warning`; upstream, not the portfolio's `linuxX64` fork |
 | Fonts | Source Serif 4, Archivo, JetBrains Mono, Material Symbols Rounded | bundled, not asked of the machine |
+| Fonts | Onest 2.001 (SIL OFL 1.1, `google/fonts` `ofl/onest` at `4c1db3a`), cut to `OnestCyrillic.ttf`, 42.7 KB | Archivo's Cyrillic under the Material kit (B-165); the copyright and the licence travel in its name table |
 | Fonts | DejaVu Sans Condensed, Fira Sans Bold (inside oldge-core) | the oldge kit's faces; both cover Russian |
 
 ## 5. Infrastructure and deploy
