@@ -147,7 +147,7 @@ The colour rule lives outside the composables (`RowColors.kt`) so that "is this 
 | Module | `:swarm` (test only) | the tracker and seeding peer the end-to-end download runs against |
 | Library | Compose Multiplatform 1.12 + Material 3 | the toolkit and the eight roles the design names |
 | Library | viddik 0.4 | `viddikRecord` / `viddikVerify`, the goldens |
-| Library | AppFrame 0.1.20 | the title bar the design draws, with the host's own window controls |
+| Library | AppFrame 0.1.24 | the title bar the design draws, with the host's own window controls |
 | Library | oldge-core 0.1.1.14 (reposilite snapshots) | the second kit: `OldgeTheme`, its tokens and faces, `OldgeSwitch`, `OldgeButton`, `OldgeText` |
 | Library | MaterialKolor 5.0.1 (`com.materialkolor:material-kolor`, Maven Central) | the Material kit's scheme from a seed, `harmonize` for `warning`; upstream, not the portfolio's `linuxX64` fork |
 | Fonts | Source Serif 4, Archivo, JetBrains Mono, Material Symbols Rounded | bundled, not asked of the machine |
