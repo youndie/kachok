@@ -226,6 +226,24 @@ internal class MaterialKit private constructor(
     ) {
         MaterialFilterField(text, placeholder, if (narrow) NARROW_FILTER_WIDTH else FILTER_WIDTH, onFilter)
     }
+
+    @Composable
+    override fun BannerButton(
+        label: String,
+        onClick: () -> Unit,
+    ) {
+        MaterialBannerButton(label, onClick)
+    }
+
+    @Composable
+    override fun Tabs(
+        name: String,
+        labels: List<String>,
+        selected: Int,
+        onSelect: (Int) -> Unit,
+    ) {
+        MaterialTabs(name, labels, selected, onSelect)
+    }
 }
 
 /** The hand-written roles, as B-159 mapped them: the scheme's names, the palette and the warning. */

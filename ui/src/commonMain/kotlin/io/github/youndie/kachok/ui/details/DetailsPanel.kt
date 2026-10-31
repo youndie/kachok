@@ -78,6 +78,8 @@ internal enum class DetailsTab(
     Trackers("Trackers"),
 }
 
+private val TAB_LABELS: List<String> = DetailsTab.entries.map { it.label }
+
 /** How much a value is allowed to stand out. The design uses exactly three levels here. */
 internal enum class FieldTone { Plain, Good, Warning }
 
@@ -219,7 +221,6 @@ internal object Details {
     val minimumWidth: Dp = 280.dp
     val maximumWidth: Dp = 520.dp
 
-    val tabHeight: Dp = 32.dp
     val rowHeight: Dp = 24.dp
     val edge: Dp = 12.dp
 }
@@ -303,7 +304,7 @@ internal fun DetailsPanel(
         )
         Column(Modifier.fillMaxSize().background(KachokTheme.colors.panel)) {
             Header(state)
-            Tabs(state.tab, onTab)
+            KachokTheme.kit.Tabs("Details", TAB_LABELS, state.tab.ordinal) { onTab(DetailsTab.entries[it]) }
             when (state.tab) {
                 DetailsTab.Overview -> Overview(state, onCopy, onMoveData)
                 DetailsTab.Peers -> Peers(state.peers)
@@ -347,53 +348,6 @@ private fun ColumnScope.Header(state: DetailsState) {
         }
     }
     Box(Modifier.fillMaxWidth().height(HAIRLINE).background(KachokTheme.colors.raisedHigh))
-}
-
-@Composable
-private fun ColumnScope.Tabs(
-    selected: DetailsTab,
-    onTab: (DetailsTab) -> Unit,
-) {
-    Row(Modifier.fillMaxWidth().height(Details.tabHeight).padding(horizontal = 6.dp)) {
-        DetailsTab.entries.forEach { tab ->
-            val on = tab == selected
-            Column(
-                Modifier
-                    // The indicator is as wide as the label and no wider, and the only way to say
-                    // that is to measure the column by what is in it: `fillMaxWidth` on the
-                    // indicator otherwise takes the whole tab row and the first tab eats the rest.
-                    .width(IntrinsicSize.Max)
-                    .clickable { onTab(tab) }
-                    .padding(horizontal = 10.dp),
-                verticalArrangement = Arrangement.Bottom,
-            ) {
-                Text(
-                    tab.label,
-                    style =
-                        if (on) {
-                            ChromeText.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.Medium)
-                        } else {
-                            ChromeText
-                        },
-                    color =
-                        if (on) {
-                            KachokTheme.colors.accentText
-                        } else {
-                            KachokTheme.colors.textFaint
-                        },
-                    maxLines = 1,
-                    modifier = Modifier.padding(top = 8.dp, bottom = 7.dp),
-                )
-                Box(
-                    Modifier
-                        .fillMaxWidth()
-                        .height(INDICATOR)
-                        .background(if (on) KachokTheme.colors.accent else Color.Transparent),
-                )
-            }
-        }
-    }
-    Box(Modifier.fillMaxWidth().height(HAIRLINE).background(KachokTheme.colors.divider))
 }
 
 @Composable
@@ -952,8 +906,6 @@ private val FILE_SIZE = 58.dp
 private val FILE_PERCENT = 34.dp
 
 private val HAIRLINE = 1.dp
-
-private val INDICATOR = 2.dp
 
 private val SECTION_TRACKING = 0.08.em
 

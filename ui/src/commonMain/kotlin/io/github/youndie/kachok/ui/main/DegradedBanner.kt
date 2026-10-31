@@ -1,14 +1,7 @@
 package io.github.youndie.kachok.ui.main
 
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -17,7 +10,6 @@ import io.github.youndie.kachok.ui.icons.Glyph
 import io.github.youndie.kachok.ui.icons.Icons
 import io.github.youndie.kachok.ui.theme.KachokTheme
 import io.github.youndie.kachok.ui.theme.MonoSmall
-import io.github.youndie.kachok.ui.theme.RowStateLabel
 import io.github.youndie.kachok.ui.theme.Text
 
 /**
@@ -61,20 +53,8 @@ internal fun DegradedBanner(
             // the exception loses half the room it needs to be readable.
             modifier = Modifier.weight(1f),
         )
-        Row(
-            Modifier
-                .height(BUTTON_HEIGHT)
-                .border(Chrome.hairline, scheme.errorContainer, RoundedCornerShape(4.dp))
-                .clickable(onClick = onShow)
-                .padding(horizontal = 9.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text("Show it", style = RowStateLabel, color = scheme.error, maxLines = 1)
-        }
+        KachokTheme.kit.BannerButton("Show it", onShow)
     }
 }
 
 private val BANNER_GLYPH = 17.sp
-
-/** The design's `height: 22px` plus the border CSS measures outside it. */
-private val BUTTON_HEIGHT = 24.dp

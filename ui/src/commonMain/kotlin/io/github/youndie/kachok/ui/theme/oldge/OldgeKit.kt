@@ -4,6 +4,7 @@ import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -60,6 +61,8 @@ import io.github.youndie.oldge.actions.OldgeIconButton
 import io.github.youndie.oldge.forms.OldgeSearchBar
 import io.github.youndie.oldge.forms.OldgeSwitch
 import io.github.youndie.oldge.icons.OldgeIcons
+import io.github.youndie.oldge.navigation.OldgeTab
+import io.github.youndie.oldge.navigation.OldgeTabs
 import io.github.youndie.oldge.theme.LocalOldgeContentColor
 import io.github.youndie.oldge.theme.LocalOldgeTextStyle
 import io.github.youndie.oldge.theme.OldgeSkin
@@ -385,6 +388,47 @@ internal class OldgeKit private constructor(
             placeholder = placeholder,
         )
     }
+
+    /**
+     * `OldgeButton`, *Secondary* — the library's banners carry chrome buttons, because a band's
+     * colours are not the skin's (its README). Set to 26 dp from outside: the band is 32 and the
+     * library's smallest button 36 (B-177).
+     */
+    @Composable
+    override fun BannerButton(
+        label: String,
+        onClick: () -> Unit,
+    ) {
+        OldgeButton(
+            text = label,
+            onClick = onClick,
+            modifier = Modifier.height(BANNER_BUTTON),
+            variant = OldgeButtonVariant.Secondary,
+            size = OldgeButtonSize.Small,
+        )
+    }
+
+    /**
+     * `OldgeTabs`, the design system's property-sheet tabs, with no panel of its own: the details
+     * panel draws the page under them. The current tab stands 44 dp and runs into the line under the
+     * strip, which is why the strip's height is the kit's.
+     */
+    @Composable
+    override fun Tabs(
+        name: String,
+        labels: List<String>,
+        selected: Int,
+        onSelect: (Int) -> Unit,
+    ) {
+        val items = remember(labels) { labels.mapIndexed { index, label -> OldgeTab(index.toString(), label) } }
+        OldgeTabs(
+            items = items,
+            value = selected.toString(),
+            onChange = { onSelect(it.toInt()) },
+            label = name,
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
 }
 
 /**
@@ -648,3 +692,6 @@ private val TOOL = 36.dp
 private val FILTER = 220.dp
 
 private val NARROW_FILTER = 150.dp
+
+/** The degraded banner's button: the 32 dp band less 3 dp above and below. */
+private val BANNER_BUTTON = 26.dp

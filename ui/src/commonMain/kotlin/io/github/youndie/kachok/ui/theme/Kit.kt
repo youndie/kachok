@@ -238,6 +238,29 @@ internal interface KachokKit {
         narrow: Boolean,
         onFilter: (String) -> Unit,
     )
+
+    /**
+     * The command at the end of a coloured band — the degraded banner's *Show it* — labelled
+     * [label]. The band is the screen's; the button is the kit's (B-177).
+     */
+    @Composable
+    fun BannerButton(
+        label: String,
+        onClick: () -> Unit,
+    )
+
+    /**
+     * A strip of tabs named [name], [labels] in order and [selected] the current one, with the line
+     * under it. Its height is the kit's: the design's strip is 32 dp, a property sheet's tab stands
+     * taller.
+     */
+    @Composable
+    fun Tabs(
+        name: String,
+        labels: List<String>,
+        selected: Int,
+        onSelect: (Int) -> Unit,
+    )
 }
 
 internal val LocalKit = staticCompositionLocalOf<KachokKit> { MaterialKit.Default }
