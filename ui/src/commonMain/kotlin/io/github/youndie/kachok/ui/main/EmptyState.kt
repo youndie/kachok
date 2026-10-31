@@ -15,6 +15,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -77,7 +78,7 @@ internal fun NoMatches(
             Modifier
                 .height(BUTTON)
                 .background(scheme.accentContainer, RoundedCornerShape(4.dp))
-                .clickable(onClick = onClear)
+                .clickable(role = Role.Button, onClick = onClear)
                 .padding(horizontal = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(6.dp),

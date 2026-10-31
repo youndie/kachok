@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
@@ -107,7 +108,7 @@ private fun RowScope.Head(
                 // for "column NAME" must find it whichever way the list happens to run, and the
                 // arrow beside the label is the only other thing that says which way that is.
                 if (sorted) stateDescription = if (sort.ascending) "ascending" else "descending"
-            }.clickable { onSort(column) },
+            }.clickable(role = Role.Button) { onSort(column) },
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = if (align == TextAlign.End) Arrangement.End else Arrangement.spacedBy(3.dp),
     ) {

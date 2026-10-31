@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.runtime.Composable
@@ -69,7 +70,10 @@ internal fun MaterialToggle(
                 // a test could press it but not read it. The column heads have said their sort
                 // order this way since B-58.
                 stateDescription = if (on) "on" else "off"
-            }.clickable(enabled = enabled, onClick = onToggle)
+                // **And what it is** (B-180): without a role the platform had a named box, not a
+                // switch. `toggleable` and not `clickable`, as `OldgeSwitch` has it, so the state is
+                // the platform's own on/off as well as the words.
+            }.toggleable(value = on, enabled = enabled, role = Role.Switch, onValueChange = { onToggle() })
             .width(TOGGLE_WIDTH)
             .height(TOGGLE_HEIGHT)
             .background(
@@ -114,7 +118,7 @@ internal fun MaterialDialogButton(
         Modifier
             .height(BUTTON_HEIGHT)
             .background(ground, RoundedCornerShape(4.dp))
-            .clickable(enabled = enabled, onClick = onClick)
+            .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
             .semantics { contentDescription = label }
             .padding(horizontal = if (primary) 18.dp else 14.dp),
         contentAlignment = Alignment.Center,
@@ -187,7 +191,10 @@ internal fun MaterialToolButton(
         Modifier
             .size(CONTROL_HEIGHT)
             .background(background, RoundedCornerShape(CONTROL_RADIUS))
-            .clickable(enabled = enabled, onClick = onClick)
+            // `Role.Button` (B-180): the name made it findable by a test; the role is what makes
+            // the platform's accessibility list it as a button at all. Without it the Material
+            // toolbar was a row of nothing to VoiceOver while the oldge one was nine buttons.
+            .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
             // A glyph and nothing else. Without this the button has no name at all — not to a
             // screen reader, and not to a test, which is why the bar's guard could only ever
             // click the one control that happens to carry text.
@@ -219,7 +226,7 @@ internal fun MaterialToolMainButton(
         Modifier
             .height(CONTROL_HEIGHT)
             .background(KachokTheme.colors.accentContainer, RoundedCornerShape(CONTROL_RADIUS))
-            .clickable(onClick = onClick)
+            .clickable(role = Role.Button, onClick = onClick)
             .semantics { contentDescription = label }
             .padding(horizontal = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -279,7 +286,7 @@ internal fun MaterialFilterField(
                 tint = scheme.textFaint,
                 modifier =
                     Modifier
-                        .clickable { onFilter("") }
+                        .clickable(role = Role.Button) { onFilter("") }
                         .semantics { contentDescription = "Clear the filter" },
             )
         }
@@ -300,7 +307,7 @@ internal fun MaterialBannerButton(
         Modifier
             .height(BANNER_BUTTON_HEIGHT)
             .border(HAIRLINE, scheme.errorContainer, RoundedCornerShape(CONTROL_RADIUS))
-            .clickable(onClick = onClick)
+            .clickable(role = Role.Button, onClick = onClick)
             .padding(horizontal = 9.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -322,6 +329,7 @@ internal fun MaterialTabs(
                 .fillMaxWidth()
                 .height(TAB_HEIGHT)
                 .semantics { contentDescription = name }
+                .selectableGroup()
                 .padding(horizontal = 6.dp),
         ) {
             labels.forEachIndexed { index, label ->
@@ -332,7 +340,9 @@ internal fun MaterialTabs(
                         // say that is to measure the column by what is in it: `fillMaxWidth` on the
                         // indicator otherwise takes the whole tab row and the first tab eats the rest.
                         .width(IntrinsicSize.Max)
-                        .clickable { onSelect(index) }
+                        // A tab, and which one is current (B-180), as `OldgeTabs` says it: the
+                        // underline is the only other thing that does, and nobody can read it.
+                        .selectable(selected = on, role = Role.Tab) { onSelect(index) }
                         .padding(horizontal = 10.dp),
                     verticalArrangement = Arrangement.Bottom,
                 ) {
@@ -434,7 +444,7 @@ internal fun MaterialFolderField(
                 .height(SETTING_FIELD_HEIGHT)
                 .border(HAIRLINE, scheme.outline, RoundedCornerShape(4.dp))
                 .semantics { contentDescription = "Browse" }
-                .clickable(onClick = onBrowse)
+                .clickable(role = Role.Button, onClick = onBrowse)
                 .padding(horizontal = 11.dp),
             contentAlignment = Alignment.Center,
         ) {
@@ -501,7 +511,7 @@ internal fun MaterialInvitationButton(
         Modifier
             .height(INVITATION_HEIGHT)
             .background(scheme.accent, RoundedCornerShape(4.dp))
-            .clickable(onClick = onClick)
+            .clickable(role = Role.Button, onClick = onClick)
             .padding(horizontal = 18.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(7.dp),
@@ -581,7 +591,7 @@ internal fun MaterialSaveToField(
                     .height(DIALOG_FIELD_HEIGHT)
                     .border(HAIRLINE, scheme.outline, RoundedCornerShape(4.dp))
                     // The one decision this dialog exists to take. It was a bordered box.
-                    .clickable(onClick = onBrowse)
+                    .clickable(role = Role.Button, onClick = onBrowse)
                     .padding(horizontal = 14.dp),
                 contentAlignment = Alignment.Center,
             ) {
