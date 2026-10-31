@@ -181,7 +181,7 @@ compose.desktop {
             // `:ui:run` and every test use the *full* JDK — a trimmed runtime only exists inside
             // `createDistributable`, and nothing runs what that produces (B-78).
             //
-            // These three and no more: what `:ui:suggestRuntimeModules` reports, which is `jdeps`
+            // These four and no more: what `:ui:suggestRuntimeModules` reports, which is `jdeps`
             // over the jars, matched against the CLI's own list in research §1.3b.
             //
             // `jdk.crypto.ec` was added here on the reasoning that a JCA provider is loaded by name
@@ -190,7 +190,11 @@ compose.desktop {
             // image without that module completes a TLS 1.3 handshake against an EC certificate,
             // because the provider now lives in `java.base`. Adding a module against a guess is how
             // a trimmed runtime stops being trimmed.
-            modules("java.instrument", "java.net.http", "jdk.unsupported")
+            //
+            // `java.management` is not a guess: the engine reads `-XX:MaxDirectMemorySize` through
+            // `ManagementFactory` to size the client's block budget (B-174). Without it the first
+            // installed build opened no torrents at all and said nothing.
+            modules("java.instrument", "java.net.http", "jdk.unsupported", "java.management")
 
             // **Three files for one drawing.** Each platform reads exactly one format and ignores
             // the others, so this is not a choice between them — a missing `.ico` is a Windows

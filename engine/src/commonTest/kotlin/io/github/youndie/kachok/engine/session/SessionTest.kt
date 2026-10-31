@@ -1888,6 +1888,62 @@ class SessionTest {
         }
 
     /**
+     * B-174: a piece the client's block budget had no room for is asked for again by the clock,
+     * because the room comes from another torrent closing a piece, which is no event here. Without
+     * the download limit on, nothing else in the tick asks an idle peer for anything.
+     */
+    @Test
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    fun aPieceTheClientHadNoRoomForIsAskedForWhenThereIsRoom(): Unit =
+        runTest {
+            val metainfo = torrent(pieces = 4)
+            val dialer = FakeDialer(metainfo.infoHash)
+            val room = RoomForPieces(0)
+            val session =
+                session(
+                    metainfo,
+                    dialer,
+                    FakeTracker(listOf(peerA)),
+                    FakeStorage(),
+                    AgreeableHasher(metainfo),
+                    config = SessionConfig(maxStartedPieces = 4, pipelineDepth = 4, maxPeers = 10, pieceBudget = room),
+                )
+
+            val job = session.start(kotlinx.coroutines.CoroutineScope(coroutineContext + handler))
+            testScheduler.runCurrent()
+            val connection = dialer.connections.getValue(peerA)
+            connection.incoming.send(PeerEvent.Received(Message.Bitfield(allOf(metainfo.pieceCount))))
+            connection.incoming.send(PeerEvent.Received(Message.Unchoke))
+            testScheduler.runCurrent()
+            assertEquals(0, connection.sent.count { it is Message.Request }, "a piece began with no room for it")
+
+            room.free = 2
+            testScheduler.advanceTimeBy(SessionConfig().tick.inWholeMilliseconds + 1)
+            testScheduler.runCurrent()
+            assertEquals(
+                2,
+                connection.sent.count { it is Message.Request },
+                "the tick did not ask for the room that opened",
+            )
+            job.cancelAndJoin()
+        }
+
+    /** The client's block budget as a number of one-block pieces the test makes room for. */
+    private class RoomForPieces(
+        var free: Int,
+    ) : io.github.youndie.kachok.engine.picker.PieceBudget {
+        override fun tryReserve(blocks: Int): Boolean {
+            if (blocks > free) return false
+            free -= blocks
+            return true
+        }
+
+        override fun release(blocks: Int) {
+            free += blocks
+        }
+    }
+
+    /**
      * B-152: the client's cap on connections stops this session's dials, and a slot given back by a
      * connection that ended is taken again on the next tick.
      */

@@ -63,8 +63,10 @@ What exists on `main` today:
 | `.../engine/choke/RateBudget.kt` | what a session spends bytes from, and `BothBudgets` — its own bucket and the client's, spent together (B-151) |
 | `.../engine/peer/ConnectionBudget.kt` | the slots a session takes for a dial and for a connection, from the client's caps (B-152) |
 | `.../engine/runtime/SharedConnectionBudget.kt` (jvmMain) | the set's count of connections and dials in flight against its two caps, behind one lock (B-152) |
+| `.../engine/picker/PieceBudget.kt` | the blocks a torrent may hold for the pieces it has begun, asked before a piece begins and given back when it closes (B-174) |
+| `.../engine/runtime/SharedBlockBudget.kt` (jvmMain) | the set's blocks for started pieces, split from the VM's direct memory, with a fair share per torrent holding or asking (B-174) |
 | `.../engine/runtime/TorrentRuntime.kt` (jvmMain) | one torrent, wired: every interface above meets its JVM implementation here, and both surfaces call it |
-| `engine/src/jvmMain/kotlin/io/github/youndie/kachok/engine/io/BufferPool.kt` | the capped pool of direct 16 KiB buffers and its `PooledBuffer` handle |
+| `engine/src/jvmMain/kotlin/io/github/youndie/kachok/engine/io/BufferPool.kt` | the capped pool of direct 16 KiB buffers and its `PooledBuffer` handle; a torrent's pool lends from the set's (B-174) |
 | `.../engine/io/EngineDispatchers.kt` | the virtual-thread dispatcher every coroutine in the engine runs on |
 | `.../engine/io/SocketPeerConnection.kt` | one peer, one blocking `SocketChannel`, one virtual thread; `connect` and `accept`, blocks read straight into pool buffers, and a block the session never took goes back to the pool (B-147) |
 | `.../engine/io/PeerListener.kt` | the 6881–6889 probe and the accept loop |
@@ -261,6 +263,14 @@ them. Nothing is read from the environment by this module; that is [cli](cli.md)
   share of the cap is sent to it as `Command.Share`; the session keeps the smaller of that and its own
   `maxPeers` and closes the excess at once, choking and slowest peers first. The dials in flight are
   shared out the same way (B-154): the client's cap alone went to whichever session asked first.
+* **The block memory is one budget for the client** (B-174). Each torrent's window is still derived
+  from its own peers, but every piece is reserved whole from the set's `SharedBlockBudget` before it
+  begins, and every torrent's pool lends from the set's one pool of direct buffers. Both are split
+  once from `-XX:MaxDirectMemorySize`: three quarters for blocks, of which a block per connection is
+  kept out of the reservations for reads in progress. Without it three torrents' windows summed to
+  more than the VM had, and every torrent stood still at 140 MiB on loan of 192 MiB with its pieces
+  half in memory. A refused piece is asked for again on the session's tick, because the room comes
+  from another torrent.
 * **Queued is not paused.** The set's queue holds a torrent with `Command.Queue`, which pauses it
   and publishes `queued` rather than `paused`; a person's pause wins over it, a resume does not jump
   it, and a torrent that would have to wait is started held, so it never announces first. Turns go

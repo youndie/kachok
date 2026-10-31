@@ -144,6 +144,8 @@ public class TorrentRuntime internal constructor(
      * removes the record too, wherever it is.
      */
     public val resumePath: Path,
+    /** This torrent's account in the set's block budget, closed with the torrent (B-174). */
+    private val pieceBudget: AutoCloseable? = null,
 ) : AutoCloseable {
     public val state: StateFlow<SessionState> get() = session.state
 
@@ -278,6 +280,7 @@ public class TorrentRuntime internal constructor(
     /** Closes the files. The sockets are the set's, and outlive one torrent. */
     override fun close() {
         files.close()
+        pieceBudget?.close()
     }
 
     public companion object {
@@ -302,10 +305,17 @@ public class TorrentRuntime internal constructor(
             sharedDownload: RateBudget? = null,
             /** The set's connections and dials, shared with every other torrent (B-152). */
             connections: io.github.youndie.kachok.engine.peer.ConnectionBudget? = null,
+            /**
+             * The set's buffers and its budget for started pieces (B-174): this torrent's pool
+             * lends from the one and its picker reserves from the other.
+             */
+            blockPool: BufferPool? = null,
+            pieceBudget: SharedBlockBudget.Holder? = null,
         ): TorrentRuntime {
             Files.createDirectories(options.directory)
             val files = FileSet.open(options.directory, metainfo)
-            val pool = BufferPool(capacity = poolCapacity(metainfo, options.maxPeers, options.pipelineDepth))
+            val own = poolCapacity(metainfo, options.maxPeers, options.pipelineDepth)
+            val pool = BufferPool(capacity = blockPool?.let { minOf(own, it.capacity) } ?: own, parent = blockPool)
             val hasher = MessageDigestPieceHasher(dispatchers.io)
             val port = listenPort
             // One identity, announced to the tracker and offered in every handshake. Generating it
@@ -380,6 +390,7 @@ public class TorrentRuntime internal constructor(
                             sharedUpload = sharedUpload,
                             sharedDownload = sharedDownload,
                             connections = connections,
+                            pieceBudget = pieceBudget,
                         ),
                     unwantedFiles = options.unwantedFiles,
                     highFiles = options.highFiles,
@@ -400,6 +411,7 @@ public class TorrentRuntime internal constructor(
                 options = options,
                 onResumeFailure = onResumeFailure,
                 resumePath = resumePath,
+                pieceBudget = pieceBudget,
             )
         }
 

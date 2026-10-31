@@ -97,4 +97,58 @@ class BufferPoolTest {
         assertEquals(0, pool.outstanding)
         assertEquals(3, pool.available)
     }
+
+    @Test
+    fun aTorrentsPoolLendsFromTheClientsAndHandsItsBuffersBack() {
+        // B-174: a buffer one torrent is done with is the next torrent's, not its own for ever.
+        val client = BufferPool(capacity = 2)
+        val first = BufferPool(capacity = 2, parent = client)
+        val second = BufferPool(capacity = 2, parent = client)
+
+        val lent = assertNotNull(first.tryAcquire())
+        assertEquals(1, first.outstanding)
+        assertEquals(1, client.outstanding)
+        lent.release()
+        assertEquals(0, first.outstanding)
+        assertEquals(0, client.outstanding)
+
+        val again = assertNotNull(second.tryAcquire())
+        assertSame(lent, again, "the second torrent got the first one's buffer back")
+        assertEquals(1, client.allocated, "and the client allocated one buffer for the two of them")
+        again.release()
+    }
+
+    @Test
+    fun theClientsCapBindsEveryTorrentsPool() =
+        runTest {
+            val client = BufferPool(capacity = 2)
+            val first = BufferPool(capacity = 2, parent = client)
+            val second = BufferPool(capacity = 2, parent = client)
+            val a = first.acquire()
+            val b = first.acquire()
+            assertNull(second.tryAcquire(), "the client has none left, whatever the torrent's own cap says")
+            assertEquals(2, second.available, "and the refused try took nothing of the second's own")
+
+            var got: PooledBuffer? = null
+            val waiting = launch { got = second.acquire() }
+            testScheduler.runCurrent()
+            assertNull(got, "an acquire waits on the client's cap")
+            a.release()
+            testScheduler.runCurrent()
+            assertNotNull(got)
+            waiting.join()
+            b.release()
+            got!!.release()
+            assertEquals(0, client.outstanding)
+        }
+
+    @Test
+    fun aLentBufferReleasedTwiceFails() {
+        val client = BufferPool(capacity = 2)
+        val pool = BufferPool(capacity = 2, parent = client)
+        val pooled = assertNotNull(pool.tryAcquire())
+        pooled.release()
+        assertFailsWith<IllegalStateException> { pooled.release() }
+        assertEquals(0, pool.outstanding)
+    }
 }

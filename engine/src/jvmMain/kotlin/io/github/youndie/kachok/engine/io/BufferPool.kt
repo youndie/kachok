@@ -20,9 +20,12 @@ public class PooledBuffer internal constructor(
 ) {
     internal var inUse: Boolean = false
 
+    /** The torrent's pool that lent this buffer out of its parent, if one did (B-174). */
+    internal var lender: BufferPool? = null
+
     /** Returns the buffer to its pool. Releasing twice is an error, not a no-op. */
     public fun release() {
-        pool.release(this)
+        (lender ?: pool).release(this)
     }
 }
 
@@ -44,14 +47,25 @@ public class PooledBuffer internal constructor(
  * **Buffers are allocated lazily and never freed.** A session with three peers does not commit the
  * whole cap of off-heap memory, and a session that has once reached its cap keeps the buffers
  * rather than churning them; direct buffers are expensive to allocate and free.
+ *
+ * **With a [parent], a pool is one torrent's share of the client's buffers** (B-174). It keeps its
+ * own cap, so its peers still feel its back-pressure and not another torrent's, but every buffer
+ * comes from the parent and goes back to it. Kept per torrent, a buffer allocated at one torrent's
+ * peak stayed with that torrent for the life of the process, and three torrents' caps summed to
+ * more direct memory than the VM had: every torrent stopped mid-download with its pieces half in
+ * memory and no buffer left to finish them with.
  */
 public class BufferPool(
     public val capacity: Int,
     public val bufferSize: Int = PeerWire.BLOCK_SIZE,
+    private val parent: BufferPool? = null,
 ) {
     init {
         require(capacity > 0) { "a pool of $capacity buffers can hand out nothing" }
         require(bufferSize > 0) { "buffer size $bufferSize" }
+        require(parent == null || parent.bufferSize == bufferSize) {
+            "a pool of $bufferSize-byte buffers cannot lend from one of ${parent?.bufferSize}"
+        }
     }
 
     private val permits = Semaphore(capacity)
@@ -72,7 +86,12 @@ public class BufferPool(
      */
     public val peakOutstanding: Int get() = peakCount.get()
 
-    /** How many buffers have ever been allocated; never more than [capacity], never decreases. */
+    /**
+     * How many buffers have ever been allocated; never more than [capacity], never decreases.
+     *
+     * With a [parent] it is how many this pool has ever had at once, because the allocating is the
+     * parent's.
+     */
     public val allocated: Int get() = allocatedCount.get()
 
     /** How many more could be handed out without waiting. The picker reads this before requesting. */
@@ -81,13 +100,27 @@ public class BufferPool(
     /** Suspends while every buffer is out. The returned buffer is cleared and ready to be filled. */
     public suspend fun acquire(): PooledBuffer {
         permits.acquire()
-        return checkOut()
+        val lending = parent ?: return checkOut()
+        val pooled =
+            try {
+                lending.acquire()
+            } catch (failure: Throwable) {
+                permits.release()
+                throw failure
+            }
+        return lend(pooled)
     }
 
     /** Takes a buffer only if one is free. Never suspends, never allocates beyond the cap. */
     public fun tryAcquire(): PooledBuffer? {
         if (!permits.tryAcquire()) return null
-        return checkOut()
+        val lending = parent ?: return checkOut()
+        val pooled = lending.tryAcquire()
+        if (pooled == null) {
+            permits.release()
+            return null
+        }
+        return lend(pooled)
     }
 
     private fun checkOut(): PooledBuffer {
@@ -97,12 +130,33 @@ public class BufferPool(
         check(!pooled.inUse) { "the pool handed out a buffer that was already on loan" }
         pooled.inUse = true
         pooled.buffer.clear()
-        val now = outstandingCount.incrementAndGet()
-        peakCount.updateAndGet { maxOf(it, now) }
+        count()
         return pooled
     }
 
+    private fun lend(pooled: PooledBuffer): PooledBuffer {
+        pooled.lender = this
+        val now = count()
+        allocatedCount.updateAndGet { maxOf(it, now) }
+        return pooled
+    }
+
+    private fun count(): Int {
+        val now = outstandingCount.incrementAndGet()
+        peakCount.updateAndGet { maxOf(it, now) }
+        return now
+    }
+
     internal fun release(pooled: PooledBuffer) {
+        val lending = parent
+        if (lending != null) {
+            check(pooled.lender === this) { "this buffer was not lent by this pool" }
+            pooled.lender = null
+            outstandingCount.decrementAndGet()
+            permits.release()
+            lending.release(pooled)
+            return
+        }
         require(pooled.buffer.capacity() == bufferSize) {
             "this buffer is ${pooled.buffer.capacity()} bytes and does not belong to a pool of $bufferSize"
         }

@@ -441,6 +441,11 @@ class McpServerTest {
             assertContains(status, "listen port:")
             assertContains(status, "port mapping:")
             assertContains(status, "DHT: off")
+            // B-174: the memory a download stands still against, before a swarm is blamed for it.
+            assertTrue(
+                Regex("""block memory: 0 MiB of \d+ MiB on loan, 0 MiB of \d+ MiB reserved""").containsMatchIn(status),
+                status,
+            )
         }
 
     /** The resource is the socket's payload: the same class decodes it. */

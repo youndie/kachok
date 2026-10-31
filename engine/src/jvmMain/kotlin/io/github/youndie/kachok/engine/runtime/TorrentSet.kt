@@ -3,6 +3,7 @@ package io.github.youndie.kachok.engine.runtime
 import io.github.youndie.kachok.engine.dht.Dht
 import io.github.youndie.kachok.engine.dht.NodeId
 import io.github.youndie.kachok.engine.hex
+import io.github.youndie.kachok.engine.io.BufferPool
 import io.github.youndie.kachok.engine.io.DatagramKrpcTransport
 import io.github.youndie.kachok.engine.io.EngineDispatchers
 import io.github.youndie.kachok.engine.io.PeerListener
@@ -70,6 +71,11 @@ public class SetOptions(
     public val resumeDirectory: Path? = null,
     /** What the set starts with; [TorrentSet.limit] changes it while it runs (B-151). */
     public val limits: SetLimits = SetLimits(),
+    /**
+     * The direct memory the set's blocks may live in, or null for the VM's own ceiling (B-174).
+     * A test names a small one; the products leave it to `-XX:MaxDirectMemorySize`.
+     */
+    public val directMemoryBytes: Long? = null,
 )
 
 /**
@@ -131,6 +137,17 @@ public data class ConnectionStatus(
     public val dialling: Int,
     public val maxConnections: Int,
     public val maxDialsInFlight: Int,
+)
+
+/**
+ * How the client's block memory stands (B-174): buffers on loan out of how many there may be, and
+ * blocks reserved by started pieces out of how many may be.
+ */
+public data class BlockStatus(
+    public val onLoan: Int,
+    public val buffers: Int,
+    public val reserved: Int,
+    public val reservable: Int,
 )
 
 /** How the queue stands: downloads running, downloads waiting, and the most that may run. */
@@ -373,6 +390,23 @@ public class TorrentSet(
     private val connectionBudget =
         SharedConnectionBudget(options.limits.maxConnections, options.limits.maxDialsInFlight)
 
+    /**
+     * The buffers every torrent's pool lends from, and the blocks their started pieces may reserve
+     * (B-174). Split once, from the direct memory the VM was started with: it cannot change while
+     * the process runs, so neither can these.
+     */
+    private val blockSplit =
+        SharedBlockBudget.split(
+            options.directMemoryBytes ?: SharedBlockBudget.maxDirectMemory(),
+            options.limits.maxConnections.takeIf { it > 0 } ?: SetLimits.RECOMMENDED_MAX_CONNECTIONS,
+        )
+    private val blockPool = BufferPool(capacity = blockSplit.first)
+    private val blockBudget = SharedBlockBudget(blockSplit.second)
+
+    /** The client's block memory as it stands (B-174). */
+    public val blockStatus: BlockStatus
+        get() = BlockStatus(blockPool.outstanding, blockPool.capacity, blockBudget.reservedBlocks, blockBudget.capacity)
+
     /** Each running torrent's share of the connections and dials as last sent, so it is sent only on change. */
     private val shares = ConcurrentHashMap<String, Pair<Int?, Int?>>()
 
@@ -548,6 +582,8 @@ public class TorrentSet(
                 sharedUpload = sharedUpload,
                 sharedDownload = sharedDownload,
                 connections = connectionBudget,
+                blockPool = blockPool,
+                pieceBudget = blockBudget.holder(),
             )
         runtime.holdOnStart = { holdsOnStart(runtime) }
         byInfoHash[key] = runtime

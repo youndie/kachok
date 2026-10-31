@@ -74,6 +74,8 @@ val kachokModules =
         // `sun.misc.Unsafe`, reached from the Kotlin runtime.
         "jdk.unsupported",
         "jdk.jfr",
+        // `ManagementFactory`, which reads `-XX:MaxDirectMemorySize` to size the block budget (B-174).
+        "java.management",
     )
 
 application {

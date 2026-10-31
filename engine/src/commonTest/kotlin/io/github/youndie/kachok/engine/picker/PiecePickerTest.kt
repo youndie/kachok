@@ -875,4 +875,69 @@ class PiecePickerTest {
                 .piece.value
         assertTrue(next in 5..9, "the piece asked for after un-skipping was not one of the un-skipped: $next")
     }
+
+    /** A budget that holds [capacity] blocks and counts what it was given back (B-174). */
+    private class CountingBudget(
+        private val capacity: Int,
+    ) : PieceBudget {
+        var reserved = 0
+
+        override fun tryReserve(blocks: Int): Boolean {
+            if (reserved + blocks > capacity) return false
+            reserved += blocks
+            return true
+        }
+
+        override fun release(blocks: Int) {
+            reserved -= blocks
+        }
+    }
+
+    @Test
+    fun aPieceBeginsOnlyWhenTheClientsBudgetHasRoomForIt() {
+        // The torrent's own window is eight pieces; the client has room for two. The budget wins,
+        // and a piece that closes makes room for the next one and no more.
+        val budget = CountingBudget(capacity = 2)
+        val picker = PiecePicker(tenPieces, maxStartedPieces = 8, random = Random(3), budget = budget)
+        picker.peerWith(a, *(0..9).toList().toIntArray())
+
+        val first = picker.next(a, 10)
+        assertEquals(2, first.map { it.piece.value }.toSet().size, "two pieces fit the budget")
+        assertEquals(2, budget.reserved)
+        assertTrue(picker.takeRefusedByBudget(), "the third was refused, so the session asks again on its clock")
+        assertFalse(picker.takeRefusedByBudget(), "once")
+
+        picker.pieceVerified(first.first().piece)
+        assertEquals(1, budget.reserved, "a verified piece gives its block back")
+        val second = picker.next(a, 10)
+        assertEquals(1, second.size, "and exactly one more piece begins in its place")
+        assertEquals(2, budget.reserved)
+    }
+
+    @Test
+    fun everyWayAPieceClosesGivesItsBlocksBack() {
+        val budget = CountingBudget(capacity = 10)
+        val picker = PiecePicker(tenPieces, maxStartedPieces = 4, random = Random(3), budget = budget)
+        picker.peerWith(a, *(0..9).toList().toIntArray())
+        val requests = picker.next(a, 4)
+        assertEquals(4, budget.reserved)
+
+        picker.pieceFailed(requests[0].piece)
+        assertEquals(3, budget.reserved, "a piece that failed its hash is no longer open")
+        // Verified twice — the second copy of an endgame block, or the disk agreeing — gives back once.
+        picker.pieceVerified(requests[1].piece)
+        picker.pieceVerified(requests[1].piece)
+        assertEquals(2, budget.reserved)
+        picker.forget()
+        assertEquals(0, budget.reserved, "a re-check forgets its open pieces and their blocks")
+    }
+
+    @Test
+    fun aFastPieceIsAskedOfTheBudgetToo() {
+        val budget = CountingBudget(capacity = 0)
+        val picker = PiecePicker(tenPieces, random = Random(3), budget = budget)
+        picker.peerWith(a, *(0..9).toList().toIntArray())
+        assertTrue(picker.nextFrom(a, PieceIndex(4), 1).isEmpty(), "no room is no room, allowed fast or not")
+        assertEquals(0, budget.reserved)
+    }
 }

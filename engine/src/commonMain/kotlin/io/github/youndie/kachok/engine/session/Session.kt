@@ -130,7 +130,7 @@ public class Session(
     /** Ask for pieces in order. Decided when the torrent is opened; [Command.Reconfigure] changes it. */
     private val sequential: Boolean = false,
 ) {
-    private val picker = PiecePicker(metainfo, config.maxStartedPieces, random, sequential)
+    private val picker = PiecePicker(metainfo, config.maxStartedPieces, random, sequential, config.pieceBudget)
 
     /** Which files are not fetched, and which are fetched first. Sets, because a command moves one file at a time. */
     private val skipped: MutableSet<Int> = unwantedFiles.toMutableSet()
@@ -1961,6 +1961,10 @@ public class Session(
             }
             tick("rates") { refillRateLimits() }
             tick("expiry") { expireRequests() }
+            // B-174: room in the client's budget opens when *another* torrent closes a piece, which
+            // is no event here. A peer refused a piece for want of it is asked again by the clock,
+            // or an idle peer with nothing outstanding would wait for an event that never comes.
+            tick("budget") { if (picker.takeRefusedByBudget()) connected.snapshot().forEach { requestMore(it) } }
             // **The only thing that keeps the connection count up, and it used to not be here.**
             //
             // Every other caller of `connectMore` is an event: an announce, a DHT lookup, a

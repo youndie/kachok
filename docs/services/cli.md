@@ -118,7 +118,7 @@ opens the same list.
   |---|---|
   | `add_torrent` | a `.torrent` path or a magnet link → started; answers with the info hash every other tool takes; `sequential: true` starts it in order |
   | `list_torrents` | one line per torrent: hash, name, state, percentage, rates, peers |
-  | `network_status` | listen port, whether the router forwards it and why not, DHT nodes and whether its UDP port is forwarded, the client's limits and its download queue, peers held (B-140, B-143, B-151) |
+  | `network_status` | listen port, whether the router forwards it and why not, DHT nodes and whether its UDP port is forwarded, the client's limits and its download queue, the block memory on loan and reserved by started pieces, peers held (B-140, B-143, B-151, B-174) |
   | `torrent_status` | one torrent in detail, files with their tier and the order included, and how many pool buffers are on loan (B-147) |
   | `wait_for_completion` | **blocks** until done, failed, or `timeout_seconds` (default 600, at most 3600); says which |
   | `pause_torrent`, `resume_torrent` | as the toolbar's |
