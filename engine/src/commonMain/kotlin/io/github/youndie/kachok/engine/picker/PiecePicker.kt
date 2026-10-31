@@ -72,6 +72,15 @@ public class PiecePicker(
      * ([B-89](../../../../../../../../docs/backlog/B-89-sequential-on-a-running-torrent.md)).
      */
     public var sequential: Boolean = false,
+    /**
+     * The client's memory for started pieces, or null for none but [maxStartedPieces] (B-174).
+     *
+     * [maxStartedPieces] is this torrent's window, derived from its peers; it says nothing about
+     * how many other torrents are holding pieces open in the same process. Every piece is asked of
+     * this budget before it begins, so the pieces open across the client fit the direct memory
+     * they live in.
+     */
+    private val budget: PieceBudget? = null,
 ) {
     private val have = Bitfield(metainfo.pieceCount)
     private val availability = IntArray(metainfo.pieceCount)
@@ -275,6 +284,7 @@ public class PiecePicker(
         fillFromStarted(peer, bitfield, requests, count)
         while (requests.size < count && started.size < maxStartedPieces) {
             val index = rarestUnstarted(bitfield) ?: break
+            if (!reserve(index)) break
             begin(index)
             fillFrom(peer, index, requests, count)
         }
@@ -307,6 +317,7 @@ public class PiecePicker(
         // are the same pooled buffers.
         if (piece.value !in started) {
             if (started.size >= maxStartedPieces) return emptyList()
+            if (!reserve(piece.value)) return emptyList()
             begin(piece.value)
         }
         fillFrom(peer, piece.value, requests, count)
@@ -390,6 +401,7 @@ public class PiecePicker(
      */
 
     public fun forget() {
+        started.keys.forEach { budget?.release(blockCount(it)) }
         started.clear()
         isStarted.fill(false)
         have.clear()
@@ -469,8 +481,24 @@ public class PiecePicker(
         startedAt[index] = now
     }
 
+    private fun reserve(index: Int): Boolean {
+        val granted = budget?.tryReserve(blockCount(index)) ?: true
+        if (!granted) refusedByBudget = true
+        return granted
+    }
+
+    private var refusedByBudget = false
+
+    /**
+     * Whether a piece was refused by the client's budget since the last call (B-174), and forgets
+     * it. The session asks again on its clock when it was: the room comes from other torrents.
+     */
+    public fun takeRefusedByBudget(): Boolean = refusedByBudget.also { refusedByBudget = false }
+
     private fun finish(index: Int) {
-        started.remove(index)
+        // Only a piece that was begun holds blocks: a piece verified straight off the disk, or by a
+        // second copy after it closed, gives back nothing it never took.
+        if (started.remove(index) != null) budget?.release(blockCount(index))
         isStarted[index] = false
         startedAt.remove(index)?.let { at ->
             // `now` is set by `next` and by `expire`, so it can lag a little behind the clock; the

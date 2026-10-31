@@ -264,6 +264,22 @@ lets a fast torrent's peers take the buffers a slow torrent's writer is waiting 
 are allocated lazily and never freed, so N pools cost what N torrents actually use rather than the
 sum of their caps — 36 buffers, 576 KiB, for the two above.
 
+> **Amended 2026-10-31 ([B-174](../backlog/B-174-the-block-memory-is-one-budget-for-the-client.md)).**
+> "What N torrents actually use" was true of 4 MiB test torrents and is not a bound: a pool keeps
+> its peak for the life of the process, and each cap is the torrent's *own* window — 500 peers at a
+> pipeline of 64 is 32 500 buffers, 508 MiB, per torrent. Three films in 8 MiB pieces downloading at
+> 100 Mbit/s in the window (`MaxDirectMemorySize=192m`) had 8 959 buffers on loan, 140 MiB, when
+> every torrent stopped at once, peers connected and requests out, and stood still until the window
+> was restarted (read off the MCP server's `torrent_status` every 20 s, 10:50–11:05; a thread dump
+> showed no thread blocked on a disk or a lock). *Inferred, not seen:* with the JDK's own direct
+> buffers on top, the next `allocateDirect` had no room, and an open piece cannot finish without the
+> block it was for — no error reached any surface to say so. At 16 Mbit/s the same
+> torrents never opened enough pieces to reach it. The replacement keeps the per-torrent cap and
+> its back-pressure, and adds what was missing: the buffers come from one pool for the set, and a
+> piece is reserved whole from one budget before it begins, both split from the VM's direct memory
+> (`SharedBlockBudget`). A writer is never waiting on a buffer — it only gives them back — so the
+> concern above is met by the reservation: every open piece has room for the rest of its blocks.
+
 **What is shared instead:** the listener, because there is one port and it is announced to every
 tracker; the DHT, because there is one routing table and BEP 5's `implied_port` needs one stable
 source port; and the dispatcher, because every coroutine in the engine already runs on the same
@@ -531,6 +547,12 @@ jars (`cli`, `engine-jvm`, `kotlin-stdlib`, `kotlinx-coroutines-core-jvm`, `anno
 | `jdk.unsupported` | **no** | required | **added** — `sun.misc.Unsafe`, from the Kotlin runtime |
 | `jdk.jfr` | yes | not referenced | kept **as a decision**, see below |
 | `java.management` | yes | not referenced | **dropped**, 688 KB |
+
+> **Amended 2026-10-31 ([B-174](../backlog/B-174-the-block-memory-is-one-budget-for-the-client.md)).**
+> `java.management` is referenced now: the engine reads `-XX:MaxDirectMemorySize` through
+> `ManagementFactory` to size the client's block budget, so it is back in both images, 688 KB. Found
+> the late way this section warns of — the window built without it opened no torrent and reported
+> nothing — and the engine falls back to the heap's ceiling if an image is ever linked without it.
 
 | Image (macOS/aarch64, `--strip-debug --no-man-pages --no-header-files --compress zip-6`) | Size |
 |---|---|

@@ -553,6 +553,12 @@ public class SessionConfig(
      */
     public val connections: io.github.youndie.kachok.engine.peer.ConnectionBudget? = null,
     /**
+     * The client's memory for started pieces, shared with every other torrent, or null for none
+     * (B-174). [maxStartedPieces] stays this torrent's own window; this is the client's, and a
+     * piece begins only when both have room for it.
+     */
+    public val pieceBudget: io.github.youndie.kachok.engine.picker.PieceBudget? = null,
+    /**
      * BEP 10's `m`: the extensions this client offers, and the message id it wants each sent under.
      *
      * Empty in phase 1, and that is not the same as not speaking BEP 10. A peer that gets an empty

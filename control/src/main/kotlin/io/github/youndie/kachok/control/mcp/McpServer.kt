@@ -15,6 +15,7 @@ import io.github.youndie.kachok.engine.runtime.TorrentSet
 import io.github.youndie.kachok.engine.runtime.fetchMetainfo
 import io.github.youndie.kachok.engine.session.FilePriority
 import io.github.youndie.kachok.engine.session.SessionState
+import io.github.youndie.kachok.engine.wire.PeerWire
 import io.github.youndie.kachok.wire.Snapshot
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -641,6 +642,13 @@ public class McpServer(
                 )
                 set.dhtPortMapping?.let { appendLine("DHT udp port ${set.dhtPort}: $it") }
                 appendLine(limitLines())
+                // What a download stood still against before B-174, so it is in sight before blaming
+                // a swarm: the blocks every started piece may hold, across the client.
+                val blocks = set.blockStatus
+                appendLine(
+                    "block memory: ${mib(blocks.onLoan)} of ${mib(blocks.buffers)} on loan, " +
+                        "${mib(blocks.reserved)} of ${mib(blocks.reservable)} reserved by started pieces",
+                )
                 val torrents = set.torrents.map { it.state.value }
                 val running = torrents.filter { !it.paused && !it.queued }
                 append(
@@ -692,6 +700,9 @@ public class McpServer(
     }
 
     private fun cap(count: Int): String = if (count == 0) "no cap" else "$count"
+
+    /** Blocks as MiB, which is what a person compares with the memory the client was given. */
+    private fun mib(blocks: Int): String = "${blocks.toLong() * PeerWire.BLOCK_SIZE / (1024 * 1024)} MiB"
 
     private fun runtimeFor(arguments: JsonObject): TorrentRuntime {
         val hash =
