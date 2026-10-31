@@ -268,6 +268,25 @@ class SeededColorsTest {
     }
 
     /**
+     * A seeding row is not drawn in the error's colour (B-170): the accent, and the accent as text,
+     * are at least one hue name from `error`'s hue — the same width the warning is held to, since
+     * the accent, the error and the amber are light colours at one tone and hue is what parts them.
+     */
+    @Test
+    fun theAccentIsNotTheErrorsColour() {
+        val near =
+            offered.flatMap { (name, colours) ->
+                val colors = MaterialKit.of(colours).colors
+                val error = colors.error.toHct().hue
+                listOf("accent" to colors.accent, "accentText" to colors.accentText).mapNotNull { (role, colour) ->
+                    val apart = hueDistance(colour.toHct().hue, error)
+                    "$name $role ${"%.1f".format(apart)}".takeIf { apart < MIN_STATE_HUE_GAP }
+                }
+            }
+        assertTrue(near.isEmpty(), "within $MIN_STATE_HUE_GAP degrees of the error's hue: $near")
+    }
+
+    /**
      * Oklab's a–b distance, written out from Björn Ottosson's matrices rather than taken from
      * Compose's colour space, which is what the derivation uses: a ruler of its own.
      */
