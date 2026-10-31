@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
@@ -24,6 +25,7 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -237,7 +239,7 @@ private fun Files(
                     Modifier
                         .fillMaxWidth()
                         .height(FILE_ROW)
-                        .clickable { onFile(index, !file.wanted) }
+                        .toggleable(value = file.wanted, role = Role.Checkbox) { onFile(index, it) }
                         .semantics { contentDescription = file.name }
                         .padding(horizontal = 10.dp),
                     verticalAlignment = Alignment.CenterVertically,
@@ -280,7 +282,7 @@ private fun Sequential(
         Modifier
             .fillMaxWidth()
             .padding(start = edge, end = edge, top = 16.dp)
-            .clickable { onSequential(!state.sequential) }
+            .toggleable(value = state.sequential, role = Role.Checkbox, onValueChange = onSequential)
             .semantics { contentDescription = AddTorrentState.SEQUENTIAL },
         horizontalArrangement = Arrangement.spacedBy(9.dp),
     ) {
@@ -469,7 +471,7 @@ internal fun ClipboardMagnetPrompt(
             Modifier
                 .height(PROMPT_BUTTON)
                 .background(scheme.accentContainer, RoundedCornerShape(4.dp))
-                .clickable(onClick = onAdd)
+                .clickable(role = Role.Button, onClick = onAdd)
                 .padding(horizontal = 13.dp),
             contentAlignment = Alignment.Center,
         ) {
@@ -483,7 +485,7 @@ internal fun ClipboardMagnetPrompt(
             Modifier
                 .height(PROMPT_BUTTON)
                 .width(PROMPT_BUTTON)
-                .clickable(onClick = onDismiss)
+                .clickable(role = Role.Button, onClick = onDismiss)
                 .semantics { contentDescription = "Dismiss" },
             contentAlignment = Alignment.Center,
         ) {

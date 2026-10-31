@@ -36,6 +36,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
@@ -540,7 +541,7 @@ private fun ColumnScope.Trackers(
             )
             Row(
                 Modifier
-                    .clickable(onClick = onAnnounce)
+                    .clickable(role = Role.Button, onClick = onAnnounce)
                     .semantics { contentDescription = "Re-announce" },
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
@@ -656,7 +657,7 @@ private fun ColumnScope.Files(
                         .semantics {
                             contentDescription = "piece order"
                             stateDescription = if (state.sequential) "in order" else "rarest first"
-                        }.clickable { onSequential(!state.sequential) },
+                        }.clickable(role = Role.Button) { onSequential(!state.sequential) },
             )
         }
         Box(Modifier.fillMaxWidth().height(HAIRLINE).background(KachokTheme.colors.rowHairline))
@@ -726,7 +727,7 @@ private fun FileLine(
                 .semantics {
                     contentDescription = "priority of ${file.name}"
                     stateDescription = file.priority.name.lowercase()
-                }.clickable { onPriority(next) },
+                }.clickable(role = Role.Button) { onPriority(next) },
         ) {
             Glyph(
                 when (file.priority) {
@@ -948,7 +949,7 @@ private fun CopyButton(
         tint = if (copied) KachokTheme.colors.accentText else KachokTheme.colors.textFaint,
         modifier =
             Modifier
-                .clickable {
+                .clickable(role = Role.Button) {
                     onCopy(field.copyText)
                     copied = true
                 }.semantics { contentDescription = "Copy ${field.label}" },
@@ -964,7 +965,11 @@ private fun MoveButton(
         Icons.FOLDER,
         size = COPY_GLYPH,
         tint = KachokTheme.colors.textFaint,
-        modifier = Modifier.clickable(onClick = onMove).semantics { contentDescription = "Move ${field.label}" },
+        modifier =
+            Modifier.clickable(role = Role.Button, onClick = onMove).semantics {
+                contentDescription =
+                    "Move ${field.label}"
+            },
     )
 }
 
