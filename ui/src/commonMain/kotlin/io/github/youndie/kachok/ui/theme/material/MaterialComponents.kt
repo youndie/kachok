@@ -5,6 +5,8 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -31,6 +33,7 @@ import io.github.youndie.kachok.ui.icons.Icons
 import io.github.youndie.kachok.ui.theme.ChromeButton
 import io.github.youndie.kachok.ui.theme.ChromeText
 import io.github.youndie.kachok.ui.theme.KachokTheme
+import io.github.youndie.kachok.ui.theme.RowStateLabel
 import io.github.youndie.kachok.ui.theme.Text
 
 /*
@@ -275,6 +278,83 @@ internal fun MaterialFilterField(
         }
     }
 }
+
+/**
+ * The degraded banner's button, from `main/DegradedBanner.kt`: a bordered box with the label in the
+ * error colour, the band's own colours, so it reads as part of the band and not as a second alarm.
+ */
+@Composable
+internal fun MaterialBannerButton(
+    label: String,
+    onClick: () -> Unit,
+) {
+    val scheme = KachokTheme.colors
+    Row(
+        Modifier
+            .height(BANNER_BUTTON_HEIGHT)
+            .border(HAIRLINE, scheme.errorContainer, RoundedCornerShape(CONTROL_RADIUS))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 9.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(label, style = RowStateLabel, color = scheme.error, maxLines = 1)
+    }
+}
+
+/** The details panel's tab strip, from `details/DetailsPanel.kt`: labels over an accent underline. */
+@Composable
+internal fun MaterialTabs(
+    name: String,
+    labels: List<String>,
+    selected: Int,
+    onSelect: (Int) -> Unit,
+) {
+    Column(Modifier.fillMaxWidth()) {
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .height(TAB_HEIGHT)
+                .semantics { contentDescription = name }
+                .padding(horizontal = 6.dp),
+        ) {
+            labels.forEachIndexed { index, label ->
+                val on = index == selected
+                Column(
+                    Modifier
+                        // The indicator is as wide as the label and no wider, and the only way to
+                        // say that is to measure the column by what is in it: `fillMaxWidth` on the
+                        // indicator otherwise takes the whole tab row and the first tab eats the rest.
+                        .width(IntrinsicSize.Max)
+                        .clickable { onSelect(index) }
+                        .padding(horizontal = 10.dp),
+                    verticalArrangement = Arrangement.Bottom,
+                ) {
+                    Text(
+                        label,
+                        style = if (on) ChromeText.copy(fontWeight = FontWeight.Medium) else ChromeText,
+                        color = if (on) KachokTheme.colors.accentText else KachokTheme.colors.textFaint,
+                        maxLines = 1,
+                        modifier = Modifier.padding(top = 8.dp, bottom = 7.dp),
+                    )
+                    Box(
+                        Modifier
+                            .fillMaxWidth()
+                            .height(INDICATOR)
+                            .background(if (on) KachokTheme.colors.accent else Color.Transparent),
+                    )
+                }
+            }
+        }
+        Box(Modifier.fillMaxWidth().height(HAIRLINE).background(KachokTheme.colors.divider))
+    }
+}
+
+/** The design's `height: 22px` plus the border CSS measures outside it. */
+private val BANNER_BUTTON_HEIGHT = 24.dp
+
+private val TAB_HEIGHT = 32.dp
+
+private val INDICATOR = 2.dp
 
 /**
  * 220, not the design's `width: 200px`.
