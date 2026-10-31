@@ -116,37 +116,6 @@ jobs:
           # And what it installs to, which is the number B-155 and B-156 move.
           du -sh ui/build/compose/binaries/main-release/app/*
 
-      # B-172 EXPERIMENT, to be removed: what times does an .msi put on the jars, and do they move
-      # with the time zone?
-      - name: B-172 experiment — msi file times
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          $msi = (Get-ChildItem ui/build/compose/binaries/main-release/msi/*.msi | Select-Object -First 1).FullName
-          $jarName = 'ui-desktop-0.1.0-SNAPSHOT.jar'
-          $img = Get-Item "ui/build/compose/binaries/main-release/app/kachok/app/$jarName"
-          "image      $($img.LastWriteTimeUtc.ToString('o'))  size $($img.Length)"
-          $admin = "$env:RUNNER_TEMP\admin"
-          Start-Process msiexec -ArgumentList '/a', "`"$msi`"", '/qn', "TARGETDIR=`"$admin`"" -Wait
-          $a = Get-ChildItem -Recurse $admin -Filter $jarName | Select-Object -First 1
-          "admin      $($a.LastWriteTimeUtc.ToString('o'))  $($a.FullName)"
-          Get-ChildItem -Recurse $admin -Filter kachok.exe | ForEach-Object { "exe        $($_.FullName)" }
-          "tz         $((Get-TimeZone).Id)"
-          Start-Process msiexec -ArgumentList '/i', "`"$msi`"", '/qn', '/l*v', "$env:RUNNER_TEMP\install1.log" -Wait
-          $i = Get-ChildItem -Recurse "$env:LOCALAPPDATA","$env:ProgramFiles" -Filter $jarName -ErrorAction SilentlyContinue | Select-Object -First 1
-          "installed  $($i.LastWriteTimeUtc.ToString('o'))  $($i.FullName)"
-          Start-Process msiexec -ArgumentList '/x', "`"$msi`"", '/qn' -Wait
-          tzutil /s "Tokyo Standard Time"
-          "tz         $((Get-TimeZone).Id)"
-          Start-Process msiexec -ArgumentList '/i', "`"$msi`"", '/qn' -Wait
-          $j = Get-ChildItem -Recurse "$env:LOCALAPPDATA","$env:ProgramFiles" -Filter $jarName -ErrorAction SilentlyContinue | Select-Object -First 1
-          "installed2 $($j.LastWriteTimeUtc.ToString('o'))  $($j.FullName)"
-          $admin2 = "$env:RUNNER_TEMP\admin2"
-          Start-Process msiexec -ArgumentList '/a', "`"$msi`"", '/qn', "TARGETDIR=`"$admin2`"" -Wait
-          $b = Get-ChildItem -Recurse $admin2 -Filter $jarName | Select-Object -First 1
-          "admin2     $($b.LastWriteTimeUtc.ToString('o'))"
-          tzutil /s "UTC"
-
       - uses: actions/upload-artifact@v7
         with:
           # The commit is in the name because two artifacts from two commits are otherwise told
