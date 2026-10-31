@@ -73,6 +73,23 @@ jobs:
       - if: runner.os == 'Linux'
         run: xvfb-run -a ./gradlew :ui:packageReleaseDistributionForCurrentOS --stacktrace
 
+      # **The `.dmg` the same way**: attached, the bundle copied out as a person drags it to
+      # Applications, its signature verified and its VM asked whether it mapped the cache (B-171).
+      - name: The copied app maps its AOT cache
+        if: runner.os == 'macOS'
+        run: |
+          mnt="$RUNNER_TEMP/kachok-dmg"
+          mkdir -p "$mnt" "$RUNNER_TEMP/Applications"
+          hdiutil attach ui/build/compose/binaries/main-release/dmg/*.dmg -mountpoint "$mnt" -nobrowse -readonly -quiet
+          ditto "$mnt/kachok.app" "$RUNNER_TEMP/Applications/kachok.app"
+          hdiutil detach "$mnt" -quiet
+          codesign --verify --deep --strict "$RUNNER_TEMP/Applications/kachok.app"
+          JAVA_TOOL_OPTIONS="-Xlog:aot=info:file=$RUNNER_TEMP/aot.log" "$RUNNER_TEMP/Applications/kachok.app/Contents/MacOS/kachok" --preflight "$RUNNER_TEMP/preflight.txt"
+          if grep -E '\[error *\]\[aot' "$RUNNER_TEMP/aot.log" || ! grep -q 'Using AOT-linked classes: true' "$RUNNER_TEMP/aot.log"; then
+            cat "$RUNNER_TEMP/aot.log"; exit 1
+          fi
+          grep 'Using AOT-linked classes' "$RUNNER_TEMP/aot.log"
+
       # **The installed `.deb`, asked whether it maps its cache.** The build already checked an
       # unpacked copy; this is `dpkg` putting it on a disk, which is what a person's machine does.
       # `Using AOT-linked classes: true` is the line only a mapped cache prints (B-163).
