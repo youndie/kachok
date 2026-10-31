@@ -1,9 +1,4 @@
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
-import java.util.jar.Attributes
-import java.util.jar.JarFile
-import java.util.jar.JarOutputStream
-import java.util.jar.Manifest
-import java.util.zip.ZipEntry
 
 /**
  * The heap the desktop application gets, and the heap its tests get.
@@ -105,64 +100,6 @@ kotlin {
     }
 }
 
-// **The JDK's own classes, for ProGuard, from a JDK that ships no `jmods`.**
-//
-// ProGuard has to read the platform's classes to know what a library extends and calls, and
-// Compose gives it `<java.home>/jmods/*.jmod` — which the JDK on CI does not have. Temurin 25 is
-// built to link run-time images without JMODs (JEP 493), so `jlink` works and the directory Compose
-// reads is simply absent: on all three runners ProGuard started with no library at all, could not
-// find `java.lang.Object` as the superclass of anything, and refused (B-155). The JDKs it worked on
-// — Ubuntu's `openjdk-25` and JetBrains Runtime — both still ship `jmods`.
-//
-// So where there are none, the classes come out of the image the JDK runs from, `lib/modules`,
-// through its own `jimage`, one directory per module, and a generated rules file names each as a
-// library. Where there are `jmods` the rules file says so and names nothing, because Compose
-// already does and the same classes twice is a page of duplicate-definition notes.
-val jdkHome = File(compose.desktop.application.javaHome)
-val jdkHasJmods = File(jdkHome, "jmods").isDirectory
-val jdkClasses = layout.buildDirectory.dir("proguard/jdk-classes")
-
-val extractJdkClasses by tasks.registering(Exec::class) {
-    description = "Extracts the JDK's classes for ProGuard when the JDK has no jmods."
-    // Into a local, so the predicate closes over a boolean and not over the script.
-    val hasJmods = jdkHasJmods
-    onlyIf { !hasJmods }
-    val out = jdkClasses.get().asFile
-    outputs.dir(out)
-    doFirst { out.deleteRecursively() }
-    val jimage = File(jdkHome, if (File(jdkHome, "bin/jimage.exe").exists()) "bin/jimage.exe" else "bin/jimage")
-    commandLine(jimage.path, "extract", "--dir", out.path, File(jdkHome, "lib/modules").path)
-}
-
-val jdkLibraryRules by tasks.registering {
-    description = "Names the JDK's classes as ProGuard libraries, or says Compose already does."
-    dependsOn(extractJdkClasses)
-    val out = jdkClasses.get().asFile
-    val rules = layout.buildDirectory.file("proguard/jdk-library.pro")
-    val home = jdkHome.path
-    val hasJmods = jdkHasJmods
-    inputs.property("javaHome", home)
-    inputs.property("hasJmods", hasJmods)
-    outputs.file(rules)
-    doLast {
-        val modules =
-            out
-                .listFiles()
-                .orEmpty()
-                .filter { it.isDirectory }
-                .sortedBy { it.name }
-        check(hasJmods || modules.any { it.name == "java.base" }) { "jimage extracted no java.base from $home" }
-        rules.get().asFile.writeText(
-            if (hasJmods) {
-                "# $home has jmods, which Compose already passes as libraries.\n"
-            } else {
-                "# The classes of $home, which has no jmods, extracted by jimage.\n" +
-                    modules.joinToString("") { "-libraryjars '${it.invariantSeparatorsPath}'(!module-info.class)\n" }
-            },
-        )
-    }
-}
-
 // The desktop application, with the JVM flags the research settled on: the same three the headless
 // client pins in `cli/build.gradle.kts`. A UI does not get to run a different VM from the one every
 // measurement was taken on, and `-Xmx128m` is the budget the whole engine is designed against.
@@ -180,22 +117,17 @@ compose.desktop {
                 "-XX:MaxDirectMemorySize=192m",
             )
 
-        // **What ships is the release variant: the classes through ProGuard** (B-155).
+        // **The release variant ships, and its classes are the ones that were compiled** (B-173).
         //
-        // 30 MB of jars were every class of every dependency, reached or not; through the shrinker
-        // the same jars are under half that. Compose's defaults are kept — optimisation on,
-        // obfuscation off, so a stack trace somebody sends still names the code it came from. The
-        // rules of this project's own are in the file, each with the failure that put it there.
-        //
-        // **A shrinker removes what nothing *names*, and a check has to run what ships.** So every
-        // task below that runs or packages the image is a `Release` one: `checkDistributable`
-        // asking the old image while the installers carried the shrunk one would be B-78 again,
-        // with a class ProGuard took out in place of a module `jlink` left out.
+        // ProGuard shrank them once (B-155), with Compose's optimisation on, and the optimiser wrote
+        // bytecode the VM refused: `VerifyError: Inconsistent stackmap frames` in the seeded
+        // colour scheme, a window that died the moment a colour other than the design's was chosen,
+        // with every check of the image green because none draws that scheme. Half the jars is not
+        // worth classes nobody compiled and nothing tested as they ship.
+        // The `Release` names stay, so the tasks that run and package the image are still the ones
+        // that ship it.
         buildTypes.release.proguard {
-            configurationFiles.from(
-                project.file("proguard-rules.pro"),
-                jdkLibraryRules.map { it.outputs.files.singleFile },
-            )
+            isEnabled.set(false)
         }
 
         // The app image `createDistributable` writes, and what it is called inside it.
@@ -415,7 +347,7 @@ val checkDistributable by tasks.registering(Exec::class) {
     description = "Runs the packaged application's own launcher against its trimmed runtime."
     dependsOn(tasks.named("createReleaseDistributable"))
     // **The whole image, not the launcher** (B-166). The launcher is a native stub that does not
-    // change when ProGuard rewrites the jars beside it, so with only the stub declared a rebuilt image
+    // change when the jars beside it are rebuilt, so with only the stub declared a rebuilt image
     // left this task up to date and the preflight reported green for an image it had never run.
     inputs.dir(layout.buildDirectory.dir("compose/binaries/main-release/app"))
     outputs.file(preflightReport)
@@ -468,288 +400,6 @@ val checkDownload by tasks.registering(Test::class) {
     providers.gradleProperty("kachok.jvmOptions").orNull?.let { systemProperty("kachok.jvmOptions", it) }
     inputs.dir(layout.buildDirectory.dir("compose/binaries/main-release/app"))
 }
-
-// **The `.deb` carries an AOT cache trained on its own files** (B-157, research §1.3h).
-//
-// The cache is two thirds of the window's start — 936 → 388 ms on an installed copy — and it is
-// refused by any copy of the jars other than the one it was recorded with: the VM compares each
-// jar's modification time, and `packageReleaseDeb` copies the jars again, so a cache trained on
-// `createReleaseDistributable` is a warning and a slow start on every installed machine. So it is
-// trained *after* packaging, on the package: unpacked with `dpkg-deb -R`, which keeps the times the
-// package will put on the disk, recorded by the same download through the window `checkDownload`
-// makes, assembled by the image's own launcher (the image has no `java` for the one-step form),
-// named in `kachok.cfg`, and packed back into the same file.
-//
-// **What proves it is the installed copy, not this directory.** The package is unpacked once more
-// into a different place — `dpkg` keeps the times and the relocation is what the VM's path check
-// allows — and its launcher's `--preflight` is run with `-Xlog:aot`: the build fails unless the VM
-// says `Using AOT-linked classes: true` and no `aot` error, which is the line only a *mapped* cache
-// prints (B-163). `distributions.yml` then installs the package for real and asks again.
-//
-// It needs a display, like `checkDownload`; `-Pkachok.aot=false` packages without the cache.
-val debAot = providers.gradleProperty("kachok.aot").map { it != "false" }.getOrElse(true)
-val debAotWork = layout.buildDirectory.dir("aot/deb")
-
-val unpackReleaseDeb by tasks.registering(Exec::class) {
-    description = "Unpacks the release .deb, keeping its files' times, for the AOT cache to be trained on."
-    val linux = System.getProperty("os.name").orEmpty().let { !it.startsWith("Mac") && !it.startsWith("Windows") }
-    val wanted = debAot
-    onlyIf { linux && wanted }
-    mustRunAfter(patchDesktopEntry)
-    val debDir = layout.buildDirectory.dir("compose/binaries/main-release/deb")
-    commandLine(
-        "sh",
-        "-c",
-        """
-        set -eu
-        deb=${'$'}(find "${'$'}1" -maxdepth 1 -name '*.deb')
-        [ "${'$'}(echo "${'$'}deb" | wc -l)" = "1" ] && [ -n "${'$'}deb" ] || { echo "expected one .deb in ${'$'}1"; exit 1; }
-        rm -rf "${'$'}2" && mkdir -p "${'$'}2"
-        dpkg-deb -R "${'$'}deb" "${'$'}2/root"
-        if grep -q 'AOTCache=' "${'$'}2/root/opt/kachok/lib/app/kachok.cfg"; then
-            echo "this .deb already carries an AOT cache: package it again (:ui:packageReleaseDeb --rerun) rather than train on it twice"
-            exit 1
-        fi
-        """.trimIndent(),
-        "sh",
-        debDir.get().asFile.absolutePath,
-        debAotWork.get().asFile.absolutePath,
-    )
-}
-
-val recordDebAotConfiguration by tasks.registering(Test::class) {
-    description = "Records what the packaged window loads while it downloads a torrent, from the .deb's own files."
-    dependsOn(unpackReleaseDeb)
-    val linux = System.getProperty("os.name").orEmpty().let { !it.startsWith("Mac") && !it.startsWith("Windows") }
-    val wanted = debAot
-    onlyIf { linux && wanted }
-    testClassesDirs = desktopTests.get().testClassesDirs
-    classpath = desktopTests.get().classpath
-    filter { includeTestsMatching("*.DistributionDownloadTest") }
-    val work = debAotWork.get().asFile
-    systemProperty("kachok.launcher", File(work, "root/opt/kachok/bin/kachok").path)
-    systemProperty(
-        "kachok.jvmOptions",
-        "-XX:AOTMode=record -XX:AOTConfiguration=${File(work, "kachok.aotconf").path}",
-    )
-    outputs.upToDateWhen { false }
-}
-
-val addAotCacheToDeb by tasks.registering(Exec::class) {
-    description = "Assembles the AOT cache in the unpacked .deb, names it in kachok.cfg, repacks, and proves it maps."
-    dependsOn(recordDebAotConfiguration)
-    val linux = System.getProperty("os.name").orEmpty().let { !it.startsWith("Mac") && !it.startsWith("Windows") }
-    val wanted = debAot
-    onlyIf { linux && wanted }
-    val debDir = layout.buildDirectory.dir("compose/binaries/main-release/deb")
-    commandLine(
-        "sh",
-        "-c",
-        """
-        set -eu
-        deb=${'$'}(find "${'$'}1" -maxdepth 1 -name '*.deb')
-        work="${'$'}2"
-        app="${'$'}work/root/opt/kachok/lib/app"
-        [ -s "${'$'}work/kachok.aotconf" ] || { echo "the training run wrote no AOT configuration"; exit 1; }
-        home=${'$'}(mktemp -d)
-        trap 'rm -rf "${'$'}home"' EXIT
-        # Assembled by the package's own launcher: the image has no `java`, and the cache must be the
-        # one this runtime makes. In create mode the VM writes the cache and exits; no window opens.
-        JAVA_TOOL_OPTIONS="-Duser.home=${'$'}home -XX:AOTMode=create -XX:AOTConfiguration=${'$'}work/kachok.aotconf -XX:AOTCache=${'$'}app/kachok.aot"             "${'$'}work/root/opt/kachok/bin/kachok" > "${'$'}work/create.log" 2>&1 || { cat "${'$'}work/create.log"; exit 1; }
-        [ -s "${'$'}app/kachok.aot" ] || { cat "${'$'}work/create.log"; echo "no AOT cache was assembled"; exit 1; }
-        grep -q 'AOTCache=' "${'$'}app/kachok.cfg" || sed -i '/^\[JavaOptions\]/a java-options=-XX:AOTCache=${'$'}APPDIR/kachok.aot' "${'$'}app/kachok.cfg"
-        grep -q '^java-options=-XX:AOTCache=\${'$'}APPDIR/kachok.aot${'$'}' "${'$'}app/kachok.cfg" || { echo "kachok.cfg does not name the cache:"; cat "${'$'}app/kachok.cfg"; exit 1; }
-        fakeroot dpkg-deb -b "${'$'}work/root" "${'$'}deb" > /dev/null
-        # The installed copy: unpacked again somewhere else, the way dpkg would put it on a disk.
-        rm -rf "${'$'}work/installed" && mkdir -p "${'$'}work/installed"
-        dpkg-deb -x "${'$'}deb" "${'$'}work/installed"
-        JAVA_TOOL_OPTIONS="-Duser.home=${'$'}home -Xlog:aot=info:file=${'$'}work/aot.log"             "${'$'}work/installed/opt/kachok/bin/kachok" --preflight "${'$'}work/preflight.txt" > /dev/null 2>&1 || true
-        if grep -E '\[error *\]\[aot' "${'$'}work/aot.log" || ! grep -q 'Using AOT-linked classes: true' "${'$'}work/aot.log"; then
-            echo "the packaged AOT cache does not map in an installed copy:"; cat "${'$'}work/aot.log"; exit 1
-        fi
-        echo "the .deb carries an AOT cache of ${'$'}(du -m "${'$'}app/kachok.aot" | cut -f1) MB, and an installed copy maps it"
-        """.trimIndent(),
-        "sh",
-        debDir.get().asFile.absolutePath,
-        debAotWork.get().asFile.absolutePath,
-    )
-}
-
-tasks.matching { it.name == "packageReleaseDeb" }.configureEach { finalizedBy(addAotCacheToDeb) }
-
-// **The `.dmg` carries one too, trained the same way** (B-171).
-//
-// The image is made writable (`hdiutil convert -format UDRW`) and attached; the bundle inside it is
-// what a person drags to Applications, with the times that copy keeps (`ditto`, and Finder, keep
-// them). The configuration is recorded through that bundle's launcher, the cache assembled by it and
-// named in `Contents/app/kachok.cfg`, and the bundle **signed again, ad hoc** — jpackage signs it ad
-// hoc, and a file added to a sealed bundle breaks the seal, which `codesign --verify --strict`
-// would report and an arm64 Mac refuses to launch. The image is then compressed back over the
-// original, attached read-only, the bundle copied out with `ditto` the way an installation copies
-// it, and its `--preflight` asked whether the VM mapped the cache.
-//
-// `-Pkachok.aot=false` packages without it.
-val dmgAotWork = layout.buildDirectory.dir("aot/dmg")
-val onMac = System.getProperty("os.name").orEmpty().startsWith("Mac")
-
-val attachReleaseDmg by tasks.registering(Exec::class) {
-    description = "Makes a writable copy of the release .dmg and attaches it, for the AOT cache to be trained on."
-    val mac = onMac
-    val wanted = debAot
-    onlyIf { mac && wanted }
-    val dmgDir = layout.buildDirectory.dir("compose/binaries/main-release/dmg")
-    commandLine(
-        "sh",
-        "-c",
-        """
-        set -eu
-        dmg=${'$'}(find "${'$'}1" -maxdepth 1 -name '*.dmg')
-        [ "${'$'}(echo "${'$'}dmg" | wc -l | tr -d ' ')" = "1" ] && [ -n "${'$'}dmg" ] || { echo "expected one .dmg in ${'$'}1"; exit 1; }
-        for m in "${'$'}2/mnt" "${'$'}2/final"; do [ -d "${'$'}m" ] && hdiutil detach "${'$'}m" -force -quiet 2>/dev/null || true; done
-        rm -rf "${'$'}2" && mkdir -p "${'$'}2/mnt"
-        hdiutil convert "${'$'}dmg" -format UDRW -o "${'$'}2/rw.dmg" -quiet
-        # A converted image is sized to what it holds, and the cache is ~60 MB more: without room the
-        # VM fails to write it with "Unable to seek to position". The final compression drops the slack.
-        hdiutil resize -size 400m "${'$'}2/rw.dmg"
-        hdiutil attach "${'$'}2/rw.dmg" -mountpoint "${'$'}2/mnt" -nobrowse -quiet
-        [ -x "${'$'}2/mnt/kachok.app/Contents/MacOS/kachok" ] || { echo "the .dmg carries no kachok.app"; exit 1; }
-        if grep -q 'AOTCache=' "${'$'}2/mnt/kachok.app/Contents/app/kachok.cfg"; then
-            hdiutil detach "${'$'}2/mnt" -force -quiet
-            echo "this .dmg already carries an AOT cache: package it again (:ui:packageReleaseDmg --rerun) rather than train on it twice"
-            exit 1
-        fi
-        """.trimIndent(),
-        "sh",
-        dmgDir.get().asFile.absolutePath,
-        dmgAotWork.get().asFile.absolutePath,
-    )
-}
-
-val recordDmgAotConfiguration by tasks.registering(Test::class) {
-    description = "Records what the packaged window loads while it downloads a torrent, from the .dmg's own bundle."
-    dependsOn(attachReleaseDmg)
-    val mac = onMac
-    val wanted = debAot
-    onlyIf { mac && wanted }
-    testClassesDirs = desktopTests.get().testClassesDirs
-    classpath = desktopTests.get().classpath
-    filter { includeTestsMatching("*.DistributionDownloadTest") }
-    val work = dmgAotWork.get().asFile
-    systemProperty("kachok.launcher", File(work, "mnt/kachok.app/Contents/MacOS/kachok").path)
-    systemProperty(
-        "kachok.jvmOptions",
-        "-XX:AOTMode=record -XX:AOTConfiguration=${File(work, "kachok.aotconf").path}",
-    )
-    outputs.upToDateWhen { false }
-}
-
-val addAotCacheToDmg by tasks.registering(Exec::class) {
-    description =
-        "Assembles the AOT cache in the .dmg's bundle, signs it again, compresses the image, and proves it maps."
-    dependsOn(recordDmgAotConfiguration)
-    val mac = onMac
-    val wanted = debAot
-    onlyIf { mac && wanted }
-    val dmgDir = layout.buildDirectory.dir("compose/binaries/main-release/dmg")
-    commandLine(
-        "sh",
-        "-c",
-        """
-        set -eu
-        dmg=${'$'}(find "${'$'}1" -maxdepth 1 -name '*.dmg')
-        work="${'$'}2"
-        bundle="${'$'}work/mnt/kachok.app"
-        app="${'$'}bundle/Contents/app"
-        home=${'$'}(mktemp -d)
-        trap 'rm -rf "${'$'}home"; for m in "${'$'}work/mnt" "${'$'}work/final"; do [ -d "${'$'}m" ] && hdiutil detach "${'$'}m" -force -quiet 2>/dev/null || true; done' EXIT
-        [ -s "${'$'}work/kachok.aotconf" ] || { echo "the training run wrote no AOT configuration"; exit 1; }
-        JAVA_TOOL_OPTIONS="-Duser.home=${'$'}home -XX:AOTMode=create -XX:AOTConfiguration=${'$'}work/kachok.aotconf -XX:AOTCache=${'$'}app/kachok.aot" "${'$'}bundle/Contents/MacOS/kachok" > "${'$'}work/create.log" 2>&1 || { cat "${'$'}work/create.log"; exit 1; }
-        [ -s "${'$'}app/kachok.aot" ] || { cat "${'$'}work/create.log"; echo "no AOT cache was assembled"; exit 1; }
-        grep -q 'AOTCache=' "${'$'}app/kachok.cfg" || sed -i '' '/^\[JavaOptions\]/a\
-        java-options=-XX:AOTCache=${'$'}APPDIR/kachok.aot
-        ' "${'$'}app/kachok.cfg"
-        grep -q '^java-options=-XX:AOTCache=\${'$'}APPDIR/kachok.aot${'$'}' "${'$'}app/kachok.cfg" || { echo "kachok.cfg does not name the cache:"; cat "${'$'}app/kachok.cfg"; exit 1; }
-        codesign --force --deep --sign - "${'$'}bundle" 2> "${'$'}work/codesign.log" || { cat "${'$'}work/codesign.log"; exit 1; }
-        codesign --verify --deep --strict "${'$'}bundle"
-        hdiutil detach "${'$'}work/mnt" -quiet
-        hdiutil convert "${'$'}work/rw.dmg" -format UDZO -ov -o "${'$'}dmg" -quiet
-        # What a person installs: the image attached read-only, the bundle copied out of it.
-        mkdir -p "${'$'}work/final"
-        hdiutil attach "${'$'}dmg" -mountpoint "${'$'}work/final" -nobrowse -readonly -quiet
-        rm -rf "${'$'}work/installed" && mkdir -p "${'$'}work/installed"
-        ditto "${'$'}work/final/kachok.app" "${'$'}work/installed/kachok.app"
-        hdiutil detach "${'$'}work/final" -quiet
-        codesign --verify --deep --strict "${'$'}work/installed/kachok.app"
-        JAVA_TOOL_OPTIONS="-Duser.home=${'$'}home -Xlog:aot=info:file=${'$'}work/aot.log" "${'$'}work/installed/kachok.app/Contents/MacOS/kachok" --preflight "${'$'}work/preflight.txt" > /dev/null 2>&1 || true
-        if grep -E '\[error *\]\[aot' "${'$'}work/aot.log" || ! grep -q 'Using AOT-linked classes: true' "${'$'}work/aot.log"; then
-            echo "the packaged AOT cache does not map in a copy of the bundle:"; cat "${'$'}work/aot.log"; exit 1
-        fi
-        echo "the .dmg carries an AOT cache of ${'$'}(du -m "${'$'}work/installed/kachok.app/Contents/app/kachok.aot" | cut -f1) MB, and a copy of its bundle maps it"
-        """.trimIndent(),
-        "sh",
-        dmgDir.get().asFile.absolutePath,
-        dmgAotWork.get().asFile.absolutePath,
-    )
-}
-
-// **`jbr-api` ships unsealed** (B-171).
-//
-// It is the one sealed jar in the image (`Sealed: true` in its manifest), and on macOS the window
-// reaches the JetBrains Runtime API from its first frame, so its classes are in the AOT cache. On
-// the runner's Temurin the cache then mapped and the VM failed at once with `sealing violation:
-// can't seal package com.jetbrains: already defined` — the package was defined from the cache before
-// the jar could seal it. Linux never loads those classes and never saw it; JetBrains Runtime carries
-// `com.jetbrains` itself and did not either. A seal only stops another jar adding classes to the
-// package, which nothing here does, so the attribute is taken out of the shrunk jar before it is
-// packaged.
-tasks.matching { it.name == "proguardReleaseJars" }.configureEach {
-    val shrunk = layout.buildDirectory.dir("compose/tmp/main-release/proguard")
-    doLast {
-        shrunk
-            .get()
-            .asFile
-            .listFiles()
-            .orEmpty()
-            .filter {
-                it.name.startsWith(
-                    "jbr-api",
-                ) && it.name.endsWith(".jar")
-            }.forEach { jar ->
-                val unsealed = File(jar.parentFile, jar.name + ".unsealed")
-                JarFile(jar).use { source ->
-                    val manifest = Manifest(source.manifest)
-                    manifest.mainAttributes.remove(Attributes.Name.SEALED)
-                    manifest.entries.values.forEach { it.remove(Attributes.Name.SEALED) }
-                    JarOutputStream(unsealed.outputStream(), manifest).use { out ->
-                        source.entries().asSequence().filter { it.name != JarFile.MANIFEST_NAME }.forEach { entry ->
-                            out.putNextEntry(ZipEntry(entry.name).apply { time = entry.time })
-                            source.getInputStream(entry).use { it.copyTo(out) }
-                            out.closeEntry()
-                        }
-                    }
-                }
-                check(unsealed.renameTo(jar) || (jar.delete() && unsealed.renameTo(jar))) { "could not replace $jar" }
-            }
-    }
-}
-
-// The writable image stays attached if the training run fails; this takes it down whatever happened.
-val detachReleaseDmg by tasks.registering(Exec::class) {
-    description = "Detaches the images the .dmg's AOT training attached, whether or not it succeeded."
-    val mac = onMac
-    onlyIf { mac }
-    mustRunAfter(recordDmgAotConfiguration, addAotCacheToDmg)
-    commandLine(
-        "sh",
-        "-c",
-        "for m in \"${'$'}1/mnt\" \"${'$'}1/final\"; do [ -d \"${'$'}m\" ] && hdiutil detach \"${'$'}m\" -force -quiet 2>/dev/null; done; true",
-        "sh",
-        dmgAotWork.get().asFile.absolutePath,
-    )
-}
-attachReleaseDmg.configure { finalizedBy(detachReleaseDmg) }
-
-tasks.matching { it.name == "packageReleaseDmg" }.configureEach { finalizedBy(addAotCacheToDmg) }
 
 // **A package whose version cannot go up is a package that cannot be installed over the last one.**
 //

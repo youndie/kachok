@@ -72,3 +72,5 @@ Two things the item did not plan for:
   **met** by `checkDownload` on the three runners; it is the app image the installer is built from,
   not an *installed* copy, which no runner does. Sizes per platform — **met**, research §1.3g, with
   the before-and-after measured on Linux only.
+
+- **Reversed by [B-173](B-173-the-window-ships-unshrunk-and-without-an-aot-cache.md)** (2026-10-31): ProGuard is off again.

@@ -1,7 +1,7 @@
 ---
 id: B-172
 title: "The .msi carries an AOT cache trained on its own files"
-status: question
+status: dropped
 priority: P2
 size: L
 stage: phase-2-ui
@@ -51,3 +51,9 @@ else was changed: the experiment that measured it ran on the branch and was remo
    disk instead of downloaded, and it is client code — `-XX:AOTCache` in `kachok.cfg` for a file that
    does not exist yet has to be shown to cost nothing, and a cache made by one JDK has to be dropped
    when an update brings another. Size L, its own item.
+
+## Dropped — 2026-10-31
+
+With [B-173](B-173-the-window-ships-unshrunk-and-without-an-aot-cache.md) no installer carries an
+AOT cache, at the owner's word; the measurement above is why this one could not have, whatever the
+packaging.

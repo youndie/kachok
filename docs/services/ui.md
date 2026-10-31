@@ -184,10 +184,11 @@ The colour rule lives outside the composables (`RowColors.kt`) so that "is this 
 ### Building an installer
 
 `jpackage` cannot cross-compile, so each is produced on its own platform. One command each, and one
-format each — the host picks from `targetFormats`. **What ships is the `Release` variant**, whose
-classes went through ProGuard ([B-155](../backlog/B-155-the-desktop-distribution-ships-shrunk-classes.md));
-the tasks without `Release` in the name still build the unshrunk image, for comparison and nothing
-else:
+format each — the host picks from `targetFormats`. **What ships is the `Release` variant**, built
+from the classes as compiled: ProGuard is off for it
+([B-173](../backlog/B-173-the-window-ships-unshrunk-and-without-an-aot-cache.md)), after its
+optimiser wrote bytecode the VM refused. The `Release` task names stay, so the image the checks run
+is the one the installers carry:
 
 | Platform | Command | Output | Prerequisite |
 |---|---|---|---|
@@ -202,19 +203,10 @@ on the single-instance lock and has its MCP server download a torrent from a see
 second is the one that sees a window; it needs a display, so it is not on `check` (`xvfb-run` on
 the Linux runner, WSLg with `DISPLAY=:0` on the build machine).
 
-The `.deb` carries an **AOT cache trained on its own files**: `packageReleaseDeb` is finalised by
-`unpackReleaseDeb`, `recordDebAotConfiguration` and `addAotCacheToDeb`, which record what the
-packaged window loads during the same download, assemble the cache, name it in `kachok.cfg`, repack,
-and fail the build unless an unpacked copy maps it
-([B-157](../backlog/B-157-the-desktop-distribution-ships-an-aot-cache.md)). So building the `.deb`
-needs a display too; `-Pkachok.aot=false` packages it without the cache. The `.dmg` carries one
-the same way ([B-171](../backlog/B-171-the-dmg-carries-an-aot-cache-trained-on-its-own-files.md)):
-`attachReleaseDmg` makes a writable, enlarged copy of the image and attaches it,
-`recordDmgAotConfiguration` trains through the bundle inside, `addAotCacheToDmg` assembles the cache,
-signs the bundle again ad hoc, compresses the image over the original and checks a bundle copied out
-of it with `ditto`; `detachReleaseDmg` takes the images down whatever happened. Either task refuses a
-package that already carries a cache — package it again rather than train on it twice. The `.msi`
-has none yet (B-172).
+No installer carries an **AOT cache** any more, and none needs a display to be built
+([B-173](../backlog/B-173-the-window-ships-unshrunk-and-without-an-aot-cache.md)): the `.deb`'s and
+the `.dmg`'s (B-157, B-171) were trained on the shrunk classes, and the `.msi`'s could not map on a
+machine outside the runner's time zone (B-172). The CLI's cache is a separate thing and stays.
 
 The client can be asked to **start with the computer**, from a checkbox in Settings: a launch agent
 on macOS, an `HKCU\…\Run` value on Windows, a freedesktop autostart entry on Linux — each written
