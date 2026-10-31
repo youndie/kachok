@@ -1228,6 +1228,12 @@ class SessionTest {
     private fun allOf(pieces: Int): ByteArray =
         Bitfield(pieces).also { bits -> (0 until pieces).forEach { bits.set(it) } }.toBytes()
 
+    /** A bitfield claiming one piece. */
+    private fun onlyPiece(
+        pieces: Int,
+        piece: Int,
+    ): ByteArray = Bitfield(pieces).also { it.set(piece) }.toBytes()
+
     private fun session(
         metainfo: Metainfo,
         dialer: PeerDialer,
@@ -1924,6 +1930,61 @@ class SessionTest {
                 2,
                 connection.sent.count { it is Message.Request },
                 "the tick did not ask for the room that opened",
+            )
+            job.cancelAndJoin()
+        }
+
+    /**
+     * B-175: a block left on a slow peer is asked of an idle one on the session's clock, and the
+     * slow peer's cancelled request leaves its pipeline when it is cancelled, not when — if ever —
+     * its copy comes.
+     */
+    @Test
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    fun aBlockLeftOnASlowPeerIsTakenOverAndTheCancelFreesItsPipeline(): Unit =
+        runTest {
+            val metainfo = torrent(pieces = 2)
+            val dialer = FakeDialer(metainfo.infoHash)
+            val session =
+                session(
+                    metainfo,
+                    dialer,
+                    FakeTracker(listOf(peerA, peerB)),
+                    FakeStorage(),
+                    AgreeableHasher(metainfo),
+                    config = SessionConfig(maxStartedPieces = 1, pipelineDepth = 1, maxPeers = 10),
+                    timeSource = testScheduler.timeSource,
+                )
+
+            val job = session.start(kotlinx.coroutines.CoroutineScope(coroutineContext + handler))
+            testScheduler.runCurrent()
+            val slow = dialer.connections.getValue(peerA)
+            val idle = dialer.connections.getValue(peerB)
+            slow.incoming.send(PeerEvent.Received(Message.Bitfield(onlyPiece(metainfo.pieceCount, 0))))
+            slow.incoming.send(PeerEvent.Received(Message.Unchoke))
+            testScheduler.runCurrent()
+            idle.incoming.send(PeerEvent.Received(Message.Bitfield(allOf(metainfo.pieceCount))))
+            idle.incoming.send(PeerEvent.Received(Message.Unchoke))
+            testScheduler.runCurrent()
+            assertEquals(1, slow.sent.count { it is Message.Request })
+            assertEquals(0, idle.sent.count { it is Message.Request }, "the window is full and the block is new")
+
+            testScheduler.advanceTimeBy(
+                io.github.youndie.kachok.engine.picker.PiecePicker.STRAGGLER_MILLIS +
+                    2 * SessionConfig().tick.inWholeMilliseconds,
+            )
+            testScheduler.runCurrent()
+            val taken = idle.sent.filterIsInstance<Message.Request>().singleOrNull()
+            assertEquals(PieceIndex(0), taken?.piece, "the idle peer was never asked for the straggler: ${idle.sent}")
+
+            idle.incoming.send(PeerEvent.BlockReceived(FakeBlock(PieceIndex(0), 0, PeerWire.BLOCK_SIZE)))
+            testScheduler.advanceTimeBy(SessionConfig().tick.inWholeMilliseconds + 1)
+            testScheduler.runCurrent()
+            assertTrue(slow.sent.any { it is Message.Cancel }, "the slow peer was not told to stop")
+            assertEquals(
+                1,
+                session.state.value.outstandingRequests,
+                "the idle peer's request for the next piece, and nothing still counted against the slow one",
             )
             job.cancelAndJoin()
         }

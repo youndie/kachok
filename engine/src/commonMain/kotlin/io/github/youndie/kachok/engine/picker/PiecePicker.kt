@@ -36,6 +36,9 @@ public class BlockRequest(
  *    client that resolves a tie the same way asks for the same piece as every other.
  * 3. **Endgame.** When every block is either had or already asked for, ask several peers for the
  *    stragglers and cancel the losers. Without it a download ends at the speed of its slowest peer.
+ *    A peer with nothing else to do may also take a block of a started piece that another peer has
+ *    sat on for [STRAGGLER_MILLIS] (B-175): the client's budget keeps the pieces open few, and a
+ *    few pieces each waiting on one slow peer are the whole download waiting on it.
  *
  * The number of pieces started at once is bounded ([maxStartedPieces]) because that bound *is* the
  * memory the download uses.
@@ -288,7 +291,14 @@ public class PiecePicker(
             begin(index)
             fillFrom(peer, index, requests, count)
         }
-        if (requests.size < count && isEndgame) fillFromEndgame(peer, bitfield, requests, count)
+        if (requests.size < count) {
+            if (isEndgame) {
+                fillFromEndgame(peer, bitfield, requests, count)
+            } else {
+                fillFromStragglers(peer, bitfield, requests, count)
+            }
+        }
+        if (requests.size < count && started.isNotEmpty()) shortOfWork = true
         return requests
     }
 
@@ -495,6 +505,15 @@ public class PiecePicker(
      */
     public fun takeRefusedByBudget(): Boolean = refusedByBudget.also { refusedByBudget = false }
 
+    private var shortOfWork = false
+
+    /**
+     * Whether a peer was given less than it asked for while pieces were open, since the last call
+     * (B-175), and forgets it. Their blocks become stragglers with time and nothing else, which is
+     * no event either, so the session asks again on its clock.
+     */
+    public fun takeShortOfWork(): Boolean = shortOfWork.also { shortOfWork = false }
+
     private fun finish(index: Int) {
         // Only a piece that was begun holds blocks: a piece verified straight off the disk, or by a
         // second copy after it closed, gives back nothing it never took.
@@ -546,6 +565,40 @@ public class PiecePicker(
             if (!bitfield[index] || have[index]) return@forEach
             while (into.size < count) {
                 val block = progress.takeForEndgame(peer, now) ?: break
+                into += request(index, block)
+            }
+        }
+    }
+
+    /**
+     * Blocks of started pieces that somebody else was asked for [STRAGGLER_MILLIS] ago and has not
+     * delivered, asked of this peer as well (B-175).
+     *
+     * **Why outside the endgame.** The endgame waits for the last *reachable* block of the whole
+     * torrent, and under the client's budget (B-174) that is far away: a torrent at its share may
+     * begin nothing, so its peers ask for nothing new, while every block of the pieces it holds is
+     * already on one peer's queue — and a piece closes at the speed of the slowest peer holding any
+     * of its blocks. Seen in the window on 2026-10-31 with the limits off: 120 MiB reserved for all
+     * of eight minutes, 1.3 MiB/s, peers connected with nothing asked of them.
+     *
+     * **Bounded by age, not by a count.** Only a block whose every request is older than the
+     * threshold is taken, and taking it makes it young again, so one block gains one more peer per
+     * threshold at most; the oldest pieces go first, because closing one is what frees the room. The
+     * loser is cancelled when the first copy arrives, as in the endgame.
+     */
+    private fun fillFromStragglers(
+        peer: PeerAddress,
+        bitfield: Bitfield,
+        into: MutableList<BlockRequest>,
+        count: Int,
+    ) {
+        val before = now - STRAGGLER_MILLIS
+        if (before < 0) return
+        started.forEach { (index, progress) ->
+            if (into.size >= count) return
+            if (!bitfield[index] || have[index]) return@forEach
+            while (into.size < count) {
+                val block = progress.takeStraggler(peer, before, now) ?: break
                 into += request(index, block)
             }
         }
@@ -697,6 +750,25 @@ public class PiecePicker(
             return block
         }
 
+        /**
+         * A block still missing, asked of somebody, whose every request is older than [before] and
+         * none of them of [peer] — now asked of [peer] as well.
+         */
+        fun takeStraggler(
+            peer: PeerAddress,
+            before: Long,
+            at: Long,
+        ): Int? {
+            for (block in 0 until blocks) {
+                if (received[block]) continue
+                val asked = askedOf[block] ?: continue
+                if (peer in asked || asked.values.any { it >= before }) continue
+                asked[peer] = at
+                return block
+            }
+            return null
+        }
+
         /** Marks a block arrived and reports the other peers it was asked of. */
         fun received(
             block: Int,
@@ -754,6 +826,15 @@ public class PiecePicker(
          * placeholder until [B-26] measures it.
          */
         public const val DEFAULT_MAX_STARTED: Int = 8
+
+        /**
+         * How long a block may sit on one peer's queue before an idle peer is asked for it too
+         * (B-175). A guess, not a measurement: a pipeline of 64 blocks is a mebibyte, which a peer
+         * giving 100 KiB/s works through in ten seconds, so a block older than that is behind a
+         * peer slower than that — and a third of the request timeout, so it is taken over well
+         * before the timeout would have freed it.
+         */
+        public const val STRAGGLER_MILLIS: Long = 10_000L
 
         /**
          * The pieces covering a piece-length of bytes at each end of each file, once, in order.

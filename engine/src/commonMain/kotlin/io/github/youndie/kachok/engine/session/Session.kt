@@ -1402,10 +1402,13 @@ public class Session(
             }
 
             is PeerEvent.BlockReceived -> {
-                // Not below zero: a block that was in flight when the peer choked us — and the
-                // choke zeroed the count — still arrives, and used to be counted as minus one.
-                link.outstanding = (link.outstanding - 1).coerceAtLeast(0)
                 val block = event.block
+                // Not below zero: a block that was in flight when the peer choked us — and the
+                // choke zeroed the count — still arrives, and used to be counted as minus one. A
+                // block this client cancelled left the count when it was cancelled (B-175).
+                if (!link.uncancel(block.piece.value, block.begin)) {
+                    link.outstanding = (link.outstanding - 1).coerceAtLeast(0)
+                }
                 // Counted before anything else: these bytes came off the wire whatever becomes of
                 // them, and the rate this peer is giving us is what the choker ranks it by.
                 link.download.add(block.length.toLong(), elapsedMillis())
@@ -1426,7 +1429,13 @@ public class Session(
                     publish { it.copy(duplicateBlocks = it.duplicateBlocks + 1) }
                 } else {
                     picker.blockReceived(address, block.piece, block.begin).forEach { other ->
-                        connected[other]?.send(Message.Cancel(block.piece, block.begin, block.length))
+                        connected[other]?.let { loser ->
+                            // Out of the loser's pipeline now, not when its copy comes: a peer
+                            // that honours the cancel sends nothing, and the request would hold a
+                            // slot of its pipeline for the life of the connection (B-175).
+                            loser.cancel(block.piece.value, block.begin)
+                            loser.send(Message.Cancel(block.piece, block.begin, block.length))
+                        }
                     }
                     writer.blocks.send(block)
                 }
@@ -1438,6 +1447,7 @@ public class Session(
                     Message.Choke -> {
                         link.choked = true
                         link.outstanding = 0
+                        link.cancelled.clear()
                         picker.requestsDropped(address)
                     }
 
@@ -1493,7 +1503,10 @@ public class Session(
                         // The whole point of BEP 6: the block is free now rather than in thirty
                         // seconds, and somebody else can be asked for it on this pass.
                         picker.requestRejected(address, message.piece, message.begin)
-                        if (link.outstanding > 0) link.outstanding--
+                        // BEP 6 answers a cancel with a reject, and the cancel already counted it.
+                        if (!link.uncancel(message.piece.value, message.begin) && link.outstanding > 0) {
+                            link.outstanding--
+                        }
                         requestMore(link)
                     }
 
@@ -1964,7 +1977,13 @@ public class Session(
             // B-174: room in the client's budget opens when *another* torrent closes a piece, which
             // is no event here. A peer refused a piece for want of it is asked again by the clock,
             // or an idle peer with nothing outstanding would wait for an event that never comes.
-            tick("budget") { if (picker.takeRefusedByBudget()) connected.snapshot().forEach { requestMore(it) } }
+            // B-175: the same for a peer that came away short while pieces were open, whose
+            // blocks may be stragglers it can take by the next tick. Both are read, to clear both.
+            tick("budget") {
+                if (picker.takeRefusedByBudget() or picker.takeShortOfWork()) {
+                    connected.snapshot().forEach { requestMore(it) }
+                }
+            }
             // **The only thing that keeps the connection count up, and it used to not be here.**
             //
             // Every other caller of `connectMore` is an event: an announce, a DHT lookup, a
@@ -2237,6 +2256,32 @@ public class Session(
         var choking: Boolean = true
         var peerInterested: Boolean = false
         var outstanding: Int = 0
+
+        /**
+         * Requests this client cancelled and the peer may still answer, as `piece shl 32 or begin`.
+         *
+         * A cancelled request leaves [outstanding] when it is cancelled, so the copy or the reject
+         * that may follow must not leave it a second time.
+         */
+        val cancelled: MutableSet<Long> = HashSet()
+
+        fun cancel(
+            piece: Int,
+            begin: Int,
+        ) {
+            if (cancelled.add(requestKey(piece, begin))) outstanding = (outstanding - 1).coerceAtLeast(0)
+        }
+
+        /** Whether this answer was to a request this client had cancelled, and forgets it. */
+        fun uncancel(
+            piece: Int,
+            begin: Int,
+        ): Boolean = cancelled.isNotEmpty() && cancelled.remove(requestKey(piece, begin))
+
+        private fun requestKey(
+            piece: Int,
+            begin: Int,
+        ): Long = (piece.toLong() shl Int.SIZE_BITS) or (begin.toLong() and 0xFFFF_FFFFL)
 
         /** What this peer is doing for us, and we for it, over the choker's window. */
         val download: RateMeter = RateMeter()

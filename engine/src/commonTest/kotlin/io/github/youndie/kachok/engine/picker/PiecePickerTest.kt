@@ -160,7 +160,7 @@ class PiecePickerTest {
         val fromA = picker.next(a, 2)
         assertEquals(2, fromA.size)
         assertTrue(!picker.isEndgame, "eight pieces are still unstarted; this is the bound, not endgame")
-        assertTrue(picker.next(b, 2).isEmpty(), "no duplicate requests outside endgame")
+        assertTrue(picker.next(b, 2).isEmpty(), "no duplicate of a request just made, outside endgame")
     }
 
     @Test
@@ -939,5 +939,45 @@ class PiecePickerTest {
         picker.peerWith(a, *(0..9).toList().toIntArray())
         assertTrue(picker.nextFrom(a, PieceIndex(4), 1).isEmpty(), "no room is no room, allowed fast or not")
         assertEquals(0, budget.reserved)
+    }
+
+    @Test
+    fun aBlockLeftOnASlowPeerIsAskedOfAnIdleOne() {
+        // B-175, the 2026-10-31 shape in small: the window is full, eight pieces are still to
+        // begin, so this is not endgame — and every block of the open pieces is on a's queue.
+        val picker = PiecePicker(tenPieces, maxStartedPieces = 2, random = Random(5))
+        picker.peerWith(a, *(0..9).toList().toIntArray())
+        picker.peerWith(b, *(0..9).toList().toIntArray())
+        val fromA = picker.next(a, 2, nowMillis = 0)
+
+        assertTrue(picker.next(b, 2, nowMillis = PiecePicker.STRAGGLER_MILLIS).isEmpty(), "not old enough yet")
+        assertTrue(picker.takeShortOfWork(), "b came away short, so the session asks again on its clock")
+        val fromB = picker.next(b, 2, nowMillis = PiecePicker.STRAGGLER_MILLIS + 1)
+        assertFalse(picker.isEndgame)
+        assertEquals(fromA.map { it.piece.value }.toSet(), fromB.map { it.piece.value }.toSet())
+
+        val toCancel = picker.blockReceived(b, fromB.first().piece, 0)
+        assertEquals(listOf(a), toCancel, "the slow peer is told to stop")
+    }
+
+    @Test
+    fun aStragglerGainsOnePeerPerThresholdAndNoMore() {
+        val picker = PiecePicker(tenPieces, maxStartedPieces = 1, random = Random(5))
+        listOf(a, b, c).forEach { picker.peerWith(it, *(0..9).toList().toIntArray()) }
+        picker.next(a, 1, nowMillis = 0)
+        val late = PiecePicker.STRAGGLER_MILLIS + 1
+        assertEquals(1, picker.next(b, 1, nowMillis = late).size)
+        assertTrue(picker.next(c, 1, nowMillis = late).isEmpty(), "b's request is new, so the block is not a straggler")
+        assertTrue(picker.next(b, 1, nowMillis = 3 * late).isEmpty(), "nor asked twice of the same peer")
+        assertEquals(1, picker.next(c, 1, nowMillis = 3 * late).size, "until every request for it is old")
+    }
+
+    @Test
+    fun aStragglerIsOnlyAskedOfAPeerThatHasItsPiece() {
+        val picker = PiecePicker(tenPieces, maxStartedPieces = 1, random = Random(5))
+        picker.peerWith(a, 0)
+        picker.peerWith(b, 1, 2)
+        picker.next(a, 1, nowMillis = 0)
+        assertTrue(picker.next(b, 1, nowMillis = 3 * PiecePicker.STRAGGLER_MILLIS).isEmpty())
     }
 }
