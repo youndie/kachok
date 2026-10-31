@@ -104,6 +104,17 @@ internal fun SettingsOrangeSheet() {
     SeededSettings(MaterialColours(Color(0xFFF39A5B), SchemeStyle.Vibrant))
 }
 
+/**
+ * And violet under *Expressive* (B-181), the *Interface* section alone: the style rotates every
+ * seed's accent, violet's to a teal, and the swatches are drawn in the accents the window will be —
+ * the ring still on the violet seed's square, which is now teal.
+ */
+@ViddikScreenshot(name = "screen-violet-expressive", group = "settings", width = 744, height = 260)
+@Composable
+internal fun SettingsVioletExpressiveSheet() {
+    SeededSettings(MaterialColours(Color(0xFFA78BFA), SchemeStyle.Expressive))
+}
+
 @Composable
 private fun SeededSettings(colours: MaterialColours) {
     val preferences =

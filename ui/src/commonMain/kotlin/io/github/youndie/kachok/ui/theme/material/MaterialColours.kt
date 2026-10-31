@@ -102,3 +102,26 @@ internal val SEED_SWATCHES: List<SeedSwatch> =
         SeedSwatch("Pink", Color(0xFFF08BC0)),
         SeedSwatch("Orange", Color(0xFFF39A5B)),
     )
+
+/**
+ * The colour each of [SEED_SWATCHES] is drawn in under [style], in the same order (B-181): the
+ * accent the window will draw for that seed in that style, not the seed itself.
+ *
+ * A style can turn the seed into another colour — *Expressive* rotates the accent's hue, and the
+ * violet seed comes out teal — and a swatch that showed the seed would promise a window the person
+ * does not get. The swatch is still the seed's: what is stored, ringed and read out stays the seed;
+ * only its square is the accent. The design's teal under *Tonal* is the hand-written scheme, whose
+ * accent is the seed, so that square does not move.
+ *
+ * **Computed once per style.** The settings state is rebuilt on every snapshot the window draws
+ * while the screen is open, and generating six schemes each time would be six MaterialKolor schemes
+ * a second for colours that cannot change; [MaterialKit.of] remembers only the last pair. Four
+ * styles by six seeds is the whole set, so each style's list is generated the first time it is asked
+ * for and kept.
+ */
+internal fun swatchAccents(style: SchemeStyle): List<Color> = SWATCH_ACCENTS.getValue(style).value
+
+private val SWATCH_ACCENTS: Map<SchemeStyle, Lazy<List<Color>>> =
+    SchemeStyle.entries.associateWith { style ->
+        lazy { SEED_SWATCHES.map { MaterialKit.accentOf(MaterialColours(it.seed, style)) } }
+    }

@@ -70,6 +70,14 @@ internal class MaterialKit private constructor(
             val seeded = seededDesign(colours)
             return MaterialKit(colours, seeded.scheme, seeded.colors).also { last = it }
         }
+
+        /**
+         * The accent the kit for [colours] draws — [of]'s `colors.accent` — without becoming the
+         * pair [of] remembers: asking for six swatches through [of] would leave the last swatch's
+         * scheme in its cache and the root's next call to generate the window's again.
+         */
+        fun accentOf(colours: MaterialColours): Color =
+            if (colours.isTheDesign) Default.colors.accent else seededDesign(colours).colors.accent
     }
 
     override val type: KachokType = MATERIAL_TYPE
