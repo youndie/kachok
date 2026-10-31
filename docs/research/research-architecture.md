@@ -765,6 +765,23 @@ before packaging; afterwards the runner's copied bundle mapped its cache clean (
 a 58 MB cache, the `.dmg` 57 → 75 MB). The B-163 check — no `aot` error, not only the mapped line —
 is what caught it: a check on `Using AOT-linked classes: true` alone would have passed.
 
+**The `.msi`, 2026-10-31: the times move with the installer's time zone.** Measured on the Windows
+runner (`distributions.yml` run 41187815134) for one jar of the release build:
+
+| | the jar's modification time (UTC) |
+|---|---|
+| the app image the package was built from | 09:20:00.538 |
+| `msiexec /a` and `msiexec /i` with the zone at UTC | 09:20:36 |
+| `msiexec /i` and `msiexec /a` with the zone at Tokyo (UTC+9) | **00:20:36** |
+
+The cabinet keeps a time to two seconds — taken when the package was built, not the image's — and
+**in local time without a zone**, so a file is installed with that clock reading interpreted in the
+installing machine's zone. A cache trained on the runner at UTC matches only a machine that installs
+at UTC; every other one gets a silent slow start and 60 MB it cannot use. So the `.deb`'s and the
+`.dmg`'s way — train on the package's own files, ship the cache inside — does not carry to the
+`.msi` at all, whatever the rebuild. What could: a cache made on the user's machine, after the
+installation set the times (B-172 has the options).
+
 ### 1.3i The desktop runtime, compressed
 
 Measured on 2026-10-30 for [B-156](../backlog/B-156-the-desktop-runtime-is-compressed.md), on the
