@@ -40,7 +40,7 @@ which is semantics only. The oldge kit draws:
 
 - *Show it* as `OldgeButton`, *Secondary*, at 26 dp: a chrome button inside the red band.
 - The tabs as `OldgeTabs` with no panel, named *Details*. The current tab stands raised over the
-  strip's line, which makes the strip about 17 dp taller than the Material one.
+  strip's line, which makes the strip taller than the Material one.
 
 `Details.tabHeight` is gone with the strip; the height is each kit's.
 
