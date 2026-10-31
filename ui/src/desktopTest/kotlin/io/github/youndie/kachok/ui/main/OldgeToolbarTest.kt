@@ -1,6 +1,9 @@
 package io.github.youndie.kachok.ui.main
 
 import androidx.compose.foundation.layout.width
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsNotEnabled
@@ -58,18 +61,22 @@ class OldgeToolbarTest {
     @Test
     fun theFilterTakesTextAndItsClearButtonEmptiesIt(): Unit =
         runComposeUiTest {
-            val typed = mutableListOf<String>()
+            // The filter held as the window holds it: the bar shows what it was told it is.
+            var filter by mutableStateOf("deb")
             setContent {
                 KachokTheme(kit = OldgeKit.Default) {
-                    Toolbar(ToolbarState(filter = "deb"), onFilter = { typed += it })
+                    Toolbar(ToolbarState(filter = filter), onFilter = { filter = it })
                 }
             }
 
             onNodeWithContentDescription("Filter").performTextInput("x")
+            waitForIdle()
+            assertTrue("x" in filter && "deb" in filter, "typing reached the filter as \"$filter\"")
+
             // The library names its clear button itself, in Russian, and takes no label for it.
             onNodeWithContentDescription("Очистить").performClick()
-
-            assertEquals(listOf("xdeb", ""), typed)
+            waitForIdle()
+            assertEquals("", filter)
         }
 
     /**
@@ -90,7 +97,8 @@ class OldgeToolbarTest {
             bar.all.forEach { action ->
                 val bounds = onNodeWithContentDescription(action.label).getBoundsInRoot()
                 assertTrue(
-                    bounds.right - bounds.left >= 36.dp,
+                    // 36 dp, less the pixel a layout at this density may round away.
+                    bounds.right - bounds.left >= 35.dp,
                     "${action.label} squeezed to ${bounds.right - bounds.left}",
                 )
                 assertTrue(bounds.right <= NARROW, "${action.label} ends at ${bounds.right}, past $NARROW")

@@ -35,3 +35,37 @@ after the kit is switched (the owner, 2026-10-31).
   bar inside it.
 - Anchors: `ui/src/commonMain/kotlin/io/github/youndie/kachok/ui/main/Toolbar.kt`,
   `ui/src/commonMain/kotlin/io/github/youndie/kachok/ui/theme/oldge/OldgeKit.kt`.
+
+## Done — 2026-10-31
+
+**What exists.** `KachokKit` has three more members: `ToolButton`, `ToolMainButton` and
+`FilterField`. `Toolbar.kt` keeps the layout, the hints and the commands. The Material kit's three
+are the toolbar's old drawing, moved into `theme/material/MaterialComponents.kt` together with the
+field's two widths. The oldge kit draws them with the library's own components:
+
+- *Add torrent* is `OldgeButton`, *Primary*, small. In a narrow bar it is `OldgeIconButton`, the
+  glyph alone, still named *Add torrent*.
+- The eight icon controls are `OldgeIconButton`, 36 × 36, *Secondary*. A toggle that is on is
+  *Primary*.
+- The filter is `OldgeSearchBar` at 36 dp: 220 dp wide, 150 narrow.
+
+The glyphs map to oldge-ui's icons in `TOOL_ICONS`: *Plus*, *Attach* (paste magnet), *Pause*,
+*Play*, *Trash*, *Refresh* (re-check), *Share* (re-announce), *Info* (details panel) and *Levels*
+(settings). A glyph with no entry would draw *More*.
+
+**Goldens.** The Material goldens are byte-identical after `viddikRecord` on the mac: only the
+three oldge windows changed, and one is new.
+
+- **Toxic, Media, Crystal:** glossy chrome buttons, a lime *Add torrent*, the details toggle lit,
+  and the search capsule in its chrome ring. It reads in all three skins, Crystal's light ground
+  included.
+- **`main_narrow-oldge.png` (new):** the 600 dp window with a filter typed. The whole bar fits:
+  *Add torrent* as a lime square, «deb» readable in the field beside its clear orb, and the
+  settings button at the right edge.
+
+**What is still Material in the oldge window.** The degraded banner's *Show it* button and the
+details panel's tabs are drawn by the screens, not by the kit — they were not part of the top bar.
+
+**A gap in the library.** `OldgeSearchBar` names its clear button «Очистить» and takes no label for
+it, so under this kit the English window has one Russian accessible name. The Material field's
+clear button is *Clear the filter*.
