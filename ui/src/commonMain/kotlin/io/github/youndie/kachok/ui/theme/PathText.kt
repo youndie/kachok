@@ -34,11 +34,18 @@ internal fun PathText(
     color: Color,
     modifier: Modifier = Modifier,
     textAlign: TextAlign = TextAlign.End,
+    /**
+     * Words drawn in front of the path and never cut: a settings row's `default ` (B-179).
+     *
+     * In the same text rather than beside it, so a path that fits is drawn exactly as one string
+     * was before — two texts side by side place their glyphs on their own pixel boundaries.
+     */
+    prefix: String = "",
 ) {
     val measurer = rememberTextMeasurer()
     BoxWithConstraints(modifier) {
         val available = constraints.maxWidth
-        val shown = remember(path, available, style) { elide(path, style, available, measurer) }
+        val shown = remember(path, available, style, prefix) { elide(path, style, available, measurer, prefix) }
         Text(shown, style = style, color = color, maxLines = 1, softWrap = false, textAlign = textAlign)
     }
 }
@@ -47,7 +54,8 @@ internal fun PathText(
 private const val ELLIPSIS = "…"
 
 /**
- * The longest tail of [path] that fits in [maxWidth], with an ellipsis in front of it.
+ * The longest tail of [path] that fits in [maxWidth], with an ellipsis in front of it — and
+ * [prefix] in front of that, whole.
  *
  * A binary search over the number of characters kept, because measuring is the only way to know
  * and measuring every prefix of a long path is a lot of layout for one row.
@@ -57,10 +65,11 @@ internal fun elide(
     style: TextStyle,
     maxWidth: Int,
     measurer: TextMeasurer,
+    prefix: String = "",
 ): String {
-    fun fits(text: String): Boolean = measurer.measure(text, style, softWrap = false).size.width <= maxWidth
+    fun fits(text: String): Boolean = measurer.measure(prefix + text, style, softWrap = false).size.width <= maxWidth
 
-    if (maxWidth <= 0 || fits(path)) return path
+    if (maxWidth <= 0 || fits(path)) return prefix + path
     var low = 0
     var high = path.length
     while (low < high) {
@@ -69,5 +78,5 @@ internal fun elide(
     }
     // Nothing fits at all — not even the ellipsis. Say so with the ellipsis rather than with
     // nothing, so the cell reads as truncated instead of as empty.
-    return if (low == 0) ELLIPSIS else ELLIPSIS + path.takeLast(low)
+    return prefix + if (low == 0) ELLIPSIS else ELLIPSIS + path.takeLast(low)
 }

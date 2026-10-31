@@ -121,6 +121,69 @@ private fun SeededSettings(colours: MaterialColours) {
 }
 
 /**
+ * The settings screen in the smallest window there is, with a default directory of 120 characters
+ * (B-179).
+ *
+ * A home directory is the one length on this screen nobody chose, and the live run that found the
+ * defect had one under `/private/tmp`: *Save to* was drawn «Sa / ve / to» beside a default that took
+ * the whole row. Here the label is on one line and the default ends in the directory's own name.
+ */
+@ViddikScreenshot(name = "screen-long-default", group = "settings", width = 720, height = 504)
+@Composable
+internal fun SettingsLongDefaultSheet() {
+    KachokTheme { SettingsScreen(withLongDefault(settingsOf(Preferences(directory = LONG_DEFAULT)))) }
+}
+
+/** And in the oldge kit, whose folder field and *Browse…* are its own widths (B-178). */
+@ViddikScreenshot(name = "screen-long-default-oldge", group = "settings", width = 720, height = 504)
+@Composable
+internal fun SettingsLongDefaultOldgeSheet() {
+    KachokTheme(kit = OldgeKit.Default) {
+        SettingsScreen(withLongDefault(settingsOf(Preferences(directory = LONG_DEFAULT))))
+    }
+}
+
+/** A default directory of exactly 120 characters, its last component one that appears nowhere else. */
+internal const val LONG_DEFAULT: String =
+    "/home/a-person-with-a-long-name/.local/share/containers/storage/volumes/kachok-home-1/_data/users/" +
+        "someone-else/kachok-in"
+
+/**
+ * [state] with *Save to*'s default — and its value, as on a fresh install — set to [default].
+ *
+ * The state is rebuilt rather than `settingsOf` taking the default as an argument: the default is
+ * the machine's home directory, and the screen is what is under test, not where the default came
+ * from.
+ */
+internal fun withLongDefault(
+    state: SettingsState,
+    default: String = LONG_DEFAULT,
+): SettingsState =
+    SettingsState(
+        sections =
+            state.sections.map { section ->
+                SettingsSection(
+                    section.title,
+                    section.settings.map {
+                        if (it.key != SettingKey.SaveTo) {
+                            it
+                        } else {
+                            Setting(
+                                key = it.key,
+                                label = it.label,
+                                default = default,
+                                value = default,
+                                folder = true,
+                            )
+                        }
+                    },
+                )
+            },
+        footnote = state.footnote,
+        footnotePlanned = state.footnotePlanned,
+    )
+
+/**
  * A window with nothing in it.
  *
  * The whole chrome is still there — a toolbar with somewhere to start and a status bar saying the

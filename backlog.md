@@ -48,13 +48,12 @@ which is also the order of work.
 
 <!-- BEGIN INDEX -->
 
-## Open (11)
+## Open (10)
 
 | Task | | Priority | Size | Blocked by |
 |---|---|---|---|---|
 | [B-175](docs/backlog/B-175-a-piece-waits-on-its-slowest-peer-outside-the-endgame.md) `[~]` | An idle peer takes over a block a slow peer has sat on, before the endgame | P1 | S | B-174 |
 | [B-116](docs/backlog/B-116-a-torrent-whose-name-is-not-ascii-cannot-be-opened-on-windows.md) `[~]` | A `.torrent` whose name is not ASCII cannot be opened on Windows: the launcher hands the path over as question marks | P2 | S | - |
-| [B-179](docs/backlog/B-179-a-long-default-squeezes-the-settings-label.md) `[ ]` | A long default value squeezes the settings label into a column of letters | P2 | XS | - |
 | [B-180](docs/backlog/B-180-the-material-toolbar-is-invisible-to-accessibility.md) `[ ]` | The Material kit's toolbar buttons are named but are not buttons to the platform's accessibility | P2 | S | - |
 | [B-80](docs/backlog/B-80-the-ui-moves-to-commonmain.md) `[~]` | The UI moves to commonMain | P2 | L | B-79 |
 | [B-181](docs/backlog/B-181-a-style-can-turn-the-chosen-colour-into-another.md) `[ ]` | A style can turn the chosen colour into another: the swatches show the seed, not the accent | P3 | S | - |
@@ -64,7 +63,7 @@ which is also the order of work.
 | [B-87](docs/backlog/B-87-a-server-with-a-web-face.md) `[ ]` | Phase 3: a headless server with a web face, installable on a box that is always on | P3 | XL | B-80 |
 | [B-02](docs/backlog/B-02-ci-runs-build-and-docs-gates.md) `[ ]` | CI runs the build and the documentation gates on every push | infra | S | B-01 |
 
-## Closed (170)
+## Closed (171)
 
 **M0 — The build and its gates**
 
@@ -209,6 +208,7 @@ which is also the order of work.
 - [B-176](docs/backlog/B-176-the-oldge-kit-draws-the-toolbar.md) `[x]` - The oldge kit draws the toolbar with its own buttons, icons and search bar
 - [B-177](docs/backlog/B-177-the-oldge-kit-draws-the-banner-button-and-the-details-tabs.md) `[x]` - The oldge kit draws the banner's button and the details panel's tabs with its own components
 - [B-178](docs/backlog/B-178-the-oldge-kit-draws-the-settings-dialogs-and-empty-state.md) `[x]` - The oldge kit draws the settings fields, the dialogs and the empty state's button with its own components
+- [B-179](docs/backlog/B-179-a-long-default-squeezes-the-settings-label.md) `[x]` - A long default value squeezes the settings label into a column of letters
 - [B-39](docs/backlog/B-39-compose-ui-desktop.md) `[x]` - Phase 2: a Compose Multiplatform desktop UI on the engine's StateFlow
 - [B-46](docs/backlog/B-46-ui-theme-and-calibration.md) `[x]` - The theme: colour roles, type, and the desktop calibration
 - [B-47](docs/backlog/B-47-torrent-row-and-states.md) `[x]` - The torrent row and its seven states
