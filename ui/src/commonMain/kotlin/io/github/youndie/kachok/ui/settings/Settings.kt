@@ -2,12 +2,10 @@ package io.github.youndie.kachok.ui.settings
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -19,19 +17,16 @@ import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.rememberTextMeasurer
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -42,7 +37,6 @@ import io.github.youndie.kachok.ui.icons.Icons
 import io.github.youndie.kachok.ui.theme.ChromeText
 import io.github.youndie.kachok.ui.theme.KachokTheme
 import io.github.youndie.kachok.ui.theme.MonoSmall
-import io.github.youndie.kachok.ui.theme.PathText
 import io.github.youndie.kachok.ui.theme.Text
 
 /**
@@ -307,7 +301,8 @@ private fun SettingRow(
                     }
 
                     setting.folder -> {
-                        FolderField(setting.value, setting.changed) {
+                        // The kit's since B-178, *Browse…* with it.
+                        KachokTheme.kit.FolderField(setting.label, setting.value, setting.changed) {
                             onChange(SettingChange.Browsed(setting.key))
                         }
                     }
@@ -326,10 +321,7 @@ private fun SettingRow(
 }
 
 /**
- * A number, typed into.
- *
- * `BasicTextField` and not `OutlinedTextField` for the reason the whole screen is drawn by hand:
- * the M3 field brings a label slot, a supporting line and 56 dp of height to a row that is 30.
+ * A number, typed into — the kit's field (B-178).
  *
  * A key that cannot take effect is drawn as text and says why on the row, rather than as a field
  * that accepts what somebody types and throws it away.
@@ -357,37 +349,16 @@ private fun ValueField(
         }
         return
     }
-    Box(
-        Modifier
-            .height(FIELD_HEIGHT)
-            .width(fieldWidth(setting))
-            // Outlined in primary when it is no longer the default: the one place this screen
-            // says "you changed this", and it says it where the change is.
-            .border(
-                HAIRLINE,
-                if (setting.changed) scheme.accentText else scheme.outline,
-                RoundedCornerShape(4.dp),
-            ).padding(horizontal = FIELD_PADDING),
-        contentAlignment = Alignment.CenterEnd,
-    ) {
-        BasicTextField(
-            value = setting.value,
-            onValueChange = onTyped,
-            singleLine = true,
-            textStyle =
-                FIELD_TEXT.copy(
-                    // A value that is absent is dimmed; a zero would not be, and that is the
-                    // difference the words are there to carry.
-                    color = if (setting.absent) scheme.textFaint else scheme.text,
-                    textAlign = TextAlign.End,
-                ),
-            cursorBrush = SolidColor(scheme.accentText),
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .semantics { contentDescription = setting.label },
-        )
-    }
+    // The field is the kit's since B-178; whether it is a field at all is decided here.
+    KachokTheme.kit.SettingField(
+        setting.label,
+        setting.value,
+        fieldWidth(setting),
+        setting.absentAs,
+        setting.changed,
+        setting.absent,
+        onTyped,
+    )
 }
 
 /**
@@ -411,49 +382,10 @@ private fun fieldWidth(setting: Setting): Dp {
     return maxOf(base, measured + FIELD_PADDING * 2 + CARET_ROOM)
 }
 
-@Composable
-private fun FolderField(
-    path: String,
-    changed: Boolean,
-    onBrowse: () -> Unit,
-) {
-    val scheme = KachokTheme.colors
-    Row(horizontalArrangement = Arrangement.spacedBy(7.dp), verticalAlignment = Alignment.CenterVertically) {
-        Row(
-            Modifier
-                .height(FIELD_HEIGHT)
-                .width(PATH_WIDTH)
-                .border(
-                    HAIRLINE,
-                    if (changed) scheme.accentText else scheme.outline,
-                    RoundedCornerShape(4.dp),
-                ).padding(horizontal = 9.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(7.dp),
-        ) {
-            Glyph(Icons.FOLDER, size = FOLDER_GLYPH, tint = scheme.textFaint)
-            PathText(path, MonoSmall, scheme.text, Modifier.weight(1f), textAlign = TextAlign.Start)
-        }
-        Box(
-            Modifier
-                .height(FIELD_HEIGHT)
-                .border(HAIRLINE, scheme.outline, RoundedCornerShape(4.dp))
-                .semantics { contentDescription = "Browse" }
-                .clickable(onClick = onBrowse)
-                .padding(horizontal = 11.dp),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text("Browse…", style = ChromeText.copy(fontSize = 12.sp), color = scheme.text, maxLines = 1)
-        }
-    }
-}
-
 /**
- * A few named values side by side, the chosen one filled with the accent.
- *
- * Drawn here from the kit's tokens rather than asked of the kit: it is a row of boxes and text, and
- * under any kit it is that kit's colours on this screen's shape — the same footing as the fields
- * beside it. The group carries the row's label; each segment is a radio button with its own.
+ * A few named values side by side, the chosen one filled with the accent: the kit's since B-178, as
+ * the fields beside it are. The group carries the row's label; each segment is a radio button with
+ * its own.
  */
 @Composable
 private fun Segmented(
@@ -462,37 +394,12 @@ private fun Segmented(
     description: String = setting.label,
     onChose: (String) -> Unit,
 ) {
-    val scheme = KachokTheme.colors
-    Row(
-        Modifier
-            .height(FIELD_HEIGHT)
-            .border(HAIRLINE, scheme.outline, RoundedCornerShape(4.dp))
-            .semantics { contentDescription = description }
-            .selectableGroup(),
-    ) {
-        choices.forEach { choice ->
-            val chosen = choice.value == setting.value
-            Box(
-                Modifier
-                    .fillMaxHeight()
-                    .background(if (chosen) scheme.accent else Color.Transparent, RoundedCornerShape(4.dp))
-                    .selectable(
-                        selected = chosen,
-                        enabled = setting.enabled && setting.key.editable,
-                        role = Role.RadioButton,
-                        onClick = { if (!chosen) onChose(choice.value) },
-                    ).padding(horizontal = 11.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    choice.label,
-                    style = ChromeText.copy(fontSize = 12.sp),
-                    color = if (chosen) scheme.onAccent else scheme.textMuted,
-                    maxLines = 1,
-                )
-            }
-        }
-    }
+    KachokTheme.kit.Segmented(
+        description,
+        choices.map { it.label },
+        choices.indexOfFirst { it.value == setting.value },
+        setting.enabled && setting.key.editable,
+    ) { onChose(choices[it].value) }
 }
 
 /**
@@ -595,13 +502,9 @@ private val CARET_ROOM = 2.dp
 
 private val UNIT_WIDTH = 38.dp
 
-private val PATH_WIDTH = 210.dp
-
 private val SWATCH = 24.dp
 
 private val MARK = 8.dp
-
-private val FOLDER_GLYPH = 16.sp
 
 private val FOOTNOTE_GLYPH = 15.sp
 

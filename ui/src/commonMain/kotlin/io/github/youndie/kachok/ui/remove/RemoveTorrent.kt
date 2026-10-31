@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -64,21 +63,11 @@ internal fun RemoveTorrentDialog(
     onRemove: () -> Unit = {},
 ) {
     val scheme = KachokTheme.colors
-    Column(
-        modifier
-            .width(DIALOG_WIDTH)
-            .background(scheme.raisedHigh, RoundedCornerShape(6.dp))
-            .border(HAIRLINE, scheme.dialogBorder, RoundedCornerShape(6.dp)),
-    ) {
-        Text(
-            "Remove torrent",
-            style = KachokTheme.type.headline,
-            color = scheme.text,
-            modifier = Modifier.padding(start = EDGE, end = EDGE, top = 18.dp, bottom = 14.dp),
-        )
+    // The frame is the kit's since B-178, and so is the body's margin from it.
+    KachokTheme.kit.DialogFrame("Remove torrent", DIALOG_WIDTH, modifier) { edge ->
         Column(
             Modifier
-                .padding(horizontal = EDGE)
+                .padding(horizontal = edge)
                 .fillMaxWidth()
                 .background(KachokTheme.colors.neutralCard, RoundedCornerShape(4.dp))
                 .border(HAIRLINE, scheme.outline, RoundedCornerShape(4.dp))
@@ -90,7 +79,7 @@ internal fun RemoveTorrentDialog(
         }
         Row(
             Modifier
-                .padding(start = EDGE, end = EDGE, top = 16.dp)
+                .padding(start = edge, end = edge, top = 16.dp)
                 .clickable { onToggleData(!state.deleteData) }
                 .semantics { contentDescription = DELETE_DATA },
             horizontalArrangement = Arrangement.spacedBy(9.dp),
@@ -116,7 +105,7 @@ internal fun RemoveTorrentDialog(
             }
         }
         Row(
-            Modifier.fillMaxWidth().padding(EDGE),
+            Modifier.fillMaxWidth().padding(start = edge, end = edge, top = ACTIONS_TOP, bottom = edge),
             horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -144,7 +133,8 @@ internal const val DELETE_DATA: String = "Delete the downloaded data"
 
 private val DIALOG_WIDTH = 420.dp
 
-private val EDGE = 20.dp
+/** Above the dialog's buttons: the design's 20, whatever the kit's side margin is. */
+private val ACTIONS_TOP = 20.dp
 
 private val HAIRLINE = 1.dp
 

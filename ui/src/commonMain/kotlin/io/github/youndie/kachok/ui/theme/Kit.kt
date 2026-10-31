@@ -12,6 +12,7 @@ import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import io.github.youndie.kachok.ui.theme.material.MaterialColours
 import io.github.youndie.kachok.ui.theme.material.MaterialKit
 import io.github.youndie.kachok.ui.theme.oldge.OldgeKit
@@ -260,6 +261,82 @@ internal interface KachokKit {
         labels: List<String>,
         selected: Int,
         onSelect: (Int) -> Unit,
+    )
+
+    /**
+     * A settings row's number field, named [label] — the row shows the label, the field carries it
+     * as its accessible name. [width] is the screen's, sized for [words] in the design's face; a
+     * kit whose text is larger may widen it for them. [changed] is a value that is no longer the
+     * default, [absent] one that is not a number at all and says [words] (B-178).
+     */
+    @Composable
+    fun SettingField(
+        label: String,
+        value: String,
+        width: Dp,
+        words: String?,
+        changed: Boolean,
+        absent: Boolean,
+        onValueChange: (String) -> Unit,
+    )
+
+    /**
+     * A settings row's directory: [path], picked and never typed, and the *Browse…* button that
+     * picks it. [label] is the row's, for a kit whose field needs a name (B-178).
+     */
+    @Composable
+    fun FolderField(
+        label: String,
+        path: String,
+        changed: Boolean,
+        onBrowse: () -> Unit,
+    )
+
+    /**
+     * A few named values side by side, [selected] the chosen one or none, the group named [name]
+     * and each segment a radio button with its label. [onSelect] hears only a segment that was not
+     * chosen already (B-178).
+     */
+    @Composable
+    fun Segmented(
+        name: String,
+        labels: List<String>,
+        selected: Int,
+        enabled: Boolean,
+        onSelect: (Int) -> Unit,
+    )
+
+    /** The empty window's one way in, a [glyph] and [label]: the empty state's *Add a torrent*. */
+    @Composable
+    fun InvitationButton(
+        glyph: String,
+        label: String,
+        onClick: () -> Unit,
+    )
+
+    /**
+     * A dialog's frame, [width] wide, with [title] at its top. [content] is the body, laid out with
+     * the [content]'s `edge` as its side margin: the frame's own padding is the kit's, and the two
+     * together are the body's margin (B-178).
+     */
+    @Composable
+    fun DialogFrame(
+        title: String,
+        width: Dp,
+        modifier: androidx.compose.ui.Modifier,
+        content: @Composable (edge: Dp) -> Unit,
+    )
+
+    /**
+     * The add dialog's destination, under [label]: [path], picked by the *Browse…* button beside it
+     * and never typed, with [note] under it (B-178).
+     */
+    @Composable
+    fun SaveToField(
+        label: String,
+        path: String,
+        note: String,
+        onBrowse: () -> Unit,
     )
 }
 
