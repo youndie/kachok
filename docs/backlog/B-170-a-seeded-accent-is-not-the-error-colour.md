@@ -1,7 +1,7 @@
 ---
 id: B-170
 title: "No offered seed and style draws the accent in the error's colour"
-status: open
+status: wip
 priority: P3
 size: S
 stage: phase-2-ui
