@@ -501,6 +501,10 @@ val unpackReleaseDeb by tasks.registering(Exec::class) {
         [ "${'$'}(echo "${'$'}deb" | wc -l)" = "1" ] && [ -n "${'$'}deb" ] || { echo "expected one .deb in ${'$'}1"; exit 1; }
         rm -rf "${'$'}2" && mkdir -p "${'$'}2"
         dpkg-deb -R "${'$'}deb" "${'$'}2/root"
+        if grep -q 'AOTCache=' "${'$'}2/root/opt/kachok/lib/app/kachok.cfg"; then
+            echo "this .deb already carries an AOT cache: package it again (:ui:packageReleaseDeb --rerun) rather than train on it twice"
+            exit 1
+        fi
         """.trimIndent(),
         "sh",
         debDir.get().asFile.absolutePath,
@@ -604,6 +608,11 @@ val attachReleaseDmg by tasks.registering(Exec::class) {
         hdiutil resize -size 400m "${'$'}2/rw.dmg"
         hdiutil attach "${'$'}2/rw.dmg" -mountpoint "${'$'}2/mnt" -nobrowse -quiet
         [ -x "${'$'}2/mnt/kachok.app/Contents/MacOS/kachok" ] || { echo "the .dmg carries no kachok.app"; exit 1; }
+        if grep -q 'AOTCache=' "${'$'}2/mnt/kachok.app/Contents/app/kachok.cfg"; then
+            hdiutil detach "${'$'}2/mnt" -force -quiet
+            echo "this .dmg already carries an AOT cache: package it again (:ui:packageReleaseDmg --rerun) rather than train on it twice"
+            exit 1
+        fi
         """.trimIndent(),
         "sh",
         dmgDir.get().asFile.absolutePath,
@@ -677,6 +686,22 @@ val addAotCacheToDmg by tasks.registering(Exec::class) {
         dmgAotWork.get().asFile.absolutePath,
     )
 }
+
+// The writable image stays attached if the training run fails; this takes it down whatever happened.
+val detachReleaseDmg by tasks.registering(Exec::class) {
+    description = "Detaches the images the .dmg's AOT training attached, whether or not it succeeded."
+    val mac = onMac
+    onlyIf { mac }
+    mustRunAfter(recordDmgAotConfiguration, addAotCacheToDmg)
+    commandLine(
+        "sh",
+        "-c",
+        "for m in \"${'$'}1/mnt\" \"${'$'}1/final\"; do [ -d \"${'$'}m\" ] && hdiutil detach \"${'$'}m\" -force -quiet 2>/dev/null; done; true",
+        "sh",
+        dmgAotWork.get().asFile.absolutePath,
+    )
+}
+attachReleaseDmg.configure { finalizedBy(detachReleaseDmg) }
 
 tasks.matching { it.name == "packageReleaseDmg" }.configureEach { finalizedBy(addAotCacheToDmg) }
 
