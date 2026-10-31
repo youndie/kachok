@@ -63,6 +63,24 @@ three oldge windows changed, and one is new.
   *Add torrent* as a lime square, «deb» readable in the field beside its clear orb, and the
   settings button at the right edge.
 
+**Verified.** `:ui:check` on the Linux box: 340 tests in 53 classes, no failures, read off
+`ui/build/test-results/desktopTest/*.xml`. `OldgeToolbarTest` is four of them:
+
+- every toolbar glyph has an oldge-ui icon;
+- under the oldge kit every enabled control, found by its name, presses its command, and a greyed
+  one is disabled;
+- the filter takes typing and its clear button empties it;
+- at 600 dp every control keeps its 36 dp and ends inside the bar.
+
+Each was run against a mutation and failed:
+
+- the compact button ignored, which squeezed *Details panel* to 0 dp;
+- *Levels* dropped from the map;
+- the icon buttons' press not wired;
+- the search bar's typing not passed on.
+
+`make check` passes on the mac.
+
 **What is still Material in the oldge window.** The degraded banner's *Show it* button and the
 details panel's tabs are drawn by the screens, not by the kit — they were not part of the top bar.
 
