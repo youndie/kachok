@@ -15,6 +15,7 @@ import io.github.youndie.kachok.ui.theme.KachokKit
 import io.github.youndie.kachok.ui.theme.material.MaterialColours
 import io.github.youndie.kachok.ui.theme.material.SEED_SWATCHES
 import io.github.youndie.kachok.ui.theme.material.SchemeStyle
+import io.github.youndie.kachok.ui.theme.material.swatchAccents
 import io.github.youndie.kachok.ui.theme.oldge.OldgeKit
 import io.github.youndie.oldge.theme.OldgeSkin
 
@@ -493,7 +494,11 @@ private fun seedsOf(colours: MaterialColours): Setting {
         default = "${SEED_SWATCHES.first().label.lowercase()}, ${design.style.label.lowercase()}",
         value = colours.style.stored,
         choices = SchemeStyle.entries.map { Choice(it.stored, it.label) },
-        swatches = SEED_SWATCHES.map { Swatch(MaterialColours.hexOf(it.seed), it.seed, it.label) },
+        // Stored, ringed and read out as the seed; drawn as the accent it gives in this style (B-181).
+        swatches =
+            SEED_SWATCHES.zip(swatchAccents(colours.style)) { seed, accent ->
+                Swatch(MaterialColours.hexOf(seed.seed), accent, seed.label)
+            },
         swatch = colours.storedSeed,
         changed = colours != design,
     )
