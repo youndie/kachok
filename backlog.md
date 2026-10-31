@@ -48,13 +48,17 @@ which is also the order of work.
 
 <!-- BEGIN INDEX -->
 
-## Open (8)
+## Open (12)
 
 | Task | | Priority | Size | Blocked by |
 |---|---|---|---|---|
 | [B-175](docs/backlog/B-175-a-piece-waits-on-its-slowest-peer-outside-the-endgame.md) `[~]` | An idle peer takes over a block a slow peer has sat on, before the endgame | P1 | S | B-174 |
 | [B-116](docs/backlog/B-116-a-torrent-whose-name-is-not-ascii-cannot-be-opened-on-windows.md) `[~]` | A `.torrent` whose name is not ASCII cannot be opened on Windows: the launcher hands the path over as question marks | P2 | S | - |
+| [B-179](docs/backlog/B-179-a-long-default-squeezes-the-settings-label.md) `[ ]` | A long default value squeezes the settings label into a column of letters | P2 | XS | - |
+| [B-180](docs/backlog/B-180-the-material-toolbar-is-invisible-to-accessibility.md) `[ ]` | The Material kit's toolbar buttons are named but are not buttons to the platform's accessibility | P2 | S | - |
 | [B-80](docs/backlog/B-80-the-ui-moves-to-commonmain.md) `[~]` | The UI moves to commonMain | P2 | L | B-79 |
+| [B-178](docs/backlog/B-178-the-oldge-kit-draws-the-settings-dialogs-and-empty-state.md) `[ ]` | The oldge kit draws the settings fields, the dialogs and the empty state's button with its own components | P3 | M | B-177 |
+| [B-181](docs/backlog/B-181-a-style-can-turn-the-chosen-colour-into-another.md) `[ ]` | A style can turn the chosen colour into another: the swatches show the seed, not the accent | P3 | S | - |
 | [B-37](docs/backlog/B-37-v2-and-hybrid-torrents.md) `[?]` | v2 and hybrid torrents (BEP 52): SHA-256 piece layers | P3 | L | B-04 |
 | [B-40](docs/backlog/B-40-wasmjs-ui-is-a-client-of-the-headless-engine.md) `[ ]` | The browser build of the UI is a client of the headless engine | P3 | L | B-80 |
 | [B-41](docs/backlog/B-41-android-and-ios-targets.md) `[ ]` | Phase 3: Android and iOS targets on the engine | P3 | XL | B-39 |
