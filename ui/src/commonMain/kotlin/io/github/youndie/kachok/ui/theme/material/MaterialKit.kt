@@ -195,6 +195,37 @@ internal class MaterialKit private constructor(
     ) {
         MaterialProgressBar(fraction, track, bar, modifier)
     }
+
+    @Composable
+    override fun ToolButton(
+        glyph: String,
+        label: String,
+        enabled: Boolean,
+        active: Boolean,
+        onClick: () -> Unit,
+    ) {
+        MaterialToolButton(glyph, label, enabled, active, onClick)
+    }
+
+    @Composable
+    override fun ToolMainButton(
+        glyph: String,
+        label: String,
+        compact: Boolean,
+        onClick: () -> Unit,
+    ) {
+        MaterialToolMainButton(glyph, label, onClick)
+    }
+
+    @Composable
+    override fun FilterField(
+        text: String,
+        placeholder: String,
+        narrow: Boolean,
+        onFilter: (String) -> Unit,
+    ) {
+        MaterialFilterField(text, placeholder, if (narrow) NARROW_FILTER_WIDTH else FILTER_WIDTH, onFilter)
+    }
 }
 
 /** The hand-written roles, as B-159 mapped them: the scheme's names, the palette and the warning. */

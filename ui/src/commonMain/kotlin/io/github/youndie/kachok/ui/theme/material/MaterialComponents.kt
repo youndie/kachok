@@ -3,23 +3,33 @@ package io.github.youndie.kachok.ui.theme.material
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.disabled
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import io.github.youndie.kachok.ui.icons.Glyph
+import io.github.youndie.kachok.ui.icons.Icons
 import io.github.youndie.kachok.ui.theme.ChromeButton
+import io.github.youndie.kachok.ui.theme.ChromeText
 import io.github.youndie.kachok.ui.theme.KachokTheme
 import io.github.youndie.kachok.ui.theme.Text
 
@@ -139,6 +149,155 @@ internal fun MaterialProgressBar(
         )
     }
 }
+
+/**
+ * A 28 dp icon button, from `main/Toolbar.kt`.
+ *
+ * Three states and no more, because the design draws three: available, unavailable, and on. An
+ * unavailable one is dimmed rather than hidden — the design's *Resume* is greyed while a torrent is
+ * running, so the toolbar does not reshuffle every time a download starts.
+ */
+@Composable
+internal fun MaterialToolButton(
+    glyph: String,
+    label: String,
+    enabled: Boolean,
+    active: Boolean,
+    onClick: () -> Unit,
+) {
+    val scheme = KachokTheme.colors
+    val background = if (active) scheme.accentContainer else Color.Transparent
+    val tint =
+        when {
+            active -> scheme.accentBright
+            enabled -> scheme.textMuted
+            else -> scheme.textFaint
+        }
+    Box(
+        Modifier
+            .size(CONTROL_HEIGHT)
+            .background(background, RoundedCornerShape(CONTROL_RADIUS))
+            .clickable(enabled = enabled, onClick = onClick)
+            // A glyph and nothing else. Without this the button has no name at all — not to a
+            // screen reader, and not to a test, which is why the bar's guard could only ever
+            // click the one control that happens to carry text.
+            .semantics {
+                contentDescription = label
+                if (!enabled) disabled()
+            },
+        contentAlignment = Alignment.Center,
+    ) {
+        Glyph(glyph, size = ACTION_GLYPH, tint = tint)
+    }
+}
+
+/**
+ * The only tonal button in the whole window, from `main/Toolbar.kt`. It fits the narrow bar with its
+ * label, so [compact] changes nothing here.
+ *
+ * `FilledTonalButton`'s own geometry is 40 dp high with a full-height corner radius; the design
+ * asks for 28 dp and 4 dp, which is every dimension the component has, so this is drawn rather
+ * than configured.
+ */
+@Composable
+internal fun MaterialToolMainButton(
+    glyph: String,
+    label: String,
+    onClick: () -> Unit,
+) {
+    Row(
+        Modifier
+            .height(CONTROL_HEIGHT)
+            .background(KachokTheme.colors.accentContainer, RoundedCornerShape(CONTROL_RADIUS))
+            .clickable(onClick = onClick)
+            .semantics { contentDescription = label }
+            .padding(horizontal = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Glyph(glyph, size = BUTTON_GLYPH, tint = KachokTheme.colors.accentBright)
+        Text(label, style = ChromeButton, color = KachokTheme.colors.accentBright, maxLines = 1)
+    }
+}
+
+/**
+ * The filter box, from `main/Toolbar.kt`.
+ *
+ * An outlined box rather than `OutlinedTextField`, which reserves room for a floating label and a
+ * supporting line and cannot be 28 dp high with either — so the placeholder is drawn behind the
+ * field rather than configured on it.
+ *
+ * The clear button appears only when there is something to clear. A filter that has hidden thirteen
+ * of sixteen rows is a state a person has to be able to leave in one press, and the alternative —
+ * selecting the text and deleting it — is three.
+ */
+@Composable
+internal fun MaterialFilterField(
+    text: String,
+    placeholder: String,
+    width: Dp,
+    onFilter: (String) -> Unit,
+) {
+    val scheme = KachokTheme.colors
+    Row(
+        Modifier
+            .height(CONTROL_HEIGHT)
+            .width(width)
+            .border(HAIRLINE, scheme.outline, RoundedCornerShape(CONTROL_RADIUS))
+            .padding(horizontal = 9.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Glyph(Icons.SEARCH, size = SEARCH_GLYPH, tint = scheme.textFaint)
+        Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
+            if (text.isEmpty()) {
+                Text(placeholder, style = ChromeText, color = scheme.textFaint, maxLines = 1)
+            }
+            BasicTextField(
+                value = text,
+                onValueChange = onFilter,
+                singleLine = true,
+                textStyle = ChromeText.copy(color = scheme.text),
+                cursorBrush = SolidColor(scheme.accentText),
+                modifier = Modifier.fillMaxWidth().semantics { contentDescription = placeholder },
+            )
+        }
+        if (text.isNotEmpty()) {
+            Glyph(
+                Icons.CLOSE,
+                size = SEARCH_GLYPH,
+                tint = scheme.textFaint,
+                modifier =
+                    Modifier
+                        .clickable { onFilter("") }
+                        .semantics { contentDescription = "Clear the filter" },
+            )
+        }
+    }
+}
+
+/**
+ * 220, not the design's `width: 200px`.
+ *
+ * CSS measures that width inside the border and the padding; the box on screen is 200 + 18 + 2,
+ * and 200 here would be a field twenty pixels narrower than the one in the picture. Every other
+ * dimension in the design happens to have no padding or border to add.
+ */
+internal val FILTER_WIDTH = 220.dp
+
+/** Enough for the glyph, a word and the clear button, which is what the field is for. */
+internal val NARROW_FILTER_WIDTH = 110.dp
+
+/** A toolbar control, and the size the design draws every icon button at (`Chrome.controlHeight`). */
+private val CONTROL_HEIGHT = 28.dp
+
+private val CONTROL_RADIUS = 4.dp
+
+private val ACTION_GLYPH = 18.sp
+
+private val BUTTON_GLYPH = 17.sp
+
+private val SEARCH_GLYPH = 16.sp
 
 private val HAIRLINE = 1.dp
 
