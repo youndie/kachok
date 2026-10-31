@@ -61,7 +61,7 @@ which is also the order of work.
 | [B-87](docs/backlog/B-87-a-server-with-a-web-face.md) `[ ]` | Phase 3: a headless server with a web face, installable on a box that is always on | P3 | XL | B-80 |
 | [B-02](docs/backlog/B-02-ci-runs-build-and-docs-gates.md) `[ ]` | CI runs the build and the documentation gates on every push | infra | S | B-01 |
 
-## Closed (167)
+## Closed (168)
 
 **M0 — The build and its gates**
 
@@ -203,6 +203,7 @@ which is also the order of work.
 - [B-171](docs/backlog/B-171-the-dmg-carries-an-aot-cache-trained-on-its-own-files.md) `[x]` - The .dmg carries an AOT cache trained on its own files
 - [B-172](docs/backlog/B-172-the-msi-carries-an-aot-cache-trained-on-its-own-files.md) `[-]` - The .msi carries an AOT cache trained on its own files
 - [B-173](docs/backlog/B-173-the-window-ships-unshrunk-and-without-an-aot-cache.md) `[x]` - The window ships its classes as compiled and no installer carries an AOT cache
+- [B-176](docs/backlog/B-176-the-oldge-kit-draws-the-toolbar.md) `[x]` - The oldge kit draws the toolbar with its own buttons, icons and search bar
 - [B-39](docs/backlog/B-39-compose-ui-desktop.md) `[x]` - Phase 2: a Compose Multiplatform desktop UI on the engine's StateFlow
 - [B-46](docs/backlog/B-46-ui-theme-and-calibration.md) `[x]` - The theme: colour roles, type, and the desktop calibration
 - [B-47](docs/backlog/B-47-torrent-row-and-states.md) `[x]` - The torrent row and its seven states

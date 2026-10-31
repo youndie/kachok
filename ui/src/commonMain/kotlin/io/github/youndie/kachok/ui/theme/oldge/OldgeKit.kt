@@ -6,6 +6,8 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.material3.MaterialTheme
@@ -29,6 +31,7 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.isSpecified
 import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
@@ -44,6 +47,7 @@ import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.isSpecified
 import androidx.compose.ui.unit.sp
+import io.github.youndie.kachok.ui.icons.Icons
 import io.github.youndie.kachok.ui.theme.Archivo
 import io.github.youndie.kachok.ui.theme.KachokColors
 import io.github.youndie.kachok.ui.theme.KachokKit
@@ -52,7 +56,10 @@ import io.github.youndie.kachok.ui.theme.SourceSerif
 import io.github.youndie.oldge.actions.OldgeButton
 import io.github.youndie.oldge.actions.OldgeButtonSize
 import io.github.youndie.oldge.actions.OldgeButtonVariant
+import io.github.youndie.oldge.actions.OldgeIconButton
+import io.github.youndie.oldge.forms.OldgeSearchBar
 import io.github.youndie.oldge.forms.OldgeSwitch
+import io.github.youndie.oldge.icons.OldgeIcons
 import io.github.youndie.oldge.theme.LocalOldgeContentColor
 import io.github.youndie.oldge.theme.LocalOldgeTextStyle
 import io.github.youndie.oldge.theme.OldgeSkin
@@ -299,6 +306,109 @@ internal class OldgeKit private constructor(
                 },
         )
     }
+
+    /**
+     * `OldgeIconButton`, 36 dp square: the library's dense button height, where the design's control
+     * is 28. Its 44 dp width is the design system's touch rule, and a pointer window has none, so
+     * the square is set from outside. A toggle that is on is *Primary*: the design system fills a
+     * selected chip with its accent and has no icon-only toggle (B-176).
+     */
+    @Composable
+    override fun ToolButton(
+        glyph: String,
+        label: String,
+        enabled: Boolean,
+        active: Boolean,
+        onClick: () -> Unit,
+    ) {
+        OldgeIconButton(
+            icon = toolIconOf(glyph),
+            contentDescription = label,
+            onClick = onClick,
+            modifier = Modifier.size(TOOL),
+            variant = if (active) OldgeButtonVariant.Primary else OldgeButtonVariant.Secondary,
+            size = OldgeButtonSize.Small,
+            enabled = enabled,
+        )
+    }
+
+    /**
+     * `OldgeButton`, *Primary* — the screen's one main action, the library's own rule for it. In a
+     * narrow bar the glyph alone: at 600 dp the eight 36 dp buttons and the label do not fit.
+     */
+    @Composable
+    override fun ToolMainButton(
+        glyph: String,
+        label: String,
+        compact: Boolean,
+        onClick: () -> Unit,
+    ) {
+        if (compact) {
+            OldgeIconButton(
+                icon = toolIconOf(glyph),
+                contentDescription = label,
+                onClick = onClick,
+                modifier = Modifier.size(TOOL),
+                variant = OldgeButtonVariant.Primary,
+                size = OldgeButtonSize.Small,
+            )
+        } else {
+            OldgeButton(
+                text = label,
+                onClick = onClick,
+                modifier = Modifier.semantics { contentDescription = label },
+                variant = OldgeButtonVariant.Primary,
+                size = OldgeButtonSize.Small,
+                icon = toolIconOf(glyph),
+            )
+        }
+    }
+
+    /**
+     * `OldgeSearchBar` at the button's 36 dp, where its own is 48: the sunken capsule, the magnifier
+     * and the round clear button. The clear button's name is the library's «Очистить» — it takes no
+     * label for it. Narrow, 150 dp and not the Material field's 110: the capsule's 16 sp text, its
+     * magnifier and its clear orb left one letter of a filter visible at 110, and the 36 dp bar has
+     * the room.
+     */
+    @Composable
+    override fun FilterField(
+        text: String,
+        placeholder: String,
+        narrow: Boolean,
+        onFilter: (String) -> Unit,
+    ) {
+        OldgeSearchBar(
+            modifier = Modifier.width(if (narrow) NARROW_FILTER else FILTER).height(TOOL),
+            value = text,
+            onValueChange = onFilter,
+            placeholder = placeholder,
+        )
+    }
+}
+
+/**
+ * The library's icon for a toolbar glyph (B-176). The toolbar's glyphs are Material Symbols, and
+ * oldge-ui draws its own set; each control takes the nearest in meaning. A glyph with no entry gets
+ * *More*, and `OldgeToolbarTest` fails on every toolbar glyph that has none.
+ */
+internal fun toolIconOf(glyph: String): ImageVector = TOOL_ICONS[glyph] ?: OldgeIcons.More
+
+internal val TOOL_ICONS: Map<String, ImageVector> by lazy {
+    mapOf(
+        Icons.ADD to OldgeIcons.Plus,
+        Icons.LINK to OldgeIcons.Attach,
+        Icons.PAUSE to OldgeIcons.Pause,
+        Icons.PLAY_ARROW to OldgeIcons.Play,
+        Icons.DELETE to OldgeIcons.Trash,
+        Icons.RESTART_ALT to OldgeIcons.Refresh,
+        // Re-announce: the torrent tells its trackers again — sent out, as *Share* sends.
+        Icons.CAMPAIGN to OldgeIcons.Share,
+        // The details panel: what there is to know about the selected torrent.
+        Icons.RIGHT_PANEL_OPEN to OldgeIcons.Info,
+        // Settings: `tune` is sliders, and so is `levels`.
+        Icons.TUNE to OldgeIcons.Levels,
+    )
 }
 
 /**
@@ -530,3 +640,11 @@ private val BLOCK = 8.dp
 private val BLOCK_GAP = 2.dp
 
 private val TOOLTIP_SHADOW = 4.dp
+
+/** oldge-ui's dense button height, and the toolbar's controls under this kit. */
+private val TOOL = 36.dp
+
+/** The Material field's width, wide; see [OldgeKit.FilterField] for the narrow one. */
+private val FILTER = 220.dp
+
+private val NARROW_FILTER = 150.dp

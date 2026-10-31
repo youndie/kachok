@@ -200,6 +200,44 @@ internal interface KachokKit {
         bar: Color,
         modifier: androidx.compose.ui.Modifier,
     )
+
+    /**
+     * A toolbar control that is only a [glyph], named by [label] — to a screen reader and to a
+     * test — and marked disabled when it is not [enabled]. [active] is a toggle that is on (B-176).
+     */
+    @Composable
+    fun ToolButton(
+        glyph: String,
+        label: String,
+        enabled: Boolean,
+        active: Boolean,
+        onClick: () -> Unit,
+    )
+
+    /**
+     * The toolbar's one labelled command. [compact] is a bar too narrow for the label: a kit whose
+     * button is wider than the design's may draw the glyph alone, still named by [label].
+     */
+    @Composable
+    fun ToolMainButton(
+        glyph: String,
+        label: String,
+        compact: Boolean,
+        onClick: () -> Unit,
+    )
+
+    /**
+     * The toolbar's filter box: [text] with [placeholder] behind it when empty, a way to clear it
+     * once it is not, and the field named [placeholder]. Its width is the kit's, because its text
+     * and its buttons are: [narrow] is a window under 800 dp, where the field gives up most of it.
+     */
+    @Composable
+    fun FilterField(
+        text: String,
+        placeholder: String,
+        narrow: Boolean,
+        onFilter: (String) -> Unit,
+    )
 }
 
 internal val LocalKit = staticCompositionLocalOf<KachokKit> { MaterialKit.Default }

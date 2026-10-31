@@ -1,35 +1,12 @@
 package io.github.youndie.kachok.ui.main
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.disabled
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import io.github.youndie.kachok.ui.icons.Glyph
 import io.github.youndie.kachok.ui.icons.Icons
 import io.github.youndie.kachok.ui.list.TorrentState
-import io.github.youndie.kachok.ui.theme.ChromeButton
-import io.github.youndie.kachok.ui.theme.ChromeText
 import io.github.youndie.kachok.ui.theme.KachokTheme
-import io.github.youndie.kachok.ui.theme.Text
 
 /**
  * What a toolbar control asks for when it is pressed.
@@ -80,121 +57,16 @@ internal class ToolbarAction(
 }
 
 /**
- * A 28 dp icon button.
- *
- * Three states and no more, because the design draws three: available, unavailable, and on. An
- * unavailable one is dimmed rather than hidden — the design's *Resume* is greyed while a torrent is
- * running, so the toolbar does not reshuffle every time a download starts.
+ * One icon control, drawn by the kit (B-176), with the hint that says what it does — and for a
+ * greyed one, why.
  */
 @Composable
 private fun IconAction(
     action: ToolbarAction,
     onClick: () -> Unit,
 ) {
-    val scheme = KachokTheme.colors
-    val background = if (action.active) scheme.accentContainer else Color.Transparent
-    val tint =
-        when {
-            action.active -> KachokTheme.colors.accentBright
-            action.enabled -> KachokTheme.colors.textMuted
-            else -> scheme.textFaint
-        }
     Hint(action.hint) {
-        Box(
-            Modifier
-                .size(Chrome.controlHeight)
-                .background(background, RoundedCornerShape(CONTROL_RADIUS))
-                .clickable(enabled = action.enabled, onClick = onClick)
-                // A glyph and nothing else. Without this the button has no name at all — not to a
-                // screen reader, and not to a test, which is why the bar's guard could only ever
-                // click the one control that happens to carry text.
-                .semantics {
-                    contentDescription = action.label
-                    if (!action.enabled) disabled()
-                },
-            contentAlignment = Alignment.Center,
-        ) {
-            Glyph(action.glyph, size = ACTION_GLYPH, tint = tint)
-        }
-    }
-}
-
-/**
- * The only tonal button in the whole window.
- *
- * `FilledTonalButton`'s own geometry is 40 dp high with a full-height corner radius; the design
- * asks for 28 dp and 4 dp, which is every dimension the component has, so this is drawn rather
- * than configured.
- */
-@Composable
-private fun AddTorrentButton(onClick: () -> Unit) {
-    Row(
-        Modifier
-            .height(Chrome.controlHeight)
-            .background(KachokTheme.colors.accentContainer, RoundedCornerShape(CONTROL_RADIUS))
-            .clickable(onClick = onClick)
-            .semantics { contentDescription = "Add torrent" }
-            .padding(horizontal = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
-    ) {
-        Glyph(Icons.ADD, size = BUTTON_GLYPH, tint = KachokTheme.colors.accentBright)
-        Text("Add torrent", style = ChromeButton, color = KachokTheme.colors.accentBright, maxLines = 1)
-    }
-}
-
-/**
- * The filter box.
- *
- * An outlined box rather than `OutlinedTextField`, which reserves room for a floating label and a
- * supporting line and cannot be 28 dp high with either — so the placeholder is drawn behind the
- * field rather than configured on it.
- *
- * The clear button appears only when there is something to clear. A filter that has hidden thirteen
- * of sixteen rows is a state a person has to be able to leave in one press, and the alternative —
- * selecting the text and deleting it — is three.
- */
-@Composable
-private fun FilterField(
-    text: String,
-    onFilter: (String) -> Unit,
-    narrow: Boolean,
-) {
-    val scheme = KachokTheme.colors
-    Row(
-        Modifier
-            .height(Chrome.controlHeight)
-            .width(if (narrow) NARROW_FILTER_WIDTH else FILTER_WIDTH)
-            .border(Chrome.hairline, scheme.outline, RoundedCornerShape(CONTROL_RADIUS))
-            .padding(horizontal = 9.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
-    ) {
-        Glyph(Icons.SEARCH, size = SEARCH_GLYPH, tint = scheme.textFaint)
-        Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
-            if (text.isEmpty()) {
-                Text("Filter", style = ChromeText, color = scheme.textFaint, maxLines = 1)
-            }
-            BasicTextField(
-                value = text,
-                onValueChange = onFilter,
-                singleLine = true,
-                textStyle = ChromeText.copy(color = scheme.text),
-                cursorBrush = SolidColor(scheme.accentText),
-                modifier = Modifier.fillMaxWidth().semantics { contentDescription = "Filter" },
-            )
-        }
-        if (text.isNotEmpty()) {
-            Glyph(
-                Icons.CLOSE,
-                size = SEARCH_GLYPH,
-                tint = scheme.textFaint,
-                modifier =
-                    Modifier
-                        .clickable { onFilter("") }
-                        .semantics { contentDescription = "Clear the filter" },
-            )
-        }
+        KachokTheme.kit.ToolButton(action.glyph, action.label, action.enabled, action.active, onClick)
     }
 }
 
@@ -376,36 +248,23 @@ internal fun Toolbar(
         modifier = modifier,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        AddTorrentButton { onAction(state.addTorrent) }
+        KachokTheme.kit.ToolMainButton(state.addTorrent.glyph, state.addTorrent.label, compact = narrow) {
+            onAction(state.addTorrent)
+        }
         IconAction(state.pasteMagnet) { onAction(state.pasteMagnet) }
         ToolbarSeparator()
         listOf(state.pause, state.resume, state.remove, state.recheck, state.reannounce).forEach { action ->
             IconAction(action) { onAction(action) }
         }
         Spacer()
-        FilterField(state.filter, onFilter, narrow)
+        KachokTheme.kit.FilterField(
+            state.filter,
+            placeholder = "Filter",
+            narrow = narrow,
+            onFilter = onFilter,
+        )
         ToolbarSeparator()
         IconAction(state.details) { onAction(state.details) }
         IconAction(state.settings) { onAction(state.settings) }
     }
 }
-
-private val ACTION_GLYPH = 18.sp
-
-private val BUTTON_GLYPH = 17.sp
-
-private val SEARCH_GLYPH = 16.sp
-
-/**
- * 220, not the design's `width: 200px`.
- *
- * CSS measures that width inside the border and the padding; the box on screen is 200 + 18 + 2,
- * and 200 here would be a field twenty pixels narrower than the one in the picture. Every other
- * dimension in the design happens to have no padding or border to add.
- */
-private val FILTER_WIDTH = 220.dp
-
-/** Enough for the glyph, a word and the clear button, which is what the field is for. */
-private val NARROW_FILTER_WIDTH = 110.dp
-
-private val CONTROL_RADIUS = 4.dp

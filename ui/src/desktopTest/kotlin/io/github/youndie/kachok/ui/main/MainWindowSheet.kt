@@ -266,6 +266,28 @@ internal fun NarrowWindowSheet() {
 }
 
 /**
+ * The narrow window in the oldge kit (B-176), a filter typed and a running torrent selected: the
+ * toolbar is the library's buttons and search bar, wider than the design's, and the picture is the
+ * evidence that the whole bar still fits — *Add torrent* without its label, the clear button shown,
+ * the settings toggle at the right edge.
+ */
+@ViddikScreenshot(name = "narrow-oldge", group = "main", width = 720, height = 504)
+@Composable
+internal fun NarrowWindowOldgeSheet() {
+    KachokTheme(kit = OldgeKit.Default) {
+        MainWindow(
+            MainWindowState(
+                torrents = designTorrents,
+                status = designStatus,
+                toolbar = ToolbarState(filter = "deb").forSelection(designTorrents.first { it.selected }.state),
+                details = designDetails(),
+            ),
+            Modifier.fillMaxSize(),
+        )
+    }
+}
+
+/**
  * The one row whose value is longer than its cell, at a length a real machine produces.
  *
  * `Save to` was drawn touching its own label and cut at the end — `Save to/private/tmp/claude-501/…`
