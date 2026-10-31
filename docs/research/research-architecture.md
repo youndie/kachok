@@ -739,6 +739,32 @@ The cache compresses to about 12 MB in the package. A jar touched after the cach
 fails the build (`timestamp has changed`), which is the check's positive control. The `.dmg` and the
 `.msi` are B-171 and B-172.
 
+**The `.dmg`, 2026-10-31.** The same training on the bundle inside a writable copy of the image
+(B-171), measured on the mac (aarch64, JetBrains Runtime 25.0.4.1), ten interleaved pairs, the bundle
+copied out of the final image with `ditto` against the app image of the same build:
+
+| | min | median | max | installed | `.dmg` |
+|---|---|---|---|---|---|
+| without the cache | 979 ms | 1010 ms | 1031 ms | 133 MB | 66.9 MB |
+| with it | 505 ms | **517 ms** | 537 ms | **198 MB** | **85.1 MB** |
+
+Two things the `.deb` did not have. A converted image is sized to what it holds, so the VM could
+not write the cache into it ("Unable to seek to position") until the image was enlarged first. And
+the bundle is sealed: jpackage signs it ad hoc, a file added afterwards breaks the seal, so it is
+signed again ad hoc and `codesign --verify --deep --strict` is part of the check. The image's zlib
+takes the cache to about 18 MB, against the `.deb`'s 12.
+
+**Consequence — a sealed jar and an AOT cache do not mix, and only one platform showed it.** On the
+macOS runner (Temurin 25.0.5) the cache mapped and the VM failed at once with
+`[error][aot] java.lang.SecurityException: sealing violation: can't seal package com.jetbrains:
+already defined`. `jbr-api` is the image's one sealed jar, and the window reaches the JetBrains
+Runtime API from its first frame on macOS only, so only there are its classes in the cache — defined
+from it before the jar can seal the package. Linux never loads them; the mac's own JetBrains Runtime
+carries `com.jetbrains` itself, so the local run passed. The seal is taken out of the shrunk jar
+before packaging; afterwards the runner's copied bundle mapped its cache clean (run 41186420766:
+a 58 MB cache, the `.dmg` 57 → 75 MB). The B-163 check — no `aot` error, not only the mapped line —
+is what caught it: a check on `Using AOT-linked classes: true` alone would have passed.
+
 ### 1.3i The desktop runtime, compressed
 
 Measured on 2026-10-30 for [B-156](../backlog/B-156-the-desktop-runtime-is-compressed.md), on the

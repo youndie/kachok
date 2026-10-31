@@ -207,8 +207,14 @@ The `.deb` carries an **AOT cache trained on its own files**: `packageReleaseDeb
 packaged window loads during the same download, assemble the cache, name it in `kachok.cfg`, repack,
 and fail the build unless an unpacked copy maps it
 ([B-157](../backlog/B-157-the-desktop-distribution-ships-an-aot-cache.md)). So building the `.deb`
-needs a display too; `-Pkachok.aot=false` packages it without the cache. The `.dmg` and the `.msi`
-have none yet (B-171, B-172).
+needs a display too; `-Pkachok.aot=false` packages it without the cache. The `.dmg` carries one
+the same way ([B-171](../backlog/B-171-the-dmg-carries-an-aot-cache-trained-on-its-own-files.md)):
+`attachReleaseDmg` makes a writable, enlarged copy of the image and attaches it,
+`recordDmgAotConfiguration` trains through the bundle inside, `addAotCacheToDmg` assembles the cache,
+signs the bundle again ad hoc, compresses the image over the original and checks a bundle copied out
+of it with `ditto`; `detachReleaseDmg` takes the images down whatever happened. Either task refuses a
+package that already carries a cache — package it again rather than train on it twice. The `.msi`
+has none yet (B-172).
 
 The client can be asked to **start with the computer**, from a checkbox in Settings: a launch agent
 on macOS, an `HKCU\…\Run` value on Windows, a freedesktop autostart entry on Linux — each written

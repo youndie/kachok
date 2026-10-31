@@ -48,12 +48,11 @@ which is also the order of work.
 
 <!-- BEGIN INDEX -->
 
-## Open (9)
+## Open (8)
 
 | Task | | Priority | Size | Blocked by |
 |---|---|---|---|---|
 | [B-116](docs/backlog/B-116-a-torrent-whose-name-is-not-ascii-cannot-be-opened-on-windows.md) `[~]` | A `.torrent` whose name is not ASCII cannot be opened on Windows: the launcher hands the path over as question marks | P2 | S | - |
-| [B-171](docs/backlog/B-171-the-dmg-carries-an-aot-cache-trained-on-its-own-files.md) `[ ]` | The .dmg carries an AOT cache trained on its own files | P2 | M | B-157 |
 | [B-172](docs/backlog/B-172-the-msi-carries-an-aot-cache-trained-on-its-own-files.md) `[ ]` | The .msi carries an AOT cache trained on its own files | P2 | L | B-157 |
 | [B-80](docs/backlog/B-80-the-ui-moves-to-commonmain.md) `[~]` | The UI moves to commonMain | P2 | L | B-79 |
 | [B-37](docs/backlog/B-37-v2-and-hybrid-torrents.md) `[?]` | v2 and hybrid torrents (BEP 52): SHA-256 piece layers | P3 | L | B-04 |
@@ -62,7 +61,7 @@ which is also the order of work.
 | [B-87](docs/backlog/B-87-a-server-with-a-web-face.md) `[ ]` | Phase 3: a headless server with a web face, installable on a box that is always on | P3 | XL | B-80 |
 | [B-02](docs/backlog/B-02-ci-runs-build-and-docs-gates.md) `[ ]` | CI runs the build and the documentation gates on every push | infra | S | B-01 |
 
-## Closed (163)
+## Closed (164)
 
 **M0 — The build and its gates**
 
@@ -200,6 +199,7 @@ which is also the order of work.
 - [B-168](docs/backlog/B-168-oldge-skins-own-their-footnote-and-dialog-border.md) `[x]` - The oldge skins draw the footnote band and the dialog border from their own tokens
 - [B-169](docs/backlog/B-169-a-number-field-shows-its-whole-value.md) `[x]` - A settings number field shows its whole value: "no limit" is not cut to "no lim"
 - [B-170](docs/backlog/B-170-a-seeded-accent-is-not-the-error-colour.md) `[x]` - No offered seed and style draws the accent in the error's colour
+- [B-171](docs/backlog/B-171-the-dmg-carries-an-aot-cache-trained-on-its-own-files.md) `[x]` - The .dmg carries an AOT cache trained on its own files
 - [B-39](docs/backlog/B-39-compose-ui-desktop.md) `[x]` - Phase 2: a Compose Multiplatform desktop UI on the engine's StateFlow
 - [B-46](docs/backlog/B-46-ui-theme-and-calibration.md) `[x]` - The theme: colour roles, type, and the desktop calibration
 - [B-47](docs/backlog/B-47-torrent-row-and-states.md) `[x]` - The torrent row and its seven states
