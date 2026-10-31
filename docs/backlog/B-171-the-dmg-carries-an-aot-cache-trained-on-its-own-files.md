@@ -50,3 +50,5 @@ error. Positive control: a jar touched after the cache was assembled fails `addA
 
 - AC — **met**: a `.dmg` from `distributions.yml` whose app, copied out of the mounted image, maps
   its cache; time and size in research §1.3h.
+
+- **Reversed by [B-173](B-173-the-window-ships-unshrunk-and-without-an-aot-cache.md)** (2026-10-31): the cache is gone again.

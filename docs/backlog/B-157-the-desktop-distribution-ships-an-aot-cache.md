@@ -121,3 +121,5 @@ creates them before `dpkg -i`. A guess at one of the three did not fix it — th
 
 - AC for the `.deb` — **met**: the installed client maps its cache (`dpkg -i` on the runner), the
   times and the sizes are in research §1.3h. macOS and Windows — B-171 and B-172.
+
+- **Reversed by [B-173](B-173-the-window-ships-unshrunk-and-without-an-aot-cache.md)** (2026-10-31): the cache is gone again.

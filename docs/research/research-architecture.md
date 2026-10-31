@@ -631,6 +631,16 @@ Two things this exercised that no local swarm can:
 
 ### 1.3g What the desktop image is made of, and what ProGuard takes out of it
 
+> **Amended 2026-10-31 ([B-173](../backlog/B-173-the-window-ships-unshrunk-and-without-an-aot-cache.md)).**
+> This section measured what ProGuard takes out and B-155 shipped it. It cannot stay: with Compose's
+> optimisation on, the shrunk window threw `java.lang.VerifyError: Inconsistent stackmap frames` in
+> `SeededDesignKt.seededDesign` the moment the colour setting was changed (read off
+> `startup-error.txt` on the Windows machine, `kachok-0.1.222`), and `checkDistributable` and
+> `checkDownload` had both passed on that image, because neither draws the seeded scheme; with a
+> configuration directory of its own and `colourSeed=#E91E63` the shrunk image throws it at once
+> and the unshrunk one opens. The replacement is the release variant with
+> `proguard { isEnabled = false }`: the classes as compiled, and the image sizes before B-155 below.
+
 Measured on 2026-10-30 for [B-155](../backlog/B-155-the-desktop-distribution-ships-shrunk-classes.md).
 The installed Linux app image at `ca74b97`, built on the Linux box with Ubuntu's `openjdk-25`
 25.0.4.1:
@@ -674,6 +684,13 @@ has its MCP server download a megabyte from `LocalSwarm`; it passed on all three
 Linux box under WSLg, and fails against a seed that refuses (measured, as the mutation check).
 
 ### 1.3h The window's AOT cache: what it buys, and why the installers would refuse it
+
+> **Amended 2026-10-31 ([B-173](../backlog/B-173-the-window-ships-unshrunk-and-without-an-aot-cache.md)).**
+> The `.deb`'s and `.dmg`'s caches below were trained on the shrunk classes of §1.3g, which no
+> longer ship, and the `.msi`'s could not work at all (its file times move with the installing
+> machine's time zone, below). The owner's word was to take the window's cache out with ProGuard:
+> no installer carries one, and the measurements stay for whoever weighs it again. The CLI's cache
+> (§1.3) is unaffected.
 
 Measured on 2026-10-30 for [B-157](../backlog/B-157-the-desktop-distribution-ships-an-aot-cache.md),
 on the Linux box (x64, Ubuntu's `openjdk-25` 25.0.4.1, WSLg display), against the release app image
