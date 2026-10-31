@@ -53,7 +53,7 @@ which is also the order of work.
 | Task | | Priority | Size | Blocked by |
 |---|---|---|---|---|
 | [B-116](docs/backlog/B-116-a-torrent-whose-name-is-not-ascii-cannot-be-opened-on-windows.md) `[~]` | A `.torrent` whose name is not ASCII cannot be opened on Windows: the launcher hands the path over as question marks | P2 | S | - |
-| [B-172](docs/backlog/B-172-the-msi-carries-an-aot-cache-trained-on-its-own-files.md) `[ ]` | The .msi carries an AOT cache trained on its own files | P2 | L | B-157 |
+| [B-172](docs/backlog/B-172-the-msi-carries-an-aot-cache-trained-on-its-own-files.md) `[~]` | The .msi carries an AOT cache trained on its own files | P2 | L | B-157 |
 | [B-80](docs/backlog/B-80-the-ui-moves-to-commonmain.md) `[~]` | The UI moves to commonMain | P2 | L | B-79 |
 | [B-37](docs/backlog/B-37-v2-and-hybrid-torrents.md) `[?]` | v2 and hybrid torrents (BEP 52): SHA-256 piece layers | P3 | L | B-04 |
 | [B-40](docs/backlog/B-40-wasmjs-ui-is-a-client-of-the-headless-engine.md) `[ ]` | The browser build of the UI is a client of the headless engine | P3 | L | B-80 |
