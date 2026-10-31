@@ -65,9 +65,9 @@ import kotlin.math.hypot
  * difference and never more than 15 degrees, so *checking* and *stopping* are 66–98 degrees of
  * hue whatever the seed — amber — and lean the way the rest of the window does.
  *
- * **Two distances the tone-keeping relation cannot keep (B-167).** It keeps every *lightness* step
- * the design drew, and the hue offsets within a family, but not the distances *between* families —
- * and two of those carry a meaning:
+ * **Three distances the tone-keeping relation cannot keep (B-167, B-170).** It keeps every
+ * *lightness* step the design drew, and the hue offsets within a family, but not the distances
+ * *between* families — and three of those carry a meaning:
  *
  * - **The error row's tint stays as far from the surface, in colour, as the design drew it.** The
  *   tint is one lightness step above the surface in every scheme; what says *error* is that it is
@@ -80,8 +80,16 @@ import kotlin.math.hypot
  *   to fourteen degrees, and *Seeding* read as a third amber beside *Checking* and *Stopping*.
  *   Where harmonising leaves the warning nearer than [STATE_HUE_GAP] to the accent, the warning
  *   turns back, away from the accent, by as much as it takes — never further than `harmonize` could
- *   have turned it from the design's amber, so it stays amber. The accent is left where the seed
- *   put it: turning an orange accent away from the amber would turn it into the error's red.
+ *   have turned it from the design's amber, so it stays amber.
+ * - **The accent is never the error's colour.** *Expressive* rotates the accent off the seed, and
+ *   under the green seed it lands on the error's own salmon, 1.7 degrees away, so every seeding
+ *   row is drawn in the error's colour; an orange seed's accent sits 26–28 degrees from it. Where
+ *   the generated accent is nearer than [STATE_HUE_GAP] to `error`, the whole accent family turns
+ *   away from the error, on the side it is already on, until it is that far — the green
+ *   *Expressive* accent to a pink, the orange accents five degrees towards the amber. The accent
+ *   turns first and the warning then keeps its distance from the accent it is drawn beside: there
+ *   are 72 degrees between the error's red and the far edge of amber, room for an accent with
+ *   [STATE_HUE_GAP] on either side.
  *
  * Contrast is MaterialKolor's default, and spec 2021 is named rather than taken from the library's
  * default so a release that moved the default cannot move a golden. Contrast −1.0 is never asked
@@ -102,7 +110,7 @@ internal fun seededDesign(colours: MaterialColours): SeededDesign {
             specVersion = ColorSpec.SpecVersion.SPEC_2021,
         )
     val hand = KachokDarkColors
-    val accent = Family(hand.primary, generated.primary)
+    val accent = Family(hand.primary, generated.primary.turnedAwayFromError(generated.error))
     val neutral = Family(hand.onSurface, generated.onSurface)
     val variant = Family(KachokPalette.onSurfaceMuted, generated.onSurfaceVariant)
     val error = Family(hand.error, generated.error)
@@ -213,8 +221,8 @@ private class Family(
 }
 
 /**
- * How far *checking*'s amber stays from the accent, in HCT hue: the width of one hue name — amber
- * spans 66–98 degrees — plus two for the hue an 8-bit colour rounds to.
+ * How far the accent stays from *checking*'s amber and from the error's red, in HCT hue: the width
+ * of one hue name — amber spans 66–98 degrees — plus two for the hue an 8-bit colour rounds to.
  */
 private const val STATE_HUE_GAP = 32.0
 
@@ -227,13 +235,30 @@ private const val MAX_HARMONY = 15.0
  */
 private fun Color.turnedAwayFrom(accent: Color): Color {
     val own = toHct()
-    val from = accent.toHct().hue
-    val towards = signedTurn(from, own.hue)
-    if (abs(towards) >= STATE_HUE_GAP) return this
+    val wanted = hueAwayFrom(own.hue, accent.toHct().hue) ?: return this
     val amber = KachokWarning.warning.toHct().hue
-    val wanted = from + if (towards >= 0) STATE_HUE_GAP else -STATE_HUE_GAP
     val turn = signedTurn(amber, wanted).coerceIn(-MAX_HARMONY, MAX_HARMONY)
     return Hct.from((amber + turn).mod(FULL_TURN), own.chroma, own.tone).toColor()
+}
+
+/**
+ * `this` accent anchor turned, if it has to, until it is [STATE_HUE_GAP] from [error]'s hue: away
+ * from the error, on the side it is already on, its chroma and tone kept.
+ */
+private fun Color.turnedAwayFromError(error: Color): Color {
+    val own = toHct()
+    val wanted = hueAwayFrom(own.hue, error.toHct().hue) ?: return this
+    return Hct.from(wanted, own.chroma, own.tone).toColor()
+}
+
+/** The hue [STATE_HUE_GAP] from [from] on [own]'s side of it, or `null` when [own] is that far already. */
+private fun hueAwayFrom(
+    own: Double,
+    from: Double,
+): Double? {
+    val towards = signedTurn(from, own)
+    if (abs(towards) >= STATE_HUE_GAP) return null
+    return (from + if (towards >= 0) STATE_HUE_GAP else -STATE_HUE_GAP).mod(FULL_TURN)
 }
 
 /** The turn from [from] to [to], in degrees, the short way round: −180 to 180. */
