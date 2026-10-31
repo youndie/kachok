@@ -27,6 +27,7 @@ import kotlin.math.ceil
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
+import kotlin.test.fail
 
 /**
  * A long default directory gives way to the label beside it, and not the other way round (B-179).
@@ -82,11 +83,13 @@ class LongDefaultTest {
             }
             val texts = textNodes(onRoot(useUnmergedTree = true).fetchSemanticsNode())
             // The row's label, and not the oldge field's own, which carries the same words and has no
-            // bounds on screen: the leftmost of those drawn.
+            // bounds on screen: the leftmost of those drawn. None at all is the defect at its worst —
+            // a default wide enough to push the label out of the row.
             val label =
                 texts
                     .filter { it.text == "Save to" && !it.node.boundsInRoot.isEmpty }
-                    .minBy { it.node.boundsInRoot.left }
+                    .minByOrNull { it.node.boundsInRoot.left }
+                    ?: fail("*Save to* has no width left on screen in $kit")
             val layout =
                 mutableListOf<TextLayoutResult>()
                     .also {
