@@ -149,13 +149,16 @@ internal const val LONG_DEFAULT: String =
         "someone-else/kachok-in"
 
 /**
- * [state] with *Save to*'s default — and its value, as on a fresh install — set to [LONG_DEFAULT].
+ * [state] with *Save to*'s default — and its value, as on a fresh install — set to [default].
  *
  * The state is rebuilt rather than `settingsOf` taking the default as an argument: the default is
  * the machine's home directory, and the screen is what is under test, not where the default came
  * from.
  */
-internal fun withLongDefault(state: SettingsState): SettingsState =
+internal fun withLongDefault(
+    state: SettingsState,
+    default: String = LONG_DEFAULT,
+): SettingsState =
     SettingsState(
         sections =
             state.sections.map { section ->
@@ -168,8 +171,8 @@ internal fun withLongDefault(state: SettingsState): SettingsState =
                             Setting(
                                 key = it.key,
                                 label = it.label,
-                                default = LONG_DEFAULT,
-                                value = LONG_DEFAULT,
+                                default = default,
+                                value = default,
                                 folder = true,
                             )
                         }

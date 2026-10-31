@@ -48,6 +48,15 @@ class LongDefaultTest {
         theLabelKeepsItsWidth(OldgeKit.Default)
     }
 
+    /**
+     * A default not long enough to push the label out of the row, but long enough to leave it a
+     * letter or two a line: the shape the defect had in the live app, «Sa / ve / to».
+     */
+    @Test
+    fun aDefaultOfOrdinaryLengthNoLongerLeavesTheLabelAColumnOfLetters() {
+        listOf(MaterialKit.Default, OldgeKit.Default).forEach { theLabelKeepsItsWidth(it, ORDINARY_LONG) }
+    }
+
     /** The cut is not a loss: the whole default is a hover away. */
     @Test
     fun theWholeDefaultIsInItsHint(): Unit =
@@ -72,43 +81,53 @@ class LongDefaultTest {
         assertEquals(120, LONG_DEFAULT.length)
     }
 
-    private fun theLabelKeepsItsWidth(kit: KachokKit) =
-        runComposeUiTest {
-            setContent {
-                KachokTheme(kit = kit) {
-                    Box(Modifier.width(NARROW_ARTBOARD_WIDTH.dp)) {
-                        SettingsScreen(withLongDefault(settingsOf(Preferences(directory = LONG_DEFAULT))))
-                    }
+    private fun theLabelKeepsItsWidth(
+        kit: KachokKit,
+        path: String = LONG_DEFAULT,
+    ) = runComposeUiTest {
+        setContent {
+            KachokTheme(kit = kit) {
+                Box(Modifier.width(NARROW_ARTBOARD_WIDTH.dp)) {
+                    SettingsScreen(withLongDefault(settingsOf(Preferences(directory = path)), path))
                 }
             }
-            val texts = textNodes(onRoot(useUnmergedTree = true).fetchSemanticsNode())
-            // The row's label, and not the oldge field's own, which carries the same words and has no
-            // bounds on screen: the leftmost of those drawn. None at all is the defect at its worst —
-            // a default wide enough to push the label out of the row.
-            val label =
-                texts
-                    .filter { it.text == "Save to" && !it.node.boundsInRoot.isEmpty }
-                    .minByOrNull { it.node.boundsInRoot.left }
-                    ?: fail("*Save to* has no width left on screen in $kit")
-            val layout =
-                mutableListOf<TextLayoutResult>()
-                    .also {
-                        label.node.config[SemanticsActions.GetTextLayoutResult]
-                            .action!!
-                            .invoke(it)
-                    }.single()
-            val needs = ceil(layout.multiParagraph.intrinsics.maxIntrinsicWidth).toInt()
-            assertEquals(1, layout.lineCount, "*Save to* broke into ${layout.lineCount} lines in $kit")
-            assertTrue(
-                label.node.size.width >= needs,
-                "*Save to* was given ${label.node.size.width} px and needs $needs px in $kit",
-            )
-
-            val default = texts.single { it.text.startsWith("default ") && it.text.contains("kachok") }
-            val lastSegment = LONG_DEFAULT.substringAfterLast('/')
-            assertTrue(default.text.endsWith("/$lastSegment"), "the default lost its last segment: ${default.text}")
-            assertTrue(default.text.startsWith("default …"), "a 120-character default was not cut: ${default.text}")
         }
+        val texts = textNodes(onRoot(useUnmergedTree = true).fetchSemanticsNode())
+        // The row's label, and not the oldge field's own, which carries the same words and has no
+        // bounds on screen: the leftmost of those drawn. None at all is the defect at its worst —
+        // a default wide enough to push the label out of the row.
+        val label =
+            texts
+                .filter { it.text == "Save to" && !it.node.boundsInRoot.isEmpty }
+                .minByOrNull { it.node.boundsInRoot.left }
+                ?: fail("*Save to* has no width left on screen in $kit")
+        val layout =
+            mutableListOf<TextLayoutResult>()
+                .also {
+                    label.node.config[SemanticsActions.GetTextLayoutResult]
+                        .action!!
+                        .invoke(it)
+                }.single()
+        val needs = ceil(layout.multiParagraph.intrinsics.maxIntrinsicWidth).toInt()
+        assertEquals(1, layout.lineCount, "*Save to* broke into ${layout.lineCount} lines in $kit")
+        assertTrue(
+            label.node.size.width >= needs,
+            "*Save to* was given ${label.node.size.width} px and needs $needs px in $kit",
+        )
+
+        val default = texts.single { it.text.startsWith("default ") && it.text.contains("kachok") }
+        val lastSegment = path.substringAfterLast('/')
+        assertTrue(default.text.endsWith("/$lastSegment"), "the default lost its last segment: ${default.text}")
+        assertTrue(
+            default.text.startsWith("default …"),
+            "a ${path.length}-character default was not cut: ${default.text}",
+        )
+    }
+
+    private companion object {
+        /** About what wraps the label to a letter or two a line at this width, before B-179. */
+        const val ORDINARY_LONG = "/private/tmp/kachok/Downloads"
+    }
 
     private class Drawn(
         val node: SemanticsNode,
