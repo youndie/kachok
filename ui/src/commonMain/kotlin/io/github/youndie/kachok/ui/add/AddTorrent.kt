@@ -29,6 +29,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.youndie.kachok.ui.icons.Glyph
@@ -39,7 +40,6 @@ import io.github.youndie.kachok.ui.theme.ChromeText
 import io.github.youndie.kachok.ui.theme.DialogButton
 import io.github.youndie.kachok.ui.theme.KachokTheme
 import io.github.youndie.kachok.ui.theme.MonoSmall
-import io.github.youndie.kachok.ui.theme.PathText
 import io.github.youndie.kachok.ui.theme.RowName
 import io.github.youndie.kachok.ui.theme.Text
 
@@ -136,26 +136,15 @@ internal fun AddTorrentDialog(
     onFile: (Int, Boolean) -> Unit = { _, _ -> },
     onSequential: (Boolean) -> Unit = {},
 ) {
-    val scheme = KachokTheme.colors
-    Column(
-        modifier
-            .width(DIALOG_WIDTH)
-            .background(scheme.raisedHigh, RoundedCornerShape(6.dp))
-            .border(HAIRLINE, scheme.dialogBorder, RoundedCornerShape(6.dp)),
-    ) {
-        Text(
-            "Add torrent",
-            style = KachokTheme.type.headline,
-            color = scheme.text,
-            modifier = Modifier.padding(start = EDGE, end = EDGE, top = 18.dp, bottom = 14.dp),
-        )
-        SourceCard(state)
-        SaveTo(state, onBrowse)
-        if (state.files.isNotEmpty()) Files(state, onFile)
-        Sequential(state, onSequential)
-        StartMode(state)
+    // The frame is the kit's since B-178, and so is the body's margin from it.
+    KachokTheme.kit.DialogFrame("Add torrent", DIALOG_WIDTH, modifier) { edge ->
+        SourceCard(state, edge)
+        SaveTo(state, edge, onBrowse)
+        if (state.files.isNotEmpty()) Files(state, edge, onFile)
+        Sequential(state, edge, onSequential)
+        StartMode(state, edge)
         Row(
-            Modifier.fillMaxWidth().padding(EDGE),
+            Modifier.fillMaxWidth().padding(start = edge, end = edge, top = ACTIONS_TOP, bottom = edge),
             horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -174,11 +163,14 @@ internal fun AddTorrentDialog(
 }
 
 @Composable
-private fun SourceCard(state: AddTorrentState) {
+private fun SourceCard(
+    state: AddTorrentState,
+    edge: Dp,
+) {
     Row(
         Modifier
             .fillMaxWidth()
-            .padding(horizontal = EDGE)
+            .padding(horizontal = edge)
             .background(KachokTheme.colors.neutralCard, RoundedCornerShape(4.dp))
             .border(HAIRLINE, KachokTheme.colors.outline, RoundedCornerShape(4.dp))
             .padding(horizontal = 12.dp, vertical = 11.dp),
@@ -201,60 +193,27 @@ private fun SourceCard(state: AddTorrentState) {
     }
 }
 
+/** The one decision this dialog exists to take: the kit's field and *Browse…* since B-178. */
 @Composable
 private fun SaveTo(
     state: AddTorrentState,
+    edge: Dp,
     onBrowse: () -> Unit,
 ) {
-    val scheme = KachokTheme.colors
-    Column(
-        Modifier.fillMaxWidth().padding(start = EDGE, end = EDGE, top = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp),
-    ) {
-        Text("Save to", style = SECTION_LABEL, color = KachokTheme.colors.textMuted)
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Row(
-                Modifier
-                    .weight(1f)
-                    .height(FIELD_HEIGHT)
-                    .border(HAIRLINE, scheme.outline, RoundedCornerShape(4.dp))
-                    .padding(horizontal = 10.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                Glyph(Icons.FOLDER, size = FIELD_GLYPH, tint = scheme.textFaint)
-                PathText(
-                    state.saveTo,
-                    MonoSmall.copy(fontSize = 12.sp),
-                    scheme.text,
-                    Modifier.weight(1f),
-                    textAlign = TextAlign.Start,
-                )
-            }
-            Box(
-                Modifier
-                    .height(FIELD_HEIGHT)
-                    .border(HAIRLINE, scheme.outline, RoundedCornerShape(4.dp))
-                    // The one decision this dialog exists to take. It was a bordered box.
-                    .clickable(onClick = onBrowse)
-                    .padding(horizontal = 14.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text("Browse…", style = ChromeButton, color = scheme.text, maxLines = 1)
-            }
-        }
-        Text(state.defaultNote, style = NOTE, color = scheme.textFaint)
+    Box(Modifier.fillMaxWidth().padding(start = edge, end = edge, top = 16.dp)) {
+        KachokTheme.kit.SaveToField("Save to", state.saveTo, state.defaultNote, onBrowse)
     }
 }
 
 @Composable
 private fun Files(
     state: AddTorrentState,
+    edge: Dp,
     onFile: (Int, Boolean) -> Unit,
 ) {
     val scheme = KachokTheme.colors
     Column(
-        Modifier.fillMaxWidth().padding(start = EDGE, end = EDGE, top = 16.dp),
+        Modifier.fillMaxWidth().padding(start = edge, end = edge, top = 16.dp),
         verticalArrangement = Arrangement.spacedBy(7.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -314,12 +273,13 @@ private fun Files(
 @Composable
 private fun Sequential(
     state: AddTorrentState,
+    edge: Dp,
     onSequential: (Boolean) -> Unit,
 ) {
     Row(
         Modifier
             .fillMaxWidth()
-            .padding(start = EDGE, end = EDGE, top = 16.dp)
+            .padding(start = edge, end = edge, top = 16.dp)
             .clickable { onSequential(!state.sequential) }
             .semantics { contentDescription = AddTorrentState.SEQUENTIAL },
         horizontalArrangement = Arrangement.spacedBy(9.dp),
@@ -355,9 +315,12 @@ private fun Sequential(
  * start the torrent anyway.
  */
 @Composable
-private fun StartMode(state: AddTorrentState) {
+private fun StartMode(
+    state: AddTorrentState,
+    edge: Dp,
+) {
     Column(
-        Modifier.fillMaxWidth().padding(start = EDGE, end = EDGE, top = 16.dp),
+        Modifier.fillMaxWidth().padding(start = edge, end = edge, top = 16.dp),
         verticalArrangement = Arrangement.spacedBy(9.dp),
     ) {
         Choice("Start immediately", on = state.startImmediately)
@@ -531,13 +494,10 @@ internal fun ClipboardMagnetPrompt(
 
 private val DIALOG_WIDTH = 520.dp
 
-private val EDGE = 20.dp
+/** Above the dialog's buttons: the design's 20, whatever the kit's side margin is. */
+private val ACTIONS_TOP = 20.dp
 
 private val HAIRLINE = 1.dp
-
-private val FIELD_HEIGHT = 36.dp
-
-private val BUTTON_HEIGHT = 32.dp
 
 private val PROMPT_BUTTON = 28.dp
 
@@ -548,8 +508,6 @@ private val FILE_LIST_HEIGHT = 96.dp
 private val FILE_SIZE_COLUMN = 58.dp
 
 private val SOURCE_GLYPH = 19.sp
-
-private val FIELD_GLYPH = 17.sp
 
 private val LIST_GLYPH = 16.sp
 

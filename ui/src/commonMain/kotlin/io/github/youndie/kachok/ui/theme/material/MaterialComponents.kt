@@ -8,11 +8,14 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.runtime.Composable
@@ -20,11 +23,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.disabled
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -33,6 +38,8 @@ import io.github.youndie.kachok.ui.icons.Icons
 import io.github.youndie.kachok.ui.theme.ChromeButton
 import io.github.youndie.kachok.ui.theme.ChromeText
 import io.github.youndie.kachok.ui.theme.KachokTheme
+import io.github.youndie.kachok.ui.theme.MonoSmall
+import io.github.youndie.kachok.ui.theme.PathText
 import io.github.youndie.kachok.ui.theme.RowStateLabel
 import io.github.youndie.kachok.ui.theme.Text
 
@@ -348,6 +355,273 @@ internal fun MaterialTabs(
         Box(Modifier.fillMaxWidth().height(HAIRLINE).background(KachokTheme.colors.divider))
     }
 }
+
+/**
+ * A settings row's number, typed into, from `settings/Settings.kt`.
+ *
+ * `BasicTextField` and not `OutlinedTextField` for the reason the whole screen is drawn by hand:
+ * the M3 field brings a label slot, a supporting line and 56 dp of height to a row that is 30.
+ */
+@Composable
+internal fun MaterialSettingField(
+    label: String,
+    value: String,
+    width: Dp,
+    changed: Boolean,
+    absent: Boolean,
+    onValueChange: (String) -> Unit,
+) {
+    val scheme = KachokTheme.colors
+    Box(
+        Modifier
+            .height(SETTING_FIELD_HEIGHT)
+            .width(width)
+            // Outlined in primary when it is no longer the default: the one place this screen
+            // says "you changed this", and it says it where the change is.
+            .border(
+                HAIRLINE,
+                if (changed) scheme.accentText else scheme.outline,
+                RoundedCornerShape(4.dp),
+            ).padding(horizontal = SETTING_FIELD_PADDING),
+        contentAlignment = Alignment.CenterEnd,
+    ) {
+        BasicTextField(
+            value = value,
+            onValueChange = onValueChange,
+            singleLine = true,
+            textStyle =
+                SETTING_FIELD_TEXT.copy(
+                    // A value that is absent is dimmed; a zero would not be, and that is the
+                    // difference the words are there to carry.
+                    color = if (absent) scheme.textFaint else scheme.text,
+                    textAlign = TextAlign.End,
+                ),
+            cursorBrush = SolidColor(scheme.accentText),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .semantics { contentDescription = label },
+        )
+    }
+}
+
+/** A settings row's directory and its *Browse…*, from `settings/Settings.kt`. */
+@Composable
+internal fun MaterialFolderField(
+    path: String,
+    changed: Boolean,
+    onBrowse: () -> Unit,
+) {
+    val scheme = KachokTheme.colors
+    Row(horizontalArrangement = Arrangement.spacedBy(7.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            Modifier
+                .height(SETTING_FIELD_HEIGHT)
+                .width(PATH_WIDTH)
+                .border(
+                    HAIRLINE,
+                    if (changed) scheme.accentText else scheme.outline,
+                    RoundedCornerShape(4.dp),
+                ).padding(horizontal = 9.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(7.dp),
+        ) {
+            Glyph(Icons.FOLDER, size = FOLDER_GLYPH, tint = scheme.textFaint)
+            PathText(path, MonoSmall, scheme.text, Modifier.weight(1f), textAlign = TextAlign.Start)
+        }
+        Box(
+            Modifier
+                .height(SETTING_FIELD_HEIGHT)
+                .border(HAIRLINE, scheme.outline, RoundedCornerShape(4.dp))
+                .semantics { contentDescription = "Browse" }
+                .clickable(onClick = onBrowse)
+                .padding(horizontal = 11.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text("Browse…", style = ChromeText.copy(fontSize = 12.sp), color = scheme.text, maxLines = 1)
+        }
+    }
+}
+
+/**
+ * A few named values side by side, the chosen one filled with the accent, from
+ * `settings/Settings.kt`. The group carries the row's label; each segment is a radio button with
+ * its own.
+ */
+@Composable
+internal fun MaterialSegmented(
+    name: String,
+    labels: List<String>,
+    selected: Int,
+    enabled: Boolean,
+    onSelect: (Int) -> Unit,
+) {
+    val scheme = KachokTheme.colors
+    Row(
+        Modifier
+            .height(SETTING_FIELD_HEIGHT)
+            .border(HAIRLINE, scheme.outline, RoundedCornerShape(4.dp))
+            .semantics { contentDescription = name }
+            .selectableGroup(),
+    ) {
+        labels.forEachIndexed { index, label ->
+            val chosen = index == selected
+            Box(
+                Modifier
+                    .fillMaxHeight()
+                    .background(if (chosen) scheme.accent else Color.Transparent, RoundedCornerShape(4.dp))
+                    .selectable(
+                        selected = chosen,
+                        enabled = enabled,
+                        role = Role.RadioButton,
+                        onClick = { if (!chosen) onSelect(index) },
+                    ).padding(horizontal = 11.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    label,
+                    style = ChromeText.copy(fontSize = 12.sp),
+                    color = if (chosen) scheme.onAccent else scheme.textMuted,
+                    maxLines = 1,
+                )
+            }
+        }
+    }
+}
+
+/** The empty state's *Add a torrent*, from `main/EmptyState.kt`: the accent's one filled button. */
+@Composable
+internal fun MaterialInvitationButton(
+    glyph: String,
+    label: String,
+    onClick: () -> Unit,
+) {
+    val scheme = KachokTheme.colors
+    Row(
+        Modifier
+            .height(INVITATION_HEIGHT)
+            .background(scheme.accent, RoundedCornerShape(4.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 18.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(7.dp),
+    ) {
+        Glyph(glyph, size = INVITATION_GLYPH, tint = scheme.onAccent)
+        Text(
+            label,
+            style = ChromeButton.copy(fontWeight = FontWeight.SemiBold, fontSize = 13.sp),
+            color = scheme.onAccent,
+        )
+    }
+}
+
+/**
+ * Both dialogs' frame, from `add/AddTorrent.kt` and `remove/RemoveTorrent.kt`: a raised plate with a
+ * border, the title in the headline face, and the body at the design's 20 dp from its sides.
+ */
+@Composable
+internal fun MaterialDialogFrame(
+    title: String,
+    width: Dp,
+    modifier: Modifier,
+    content: @Composable (edge: Dp) -> Unit,
+) {
+    val scheme = KachokTheme.colors
+    Column(
+        modifier
+            .width(width)
+            .background(scheme.raisedHigh, RoundedCornerShape(6.dp))
+            .border(HAIRLINE, scheme.dialogBorder, RoundedCornerShape(6.dp)),
+    ) {
+        Text(
+            title,
+            style = KachokTheme.type.headline,
+            color = scheme.text,
+            modifier = Modifier.padding(start = DIALOG_EDGE, end = DIALOG_EDGE, top = 18.dp, bottom = 14.dp),
+        )
+        content(DIALOG_EDGE)
+    }
+}
+
+/** The add dialog's *Save to*, its directory and *Browse…*, from `add/AddTorrent.kt`. */
+@Composable
+internal fun MaterialSaveToField(
+    label: String,
+    path: String,
+    note: String,
+    onBrowse: () -> Unit,
+) {
+    val scheme = KachokTheme.colors
+    Column(
+        Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Text(label, style = DIALOG_SECTION_LABEL, color = KachokTheme.colors.textMuted)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(
+                Modifier
+                    .weight(1f)
+                    .height(DIALOG_FIELD_HEIGHT)
+                    .border(HAIRLINE, scheme.outline, RoundedCornerShape(4.dp))
+                    .padding(horizontal = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Glyph(Icons.FOLDER, size = DIALOG_FIELD_GLYPH, tint = scheme.textFaint)
+                PathText(
+                    path,
+                    MonoSmall.copy(fontSize = 12.sp),
+                    scheme.text,
+                    Modifier.weight(1f),
+                    textAlign = TextAlign.Start,
+                )
+            }
+            Box(
+                Modifier
+                    .height(DIALOG_FIELD_HEIGHT)
+                    .border(HAIRLINE, scheme.outline, RoundedCornerShape(4.dp))
+                    // The one decision this dialog exists to take. It was a bordered box.
+                    .clickable(onClick = onBrowse)
+                    .padding(horizontal = 14.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text("Browse…", style = ChromeButton, color = scheme.text, maxLines = 1)
+            }
+        }
+        Text(note, style = DIALOG_NOTE, color = scheme.textFaint)
+    }
+}
+
+/** A settings field's height. */
+private val SETTING_FIELD_HEIGHT = 30.dp
+
+/**
+ * A number field's own text: the figures' mono, a point larger than the status bar's. The settings
+ * screen sizes the field for its words in the same style, as `FIELD_TEXT`.
+ */
+private val SETTING_FIELD_TEXT = MonoSmall.copy(fontSize = 12.sp)
+
+/** The number field's inner padding on each side; the screen's `FIELD_PADDING`, for the same reason. */
+private val SETTING_FIELD_PADDING = 9.dp
+
+private val PATH_WIDTH = 210.dp
+
+private val FOLDER_GLYPH = 16.sp
+
+private val INVITATION_HEIGHT = 34.dp
+
+private val INVITATION_GLYPH = 18.sp
+
+/** A dialog body's side margin, and the title's. */
+private val DIALOG_EDGE = 20.dp
+
+private val DIALOG_FIELD_HEIGHT = 36.dp
+
+private val DIALOG_FIELD_GLYPH = 17.sp
+
+private val DIALOG_SECTION_LABEL = ChromeText.copy(fontSize = 11.sp, fontWeight = FontWeight.Medium)
+
+private val DIALOG_NOTE = ChromeText.copy(fontSize = 10.5.sp)
 
 /** The design's `height: 22px` plus the border CSS measures outside it. */
 private val BANNER_BUTTON_HEIGHT = 24.dp

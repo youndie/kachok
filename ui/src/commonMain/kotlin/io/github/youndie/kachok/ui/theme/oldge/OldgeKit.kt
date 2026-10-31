@@ -3,7 +3,11 @@ package io.github.youndie.kachok.ui.theme.oldge
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -19,10 +23,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -33,6 +40,8 @@ import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.isSpecified
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.layout
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
@@ -41,9 +50,12 @@ import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.isSpecified
@@ -54,12 +66,17 @@ import io.github.youndie.kachok.ui.theme.KachokColors
 import io.github.youndie.kachok.ui.theme.KachokKit
 import io.github.youndie.kachok.ui.theme.KachokType
 import io.github.youndie.kachok.ui.theme.SourceSerif
+import io.github.youndie.kachok.ui.theme.material.MaterialSegmented
 import io.github.youndie.oldge.actions.OldgeButton
 import io.github.youndie.oldge.actions.OldgeButtonSize
 import io.github.youndie.oldge.actions.OldgeButtonVariant
 import io.github.youndie.oldge.actions.OldgeIconButton
+import io.github.youndie.oldge.actions.OldgeSegment
+import io.github.youndie.oldge.actions.OldgeSegmented
+import io.github.youndie.oldge.containers.OldgeDialog
 import io.github.youndie.oldge.forms.OldgeSearchBar
 import io.github.youndie.oldge.forms.OldgeSwitch
+import io.github.youndie.oldge.forms.OldgeTextField
 import io.github.youndie.oldge.icons.OldgeIcons
 import io.github.youndie.oldge.navigation.OldgeTab
 import io.github.youndie.oldge.navigation.OldgeTabs
@@ -68,6 +85,8 @@ import io.github.youndie.oldge.theme.LocalOldgeTextStyle
 import io.github.youndie.oldge.theme.OldgeSkin
 import io.github.youndie.oldge.theme.OldgeTheme
 import io.github.youndie.oldge.tokens.OldgeColors
+import io.github.youndie.oldge.tokens.OldgeRadii
+import io.github.youndie.oldge.tokens.OldgeSpacing
 import io.github.youndie.oldge.type.OldgeText
 
 /**
@@ -429,7 +448,216 @@ internal class OldgeKit private constructor(
             modifier = Modifier.fillMaxWidth(),
         )
     }
+
+    /**
+     * `OldgeTextField`: the sunken well, in the design system's 16 sp `body`. Two things are set from
+     * outside, because the component has no parameter for either:
+     *
+     * - **Its label is lifted out of the row.** The field always draws its label above the well, and
+     *   the row already shows the same words on its left; the field is laid out with only the well
+     *   inside its bounds (see [wellOnly]). The label stays in the semantics tree.
+     * - **A changed value is ringed in `accent-ink`**, the Material field's "you changed this", drawn
+     *   over the well's own edge: the component's border knows only `edge` and `danger`.
+     *
+     * The well is `hit-min`, 44 dp, where the Material field is 30: the component's minimum for one
+     * line. The width grows for [words] in the larger face, which at the Material field's width left
+     * `no limit` cut to `no li`. An absent value is not dimmed — the text's colour is the field's —
+     * and is aligned to the start, as every field of the design system is.
+     */
+    @Composable
+    override fun SettingField(
+        label: String,
+        value: String,
+        width: Dp,
+        words: String?,
+        changed: Boolean,
+        absent: Boolean,
+        onValueChange: (String) -> Unit,
+    ) {
+        val wide = words?.let { textWidth(it, OldgeTheme.type.body) + FIELD_INSET * 2 + CARET } ?: 0.dp
+        OldgeTextField(
+            label = label,
+            value = value,
+            onValueChange = onValueChange,
+            modifier =
+                Modifier
+                    .width(maxOf(width, wide))
+                    .changedRing(changed, colors.accentText)
+                    .wellOnly(),
+        )
+    }
+
+    /**
+     * `OldgeTextField` with the folder icon, and *Browse…* as `OldgeButton`, *Secondary*, at the
+     * well's 44 dp. The directory is picked and never typed, and the component has no read-only
+     * state, so the field is made unfocusable from outside: a well that took what somebody typed
+     * and dropped it would be the screen's own defect, a field that is a picture. Its label is
+     * lifted out as [SettingField]'s is.
+     */
+    @Composable
+    override fun FolderField(
+        label: String,
+        path: String,
+        changed: Boolean,
+        onBrowse: () -> Unit,
+    ) {
+        Row(horizontalArrangement = Arrangement.spacedBy(GAP), verticalAlignment = Alignment.CenterVertically) {
+            OldgeTextField(
+                label = label,
+                value = path,
+                onValueChange = {},
+                modifier =
+                    Modifier
+                        .width(PATH)
+                        .changedRing(changed, colors.accentText)
+                        .wellOnly()
+                        .focusProperties { canFocus = false },
+                icon = OldgeIcons.Folder,
+            )
+            OldgeButton(
+                text = "Browse…",
+                onClick = onBrowse,
+                modifier = Modifier.semantics { contentDescription = "Browse" },
+                variant = OldgeButtonVariant.Secondary,
+                size = OldgeButtonSize.Medium,
+            )
+        }
+    }
+
+    /**
+     * `OldgeSegmented`, set to 36 dp from outside — the dense button's height, where its own segment
+     * is 40 inside a 2 dp rim — and as wide as its widest label twice over: its segments share the
+     * width they are given, and a settings row gives all of it.
+     *
+     * The component takes two to four options and throws on any other count; the screen's drawing
+     * in this kit's colours takes the rest, which today is nothing (the kits are two, and the scheme
+     * styles are the Material kit's). It has no disabled state either, so a choice that cannot be
+     * changed only ignores the press.
+     */
+    @Composable
+    override fun Segmented(
+        name: String,
+        labels: List<String>,
+        selected: Int,
+        enabled: Boolean,
+        onSelect: (Int) -> Unit,
+    ) {
+        if (labels.size !in SEGMENTS) {
+            MaterialSegmented(name, labels, selected, enabled, onSelect)
+            return
+        }
+        val options = remember(labels) { labels.mapIndexed { index, label -> OldgeSegment(index, label) } }
+        OldgeSegmented(
+            options = options,
+            selected = selected,
+            onSelect = { if (enabled && it != selected) onSelect(it) },
+            label = name,
+            modifier = Modifier.height(TOOL).width(IntrinsicSize.Max),
+        )
+    }
+
+    /** `OldgeButton`, *Primary* at its 44 dp: the empty window's one main action, with *Plus*. */
+    @Composable
+    override fun InvitationButton(
+        glyph: String,
+        label: String,
+        onClick: () -> Unit,
+    ) {
+        OldgeButton(
+            text = label,
+            onClick = onClick,
+            variant = OldgeButtonVariant.Primary,
+            size = OldgeButtonSize.Medium,
+            icon = toolIconOf(glyph),
+        )
+    }
+
+    /**
+     * `OldgeDialog`, not modal: the window — the skin's bezel, the title in its bar — in place, over
+     * the screen's own scrim. Its 358 dp is the design system's phone width, so the dialog's width
+     * is set from outside, first in the chain. No close orb: the dialog ends with *Cancel*, and the
+     * orb's name is the library's «Закрыть», which it takes no label for. The body is padded 16 dp
+     * by the window, so the screen's side margin is 4 — 20 in all, the design's.
+     */
+    @Composable
+    override fun DialogFrame(
+        title: String,
+        width: Dp,
+        modifier: Modifier,
+        content: @Composable (edge: Dp) -> Unit,
+    ) {
+        OldgeDialog(title = title, modifier = modifier.width(width)) {
+            Column(Modifier.fillMaxWidth()) { content(DIALOG_EDGE) }
+        }
+    }
+
+    /**
+     * `OldgeTextField` under its own label, the folder icon in it, and *Browse…* as `OldgeButton`,
+     * *Secondary*, at the well's 44 dp beside it. The note is the field's help line, drawn under the
+     * row in the help line's style rather than passed as `help`: inside the field it would make the
+     * field taller than the well, and the button would no longer stand level with it. The field is
+     * unfocusable from outside, as [FolderField]'s is.
+     */
+    @Composable
+    override fun SaveToField(
+        label: String,
+        path: String,
+        note: String,
+        onBrowse: () -> Unit,
+    ) {
+        Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(HELP_GAP)) {
+            Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(GAP)) {
+                OldgeTextField(
+                    label = label,
+                    value = path,
+                    onValueChange = {},
+                    modifier = Modifier.weight(1f).focusProperties { canFocus = false },
+                    icon = OldgeIcons.Folder,
+                )
+                OldgeButton(
+                    text = "Browse…",
+                    onClick = onBrowse,
+                    variant = OldgeButtonVariant.Secondary,
+                    size = OldgeButtonSize.Medium,
+                )
+            }
+            OldgeText(note, style = OldgeTheme.type.caption.copy(color = OldgeTheme.colors.inkMuted))
+        }
+    }
 }
+
+/** [text]'s width in [style], for a field that has to be wide enough for its words. */
+@Composable
+private fun textWidth(
+    text: String,
+    style: TextStyle,
+): Dp {
+    val measurer = rememberTextMeasurer()
+    return with(LocalDensity.current) {
+        measurer
+            .measure(text, style)
+            .size.width
+            .toDp()
+    }
+}
+
+/**
+ * Only an `OldgeTextField`'s well inside its bounds: the label above it is laid out above the top
+ * and clipped. The well is the column's last child — a field with no help line — and `hit-min` tall
+ * for one line of `body`: 1 + 11 + 20 + 11 + 1, the component's own minimum.
+ */
+private fun Modifier.wellOnly(): Modifier =
+    clipToBounds().layout { measurable, constraints ->
+        val field = measurable.measure(constraints.copy(minHeight = 0, maxHeight = Constraints.Infinity))
+        val well = OldgeSpacing.hitMin.roundToPx().coerceAtMost(field.height)
+        layout(field.width, well) { field.place(0, well - field.height) }
+    }
+
+/** The changed field's ring, over the well's edge and in its corner. */
+private fun Modifier.changedRing(
+    changed: Boolean,
+    ink: Color,
+): Modifier = if (changed) border(HAIRLINE, ink, RoundedCornerShape(OldgeRadii.xs)) else this
 
 /**
  * The library's icon for a toolbar glyph (B-176). The toolbar's glyphs are Material Symbols, and
@@ -695,3 +923,29 @@ private val NARROW_FILTER = 150.dp
 
 /** The degraded banner's button: the 32 dp band less 3 dp above and below. */
 private val BANNER_BUTTON = 26.dp
+
+/** `OldgeTextField`'s well, from its edge to its text: the 1 dp border and `space-3`. */
+private val FIELD_INSET = 13.dp
+
+/** The caret beside the last character, so a full field does not scroll by a pixel. */
+private val CARET = 2.dp
+
+/**
+ * A settings directory: 180, where the Material field is 210, because *Browse…* at the well's
+ * 44 dp is the wider button by about as much, and at 210 the row's label wrapped. The well's 16 sp
+ * `body` and its 20 dp icon show about fourteen characters of a path, cut at the end: the component
+ * has no middle ellipsis, which the Material field's `PathText` has.
+ */
+private val PATH = 180.dp
+
+/** Between a field and its button: `space-2`. */
+private val GAP = 8.dp
+
+/** `.og-field { gap: 6px }`, between a field and its help line. */
+private val HELP_GAP = 6.dp
+
+/** What `OldgeSegmented` takes. */
+private val SEGMENTS = 2..4
+
+/** A dialog body's side margin inside `OldgeDialog`'s own 16 dp: 20 in all, the design's. */
+private val DIALOG_EDGE = 4.dp

@@ -18,6 +18,7 @@ import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import io.github.youndie.kachok.ui.theme.KachokColors
 import io.github.youndie.kachok.ui.theme.KachokKit
@@ -243,6 +244,70 @@ internal class MaterialKit private constructor(
         onSelect: (Int) -> Unit,
     ) {
         MaterialTabs(name, labels, selected, onSelect)
+    }
+
+    /** [words] are in [width] already: the screen measured them in this kit's face. */
+    @Composable
+    override fun SettingField(
+        label: String,
+        value: String,
+        width: Dp,
+        words: String?,
+        changed: Boolean,
+        absent: Boolean,
+        onValueChange: (String) -> Unit,
+    ) {
+        MaterialSettingField(label, value, width, changed, absent, onValueChange)
+    }
+
+    @Composable
+    override fun FolderField(
+        label: String,
+        path: String,
+        changed: Boolean,
+        onBrowse: () -> Unit,
+    ) {
+        MaterialFolderField(path, changed, onBrowse)
+    }
+
+    @Composable
+    override fun Segmented(
+        name: String,
+        labels: List<String>,
+        selected: Int,
+        enabled: Boolean,
+        onSelect: (Int) -> Unit,
+    ) {
+        MaterialSegmented(name, labels, selected, enabled, onSelect)
+    }
+
+    @Composable
+    override fun InvitationButton(
+        glyph: String,
+        label: String,
+        onClick: () -> Unit,
+    ) {
+        MaterialInvitationButton(glyph, label, onClick)
+    }
+
+    @Composable
+    override fun DialogFrame(
+        title: String,
+        width: Dp,
+        modifier: Modifier,
+        content: @Composable (edge: Dp) -> Unit,
+    ) {
+        MaterialDialogFrame(title, width, modifier, content)
+    }
+
+    @Composable
+    override fun SaveToField(
+        label: String,
+        path: String,
+        note: String,
+        onBrowse: () -> Unit,
+    ) {
+        MaterialSaveToField(label, path, note, onBrowse)
     }
 }
 

@@ -11,6 +11,7 @@ import io.github.youndie.kachok.ui.theme.InterfaceKit
 import io.github.youndie.kachok.ui.theme.KachokTheme
 import io.github.youndie.kachok.ui.theme.material.MaterialColours
 import io.github.youndie.kachok.ui.theme.material.SchemeStyle
+import io.github.youndie.kachok.ui.theme.oldge.OldgeKit
 import io.github.youndie.oldge.theme.OldgeSkin
 import io.github.youndie.viddik.annotations.ViddikScreenshot
 
@@ -128,21 +129,31 @@ private fun SeededSettings(colours: MaterialColours) {
 @ViddikScreenshot(name = "empty", group = "main", width = 1440, height = 674)
 @Composable
 internal fun EmptyWindowSheet() {
-    KachokTheme {
-        MainWindow(
-            MainWindowState(
-                torrents = emptyList(),
-                status =
-                    io.github.youndie.kachok.ui.main
-                        .SessionStatus(
-                            down = "0 B/s",
-                            up = "0 B/s",
-                            torrents = "idle",
-                            dht = null,
-                            port = designStatus.port,
-                            heap = designStatus.heap,
-                        ),
-            ),
-        )
-    }
+    KachokTheme { EmptyWindow() }
+}
+
+/** The same window in the oldge kit (B-178): *Add a torrent* is the library's primary button. */
+@ViddikScreenshot(name = "empty-oldge", group = "main", width = 1440, height = 674)
+@Composable
+internal fun EmptyWindowOldgeSheet() {
+    KachokTheme(kit = OldgeKit.Default) { EmptyWindow() }
+}
+
+@Composable
+private fun EmptyWindow() {
+    MainWindow(
+        MainWindowState(
+            torrents = emptyList(),
+            status =
+                io.github.youndie.kachok.ui.main
+                    .SessionStatus(
+                        down = "0 B/s",
+                        up = "0 B/s",
+                        torrents = "idle",
+                        dht = null,
+                        port = designStatus.port,
+                        heap = designStatus.heap,
+                    ),
+        ),
+    )
 }

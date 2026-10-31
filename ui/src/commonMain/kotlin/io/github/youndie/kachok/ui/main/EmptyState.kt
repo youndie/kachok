@@ -18,7 +18,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
@@ -134,22 +133,8 @@ internal fun EmptyState(
                 textAlign = TextAlign.Center,
             )
         }
-        Row(
-            Modifier
-                .height(BUTTON)
-                .background(scheme.accent, RoundedCornerShape(4.dp))
-                .clickable(onClick = onAdd)
-                .padding(horizontal = 18.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(7.dp),
-        ) {
-            Glyph(Icons.ADD, size = BUTTON_GLYPH, tint = scheme.onAccent)
-            Text(
-                "Add a torrent",
-                style = ChromeButton.copy(fontWeight = FontWeight.SemiBold, fontSize = 13.sp),
-                color = scheme.onAccent,
-            )
-        }
+        // The kit's button since B-178.
+        KachokTheme.kit.InvitationButton(Icons.ADD, "Add a torrent", onAdd)
         Text("⌘O  file    ⌘V  magnet", style = MonoSmall.copy(fontSize = 11.sp), color = scheme.textFaint)
     }
 }
@@ -170,7 +155,5 @@ private val RING_GLYPH = 28.sp
 private val TITLE = 25.sp
 
 private val BUTTON = 34.dp
-
-private val BUTTON_GLYPH = 18.sp
 
 private val HAIRLINE = 1.dp
