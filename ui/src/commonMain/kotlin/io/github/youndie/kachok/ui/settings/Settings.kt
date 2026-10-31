@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
@@ -34,9 +35,11 @@ import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import io.github.youndie.kachok.ui.icons.Glyph
 import io.github.youndie.kachok.ui.icons.Icons
+import io.github.youndie.kachok.ui.main.Hint
 import io.github.youndie.kachok.ui.theme.ChromeText
 import io.github.youndie.kachok.ui.theme.KachokTheme
 import io.github.youndie.kachok.ui.theme.MonoSmall
+import io.github.youndie.kachok.ui.theme.PathText
 import io.github.youndie.kachok.ui.theme.Text
 
 /**
@@ -269,7 +272,11 @@ private fun SettingRow(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(if (setting.unit == null) 10.dp else 8.dp),
             ) {
-                Text("default ${setting.default}", style = DEFAULT, color = scheme.textFaint)
+                if (setting.folder) {
+                    DefaultPath(setting.default)
+                } else {
+                    Text("default ${setting.default}", style = DEFAULT, color = scheme.textFaint)
+                }
                 when {
                     setting.toggle != null -> {
                         // The kit's switch since B-160; whether it can be pressed is decided here.
@@ -317,6 +324,30 @@ private fun SettingRow(
             }
         }
         Box(Modifier.fillMaxWidth().height(HAIRLINE).background(KachokTheme.colors.rowHairline))
+    }
+}
+
+/**
+ * A directory's default: cut from the front under [DEFAULT_PATH_CAP], the whole of it in a hint
+ * (B-179).
+ *
+ * **The label keeps its width and the default gives way.** The label column is the weighted one and
+ * this row is not, so the row is measured first and takes what it asks for. A default path is the
+ * one thing on the screen whose length the screen does not choose — it is the person's home
+ * directory — and uncapped, a long one left *Save to* a column of letters, «Sa / ve / to». The label
+ * says what the row is; the default only qualifies it, and its last component, which is what tells
+ * one directory from another, is the part that is kept.
+ */
+@Composable
+private fun DefaultPath(path: String) {
+    Hint(path) {
+        PathText(
+            path,
+            DEFAULT,
+            KachokTheme.colors.textFaint,
+            Modifier.widthIn(max = DEFAULT_PATH_CAP),
+            prefix = "default ",
+        )
     }
 }
 
@@ -501,6 +532,24 @@ private val FIELD_PADDING = 9.dp
 private val CARET_ROOM = 2.dp
 
 private val UNIT_WIDTH = 38.dp
+
+/**
+ * The most a directory's `default …` may take: 160 dp, which is 25 characters of its 10.5 sp mono —
+ * `default `, the ellipsis and the last sixteen characters of the path (B-179).
+ *
+ * **Set from the narrowest window, where the row has least to share.** At 600 dp the row has 544
+ * between its edges and its gap; the folder field and *Browse…* take 289 dp under Material and 292
+ * under oldge-ui, and 10 more separate them from the default (read off `LongDefaultTest`'s layout on
+ * 2026-10-31). That leaves about 245 for the label and the default together, and 160 leaves the
+ * label 82 dp or more, where *Save to* needs 43 in Material's face and 50 in oldge's — room for it,
+ * and for a longer label, on one line.
+ *
+ * It still holds the design's own `default ~/Downloads` (19 characters, about 120 dp) whole. A
+ * resolved home directory is usually longer, and is cut to its end on every window, the widest too:
+ * a cap that grew with the window would draw the same row differently at every width, and the
+ * whole path is a hover away.
+ */
+private val DEFAULT_PATH_CAP = 160.dp
 
 private val SWATCH = 24.dp
 
