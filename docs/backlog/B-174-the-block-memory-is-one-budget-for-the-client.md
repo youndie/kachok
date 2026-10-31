@@ -1,7 +1,7 @@
 ---
 id: B-174
 title: "The pieces open across the client fit the direct memory they live in"
-status: wip
+status: done
 priority: P1
 size: M
 stage: m3-storage
@@ -49,8 +49,16 @@ again. A thread dump had nothing blocked on a disk or a lock.
 - AC: a buffer goes back to the client's pool and is the next torrent's. **Automated:**
   `BufferPoolTest.aTorrentsPoolLendsFromTheClientsAndHandsItsBuffersBack`,
   `theClientsCapBindsEveryTorrentsPool`.
-- AC: the window downloads at 100 Mbit/s for fifteen minutes without standing still. *Open* — run
-  on the Windows machine with `kachok-0.1.225`.
+- AC: the window downloads at 100 Mbit/s for fifteen minutes without standing still. **Met** on
+  the Windows machine with `kachok-0.1.226` and the same torrents, sampled every 20 s from 11:45:40
+  to 12:00:20: 45 samples, none at 0 B/s after the first; 10.98 MiB/s on average after the first
+  minute against a limit of 11.9; reserved by started pieces between 2 and 126 MiB of 140, rising
+  and falling as pieces closed; one of the three finished and the queue gave its turn on. Before,
+  the same torrents stood still at 10:52:36, two minutes in.
+- Found on the way: the first installed build with this change opened no torrent and said nothing,
+  because the run-time image had no `java.management` for `ManagementFactory`. It is in both images
+  now (`:ui:suggestRuntimeModules` asks for it), and `maxDirectMemory` falls back to the heap's
+  ceiling on a `LinkageError` rather than stopping the client. Research §1.3b is amended.
 - Anchors: `engine/src/jvmMain/kotlin/io/github/youndie/kachok/engine/runtime/SharedBlockBudget.kt`,
   `engine/src/commonMain/kotlin/io/github/youndie/kachok/engine/picker/PieceBudget.kt`,
   `engine/src/jvmMain/kotlin/io/github/youndie/kachok/engine/io/BufferPool.kt`.

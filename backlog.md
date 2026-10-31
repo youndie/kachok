@@ -48,11 +48,10 @@ which is also the order of work.
 
 <!-- BEGIN INDEX -->
 
-## Open (8)
+## Open (7)
 
 | Task | | Priority | Size | Blocked by |
 |---|---|---|---|---|
-| [B-174](docs/backlog/B-174-the-block-memory-is-one-budget-for-the-client.md) `[~]` | The pieces open across the client fit the direct memory they live in | P1 | M | B-152 |
 | [B-116](docs/backlog/B-116-a-torrent-whose-name-is-not-ascii-cannot-be-opened-on-windows.md) `[~]` | A `.torrent` whose name is not ASCII cannot be opened on Windows: the launcher hands the path over as question marks | P2 | S | - |
 | [B-80](docs/backlog/B-80-the-ui-moves-to-commonmain.md) `[~]` | The UI moves to commonMain | P2 | L | B-79 |
 | [B-37](docs/backlog/B-37-v2-and-hybrid-torrents.md) `[?]` | v2 and hybrid torrents (BEP 52): SHA-256 piece layers | P3 | L | B-04 |
@@ -61,7 +60,7 @@ which is also the order of work.
 | [B-87](docs/backlog/B-87-a-server-with-a-web-face.md) `[ ]` | Phase 3: a headless server with a web face, installable on a box that is always on | P3 | XL | B-80 |
 | [B-02](docs/backlog/B-02-ci-runs-build-and-docs-gates.md) `[ ]` | CI runs the build and the documentation gates on every push | infra | S | B-01 |
 
-## Closed (166)
+## Closed (167)
 
 **M0 — The build and its gates**
 
@@ -98,6 +97,7 @@ which is also the order of work.
 - [B-152](docs/backlog/B-152-one-cap-on-connections-for-the-whole-client.md) `[x]` - One cap on connections and one on connection attempts in flight, for the whole client
 - [B-153](docs/backlog/B-153-the-queue-order-survives-a-restart.md) `[x]` - The remembered torrents come back in the order they were added, so the download queue keeps its order across a restart
 - [B-154](docs/backlog/B-154-each-torrent-gets-its-share-of-the-dials.md) `[x]` - Each transferring torrent gets an equal share of the client's dials in flight
+- [B-174](docs/backlog/B-174-the-block-memory-is-one-budget-for-the-client.md) `[x]` - The pieces open across the client fit the direct memory they live in
 
 **M4 — A download, end to end**
 
