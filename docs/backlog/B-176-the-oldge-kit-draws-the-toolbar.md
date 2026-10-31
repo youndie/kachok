@@ -1,7 +1,7 @@
 ---
 id: B-176
 title: "The oldge kit draws the toolbar with its own buttons, icons and search bar"
-status: wip
+status: done
 priority: P2
 size: S
 stage: phase-2-ui
