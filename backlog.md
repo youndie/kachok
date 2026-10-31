@@ -48,21 +48,20 @@ which is also the order of work.
 
 <!-- BEGIN INDEX -->
 
-## Open (9)
+## Open (8)
 
 | Task | | Priority | Size | Blocked by |
 |---|---|---|---|---|
 | [B-175](docs/backlog/B-175-a-piece-waits-on-its-slowest-peer-outside-the-endgame.md) `[~]` | An idle peer takes over a block a slow peer has sat on, before the endgame | P1 | S | B-174 |
 | [B-116](docs/backlog/B-116-a-torrent-whose-name-is-not-ascii-cannot-be-opened-on-windows.md) `[~]` | A `.torrent` whose name is not ASCII cannot be opened on Windows: the launcher hands the path over as question marks | P2 | S | - |
 | [B-80](docs/backlog/B-80-the-ui-moves-to-commonmain.md) `[~]` | The UI moves to commonMain | P2 | L | B-79 |
-| [B-181](docs/backlog/B-181-a-style-can-turn-the-chosen-colour-into-another.md) `[ ]` | A style can turn the chosen colour into another: the swatches show the seed, not the accent | P3 | S | - |
 | [B-37](docs/backlog/B-37-v2-and-hybrid-torrents.md) `[?]` | v2 and hybrid torrents (BEP 52): SHA-256 piece layers | P3 | L | B-04 |
 | [B-40](docs/backlog/B-40-wasmjs-ui-is-a-client-of-the-headless-engine.md) `[ ]` | The browser build of the UI is a client of the headless engine | P3 | L | B-80 |
 | [B-41](docs/backlog/B-41-android-and-ios-targets.md) `[ ]` | Phase 3: Android and iOS targets on the engine | P3 | XL | B-39 |
 | [B-87](docs/backlog/B-87-a-server-with-a-web-face.md) `[ ]` | Phase 3: a headless server with a web face, installable on a box that is always on | P3 | XL | B-80 |
 | [B-02](docs/backlog/B-02-ci-runs-build-and-docs-gates.md) `[ ]` | CI runs the build and the documentation gates on every push | infra | S | B-01 |
 
-## Closed (172)
+## Closed (173)
 
 **M0 — The build and its gates**
 
@@ -209,6 +208,7 @@ which is also the order of work.
 - [B-178](docs/backlog/B-178-the-oldge-kit-draws-the-settings-dialogs-and-empty-state.md) `[x]` - The oldge kit draws the settings fields, the dialogs and the empty state's button with its own components
 - [B-179](docs/backlog/B-179-a-long-default-squeezes-the-settings-label.md) `[x]` - A long default value squeezes the settings label into a column of letters
 - [B-180](docs/backlog/B-180-the-material-toolbar-is-invisible-to-accessibility.md) `[x]` - The Material kit's toolbar buttons are named but are not buttons to the platform's accessibility
+- [B-181](docs/backlog/B-181-a-style-can-turn-the-chosen-colour-into-another.md) `[x]` - A style can turn the chosen colour into another: the swatches show the seed, not the accent
 - [B-39](docs/backlog/B-39-compose-ui-desktop.md) `[x]` - Phase 2: a Compose Multiplatform desktop UI on the engine's StateFlow
 - [B-46](docs/backlog/B-46-ui-theme-and-calibration.md) `[x]` - The theme: colour roles, type, and the desktop calibration
 - [B-47](docs/backlog/B-47-torrent-row-and-states.md) `[x]` - The torrent row and its seven states
