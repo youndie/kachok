@@ -739,6 +739,21 @@ The cache compresses to about 12 MB in the package. A jar touched after the cach
 fails the build (`timestamp has changed`), which is the check's positive control. The `.dmg` and the
 `.msi` are B-171 and B-172.
 
+**The `.dmg`, 2026-10-31.** The same training on the bundle inside a writable copy of the image
+(B-171), measured on the mac (aarch64, JetBrains Runtime 25.0.4.1), ten interleaved pairs, the bundle
+copied out of the final image with `ditto` against the app image of the same build:
+
+| | min | median | max | installed | `.dmg` |
+|---|---|---|---|---|---|
+| without the cache | 979 ms | 1010 ms | 1031 ms | 133 MB | 66.9 MB |
+| with it | 505 ms | **517 ms** | 537 ms | **198 MB** | **85.1 MB** |
+
+Two things the `.deb` did not have. A converted image is sized to what it holds, so the VM could
+not write the cache into it ("Unable to seek to position") until the image was enlarged first. And
+the bundle is sealed: jpackage signs it ad hoc, a file added afterwards breaks the seal, so it is
+signed again ad hoc and `codesign --verify --deep --strict` is part of the check. The image's zlib
+takes the cache to about 18 MB, against the `.deb`'s 12.
+
 ### 1.3i The desktop runtime, compressed
 
 Measured on 2026-10-30 for [B-156](../backlog/B-156-the-desktop-runtime-is-compressed.md), on the

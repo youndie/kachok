@@ -1,4 +1,9 @@
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
+import java.util.jar.Attributes
+import java.util.jar.JarFile
+import java.util.jar.JarOutputStream
+import java.util.jar.Manifest
+import java.util.zip.ZipEntry
 
 /**
  * The heap the desktop application gets, and the heap its tests get.
@@ -685,6 +690,47 @@ val addAotCacheToDmg by tasks.registering(Exec::class) {
         dmgDir.get().asFile.absolutePath,
         dmgAotWork.get().asFile.absolutePath,
     )
+}
+
+// **`jbr-api` ships unsealed** (B-171).
+//
+// It is the one sealed jar in the image (`Sealed: true` in its manifest), and on macOS the window
+// reaches the JetBrains Runtime API from its first frame, so its classes are in the AOT cache. On
+// the runner's Temurin the cache then mapped and the VM failed at once with `sealing violation:
+// can't seal package com.jetbrains: already defined` — the package was defined from the cache before
+// the jar could seal it. Linux never loads those classes and never saw it; JetBrains Runtime carries
+// `com.jetbrains` itself and did not either. A seal only stops another jar adding classes to the
+// package, which nothing here does, so the attribute is taken out of the shrunk jar before it is
+// packaged.
+tasks.matching { it.name == "proguardReleaseJars" }.configureEach {
+    val shrunk = layout.buildDirectory.dir("compose/tmp/main-release/proguard")
+    doLast {
+        shrunk
+            .get()
+            .asFile
+            .listFiles()
+            .orEmpty()
+            .filter {
+                it.name.startsWith(
+                    "jbr-api",
+                ) && it.name.endsWith(".jar")
+            }.forEach { jar ->
+                val unsealed = File(jar.parentFile, jar.name + ".unsealed")
+                JarFile(jar).use { source ->
+                    val manifest = Manifest(source.manifest)
+                    manifest.mainAttributes.remove(Attributes.Name.SEALED)
+                    manifest.entries.values.forEach { it.remove(Attributes.Name.SEALED) }
+                    JarOutputStream(unsealed.outputStream(), manifest).use { out ->
+                        source.entries().asSequence().filter { it.name != JarFile.MANIFEST_NAME }.forEach { entry ->
+                            out.putNextEntry(ZipEntry(entry.name).apply { time = entry.time })
+                            source.getInputStream(entry).use { it.copyTo(out) }
+                            out.closeEntry()
+                        }
+                    }
+                }
+                check(unsealed.renameTo(jar) || (jar.delete() && unsealed.renameTo(jar))) { "could not replace $jar" }
+            }
+    }
 }
 
 // The writable image stays attached if the training run fails; this takes it down whatever happened.
