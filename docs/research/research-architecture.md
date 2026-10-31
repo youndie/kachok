@@ -279,6 +279,15 @@ sum of their caps — 36 buffers, 576 KiB, for the two above.
 > piece is reserved whole from one budget before it begins, both split from the VM's direct memory
 > (`SharedBlockBudget`). A writer is never waiting on a buffer — it only gives them back — so the
 > concern above is met by the reservation: every open piece has room for the rest of its blocks.
+>
+> **Amended again 2026-10-31 ([B-175](../backlog/B-175-a-piece-waits-on-its-slowest-peer-outside-the-endgame.md)).**
+> The budget has a cost the measurement above could not show, because its swarms were fast: few
+> open pieces means few pieces for a torrent's peers to share, and a piece closes at the speed of
+> the slowest peer holding any of its blocks. With the limits off on slow swarms the same window
+> held 120 MiB of 140 reserved in every sample for eight minutes and downloaded 1.3 MiB/s, peers
+> connected with nothing asked of them, because the endgame waits for the torrent's last reachable
+> block. An idle peer now takes over a block that has sat on another for ten seconds — a guess, not
+> a measurement — and the loser is cancelled, as in the endgame.
 
 **What is shared instead:** the listener, because there is one port and it is announced to every
 tracker; the DHT, because there is one routing table and BEP 5's `implied_port` needs one stable

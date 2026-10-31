@@ -78,7 +78,7 @@ What exists on `main` today:
 | `.../engine/storage/Storage.kt` | where a verified piece goes |
 | `.../engine/storage/FileStorage.kt` (jvmMain) | one gathering write per file span, and the `SpanSink` seam that makes the call count assertable |
 | `.../engine/picker/Bitfield.kt` | which pieces something has, as a `LongArray` in BEP 3's bit order |
-| `.../engine/picker/PiecePicker.kt` | rarest-first with strict priority, the started-piece bound, endgame |
+| `.../engine/picker/PiecePicker.kt` | rarest-first with strict priority, the started-piece bound, endgame, and an idle peer taking over a slow peer's blocks before it (B-175) |
 | `.../engine/choke/Choker.kt`, `RateMeter.kt` | BEP 3's ten-second pass and optimistic unchoke, over a rolling rate window |
 | `.../engine/resume/ResumeRecord.kt` | what survives a restart, bencoded, and the store interface |
 | `.../engine/resume/FileResumeStore.kt` (jvmMain) | a temporary sibling and an `ATOMIC_MOVE`; a record left where it used to be kept is read and removed after the first good save (B-150) |
@@ -271,6 +271,12 @@ them. Nothing is read from the environment by this module; that is [cli](cli.md)
   more than the VM had, and every torrent stood still at 140 MiB on loan of 192 MiB with its pieces
   half in memory. A refused piece is asked for again on the session's tick, because the room comes
   from another torrent.
+* **A piece does not wait on its slowest peer until the endgame** (B-175). Under the budget a
+  torrent holds few pieces open, and once every block of them is on some peer's queue the rest of
+  its peers have nothing to ask for. A peer the picker would give nothing to takes a block whose
+  every request is older than `STRAGGLER_MILLIS`, and the slow peer is cancelled when the first copy
+  arrives. A cancel takes the request out of the slow peer's `outstanding` at once and is
+  remembered, so the copy or reject that may still follow is not counted twice.
 * **Queued is not paused.** The set's queue holds a torrent with `Command.Queue`, which pauses it
   and publishes `queued` rather than `paused`; a person's pause wins over it, a resume does not jump
   it, and a torrent that would have to wait is started held, so it never announces first. Turns go
