@@ -41,6 +41,7 @@ import io.github.youndie.kachok.ui.theme.ChromeButton
 import io.github.youndie.kachok.ui.theme.ChromeText
 import io.github.youndie.kachok.ui.theme.DialogButton
 import io.github.youndie.kachok.ui.theme.KachokTheme
+import io.github.youndie.kachok.ui.theme.KitChoice
 import io.github.youndie.kachok.ui.theme.MonoSmall
 import io.github.youndie.kachok.ui.theme.RowName
 import io.github.youndie.kachok.ui.theme.Text
@@ -278,94 +279,48 @@ private fun Sequential(
     edge: Dp,
     onSequential: (Boolean) -> Unit,
 ) {
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .padding(start = edge, end = edge, top = 16.dp)
-            .toggleable(value = state.sequential, role = Role.Checkbox, onValueChange = onSequential)
-            .semantics { contentDescription = AddTorrentState.SEQUENTIAL },
-        horizontalArrangement = Arrangement.spacedBy(9.dp),
-    ) {
-        Glyph(
-            if (state.sequential) Icons.CHECK_BOX else Icons.CHECK_BOX_OUTLINE_BLANK,
-            size = CONTROL_GLYPH,
-            tint =
-                if (state.sequential) {
-                    KachokTheme.colors.accentText
-                } else {
-                    KachokTheme.colors.textFaint
-                },
-        )
-        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(AddTorrentState.SEQUENTIAL, style = CHOICE, color = KachokTheme.colors.text)
-            Text(
-                "Ask for pieces in order rather than rarest first. Slower overall, and it makes " +
-                    "this client a worse swarm member.",
-                style = NOTE,
-                color = KachokTheme.colors.textFaint,
-            )
-        }
-    }
+    // The kit's checkbox since B-183.
+    KachokTheme.kit.Check(
+        AddTorrentState.SEQUENTIAL,
+        note =
+            "Ask for pieces in order rather than rarest first. Slower overall, and it makes " +
+                "this client a worse swarm member.",
+        path = false,
+        danger = false,
+        checked = state.sequential,
+        onCheckedChange = onSequential,
+        modifier = Modifier.fillMaxWidth().padding(start = edge, end = edge, top = 16.dp),
+    )
 }
 
 /**
  * One choice, and one that is not a choice yet.
  *
  * *Add paused* needs a paused state the engine does not have
- * ([B-57](../../../../../../../../docs/backlog/B-57-a-paused-torrent.md)), so it carries the
- * design's badge and does not respond — rather than moving the dot to an option that would then
- * start the torrent anyway.
+ * ([B-57](../../../../../../../../docs/backlog/B-57-a-paused-torrent.md)), so it is shown and not
+ * offered — rather than moving the dot to an option that would then start the torrent anyway. The
+ * Material kit draws the design's *planned* badge beside it; the oldge kit, the library's disabled
+ * option with the reason under it (B-183).
  */
 @Composable
 private fun StartMode(
     state: AddTorrentState,
     edge: Dp,
 ) {
-    Column(
-        Modifier.fillMaxWidth().padding(start = edge, end = edge, top = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(9.dp),
-    ) {
-        Choice("Start immediately", on = state.startImmediately)
-        Choice("Add paused", on = !state.startImmediately, planned = true)
-    }
+    KachokTheme.kit.Choices(
+        "When it is added",
+        START_MODES,
+        selected = if (state.startImmediately) 0 else 1,
+        onSelect = {},
+        modifier = Modifier.fillMaxWidth().padding(start = edge, end = edge, top = 16.dp),
+    )
 }
 
-@Composable
-private fun Choice(
-    label: String,
-    on: Boolean,
-    planned: Boolean = false,
-) {
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(9.dp)) {
-        Glyph(
-            if (on) Icons.RADIO_BUTTON_CHECKED else Icons.RADIO_BUTTON_UNCHECKED,
-            size = CONTROL_GLYPH,
-            tint = if (on) KachokTheme.colors.accentText else KachokTheme.colors.textFaint,
-        )
-        Text(
-            label,
-            style = CHOICE,
-            color = if (on) KachokTheme.colors.text else KachokTheme.colors.textMuted,
-        )
-        if (planned) PlannedBadge()
-    }
-}
-
-@Composable
-private fun PlannedBadge() {
-    Box(
-        Modifier
-            .border(HAIRLINE, KachokTheme.colors.warningContainer, RoundedCornerShape(2.dp))
-            .padding(horizontal = 3.dp),
-    ) {
-        Text(
-            "planned",
-            style = ChromeText.copy(fontSize = BADGE),
-            color = KachokTheme.colors.warning,
-            maxLines = 1,
-        )
-    }
-}
+private val START_MODES =
+    listOf(
+        KitChoice("Start immediately"),
+        KitChoice("Add paused", planned = "Planned: the engine has no paused state yet."),
+    )
 
 /**
  * The window while something is being dragged over it.
@@ -517,8 +472,6 @@ private val CONTROL_GLYPH = 18.sp
 
 private val OVERLAY_GLYPH = 26.sp
 
-private val BADGE = 9.5.sp
-
 /** The design's dimmed 22 % teal over whatever the window is showing underneath. */
 private const val OVERLAY_ALPHA = 0.22f
 
@@ -533,5 +486,3 @@ private val SECTION_LABEL = ChromeText.copy(fontSize = 11.sp, fontWeight = FontW
 private val CARD_MONO = MonoSmall.copy(fontSize = 11.sp)
 
 private val NOTE = ChromeText.copy(fontSize = 10.5.sp)
-
-private val CHOICE = ChromeText.copy(fontSize = 12.5.sp)

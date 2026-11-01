@@ -7,19 +7,13 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import io.github.youndie.kachok.ui.icons.Glyph
-import io.github.youndie.kachok.ui.icons.Icons
 import io.github.youndie.kachok.ui.theme.ChromeText
 import io.github.youndie.kachok.ui.theme.DialogButton
 import io.github.youndie.kachok.ui.theme.KachokTheme
@@ -78,34 +72,16 @@ internal fun RemoveTorrentDialog(
             Text(state.name, style = RowName, color = scheme.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(state.howMuch, style = MonoSmall, color = KachokTheme.colors.textMuted, maxLines = 1)
         }
-        Row(
-            Modifier
-                .padding(start = edge, end = edge, top = 16.dp)
-                // A checkbox with its label, and the platform is told so (B-180).
-                .toggleable(value = state.deleteData, role = Role.Checkbox, onValueChange = onToggleData)
-                .semantics { contentDescription = DELETE_DATA },
-            horizontalArrangement = Arrangement.spacedBy(9.dp),
-        ) {
-            Glyph(
-                if (state.deleteData) Icons.CHECK_BOX else Icons.CHECK_BOX_OUTLINE_BLANK,
-                size = CONTROL_GLYPH,
-                tint = if (state.deleteData) scheme.error else scheme.textFaint,
-            )
-            Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                Text(
-                    DELETE_DATA,
-                    style = CHOICE,
-                    color = if (state.deleteData) scheme.error else scheme.text,
-                )
-                Text(
-                    state.where,
-                    style = MonoSmall,
-                    color = scheme.textFaint,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-        }
+        // The kit's checkbox since B-183, the directory its note.
+        KachokTheme.kit.Check(
+            DELETE_DATA,
+            note = state.where,
+            path = true,
+            danger = true,
+            checked = state.deleteData,
+            onCheckedChange = onToggleData,
+            modifier = Modifier.padding(start = edge, end = edge, top = 16.dp),
+        )
         Row(
             Modifier.fillMaxWidth().padding(start = edge, end = edge, top = ACTIONS_TOP, bottom = edge),
             horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
@@ -139,9 +115,5 @@ private val DIALOG_WIDTH = 420.dp
 private val ACTIONS_TOP = 20.dp
 
 private val HAIRLINE = 1.dp
-
-private val CONTROL_GLYPH = 18.sp
-
-private val CHOICE = ChromeText.copy(fontSize = 12.5.sp)
 
 private val NOTE = ChromeText.copy(fontSize = 10.5.sp)

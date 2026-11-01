@@ -341,7 +341,45 @@ internal interface KachokKit {
         note: String,
         onBrowse: () -> Unit,
     )
+
+    /**
+     * A dialog's checkbox: [label], and under it [note], what the box acts on or what it costs
+     * (B-183). A [path] note is one line, cut at its end. A [danger] box destroys something when it
+     * is checked, and a kit may say so while it is.
+     */
+    @Composable
+    fun Check(
+        label: String,
+        note: String,
+        path: Boolean,
+        danger: Boolean,
+        checked: Boolean,
+        onCheckedChange: (Boolean) -> Unit,
+        modifier: androidx.compose.ui.Modifier,
+    )
+
+    /**
+     * A dialog's radio buttons, [options] in order and [selected] the chosen one, the group named
+     * [name]. An option with a `planned` reason is shown and not offered (B-183).
+     */
+    @Composable
+    fun Choices(
+        name: String,
+        options: List<KitChoice>,
+        selected: Int,
+        onSelect: (Int) -> Unit,
+        modifier: androidx.compose.ui.Modifier,
+    )
 }
+
+/**
+ * One option of [KachokKit.Choices]: its [label], and [planned], why it is shown but cannot be
+ * chosen yet — or `null` for an option that can.
+ */
+internal class KitChoice(
+    val label: String,
+    val planned: String? = null,
+)
 
 internal val LocalKit = staticCompositionLocalOf<KachokKit> { MaterialKit.Default }
 

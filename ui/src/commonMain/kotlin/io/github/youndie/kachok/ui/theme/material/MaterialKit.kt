@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.dp
 import io.github.youndie.kachok.ui.theme.KachokColors
 import io.github.youndie.kachok.ui.theme.KachokKit
 import io.github.youndie.kachok.ui.theme.KachokType
+import io.github.youndie.kachok.ui.theme.KitChoice
 
 /**
  * The design as it was drawn — a dark Material 3 scheme, read off the design's swatch row, with the
@@ -317,6 +318,30 @@ internal class MaterialKit private constructor(
         onBrowse: () -> Unit,
     ) {
         MaterialSaveToField(label, path, note, onBrowse)
+    }
+
+    @Composable
+    override fun Check(
+        label: String,
+        note: String,
+        path: Boolean,
+        danger: Boolean,
+        checked: Boolean,
+        onCheckedChange: (Boolean) -> Unit,
+        modifier: Modifier,
+    ) {
+        MaterialCheck(label, note, path, danger, checked, onCheckedChange, modifier)
+    }
+
+    @Composable
+    override fun Choices(
+        name: String,
+        options: List<KitChoice>,
+        selected: Int,
+        onSelect: (Int) -> Unit,
+        modifier: Modifier,
+    ) {
+        MaterialChoices(options, selected, modifier)
     }
 }
 
