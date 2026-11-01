@@ -724,12 +724,11 @@ internal val TOOL_ICONS: Map<String, ImageVector> by lazy {
         Icons.PLAY_ARROW to OldgeIcons.Play,
         Icons.DELETE to OldgeIcons.Trash,
         Icons.RESTART_ALT to OldgeIcons.Refresh,
-        // Re-announce: the torrent tells its trackers again — sent out, as *Share* sends.
-        Icons.CAMPAIGN to OldgeIcons.Share,
         // The details panel: what there is to know about the selected torrent.
         Icons.RIGHT_PANEL_OPEN to OldgeIcons.Info,
-        // Settings: `tune` is sliders, and so is `levels`.
-        Icons.TUNE to OldgeIcons.Levels,
+        // Settings: a gear, which is what a person looks for (B-184). `levels` was the nearer
+        // shape to Material's `tune` sliders and read as an equaliser.
+        Icons.TUNE to OldgeIcons.Gear,
     )
 }
 
