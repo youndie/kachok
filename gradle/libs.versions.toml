@@ -16,8 +16,11 @@ sborka = "0.4.0.111"
 # needs a repository this project does not have.
 viddik = "0.4.0"
 # The window frame: a Compose-drawn title bar with the host's own window controls. The design draws
-# one in its own colours, which is a custom frame whether or not it says so.
-appframe = "0.1.24"
+# one in its own colours, which is a custom frame whether or not it says so. reposilite's releases
+# get `<head>.<run>` from every push to appframe's main; 0.2.1.35 is the run with appframe#60 and #61,
+# which on Windows make a double click on the bar maximize, keep a maximized window off the taskbar,
+# and restore a maximized window when the bar is dragged instead of moving it off the screen.
+appframe = "0.2.1.35"
 # The second kit's library (B-160): the portfolio's mid-2000s design system. Published to
 # reposilite's snapshots only, as `<version>.<run>` from every push to its main; pinned to one run,
 # because a snapshot line that moved under a golden is a golden that fails for no change here.
