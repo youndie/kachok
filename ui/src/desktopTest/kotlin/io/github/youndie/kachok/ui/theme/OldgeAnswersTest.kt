@@ -1,6 +1,8 @@
 package io.github.youndie.kachok.ui.theme
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -28,6 +30,7 @@ import io.github.youndie.kachok.ui.remove.DELETE_DATA
 import io.github.youndie.kachok.ui.remove.RemoveState
 import io.github.youndie.kachok.ui.remove.RemoveTorrentDialog
 import io.github.youndie.kachok.ui.theme.oldge.OldgeKit
+import io.github.youndie.oldge.feedback.OldgeProgressWell
 import kotlin.math.abs
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -101,10 +104,52 @@ class OldgeAnswersTest {
      * track is the `divider`, and its well stays the skin's (#49).
      */
     @Test
-    fun aTintedRowsWellIsTheRowsColour() {
-        assertTrue(wellShare(tinted = true) > TINTED_SHARE, "the tinted row's well is its track")
-        assertEquals(0f, wellShare(tinted = false), "a plain row's well is the skin's")
-    }
+    fun aTintedRowsWellIsTheRowsColour(): Unit =
+        runComposeUiTest {
+            setContent {
+                KachokTheme(kit = OldgeKit.Default) {
+                    Box(Modifier.testTag(BAR)) {
+                        KachokTheme.kit.ProgressBar(0f, "Sintel.tar", TRACK, Color.Red, Modifier.width(120.dp))
+                    }
+                }
+            }
+            val node = onNodeWithTag(BAR)
+            val image = node.captureToImage()
+            val share = node.pixelsNear(TRACK).toFloat() / (image.width * image.height)
+            assertTrue(share > TINTED_SHARE, "the tinted row's well is its track: $share")
+        }
+
+    @Test
+    fun aPlainRowsWellIsTheSkins(): Unit =
+        runComposeUiTest {
+            setContent {
+                KachokTheme(kit = OldgeKit.Default) {
+                    Column {
+                        Box(Modifier.testTag(BAR)) {
+                            val track = KachokTheme.colors.divider
+                            KachokTheme.kit.ProgressBar(0.4f, "Sintel.tar", track, Color.Red, Modifier.width(120.dp))
+                        }
+                        Box(Modifier.testTag(SKIN)) {
+                            OldgeProgressWell(
+                                0.4f,
+                                "Sintel.tar",
+                                Modifier.width(120.dp).height(10.dp),
+                                fill = Color.Red,
+                            )
+                        }
+                    }
+                }
+            }
+            val kit = onNodeWithTag(BAR).captureToImage().toPixelMap()
+            val skin = onNodeWithTag(SKIN).captureToImage().toPixelMap()
+
+            assertEquals(skin.width to skin.height, kit.width to kit.height)
+            for (x in 0 until kit.width) {
+                for (y in 0 until kit.height) {
+                    assertEquals(skin[x, y], kit[x, y], "the plain row's bar is the library's at ($x, $y)")
+                }
+            }
+        }
 
     private fun accentPixels(changed: Boolean): Int {
         var count = 0
@@ -121,24 +166,6 @@ class OldgeAnswersTest {
             count = onNodeWithTag(FIELD).pixelsNear(accent)
         }
         return count
-    }
-
-    private fun wellShare(tinted: Boolean): Float {
-        var share = 0f
-        runComposeUiTest {
-            setContent {
-                KachokTheme(kit = OldgeKit.Default) {
-                    val track = if (tinted) TRACK else KachokTheme.colors.divider
-                    Box(Modifier.testTag(BAR)) {
-                        KachokTheme.kit.ProgressBar(0f, "Sintel.tar", track, Color.Red, Modifier.width(120.dp))
-                    }
-                }
-            }
-            val node = onNodeWithTag(BAR)
-            val image = node.captureToImage()
-            share = node.pixelsNear(TRACK).toFloat() / (image.width * image.height)
-        }
-        return share
     }
 
     private fun SemanticsNodeInteraction.pixelsNear(colour: Color): Int {
@@ -161,6 +188,7 @@ class OldgeAnswersTest {
         const val SEGMENTED = "segmented"
         const val FIELD = "field"
         const val BAR = "bar"
+        const val SKIN = "skin"
 
         /** A colour no skin draws a well in. */
         val TRACK = Color(0xFFFF00FF)
