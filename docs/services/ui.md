@@ -54,7 +54,7 @@ asked for it in a conversation, through the same `TorrentSet` a click goes throu
 | `.../ui/session/ClientModel.kt` | what the window *is*, held where a window is not: its state, its channels, and the loop that samples every session and stops them cleanly |
 | `.../ui/theme/` | the kit the screens draw through — `KachokColors` (the design's roles by what they are for), `KachokType`, `Text`, and the components a kit draws itself (`Toggle`, `DialogButton`, `ProgressBar`, the toolbar's `ToolButton`, `ToolMainButton` and `FilterField`, the banner's `BannerButton`, the details `Tabs`, and since B-178 the settings' `SettingField`, `FolderField` and `Segmented`, the empty state's `InvitationButton`, and the dialogs' `DialogFrame` and `SaveToField`) — `InterfaceKit`, the choice the settings store, the three bundled families and the interface scale |
 | `.../ui/theme/material/` | the Material kit: the Cyrillic runs of an Archivo text drawn in its companion (`CyrillicRuns.kt`, B-165), the eight roles read off the design, the `warning` M3 does not ship, the palette beside them, the 4 dp calibration, and its drawing of the three components (`MaterialComponents.kt`, the code the screens had, moved); since B-161 `MaterialKit.of(seed, style)`, the seeds and styles offered (`MaterialColours.kt`) and the derivation of every role from MaterialKolor's scheme (`SeededDesign.kt`) — the only place `make check` lets name `com.materialkolor` |
-| `.../ui/theme/oldge/` | the oldge-ui kit (B-160): `OldgeKit.of(skin)`, one instance per `OldgeSkin` (B-162), every role from that skin's tokens, `OldgeSwitch`, `OldgeButton`, `OldgeTextField`, `OldgeSegmented` and `OldgeDialog` (B-178), the progress well's look, text through `OldgeText` in the design system's faces, and the Material scheme `AppFrame` reads; with `theme/material/`, the only place `make check` lets name `material3` |
+| `.../ui/theme/oldge/` | the oldge-ui kit (B-160): `OldgeKit.of(skin)`, one instance per `OldgeSkin` (B-162), every role from that skin's tokens, `OldgeSwitch`, `OldgeButton`, `OldgeTextField`, `OldgeSegmented` and `OldgeDialog` (B-178), the row's bar as `OldgeProgressWell` (B-182), `OldgeDensity.Pointer` and English `OldgeStrings` at its root (B-182), text through `OldgeText` in the design system's faces, and the Material scheme `AppFrame` reads; with `theme/material/`, the only place `make check` lets name `material3` |
 | `.../ui/icons/Icons.kt` | the twenty-one Material Symbols codepoints and the subset font they index into |
 | `.../ui/list/TorrentRow.kt` | the nine columns at the design's widths, and the row's own hairline |
 | `.../ui/list/RowColors.kt` | which colour every cell of every state is, as a function of the scheme rather than of a composition |
@@ -101,7 +101,8 @@ B-160, B-161, B-162, B-164 or B-165. `make check` fails on any file outside `ui/
 system, in one of its skins. The choice is stored in `settings.properties` as `interface`, read
 above `AppFrame` in `App.kt`, and applies without a restart because the kit is a composition local;
 a name the build does not know is Material. The oldge kit takes `OldgeSwitch` and `OldgeButton`
-from the library and draws the rest — the table, the header, the toolbar, the panel — from its
+from the library, at the pointer density and with English names for the library's own orbs
+([B-182](../backlog/B-182-oldge-ui-answered-the-asks.md)), and draws the rest — the table, the header, the toolbar, the panel — from its
 tokens, because the library is a mobile kit with none of them. Its text goes through `OldgeText` in
 the design system's faces, and those decide who draws Cyrillic: Archivo, which has none, becomes
 DejaVu Sans Condensed; Source Serif becomes Fira Sans; JetBrains Mono stays, because Share Tech
@@ -138,9 +139,10 @@ holds every offered seed and style to 0.02 and 30°. Dark only, by the owner's d
 
 **Under oldge-ui the same *Colours* row offers its skins** ([B-162](../backlog/B-162-the-oldge-ui-kit-offers-its-skins.md)).
 One row whose contents are the kit's: the skins are read from `OldgeSkin.entries` — Toxic, Media
-and Crystal in 0.1.1.14, so a skin a release adds appears with the version bump — each drawn as
-its `ground` with its `accent` as a dot. Stored as `oldgeSkin=<the library's name>`, default Toxic,
-and a name the library no longer has reads as its first skin. Each kit keeps its own choice, so
+and Crystal in 0.1.1.30, so a skin a release adds appears with the version bump — each drawn as
+its `ground` with its `accent` as a dot. Stored as `oldgeSkin=<the library's id>`, default `toxic`
+([B-182](../backlog/B-182-oldge-ui-answered-the-asks.md)). The name a build before B-182 stored is
+still read, and a value no skin has reads as the library's first skin. Each kit keeps its own choice, so
 Material, oldge-ui, Material finds the seed where it was left. Every role comes from the chosen
 skin's tokens by the mapping B-160 wrote for Toxic; since [B-168](../backlog/B-168-oldge-skins-own-their-footnote-and-dialog-border.md)
 that includes the settings footnote's ground (`surface2`) and a dialog's border (`edge`), which
@@ -166,7 +168,7 @@ The colour rule lives outside the composables (`RowColors.kt`) so that "is this 
 | Library | Compose Multiplatform 1.12 + Material 3 | the toolkit and the eight roles the design names |
 | Library | viddik 0.4 | `viddikRecord` / `viddikVerify`, the goldens |
 | Library | AppFrame 0.1.24 | the title bar the design draws, with the host's own window controls |
-| Library | oldge-core 0.1.1.14 (reposilite snapshots) | the second kit: `OldgeTheme`, its tokens and faces, `OldgeSwitch`, `OldgeButton`, `OldgeText` |
+| Library | oldge-core 0.1.1.30 (reposilite snapshots) | the second kit: `OldgeTheme`, its tokens and faces, `OldgeSwitch`, `OldgeButton`, `OldgeText` |
 | Library | MaterialKolor 5.0.1 (`com.materialkolor:material-kolor`, Maven Central) | the Material kit's scheme from a seed, `harmonize` for `warning`; upstream, not the portfolio's `linuxX64` fork |
 | Fonts | Source Serif 4, Archivo, JetBrains Mono, Material Symbols Rounded | bundled, not asked of the machine |
 | Fonts | Onest 2.001 (SIL OFL 1.1, `google/fonts` `ofl/onest` at `4c1db3a`), cut to `OnestCyrillic.ttf`, 42.7 KB | Archivo's Cyrillic under the Material kit (B-165); the copyright and the licence travel in its name table |

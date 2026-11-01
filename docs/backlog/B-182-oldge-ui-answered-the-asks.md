@@ -1,7 +1,7 @@
 ---
 id: B-182
 title: "oldge-ui answered every ask: take 0.1.1.30 and drop the workarounds"
-status: wip
+status: done
 priority: P2
 size: M
 stage: phase-2-ui
@@ -20,8 +20,9 @@ outside. This item takes the release and puts each workaround back into the libr
   button, a 36 dp search bar, a 26 dp banner button. Under `Pointer` the library draws pointer sizes
   itself: buttons at 28, 32 and 36 dp, the search bar and a text field at 32. The toolbar's controls
   are then 28 dp, the design's own size.
-- **English accessible names** through `OldgeStrings` (#18, #28): *Close*, *Clear*, *Show password*,
-  *Hide password*, *Progress*, and the rest. Before this, the clear orb was «Очистить».
+- **English accessible names** through `OldgeStrings` (#18, #28): *Close*, *Show password*, *Hide
+  password*, *Progress*, and the rest. The clear orb is *Clear the filter*, the Material kit's name
+  for the same button. Before this it was «Очистить».
 - **`OldgeTextField(readOnly, showLabel)`** (#25). The folder fields are read-only rather than made
   unfocusable from outside, so a path can be selected and copied. The settings fields hide the label
   the row already shows, and the label is heard once. `wellOnly` goes.
@@ -30,7 +31,9 @@ outside. This item takes the release and puts each workaround back into the libr
 - **`OldgeDialog(maxWidth)`** (#27). The dialog's 520 or 420 dp is the library's own cap, and no
   longer a fixed width placed ahead of the library's 358 dp in the chain.
 - **`OldgeIconButton(selected)`** (#20). The details and settings toggles are latched toggles. Before
-  this they were *Primary*, which is the screen's one main action.
+  this they were *Primary*, which is the screen's one main action. They are heard as checkboxes, on
+  or off, and so are the Material kit's two. The kit's `ToolButton` takes `active = null` for a
+  control that is not a toggle.
 - **`OldgeProgressWell`** (#22). It replaces the hand-drawn copy of the bar's look. The fill stays in
   the row's colour. The well is now the skin's own, so a selected or failed row's track tint is the
   Material kit's only.
@@ -47,3 +50,14 @@ AC:
 
 Anchors: `ui/src/commonMain/kotlin/io/github/youndie/kachok/ui/theme/oldge/OldgeKit.kt`,
 `gradle/libs.versions.toml`.
+
+## What was found doing it
+
+- **The segmented choice is still sized from outside.** `OldgeSegmented` keeps its 40 dp segment at
+  either density, so the kit sets it to 32 dp, level with the settings fields.
+- **The dialog cap changed nothing a test could see.** A fixed width in a narrower parent was already
+  fitted to it. A test written to show that the dialog fits a narrow window passed with the old code
+  too, and was dropped. The existing width tests are the ones that fail without `maxWidth`.
+- **Mutation checks.** Each workaround put back fails a test: *Danger*, `readOnly`, the segmented
+  `enabled`, `selected`, `byId`, `showLabel`, the strings, and the well's name.
+

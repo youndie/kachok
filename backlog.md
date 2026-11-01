@@ -61,7 +61,7 @@ which is also the order of work.
 | [B-87](docs/backlog/B-87-a-server-with-a-web-face.md) `[ ]` | Phase 3: a headless server with a web face, installable on a box that is always on | P3 | XL | B-80 |
 | [B-02](docs/backlog/B-02-ci-runs-build-and-docs-gates.md) `[ ]` | CI runs the build and the documentation gates on every push | infra | S | B-01 |
 
-## Closed (173)
+## Closed (174)
 
 **M0 — The build and its gates**
 
@@ -209,6 +209,7 @@ which is also the order of work.
 - [B-179](docs/backlog/B-179-a-long-default-squeezes-the-settings-label.md) `[x]` - A long default value squeezes the settings label into a column of letters
 - [B-180](docs/backlog/B-180-the-material-toolbar-is-invisible-to-accessibility.md) `[x]` - The Material kit's toolbar buttons are named but are not buttons to the platform's accessibility
 - [B-181](docs/backlog/B-181-a-style-can-turn-the-chosen-colour-into-another.md) `[x]` - A style can turn the chosen colour into another: the swatches show the seed, not the accent
+- [B-182](docs/backlog/B-182-oldge-ui-answered-the-asks.md) `[x]` - oldge-ui answered every ask: take 0.1.1.30 and drop the workarounds
 - [B-39](docs/backlog/B-39-compose-ui-desktop.md) `[x]` - Phase 2: a Compose Multiplatform desktop UI on the engine's StateFlow
 - [B-46](docs/backlog/B-46-ui-theme-and-calibration.md) `[x]` - The theme: colour roles, type, and the desktop calibration
 - [B-47](docs/backlog/B-47-torrent-row-and-states.md) `[x]` - The torrent row and its seven states
