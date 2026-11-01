@@ -42,7 +42,8 @@ internal class ToolbarAction(
     val command: ToolbarCommand? = null,
     /** Why this cannot be used yet. Null when it can. */
     val disabledBecause: String? = null,
-    val active: Boolean = false,
+    /** A toggle's state, or null for a control that is not a toggle. */
+    val active: Boolean? = null,
 ) {
     init {
         require((command == null) != (disabledBecause == null)) {
@@ -90,8 +91,9 @@ internal class ToolbarState(
         ToolbarAction(Icons.CAMPAIGN, REANNOUNCE, disabledBecause = NOTHING_SELECTED),
     val filter: String = "",
     val details: ToolbarAction =
-        ToolbarAction(Icons.RIGHT_PANEL_OPEN, "Details panel", ToolbarCommand.ToggleDetails),
-    val settings: ToolbarAction = ToolbarAction(Icons.TUNE, "Settings", ToolbarCommand.ToggleSettings),
+        ToolbarAction(Icons.RIGHT_PANEL_OPEN, "Details panel", ToolbarCommand.ToggleDetails, active = false),
+    val settings: ToolbarAction =
+        ToolbarAction(Icons.TUNE, "Settings", ToolbarCommand.ToggleSettings, active = false),
 ) {
     /** Every control on the bar, in the order it is drawn. */
     val all: List<ToolbarAction>

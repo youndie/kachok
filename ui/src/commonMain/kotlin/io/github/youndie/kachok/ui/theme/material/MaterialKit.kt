@@ -198,6 +198,7 @@ internal class MaterialKit private constructor(
     @Composable
     override fun ProgressBar(
         fraction: Float,
+        name: String,
         track: Color,
         bar: Color,
         modifier: Modifier,
@@ -210,7 +211,7 @@ internal class MaterialKit private constructor(
         glyph: String,
         label: String,
         enabled: Boolean,
-        active: Boolean,
+        active: Boolean?,
         onClick: () -> Unit,
     ) {
         MaterialToolButton(glyph, label, enabled, active, onClick)

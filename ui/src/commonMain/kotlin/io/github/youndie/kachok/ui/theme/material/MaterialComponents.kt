@@ -170,20 +170,24 @@ internal fun MaterialProgressBar(
  * Three states and no more, because the design draws three: available, unavailable, and on. An
  * unavailable one is dimmed rather than hidden — the design's *Resume* is greyed while a torrent is
  * running, so the toolbar does not reshuffle every time a download starts.
+ *
+ * [active] is a toggle's state, and `null` for a control that is not one: a toggle is heard as a
+ * checkbox, on or off, as oldge-ui's latched button is (B-182).
  */
 @Composable
 internal fun MaterialToolButton(
     glyph: String,
     label: String,
     enabled: Boolean,
-    active: Boolean,
+    active: Boolean?,
     onClick: () -> Unit,
 ) {
     val scheme = KachokTheme.colors
-    val background = if (active) scheme.accentContainer else Color.Transparent
+    val on = active == true
+    val background = if (on) scheme.accentContainer else Color.Transparent
     val tint =
         when {
-            active -> scheme.accentBright
+            on -> scheme.accentBright
             enabled -> scheme.textMuted
             else -> scheme.textFaint
         }
@@ -194,7 +198,13 @@ internal fun MaterialToolButton(
             // `Role.Button` (B-180): the name made it findable by a test; the role is what makes
             // the platform's accessibility list it as a button at all. Without it the Material
             // toolbar was a row of nothing to VoiceOver while the oldge one was nine buttons.
-            .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
+            .then(
+                if (active == null) {
+                    Modifier.clickable(enabled = enabled, role = Role.Button, onClick = onClick)
+                } else {
+                    Modifier.toggleable(active, enabled = enabled, role = Role.Checkbox) { onClick() }
+                },
+            )
             // A glyph and nothing else. Without this the button has no name at all — not to a
             // screen reader, and not to a test, which is why the bar's guard could only ever
             // click the one control that happens to carry text.

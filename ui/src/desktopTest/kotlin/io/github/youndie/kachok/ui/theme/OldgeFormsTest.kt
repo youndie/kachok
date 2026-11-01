@@ -1,17 +1,29 @@
 package io.github.youndie.kachok.ui.theme
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.width
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.ProgressBarRangeInfo
+import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.SemanticsNodeInteraction
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.assertIsNotFocused
+import androidx.compose.ui.test.assertIsFocused
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertWidthIsEqualTo
+import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasSetTextAction
-import androidx.compose.ui.test.isDisplayed
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
@@ -35,11 +47,12 @@ import io.github.youndie.kachok.ui.settings.SettingsScreen
 import io.github.youndie.kachok.ui.theme.oldge.OldgeKit
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 /**
  * B-178: under the oldge kit the settings fields, the segmented choice, *Browse…*, the empty state's
  * *Add a torrent* and the dialogs' frame are oldge-ui's components, and each still does what the
- * Material one does.
+ * Material one does. B-182: each uses the library's own answer to what the kit had worked around.
  */
 @OptIn(ExperimentalTestApi::class)
 class OldgeFormsTest {
@@ -59,8 +72,8 @@ class OldgeFormsTest {
         }
 
     /**
-     * The field draws its own label above its well, and the row has drawn the same words on its left
-     * already: the field's is laid out above the field's bounds and is not on screen.
+     * The row draws the label on its left, so the field draws none above its well (B-182), and the
+     * label still names the field: it is heard once, as the field's name.
      */
     @Test
     fun theFieldDoesNotDrawItsLabelOverTheRow(): Unit =
@@ -68,10 +81,7 @@ class OldgeFormsTest {
             settings()
             numberField(MAX_PEERS).performScrollTo()
 
-            val labels = onAllNodesWithText(MAX_PEERS)
-            val count = labels.fetchSemanticsNodes().size
-            assertEquals(2, count, "the row's label and the field's")
-            assertEquals(1, (0 until count).count { labels[it].isDisplayed() }, "only the row's is on screen")
+            assertEquals(1, onAllNodesWithText(MAX_PEERS).fetchSemanticsNodes().size, "only the row's label")
         }
 
     @Test
@@ -96,10 +106,44 @@ class OldgeFormsTest {
             onNodeWithContentDescription("Browse").performScrollTo().performClick()
             assertEquals(SettingKey.SaveTo, changes.filterIsInstance<SettingChange.Browsed>().single().key)
 
-            // Picked, never typed: a press on the well does not give it the keyboard.
-            onNode(
-                hasSetTextAction() and hasContentDescription(SAVE_TO),
-            ).performScrollTo().performClick().assertIsNotFocused()
+            // Picked, never typed: the well is read-only (B-182). It takes focus, so its path can be
+            // selected and copied, and it is not editable.
+            folderWell(SAVE_TO)
+                .performScrollTo()
+                .performClick()
+                .assertIsFocused()
+                .assert(SemanticsMatcher.expectValue(SemanticsProperties.IsEditable, false))
+        }
+
+    /** A choice that cannot be changed is drawn and heard disabled, not only deaf to the press. */
+    @Test
+    fun aChoiceThatCannotChangeIsDisabled(): Unit =
+        runComposeUiTest {
+            var chosen = 0
+            setContent {
+                KachokTheme(kit = OldgeKit.Default) {
+                    KachokTheme.kit.Segmented("Mode", listOf("One", "Two"), 0, false) { chosen++ }
+                }
+            }
+
+            onNodeWithText("Two").assertIsNotEnabled().performClick()
+            onNodeWithText("One").assertIsNotEnabled()
+            assertEquals(0, chosen)
+        }
+
+    /** The dialog's width is a cap: in a window narrower than the dialog, the dialog fits it (B-182). */
+    @Test
+    fun theDialogFitsAWindowNarrowerThanItself(): Unit =
+        runComposeUiTest {
+            setContent {
+                KachokTheme(kit = OldgeKit.Default) {
+                    Box(Modifier.width(NARROW_WINDOW)) {
+                        KachokTheme.kit.DialogFrame("Add torrent", ADD_WIDTH, Modifier.testTag(DIALOG)) {}
+                    }
+                }
+            }
+
+            onNodeWithTag(DIALOG).assertWidthIsEqualTo(NARROW_WINDOW)
         }
 
     @Test
@@ -132,7 +176,7 @@ class OldgeFormsTest {
 
             onNodeWithTag(DIALOG).assertWidthIsEqualTo(ADD_WIDTH)
             onNodeWithText("Add torrent").assertIsDisplayed()
-            onNode(hasSetTextAction() and hasContentDescription(SAVE_TO)).assertIsDisplayed()
+            folderWell(SAVE_TO).assertIsDisplayed()
             onNodeWithText("Browse…").performClick()
             onNodeWithContentDescription("Cancel").performClick()
 
@@ -162,6 +206,57 @@ class OldgeFormsTest {
             assertEquals(listOf(true), toggled)
         }
 
+    /**
+     * *Remove and delete* is the library's *Danger* button, red, where the *Remove* that keeps the
+     * files is the lime *Primary* (B-182). Read off the pixels: the variant has no semantics.
+     */
+    @Test
+    fun removeThatDeletesTheDataIsTheDangerButton(): Unit =
+        runComposeUiTest {
+            var state by mutableStateOf(RemoveState(name = "Sintel.tar", where = "~/Downloads", howMuch = "2.89 GiB"))
+            setContent { KachokTheme(kit = OldgeKit.Default) { RemoveTorrentDialog(state) } }
+
+            assertTrue(redShare("Remove") < RED_SHARE, "the keep-the-files Remove is not red")
+            state = state.withData(true)
+            waitForIdle()
+            assertTrue(redShare("Remove and delete") >= RED_SHARE, "the delete-the-data Remove is red")
+        }
+
+    /** A row's bar is the library's well, named by the row and carrying how far along it is. */
+    @Test
+    fun theRowBarIsNamedByTheRowAndCarriesItsProgress(): Unit =
+        runComposeUiTest {
+            setContent {
+                KachokTheme(kit = OldgeKit.Default) {
+                    KachokTheme.kit.ProgressBar(0.4f, "Sintel.tar", Color.Gray, Color.Red, Modifier.width(120.dp))
+                }
+            }
+
+            onNodeWithContentDescription("Sintel.tar")
+                .assert(
+                    SemanticsMatcher.expectValue(
+                        SemanticsProperties.ProgressBarRangeInfo,
+                        ProgressBarRangeInfo(
+                            0.4f,
+                            0f..1f,
+                        ),
+                    ),
+                )
+        }
+
+    /** The share of the [label]led button's pixels in which red leads green and blue by a margin. */
+    private fun ComposeUiTest.redShare(label: String): Float {
+        val pixels = onNodeWithContentDescription(label).captureToImage().toPixelMap()
+        var red = 0
+        for (x in 0 until pixels.width) {
+            for (y in 0 until pixels.height) {
+                val c = pixels[x, y]
+                if (c.red - c.green > RED_LEAD && c.red - c.blue > RED_LEAD) red++
+            }
+        }
+        return red.toFloat() / (pixels.width * pixels.height)
+    }
+
     private fun ComposeUiTest.settings(): List<SettingChange> {
         val changes = mutableListOf<SettingChange>()
         setContent {
@@ -173,11 +268,18 @@ class OldgeFormsTest {
     private fun ComposeUiTest.numberField(label: String): SemanticsNodeInteraction =
         onNode(hasSetTextAction() and hasContentDescription(label))
 
+    /** A folder's well: a text field, editable or not, named by its label. */
+    private fun ComposeUiTest.folderWell(label: String): SemanticsNodeInteraction =
+        onNode(SemanticsMatcher.keyIsDefined(SemanticsProperties.IsEditable) and hasContentDescription(label))
+
     private companion object {
         const val MAX_PEERS = "Connections to keep up"
         const val SAVE_TO = "Save to"
         const val DIALOG = "dialog"
         val ADD_WIDTH = 520.dp
         val REMOVE_WIDTH = 420.dp
+        val NARROW_WINDOW = 400.dp
+        const val RED_LEAD = 0.25f
+        const val RED_SHARE = 0.3f
     }
 }

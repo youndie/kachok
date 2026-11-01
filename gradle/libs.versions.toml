@@ -21,7 +21,7 @@ appframe = "0.1.24"
 # The second kit's library (B-160): the portfolio's mid-2000s design system. Published to
 # reposilite's snapshots only, as `<version>.<run>` from every push to its main; pinned to one run,
 # because a snapshot line that moved under a golden is a golden that fails for no change here.
-oldge = "0.1.1.14"
+oldge = "0.1.1.30"
 # The Material kit's scheme from a seed (B-161): Google's material-color-utilities ported to Compose.
 # Upstream, from Maven Central — not the portfolio's `io.github.youndie.materialkolor` fork, which
 # exists for a `linuxX64` target and carries only the utilities. 5.0.1 because its JVM module was

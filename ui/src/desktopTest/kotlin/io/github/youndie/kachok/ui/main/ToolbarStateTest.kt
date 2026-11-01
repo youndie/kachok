@@ -170,7 +170,7 @@ class ToolbarStateTest {
         val open = toolbar.withDetails(open = true, settings = true)
         assertEquals(ToolbarCommand.ToggleDetails, open.details.command)
         assertEquals(ToolbarCommand.ToggleSettings, open.settings.command)
-        assertTrue(open.details.active && open.settings.active)
+        assertTrue(open.details.active == true && open.settings.active == true)
         assertTrue(open.all.all { it.enabled == toolbar.all.single { was -> was.label == it.label }.enabled })
     }
 

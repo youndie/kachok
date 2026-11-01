@@ -193,10 +193,12 @@ internal interface KachokKit {
     /**
      * A row's progress bar, [fraction] of the way along, in the two colours the row's state chose
      * (`RowColors.kt` decides those, so a kit cannot get a state's colour wrong — only its shape).
+     * [name] is the row's, for a kit whose bar is a node a screen reader names (B-182).
      */
     @Composable
     fun ProgressBar(
         fraction: Float,
+        name: String,
         track: Color,
         bar: Color,
         modifier: androidx.compose.ui.Modifier,
@@ -204,14 +206,15 @@ internal interface KachokKit {
 
     /**
      * A toolbar control that is only a [glyph], named by [label] — to a screen reader and to a
-     * test — and marked disabled when it is not [enabled]. [active] is a toggle that is on (B-176).
+     * test — and marked disabled when it is not [enabled]. [active] is a toggle's state (B-176), and
+     * `null` for a control that is not a toggle (B-182).
      */
     @Composable
     fun ToolButton(
         glyph: String,
         label: String,
         enabled: Boolean,
-        active: Boolean,
+        active: Boolean?,
         onClick: () -> Unit,
     )
 
