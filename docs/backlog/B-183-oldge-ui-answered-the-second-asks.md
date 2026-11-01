@@ -1,7 +1,7 @@
 ---
 id: B-183
 title: "oldge-ui answered the second asks: take 0.1.1.37 and drop what the kit still drew"
-status: in-progress
+status: done
 priority: P2
 size: M
 stage: phase-2-ui
@@ -45,3 +45,19 @@ Anchors: `ui/src/commonMain/kotlin/io/github/youndie/kachok/ui/theme/oldge/Oldge
 `ui/src/commonMain/kotlin/io/github/youndie/kachok/ui/theme/Kit.kt`,
 `ui/src/desktopTest/kotlin/io/github/youndie/kachok/ui/theme/OldgeAnswersTest.kt`,
 `gradle/libs.versions.toml`.
+
+## What was found doing it
+
+- **The radio group always draws its legend.** `OldgeRadioGroup` has no `showLabel`, so under oldge
+  the start choice gained a heading the Material dialog does not have, *When it is added*. Its
+  name was chosen for this, and it reads as the dialog's other headings do, so it stays.
+- **The library's checkbox is named by its label, not by a description.** The tests that found the
+  Material box by its `contentDescription` now find either kit's by its name and its toggle.
+- **A plain row's well is held to the library's own, pixel for pixel.** The first test looked only
+  for the tint and passed with every row tinted; the mutation check caught it.
+- **Mutation checks.** Each answer taken back out fails a test: the ring, the well's tint (both
+  ways), the description line, the disabled *Add paused*, and the pointer density.
+- **Goldens.** Ten oldge goldens moved and were inspected; no Material golden did. The empty state
+  did not move under `OldgeText(AnnotatedString)`: the library places it where the kit already did.
+- *This cannot be undone.* still wraps beside the dialog's buttons, which is the dialog's layout and
+  not this item.
