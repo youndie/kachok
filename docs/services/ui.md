@@ -52,9 +52,9 @@ asked for it in a conversation, through the same `TorrentSet` a click goes throu
 |---|---|
 | `ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/App.kt` | `main`, the window, and the platform it reaches for: the file chooser, the clipboard, the drop target, the tray |
 | `.../ui/session/ClientModel.kt` | what the window *is*, held where a window is not: its state, its channels, and the loop that samples every session and stops them cleanly |
-| `.../ui/theme/` | the kit the screens draw through — `KachokColors` (the design's roles by what they are for), `KachokType`, `Text`, and the components a kit draws itself (`Toggle`, `DialogButton`, `ProgressBar`, the toolbar's `ToolButton`, `ToolMainButton` and `FilterField`, the banner's `BannerButton`, the details `Tabs`, and since B-178 the settings' `SettingField`, `FolderField` and `Segmented`, the empty state's `InvitationButton`, and the dialogs' `DialogFrame` and `SaveToField`) — `InterfaceKit`, the choice the settings store, the three bundled families and the interface scale |
+| `.../ui/theme/` | the kit the screens draw through — `KachokColors` (the design's roles by what they are for), `KachokType`, `Text`, and the components a kit draws itself (`Toggle`, `DialogButton`, `ProgressBar`, the toolbar's `ToolButton`, `ToolMainButton` and `FilterField`, the banner's `BannerButton`, the details `Tabs`, and since B-178 the settings' `SettingField`, `FolderField` and `Segmented`, the empty state's `InvitationButton`, and the dialogs' `DialogFrame` and `SaveToField`, and since B-183 the dialogs' `Check` and `Choices`) — `InterfaceKit`, the choice the settings store, the three bundled families and the interface scale |
 | `.../ui/theme/material/` | the Material kit: the Cyrillic runs of an Archivo text drawn in its companion (`CyrillicRuns.kt`, B-165), the eight roles read off the design, the `warning` M3 does not ship, the palette beside them, the 4 dp calibration, and its drawing of the three components (`MaterialComponents.kt`, the code the screens had, moved); since B-161 `MaterialKit.of(seed, style)`, the seeds and styles offered (`MaterialColours.kt`) and the derivation of every role from MaterialKolor's scheme (`SeededDesign.kt`) — the only place `make check` lets name `com.materialkolor` |
-| `.../ui/theme/oldge/` | the oldge-ui kit (B-160): `OldgeKit.of(skin)`, one instance per `OldgeSkin` (B-162), every role from that skin's tokens, `OldgeSwitch`, `OldgeButton`, `OldgeTextField`, `OldgeSegmented` and `OldgeDialog` (B-178), the row's bar as `OldgeProgressWell` (B-182), `OldgeDensity.Pointer` and English `OldgeStrings` at its root (B-182), text through `OldgeText` in the design system's faces, and the Material scheme `AppFrame` reads; with `theme/material/`, the only place `make check` lets name `material3` |
+| `.../ui/theme/oldge/` | the oldge-ui kit (B-160): `OldgeKit.of(skin)`, one instance per `OldgeSkin` (B-162), every role from that skin's tokens, `OldgeSwitch`, `OldgeButton`, `OldgeTextField`, `OldgeSegmented` and `OldgeDialog` (B-178), the row's bar as `OldgeProgressWell` (B-182), the dialogs' checkboxes and radio buttons as `OldgeCheckbox` and `OldgeRadioGroup` with their description lines (B-183), `OldgeDensity.Pointer` and English `OldgeStrings` at its root (B-182), text through `OldgeText` in the design system's faces, and the Material scheme `AppFrame` reads; with `theme/material/`, the only place `make check` lets name `material3` |
 | `.../ui/icons/Icons.kt` | the twenty-one Material Symbols codepoints and the subset font they index into |
 | `.../ui/list/TorrentRow.kt` | the nine columns at the design's widths, and the row's own hairline |
 | `.../ui/list/RowColors.kt` | which colour every cell of every state is, as a function of the scheme rather than of a composition |
@@ -139,7 +139,7 @@ holds every offered seed and style to 0.02 and 30°. Dark only, by the owner's d
 
 **Under oldge-ui the same *Colours* row offers its skins** ([B-162](../backlog/B-162-the-oldge-ui-kit-offers-its-skins.md)).
 One row whose contents are the kit's: the skins are read from `OldgeSkin.entries` — Toxic, Media
-and Crystal in 0.1.1.30, so a skin a release adds appears with the version bump — each drawn as
+and Crystal in 0.1.1.37, so a skin a release adds appears with the version bump — each drawn as
 its `ground` with its `accent` as a dot. Stored as `oldgeSkin=<the library's id>`, default `toxic`
 ([B-182](../backlog/B-182-oldge-ui-answered-the-asks.md)). The name a build before B-182 stored is
 still read, and a value no skin has reads as the library's first skin. Each kit keeps its own choice, so
@@ -168,7 +168,7 @@ The colour rule lives outside the composables (`RowColors.kt`) so that "is this 
 | Library | Compose Multiplatform 1.12 + Material 3 | the toolkit and the eight roles the design names |
 | Library | viddik 0.4 | `viddikRecord` / `viddikVerify`, the goldens |
 | Library | AppFrame 0.1.24 | the title bar the design draws, with the host's own window controls |
-| Library | oldge-core 0.1.1.30 (reposilite snapshots) | the second kit: `OldgeTheme`, its tokens and faces, `OldgeSwitch`, `OldgeButton`, `OldgeText` |
+| Library | oldge-core 0.1.1.37 (reposilite snapshots) | the second kit: `OldgeTheme`, its tokens and faces, `OldgeSwitch`, `OldgeButton`, `OldgeText` |
 | Library | MaterialKolor 5.0.1 (`com.materialkolor:material-kolor`, Maven Central) | the Material kit's scheme from a seed, `harmonize` for `warning`; upstream, not the portfolio's `linuxX64` fork |
 | Fonts | Source Serif 4, Archivo, JetBrains Mono, Material Symbols Rounded | bundled, not asked of the machine |
 | Fonts | Onest 2.001 (SIL OFL 1.1, `google/fonts` `ofl/onest` at `4c1db3a`), cut to `OnestCyrillic.ttf`, 42.7 KB | Archivo's Cyrillic under the Material kit (B-165); the copyright and the licence travel in its name table |
@@ -357,7 +357,9 @@ it a different torrent for every `.torrent` whose keys are not sorted, and those
   truncates at the end whatever it says, with and without `softWrap = false` — checked twice
   against a golden. A path is elided by measuring it (`PathText`), which is also why the golden
   `details_long-path.png` exists: a real machine's directory does not fit and `~/Downloads/iso`
-  does, so nothing before it showed the fault.
+  does, so nothing before it showed the fault. oldge-ui cuts a read-only field's value the same way
+  for the same reason, by its own measurement (youndie/oldge-ui#50), and the oldge kit's folder
+  fields ask it to (B-183).
 * **Selection is a torrent, not a row number.** Sorting reorders the list under it, and an index
   would leave the highlight on whatever moved into that position.
 * **Sorting is on the values, not the cells.** Every column but the name is a number wearing a

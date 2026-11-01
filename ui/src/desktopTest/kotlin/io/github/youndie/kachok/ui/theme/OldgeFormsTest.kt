@@ -194,7 +194,7 @@ class OldgeFormsTest {
             onNodeWithTag(DIALOG).assertWidthIsEqualTo(REMOVE_WIDTH)
             onNodeWithText("Remove torrent").assertIsDisplayed()
             onNodeWithText("Sintel.tar").assertIsDisplayed()
-            onNodeWithContentDescription(DELETE_DATA).performClick()
+            onNodeWithText(DELETE_DATA).performClick()
 
             assertEquals(listOf(true), toggled)
         }

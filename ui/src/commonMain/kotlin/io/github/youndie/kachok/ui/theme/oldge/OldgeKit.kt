@@ -53,6 +53,7 @@ import io.github.youndie.kachok.ui.theme.Archivo
 import io.github.youndie.kachok.ui.theme.KachokColors
 import io.github.youndie.kachok.ui.theme.KachokKit
 import io.github.youndie.kachok.ui.theme.KachokType
+import io.github.youndie.kachok.ui.theme.KitChoice
 import io.github.youndie.kachok.ui.theme.SourceSerif
 import io.github.youndie.kachok.ui.theme.material.MaterialSegmented
 import io.github.youndie.oldge.actions.OldgeButton
@@ -63,6 +64,9 @@ import io.github.youndie.oldge.actions.OldgeSegment
 import io.github.youndie.oldge.actions.OldgeSegmented
 import io.github.youndie.oldge.containers.OldgeDialog
 import io.github.youndie.oldge.feedback.OldgeProgressWell
+import io.github.youndie.oldge.forms.OldgeCheckbox
+import io.github.youndie.oldge.forms.OldgeRadioGroup
+import io.github.youndie.oldge.forms.OldgeRadioOption
 import io.github.youndie.oldge.forms.OldgeSearchBar
 import io.github.youndie.oldge.forms.OldgeSwitch
 import io.github.youndie.oldge.forms.OldgeTextField
@@ -226,7 +230,22 @@ internal class OldgeKit private constructor(
         maxLines: Int,
         onTextLayout: (TextLayoutResult) -> Unit,
     ) {
-        BasicText(text, modifier, oldgeStyle(style, color, textAlign), onTextLayout, overflow, softWrap, maxLines)
+        val laid = oldgeStyle(style, color, textAlign)
+        if (laid.lineHeight.isSp) {
+            // The library's own placement since B-183: the empty window's invitation, with its
+            // monospaced `.torrent`, now sits on the line every other text in the window does.
+            OldgeText(
+                text,
+                modifier,
+                style = laid,
+                maxLines = maxLines,
+                softWrap = softWrap,
+                overflow = overflow,
+                onTextLayout = onTextLayout,
+            )
+        } else {
+            BasicText(text, modifier, laid, onTextLayout, overflow, softWrap, maxLines)
+        }
     }
 
     /**
@@ -298,8 +317,10 @@ internal class OldgeKit private constructor(
     /**
      * `OldgeProgressWell`, the library's bar without its head line, at the row's 10 dp: the sunken
      * well and the glossy blocks, the fill in the colour the row's state chose, so an error row's bar
-     * is still red and a stopping one still dim (B-182). [track] is the Material kit's: the well is
-     * the skin's own. Named by the row, as the library asks of a bar in a row.
+     * is still red and a stopping one still dim (B-182). A row that its state tints — selected, or
+     * failed — gives the well its [track] as well, so the bar belongs to its row (B-183). A plain
+     * row's track is the scheme's `divider`, and its well stays the skin's. Named by the row, as the
+     * library asks of a bar in a row.
      */
     @Composable
     override fun ProgressBar(
@@ -309,7 +330,13 @@ internal class OldgeKit private constructor(
         bar: Color,
         modifier: Modifier,
     ) {
-        OldgeProgressWell(fraction, name, modifier.height(WELL), fill = bar)
+        OldgeProgressWell(
+            fraction,
+            name,
+            modifier.height(WELL),
+            fill = bar,
+            well = track.takeUnless { it == colors.divider },
+        )
     }
 
     /**
@@ -408,8 +435,9 @@ internal class OldgeKit private constructor(
 
     /**
      * `OldgeTabs`, the design system's property-sheet tabs, with no panel of its own: the details
-     * panel draws the page under them. The current tab stands 44 dp and runs into the line under the
-     * strip, which is why the strip's height is the kit's.
+     * panel draws the page under them. At the pointer density the current tab is the design's 32 dp
+     * strip and a tab at rest is 28 (B-183); at a finger's it stood 44 dp. The current tab runs into
+     * the line under the strip, which is why the strip's height is the kit's.
      */
     @Composable
     override fun Tabs(
@@ -432,8 +460,8 @@ internal class OldgeKit private constructor(
      * `OldgeTextField`: the sunken well, in the design system's 16 sp `body`, with no label above it,
      * because the row already shows the same words on its left. The label still names the field.
      *
-     * **A changed value is ringed in `accent-ink`**, the Material field's "you changed this", drawn
-     * over the well's own edge, because the component's border knows only `edge` and `danger`.
+     * **A changed value is ringed in `accent-ink`**, the Material field's "you changed this": the
+     * field's own `highlighted` border, in place of `edge` (B-183).
      *
      * The well is 32 dp at the pointer density, where the Material field is 30. The width grows for
      * [words] in the larger face, which at the Material field's width left `no limit` cut to `no li`.
@@ -456,10 +484,9 @@ internal class OldgeKit private constructor(
             value = value,
             onValueChange = onValueChange,
             modifier =
-                Modifier
-                    .width(maxOf(width, wide))
-                    .changedRing(changed, colors.accentText),
+                Modifier.width(maxOf(width, wide)),
             showLabel = false,
+            highlighted = changed,
         )
     }
 
@@ -467,7 +494,8 @@ internal class OldgeKit private constructor(
      * `OldgeTextField` with the folder icon, and *Browse…* as `OldgeButton`, *Secondary*, at the
      * well's 32 dp. The directory is picked and never typed, so the field is read-only: its path can
      * be selected and copied, and nothing typed into it is dropped on the floor. Its label is the
-     * row's, as [SettingField]'s is.
+     * row's, as [SettingField]'s is. At rest a path too long for the well is cut from the front, as
+     * `PathText` cuts it, so the folder it names stays in sight (B-183); focused, it is whole.
      */
     @Composable
     override fun FolderField(
@@ -481,13 +509,12 @@ internal class OldgeKit private constructor(
                 label = label,
                 value = path,
                 onValueChange = {},
-                modifier =
-                    Modifier
-                        .width(PATH)
-                        .changedRing(changed, colors.accentText),
+                modifier = Modifier.width(PATH),
                 icon = OldgeIcons.Folder,
                 readOnly = true,
                 showLabel = false,
+                highlighted = changed,
+                overflow = TextOverflow.StartEllipsis,
             )
             OldgeButton(
                 text = "Browse…",
@@ -500,8 +527,8 @@ internal class OldgeKit private constructor(
     }
 
     /**
-     * `OldgeSegmented`, set to 32 dp from outside, level with the settings fields: its own segment is
-     * 40 inside a 2 dp rim at either density. As wide as its widest label twice over: its segments
+     * `OldgeSegmented`, 32 dp at the pointer density, level with the settings fields: the library's
+     * own pointer height since B-183, where it used to be set from outside. As wide as its widest label twice over: its segments
      * share the width they are given, and a settings row gives all of it. A choice that cannot be
      * changed is drawn disabled (B-182).
      *
@@ -527,7 +554,7 @@ internal class OldgeKit private constructor(
             selected = selected,
             onSelect = { if (it != selected) onSelect(it) },
             label = name,
-            modifier = Modifier.height(SEGMENTED).width(IntrinsicSize.Max),
+            modifier = Modifier.width(IntrinsicSize.Max),
             enabled = enabled,
         )
     }
@@ -572,7 +599,7 @@ internal class OldgeKit private constructor(
      * *Secondary*, at the well's 32 dp beside it. The note is the field's help line, drawn under the
      * row in the help line's style rather than passed as `help`: inside the field it would make the
      * field taller than the well, and the button would no longer stand level with it. The field is
-     * read-only, as [FolderField]'s is.
+     * read-only and cut from the front, as [FolderField]'s is.
      */
     @Composable
     override fun SaveToField(
@@ -590,6 +617,7 @@ internal class OldgeKit private constructor(
                     modifier = Modifier.weight(1f),
                     icon = OldgeIcons.Folder,
                     readOnly = true,
+                    overflow = TextOverflow.StartEllipsis,
                 )
                 OldgeButton(
                     text = "Browse…",
@@ -600,6 +628,52 @@ internal class OldgeKit private constructor(
             }
             OldgeText(note, style = OldgeTheme.type.caption.copy(color = OldgeTheme.colors.inkMuted))
         }
+    }
+
+    /**
+     * `OldgeCheckbox`, the [note] its description line, in the box's own row: a press on the note
+     * toggles the box and a screen reader hears it after the label (B-183). A path is the same line;
+     * the caption wraps where the Material note is cut. [danger] is not drawn: the dialog's
+     * *This cannot be undone.* and its *Danger* button already say it, in the library's own red.
+     */
+    @Composable
+    override fun Check(
+        label: String,
+        note: String,
+        path: Boolean,
+        danger: Boolean,
+        checked: Boolean,
+        onCheckedChange: (Boolean) -> Unit,
+        modifier: Modifier,
+    ) {
+        OldgeCheckbox(label, checked, onCheckedChange, modifier, description = note)
+    }
+
+    /**
+     * `OldgeRadioGroup`. An option that is not offered yet is the library's disabled option with its
+     * reason as the description line, which is what oldge-ui answered the *planned* badge with
+     * (youndie/oldge-ui#47): the design system has no badge beside a choice.
+     */
+    @Composable
+    override fun Choices(
+        name: String,
+        options: List<KitChoice>,
+        selected: Int,
+        onSelect: (Int) -> Unit,
+        modifier: Modifier,
+    ) {
+        val radios =
+            remember(options) {
+                options.mapIndexed { index, option ->
+                    OldgeRadioOption(
+                        index,
+                        option.label,
+                        enabled = option.planned == null,
+                        description = option.planned,
+                    )
+                }
+            }
+        OldgeRadioGroup(name, radios, selected, { if (it != selected) onSelect(it) }, modifier)
     }
 }
 
@@ -634,12 +708,6 @@ private val STRINGS =
         page = { number, count -> "Page $number of $count" },
         day = { date -> date.toString() },
     )
-
-/** The changed field's ring, over the well's edge and in its corner. */
-private fun Modifier.changedRing(
-    changed: Boolean,
-    ink: Color,
-): Modifier = if (changed) border(HAIRLINE, ink, RoundedCornerShape(OldgeRadii.xs)) else this
 
 /**
  * The library's icon for a toolbar glyph (B-176). The toolbar's glyphs are Material Symbols, and
@@ -893,8 +961,8 @@ private val CARET = 2.dp
 /**
  * A settings directory: 180, where the Material field is 210, because *Browse…* at the well's
  * 44 dp is the wider button by about as much, and at 210 the row's label wrapped. The well's 16 sp
- * `body` and its 20 dp icon show about fourteen characters of a path, cut at the end: the component
- * has no middle ellipsis, which the Material field's `PathText` has.
+ * `body` and its 20 dp icon show about fourteen characters of a path, cut from the front at rest as
+ * the Material field's `PathText` cuts it (B-183).
  */
 private val PATH = 180.dp
 
@@ -903,9 +971,6 @@ private val GAP = 8.dp
 
 /** `.og-field { gap: 6px }`, between a field and its help line. */
 private val HELP_GAP = 6.dp
-
-/** The settings choice's height: the pointer density's text field and medium button. */
-private val SEGMENTED = 32.dp
 
 /** What `OldgeSegmented` takes. */
 private val SEGMENTS = 2..4

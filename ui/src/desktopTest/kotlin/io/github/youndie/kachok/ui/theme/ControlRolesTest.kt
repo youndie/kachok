@@ -15,6 +15,8 @@ import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.hasContentDescription
+import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.isToggleable
 import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
@@ -225,7 +227,8 @@ class ControlRolesTest {
         name: String,
         state: ToggleableState,
     ) {
-        onNode(hasContentDescription(name))
+        // Named by a description (the Material rows) or by the label it shows (oldge-ui's own box).
+        onNode((hasContentDescription(name) or hasText(name)) and isToggleable())
             .assertRole(kit, Role.Checkbox)
             .assert(SemanticsMatcher.expectValue(SemanticsProperties.ToggleableState, state))
     }

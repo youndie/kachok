@@ -31,6 +31,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -39,6 +40,7 @@ import io.github.youndie.kachok.ui.icons.Icons
 import io.github.youndie.kachok.ui.theme.ChromeButton
 import io.github.youndie.kachok.ui.theme.ChromeText
 import io.github.youndie.kachok.ui.theme.KachokTheme
+import io.github.youndie.kachok.ui.theme.KitChoice
 import io.github.youndie.kachok.ui.theme.MonoSmall
 import io.github.youndie.kachok.ui.theme.PathText
 import io.github.youndie.kachok.ui.theme.RowStateLabel
@@ -691,3 +693,97 @@ private val KNOB = 14.dp
 private val BUTTON_HEIGHT = 32.dp
 
 private val BAR_HEIGHT = 4.dp
+
+/**
+ * The dialogs' checkbox, as the remove and add dialogs drew it until B-183: the Material symbol, the
+ * label, and the note under it. A [danger] box goes red while it is checked, and says so in its
+ * label too; any other is in the accent.
+ */
+@Composable
+internal fun MaterialCheck(
+    label: String,
+    note: String,
+    path: Boolean,
+    danger: Boolean,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    modifier: Modifier,
+) {
+    val scheme = KachokTheme.colors
+    Row(
+        modifier
+            // A checkbox with its label, and the platform is told so (B-180).
+            .toggleable(value = checked, role = Role.Checkbox, onValueChange = onCheckedChange)
+            .semantics { contentDescription = label },
+        horizontalArrangement = Arrangement.spacedBy(9.dp),
+    ) {
+        Glyph(
+            if (checked) Icons.CHECK_BOX else Icons.CHECK_BOX_OUTLINE_BLANK,
+            size = CONTROL_GLYPH,
+            tint =
+                when {
+                    !checked -> scheme.textFaint
+                    danger -> scheme.error
+                    else -> scheme.accentText
+                },
+        )
+        Column(verticalArrangement = Arrangement.spacedBy(if (path) 3.dp else 2.dp)) {
+            Text(label, style = CHOICE, color = if (danger && checked) scheme.error else scheme.text)
+            if (path) {
+                Text(note, style = MonoSmall, color = scheme.textFaint, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            } else {
+                Text(note, style = DIALOG_NOTE, color = scheme.textFaint)
+            }
+        }
+    }
+}
+
+/**
+ * The add dialog's radio buttons, as it drew them until B-183: the Material symbol and the label,
+ * and the design's *planned* badge beside an option that is not offered. Drawn and not clickable, as
+ * they were: the one option that can be chosen is the chosen one.
+ */
+@Composable
+internal fun MaterialChoices(
+    options: List<KitChoice>,
+    selected: Int,
+    modifier: Modifier,
+) {
+    val scheme = KachokTheme.colors
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(9.dp)) {
+        options.forEachIndexed { index, option ->
+            val on = index == selected
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+                Glyph(
+                    if (on) Icons.RADIO_BUTTON_CHECKED else Icons.RADIO_BUTTON_UNCHECKED,
+                    size = CONTROL_GLYPH,
+                    tint = if (on) scheme.accentText else scheme.textFaint,
+                )
+                Text(option.label, style = CHOICE, color = if (on) scheme.text else scheme.textMuted)
+                if (option.planned != null) PlannedBadge()
+            }
+        }
+    }
+}
+
+@Composable
+private fun PlannedBadge() {
+    Box(
+        Modifier
+            .border(HAIRLINE, KachokTheme.colors.warningContainer, RoundedCornerShape(2.dp))
+            .padding(horizontal = 3.dp),
+    ) {
+        Text(
+            "planned",
+            style = ChromeText.copy(fontSize = BADGE),
+            color = KachokTheme.colors.warning,
+            maxLines = 1,
+        )
+    }
+}
+
+private val CONTROL_GLYPH = 18.sp
+
+private val CHOICE = ChromeText.copy(fontSize = 12.5.sp)
+
+private val BADGE = 9.5.sp
