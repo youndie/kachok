@@ -129,7 +129,7 @@ internal fun savePreferences(
             setProperty(INTERFACE, preferences.interfaceKit.stored)
             setProperty(COLOUR_SEED, preferences.materialColours.storedSeed)
             setProperty(COLOUR_STYLE, preferences.materialColours.style.stored)
-            setProperty(OLDGE_SKIN, preferences.oldgeSkin.name)
+            setProperty(OLDGE_SKIN, preferences.oldgeSkin.id)
             preferences.maxPeers?.let { setProperty(MAX_PEERS, it.toString()) }
             preferences.pipelineDepth?.let { setProperty(PIPELINE_DEPTH, it.toString()) }
             preferences.uploadLimitKibPerSecond?.let { setProperty(UPLOAD_LIMIT, it.toString()) }

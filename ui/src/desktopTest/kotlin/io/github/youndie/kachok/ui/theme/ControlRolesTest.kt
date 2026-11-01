@@ -58,7 +58,7 @@ import kotlin.test.Test
 @OptIn(ExperimentalTestApi::class)
 class ControlRolesTest {
     @Test
-    fun everyToolbarControlIsAButton() {
+    fun everyToolbarControlIsAButtonOrAToggle() {
         KITS.forEach { kit ->
             // Both widths: the narrow bar draws *Add torrent* as an icon button under the oldge kit.
             listOf(false, true).forEach { narrow ->
@@ -72,7 +72,13 @@ class ControlRolesTest {
                         }
                     }
 
-                    bar.all.forEach { button(kit, it.label) }
+                    // The panel toggles are checkboxes, on or off (B-182); every other control a button.
+                    bar.all.forEach { action ->
+                        when (val on = action.active) {
+                            null -> button(kit, action.label)
+                            else -> checkbox(kit, action.label, ToggleableState(on))
+                        }
+                    }
                     button(kit, kit.clearFilter)
                 }
             }
@@ -231,7 +237,7 @@ class ControlRolesTest {
 
     private fun roleIs(role: Role): SemanticsMatcher = SemanticsMatcher.expectValue(SemanticsProperties.Role, role)
 
-    /** A kit, and the name it gives the filter's clear button: oldge-ui names its own, in Russian. */
+    /** A kit, and the name it gives the filter's clear button: oldge-ui's is set through its strings. */
     private class Kit(
         val name: String,
         val kit: KachokKit,
@@ -242,7 +248,7 @@ class ControlRolesTest {
         val KITS =
             listOf(
                 Kit("Material", MaterialKit.Default, "Clear the filter"),
-                Kit("oldge", OldgeKit.Default, "Очистить"),
+                Kit("oldge", OldgeKit.Default, "Clear the filter"),
             )
         val NARROW = 600.dp
         val PREFERENCES = Preferences(directory = "~/Downloads")

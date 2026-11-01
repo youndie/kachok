@@ -10,8 +10,6 @@ import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicText
@@ -25,22 +23,13 @@ import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.clipToBounds
-import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.focus.focusProperties
-import androidx.compose.ui.geometry.CornerRadius
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.isSpecified
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -54,7 +43,6 @@ import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
@@ -74,6 +62,7 @@ import io.github.youndie.oldge.actions.OldgeIconButton
 import io.github.youndie.oldge.actions.OldgeSegment
 import io.github.youndie.oldge.actions.OldgeSegmented
 import io.github.youndie.oldge.containers.OldgeDialog
+import io.github.youndie.oldge.feedback.OldgeProgressWell
 import io.github.youndie.oldge.forms.OldgeSearchBar
 import io.github.youndie.oldge.forms.OldgeSwitch
 import io.github.youndie.oldge.forms.OldgeTextField
@@ -82,11 +71,12 @@ import io.github.youndie.oldge.navigation.OldgeTab
 import io.github.youndie.oldge.navigation.OldgeTabs
 import io.github.youndie.oldge.theme.LocalOldgeContentColor
 import io.github.youndie.oldge.theme.LocalOldgeTextStyle
+import io.github.youndie.oldge.theme.OldgeDensity
 import io.github.youndie.oldge.theme.OldgeSkin
+import io.github.youndie.oldge.theme.OldgeStrings
 import io.github.youndie.oldge.theme.OldgeTheme
 import io.github.youndie.oldge.tokens.OldgeColors
 import io.github.youndie.oldge.tokens.OldgeRadii
-import io.github.youndie.oldge.tokens.OldgeSpacing
 import io.github.youndie.oldge.type.OldgeText
 
 /**
@@ -103,9 +93,12 @@ import io.github.youndie.oldge.type.OldgeText
  * dialog buttons are `OldgeButton`; the text goes through `OldgeText`, which sets the design
  * system's faces on the baseline a browser would. The library is a *mobile* kit — no table, no
  * column header, no splitter, no dense row — so the rest of the window is the screens' own drawing
- * in this kit's colours, and the row's progress bar is `OldgeProgressBar`'s look (a sunken well,
- * glossy blocks) at the row's height, because the component itself is a 20 dp well under a head
- * line of its own.
+ * in this kit's colours, and the row's progress bar is `OldgeProgressWell`, the bar's well without
+ * its head line.
+ *
+ * **A pointer window, in English.** [Root] gives the library `OldgeDensity.Pointer`, so its controls
+ * are drawn at a mouse's sizes and not a finger's 44 dp, and [STRINGS], so the names it gives its
+ * own orbs are English (B-182).
  *
  * **This file may name Material 3** — the one other place `make check` allows it. `AppFrame` draws
  * the title bar from `MaterialTheme.colorScheme` itself, so [Root] provides a Material scheme built
@@ -132,15 +125,19 @@ internal class OldgeKit private constructor(
         fun of(skin: OldgeSkin): OldgeKit = BY_SKIN.getValue(skin)
 
         /**
-         * The skin a stored name means — `OldgeSkin`'s own name for it — or `null` for no name.
+         * The skin a stored value means, or `null` for no value. The value is the skin's `id`, the
+         * library's key for persisting it (B-182). A build before B-182 stored the enum's `name`,
+         * which is read as well, so a settings file from it keeps its choice.
          *
-         * **A name the library no longer has is its first skin**, never a refusal to start: a file
-         * written against one release of oldge-ui is read by the next, and a skin it dropped or
-         * renamed says nothing about which of the remaining ones somebody wanted.
+         * **A value no skin has is the library's first skin**, never a refusal to start: a file
+         * written by a newer release of oldge-ui says nothing about which of the skins this one has
+         * somebody wanted.
          */
         fun skinOf(stored: String?): OldgeSkin? {
-            val name = stored?.trim() ?: return null
-            return OldgeSkin.entries.firstOrNull { it.name == name } ?: OldgeSkin.entries.first()
+            val value = stored?.trim() ?: return null
+            return OldgeSkin.byId(value)
+                ?: OldgeSkin.entries.firstOrNull { it.name == value }
+                ?: OldgeSkin.entries.first()
         }
     }
 
@@ -166,7 +163,7 @@ internal class OldgeKit private constructor(
 
     @Composable
     override fun Root(content: @Composable () -> Unit) {
-        OldgeTheme(skin = skin) {
+        OldgeTheme(skin = skin, strings = STRINGS, density = OldgeDensity.Pointer) {
             val ui = OldgeTheme.type.body.fontFamily
             val typography = remember(ui) { materialTypographyIn(ui) }
             // `MaterialTheme` provides a ripple as the indication of everything clickable under it,
@@ -200,11 +197,19 @@ internal class OldgeKit private constructor(
         onTextLayout: ((TextLayoutResult) -> Unit)?,
     ) {
         val laid = oldgeStyle(style, color, textAlign)
-        if (onTextLayout == null && laid.lineHeight.isSp) {
-            OldgeText(text, modifier, style = laid, maxLines = maxLines, softWrap = softWrap, overflow = overflow)
+        if (laid.lineHeight.isSp) {
+            OldgeText(
+                text,
+                modifier,
+                style = laid,
+                maxLines = maxLines,
+                softWrap = softWrap,
+                overflow = overflow,
+                onTextLayout = onTextLayout,
+            )
         } else {
-            // `OldgeText` has no layout callback; `PathText` measures through one. Same style, same
-            // faces, without the library's baseline nudge of a pixel.
+            // `OldgeText` places text on the baseline of a line height in sp, and a style without
+            // one is one it cannot place. Same style, same faces, without the library's nudge.
             BasicText(text, modifier, laid, onTextLayout, overflow, softWrap, maxLines)
         }
     }
@@ -262,9 +267,9 @@ internal class OldgeKit private constructor(
     }
 
     /**
-     * `OldgeButton` at its dense size. A destructive action is the chrome *Secondary* button and not
-     * the lime *Primary*: the design system has no danger variant, and the accent is its "go" — the
-     * last colour an irreversible *Remove* should wear. The dialog's own text says what it removes.
+     * `OldgeButton` at its dense size. A destructive action is *Danger* with the `trash` icon, the
+     * design system's confirm of what cannot be undone, and never the lime *Primary*, which is its
+     * "go" (B-182). The dialog's own text says what it removes.
      */
     @Composable
     override fun DialogButton(
@@ -278,85 +283,62 @@ internal class OldgeKit private constructor(
             text = label,
             onClick = onClick,
             modifier = Modifier.semantics { contentDescription = label },
-            variant = if (primary && !destructive) OldgeButtonVariant.Primary else OldgeButtonVariant.Secondary,
+            variant =
+                when {
+                    destructive -> OldgeButtonVariant.Danger
+                    primary -> OldgeButtonVariant.Primary
+                    else -> OldgeButtonVariant.Secondary
+                },
             size = OldgeButtonSize.Small,
             enabled = enabled,
+            icon = if (destructive) OldgeIcons.Trash else null,
         )
     }
 
     /**
-     * `OldgeProgressBar`'s look at a row's height: a sunken well in the row's track colour with the
-     * skin's edge round it, and the fill as glossy 8 dp blocks with 2 dp of the well between them —
-     * in the colour the row's state chose, so an error row's bar is still red and a stopping one
-     * still dim. Not animated: the figure beside it changes once a second, and the library's own bar
-     * eases into each new value.
+     * `OldgeProgressWell`, the library's bar without its head line, at the row's 10 dp: the sunken
+     * well and the glossy blocks, the fill in the colour the row's state chose, so an error row's bar
+     * is still red and a stopping one still dim (B-182). [track] is the Material kit's: the well is
+     * the skin's own. Named by the row, as the library asks of a bar in a row.
      */
     @Composable
     override fun ProgressBar(
         fraction: Float,
+        name: String,
         track: Color,
         bar: Color,
         modifier: Modifier,
     ) {
-        val shape = RoundedCornerShape(WELL_RADIUS)
-        Box(
-            modifier
-                .height(WELL)
-                .background(track, shape)
-                .border(HAIRLINE, colors.outline.copy(alpha = WELL_RIM_ALPHA), shape)
-                .padding(WELL_PADDING)
-                .clip(RoundedCornerShape(FILL_RADIUS))
-                .drawBehind {
-                    val width = (size.width * fraction.coerceIn(0f, 1f)).toInt().toFloat()
-                    if (width <= 0f) return@drawBehind
-                    drawRoundRect(
-                        Brush.verticalGradient(
-                            0f to lerp(bar, Color.White, GLOSS_TOP),
-                            HALF to bar,
-                            1f to lerp(bar, Color.Black, GLOSS_BOTTOM),
-                        ),
-                        size = Size(width, size.height),
-                        cornerRadius = CornerRadius(FILL_RADIUS.toPx()),
-                    )
-                    val block = BLOCK.toPx()
-                    val gap = BLOCK_GAP.toPx()
-                    var x = block
-                    while (x < width) {
-                        drawRect(track, Offset(x, 0f), Size(gap, size.height))
-                        x += block + gap
-                    }
-                },
-        )
+        OldgeProgressWell(fraction, name, modifier.height(WELL), fill = bar)
     }
 
     /**
-     * `OldgeIconButton`, 36 dp square: the library's dense button height, where the design's control
-     * is 28. Its 44 dp width is the design system's touch rule, and a pointer window has none, so
-     * the square is set from outside. A toggle that is on is *Primary*: the design system fills a
-     * selected chip with its accent and has no icon-only toggle (B-176).
+     * `OldgeIconButton` at the pointer density's small size, a 28 dp square: the design's own control.
+     * A toggle is the library's `selected` button, latched in the accent when it is on, and not the
+     * screen's one *Primary* (B-182).
      */
     @Composable
     override fun ToolButton(
         glyph: String,
         label: String,
         enabled: Boolean,
-        active: Boolean,
+        active: Boolean?,
         onClick: () -> Unit,
     ) {
         OldgeIconButton(
             icon = toolIconOf(glyph),
             contentDescription = label,
             onClick = onClick,
-            modifier = Modifier.size(TOOL),
-            variant = if (active) OldgeButtonVariant.Primary else OldgeButtonVariant.Secondary,
+            variant = OldgeButtonVariant.Secondary,
             size = OldgeButtonSize.Small,
             enabled = enabled,
+            selected = active,
         )
     }
 
     /**
      * `OldgeButton`, *Primary* — the screen's one main action, the library's own rule for it. In a
-     * narrow bar the glyph alone: at 600 dp the eight 36 dp buttons and the label do not fit.
+     * narrow bar the glyph alone: at 600 dp the eight buttons and the label do not fit.
      */
     @Composable
     override fun ToolMainButton(
@@ -370,7 +352,6 @@ internal class OldgeKit private constructor(
                 icon = toolIconOf(glyph),
                 contentDescription = label,
                 onClick = onClick,
-                modifier = Modifier.size(TOOL),
                 variant = OldgeButtonVariant.Primary,
                 size = OldgeButtonSize.Small,
             )
@@ -387,11 +368,10 @@ internal class OldgeKit private constructor(
     }
 
     /**
-     * `OldgeSearchBar` at the button's 36 dp, where its own is 48: the sunken capsule, the magnifier
-     * and the round clear button. The clear button's name is the library's «Очистить» — it takes no
-     * label for it. Narrow, 150 dp and not the Material field's 110: the capsule's 16 sp text, its
-     * magnifier and its clear orb left one letter of a filter visible at 110, and the 36 dp bar has
-     * the room.
+     * `OldgeSearchBar`, 32 dp at the pointer density: the sunken capsule, the magnifier and the round
+     * clear button, named *Clear the filter* by [STRINGS]. Narrow, 150 dp and not the Material field's 110: the
+     * capsule's 16 sp text, its magnifier and its clear orb left one letter of a filter visible at
+     * 110, and the bar has the room.
      */
     @Composable
     override fun FilterField(
@@ -401,7 +381,7 @@ internal class OldgeKit private constructor(
         onFilter: (String) -> Unit,
     ) {
         OldgeSearchBar(
-            modifier = Modifier.width(if (narrow) NARROW_FILTER else FILTER).height(TOOL),
+            modifier = Modifier.width(if (narrow) NARROW_FILTER else FILTER),
             value = text,
             onValueChange = onFilter,
             placeholder = placeholder,
@@ -410,8 +390,8 @@ internal class OldgeKit private constructor(
 
     /**
      * `OldgeButton`, *Secondary* — the library's banners carry chrome buttons, because a band's
-     * colours are not the skin's (its README). Set to 26 dp from outside: the band is 32 and the
-     * library's smallest button 36 (B-177).
+     * colours are not the skin's (its README). The pointer density's small 28 dp, inside the 32 dp
+     * band (B-182).
      */
     @Composable
     override fun BannerButton(
@@ -421,7 +401,6 @@ internal class OldgeKit private constructor(
         OldgeButton(
             text = label,
             onClick = onClick,
-            modifier = Modifier.height(BANNER_BUTTON),
             variant = OldgeButtonVariant.Secondary,
             size = OldgeButtonSize.Small,
         )
@@ -450,19 +429,16 @@ internal class OldgeKit private constructor(
     }
 
     /**
-     * `OldgeTextField`: the sunken well, in the design system's 16 sp `body`. Two things are set from
-     * outside, because the component has no parameter for either:
+     * `OldgeTextField`: the sunken well, in the design system's 16 sp `body`, with no label above it,
+     * because the row already shows the same words on its left. The label still names the field.
      *
-     * - **Its label is lifted out of the row.** The field always draws its label above the well, and
-     *   the row already shows the same words on its left; the field is laid out with only the well
-     *   inside its bounds (see [wellOnly]). The label stays in the semantics tree.
-     * - **A changed value is ringed in `accent-ink`**, the Material field's "you changed this", drawn
-     *   over the well's own edge: the component's border knows only `edge` and `danger`.
+     * **A changed value is ringed in `accent-ink`**, the Material field's "you changed this", drawn
+     * over the well's own edge, because the component's border knows only `edge` and `danger`.
      *
-     * The well is `hit-min`, 44 dp, where the Material field is 30: the component's minimum for one
-     * line. The width grows for [words] in the larger face, which at the Material field's width left
-     * `no limit` cut to `no li`. An absent value is not dimmed — the text's colour is the field's —
-     * and is aligned to the start, as every field of the design system is.
+     * The well is 32 dp at the pointer density, where the Material field is 30. The width grows for
+     * [words] in the larger face, which at the Material field's width left `no limit` cut to `no li`.
+     * An absent value is not dimmed — the text's colour is the field's — and is aligned to the
+     * start, as every field of the design system is.
      */
     @Composable
     override fun SettingField(
@@ -482,17 +458,16 @@ internal class OldgeKit private constructor(
             modifier =
                 Modifier
                     .width(maxOf(width, wide))
-                    .changedRing(changed, colors.accentText)
-                    .wellOnly(),
+                    .changedRing(changed, colors.accentText),
+            showLabel = false,
         )
     }
 
     /**
      * `OldgeTextField` with the folder icon, and *Browse…* as `OldgeButton`, *Secondary*, at the
-     * well's 44 dp. The directory is picked and never typed, and the component has no read-only
-     * state, so the field is made unfocusable from outside: a well that took what somebody typed
-     * and dropped it would be the screen's own defect, a field that is a picture. Its label is
-     * lifted out as [SettingField]'s is.
+     * well's 32 dp. The directory is picked and never typed, so the field is read-only: its path can
+     * be selected and copied, and nothing typed into it is dropped on the floor. Its label is the
+     * row's, as [SettingField]'s is.
      */
     @Composable
     override fun FolderField(
@@ -509,10 +484,10 @@ internal class OldgeKit private constructor(
                 modifier =
                     Modifier
                         .width(PATH)
-                        .changedRing(changed, colors.accentText)
-                        .wellOnly()
-                        .focusProperties { canFocus = false },
+                        .changedRing(changed, colors.accentText),
                 icon = OldgeIcons.Folder,
+                readOnly = true,
+                showLabel = false,
             )
             OldgeButton(
                 text = "Browse…",
@@ -525,14 +500,14 @@ internal class OldgeKit private constructor(
     }
 
     /**
-     * `OldgeSegmented`, set to 36 dp from outside — the dense button's height, where its own segment
-     * is 40 inside a 2 dp rim — and as wide as its widest label twice over: its segments share the
-     * width they are given, and a settings row gives all of it.
+     * `OldgeSegmented`, set to 32 dp from outside, level with the settings fields: its own segment is
+     * 40 inside a 2 dp rim at either density. As wide as its widest label twice over: its segments
+     * share the width they are given, and a settings row gives all of it. A choice that cannot be
+     * changed is drawn disabled (B-182).
      *
      * The component takes two to four options and throws on any other count; the screen's drawing
      * in this kit's colours takes the rest, which today is nothing (the kits are two, and the scheme
-     * styles are the Material kit's). It has no disabled state either, so a choice that cannot be
-     * changed only ignores the press.
+     * styles are the Material kit's).
      */
     @Composable
     override fun Segmented(
@@ -550,13 +525,14 @@ internal class OldgeKit private constructor(
         OldgeSegmented(
             options = options,
             selected = selected,
-            onSelect = { if (enabled && it != selected) onSelect(it) },
+            onSelect = { if (it != selected) onSelect(it) },
             label = name,
-            modifier = Modifier.height(TOOL).width(IntrinsicSize.Max),
+            modifier = Modifier.height(SEGMENTED).width(IntrinsicSize.Max),
+            enabled = enabled,
         )
     }
 
-    /** `OldgeButton`, *Primary* at its 44 dp: the empty window's one main action, with *Plus*. */
+    /** `OldgeButton`, *Primary*, medium: the empty window's one main action, with *Plus*. */
     @Composable
     override fun InvitationButton(
         glyph: String,
@@ -574,10 +550,10 @@ internal class OldgeKit private constructor(
 
     /**
      * `OldgeDialog`, not modal: the window — the skin's bezel, the title in its bar — in place, over
-     * the screen's own scrim. Its 358 dp is the design system's phone width, so the dialog's width
-     * is set from outside, first in the chain. No close orb: the dialog ends with *Cancel*, and the
-     * orb's name is the library's «Закрыть», which it takes no label for. The body is padded 16 dp
-     * by the window, so the screen's side margin is 4 — 20 in all, the design's.
+     * the screen's own scrim. [width] is its `maxWidth`, where the library's own is the design
+     * system's 358 dp phone width; until B-182 it was forced from outside, ahead of that cap. No close
+     * orb: the dialog ends with *Cancel*, the design's. The body is padded 16 dp by the window, so
+     * the screen's side margin is 4 — 20 in all, the design's.
      */
     @Composable
     override fun DialogFrame(
@@ -586,17 +562,17 @@ internal class OldgeKit private constructor(
         modifier: Modifier,
         content: @Composable (edge: Dp) -> Unit,
     ) {
-        OldgeDialog(title = title, modifier = modifier.width(width)) {
+        OldgeDialog(title = title, modifier = modifier, maxWidth = width) {
             Column(Modifier.fillMaxWidth()) { content(DIALOG_EDGE) }
         }
     }
 
     /**
      * `OldgeTextField` under its own label, the folder icon in it, and *Browse…* as `OldgeButton`,
-     * *Secondary*, at the well's 44 dp beside it. The note is the field's help line, drawn under the
+     * *Secondary*, at the well's 32 dp beside it. The note is the field's help line, drawn under the
      * row in the help line's style rather than passed as `help`: inside the field it would make the
      * field taller than the well, and the button would no longer stand level with it. The field is
-     * unfocusable from outside, as [FolderField]'s is.
+     * read-only, as [FolderField]'s is.
      */
     @Composable
     override fun SaveToField(
@@ -611,8 +587,9 @@ internal class OldgeKit private constructor(
                     label = label,
                     value = path,
                     onValueChange = {},
-                    modifier = Modifier.weight(1f).focusProperties { canFocus = false },
+                    modifier = Modifier.weight(1f),
                     icon = OldgeIcons.Folder,
+                    readOnly = true,
                 )
                 OldgeButton(
                     text = "Browse…",
@@ -642,16 +619,21 @@ private fun textWidth(
 }
 
 /**
- * Only an `OldgeTextField`'s well inside its bounds: the label above it is laid out above the top
- * and clipped. The well is the column's last child — a field with no help line — and `hit-min` tall
- * for one line of `body`: 1 + 11 + 20 + 11 + 1, the component's own minimum.
+ * The names oldge-ui gives its own orbs and actions, in the window's English (B-182). The library's
+ * defaults are the design system's Russian.
  */
-private fun Modifier.wellOnly(): Modifier =
-    clipToBounds().layout { measurable, constraints ->
-        val field = measurable.measure(constraints.copy(minHeight = 0, maxHeight = Constraints.Infinity))
-        val well = OldgeSpacing.hitMin.roundToPx().coerceAtMost(field.height)
-        layout(field.width, well) { field.place(0, well - field.height) }
-    }
+private val STRINGS =
+    OldgeStrings(
+        close = "Close",
+        // The window has one search bar, the filter, and the Material kit's clear button says this.
+        clear = "Clear the filter",
+        showPassword = "Show password",
+        hidePassword = "Hide password",
+        progress = "Progress",
+        stepDone = "done",
+        page = { number, count -> "Page $number of $count" },
+        day = { date -> date.toString() },
+    )
 
 /** The changed field's ring, over the well's edge and in its corner. */
 private fun Modifier.changedRing(
@@ -888,41 +870,19 @@ private const val CONTAINER = 0.28f
 /** How much of `accent-lo` a selected row's hairline carries over the selection. */
 private const val SELECTED_HAIRLINE = 0.55f
 
-private const val GLOSS_TOP = 0.35f
-
-private const val GLOSS_BOTTOM = 0.25f
-
-private const val WELL_RIM_ALPHA = 0.6f
-
 private const val TOOLTIP_RIM_ALPHA = 0.35f
 
 private val HAIRLINE = 1.dp
 
-/** The row's well: 10 dp, where the library's own is 20 under a head line the row does not have. */
+/** The row's well: 10 dp, the compact well's own, where the bar's is 20 under its head line. */
 private val WELL = 10.dp
 
-private val WELL_PADDING = 2.dp
-
-private val WELL_RADIUS = 3.dp
-
-private val FILL_RADIUS = 1.dp
-
-private val BLOCK = 8.dp
-
-private val BLOCK_GAP = 2.dp
-
 private val TOOLTIP_SHADOW = 4.dp
-
-/** oldge-ui's dense button height, and the toolbar's controls under this kit. */
-private val TOOL = 36.dp
 
 /** The Material field's width, wide; see [OldgeKit.FilterField] for the narrow one. */
 private val FILTER = 220.dp
 
 private val NARROW_FILTER = 150.dp
-
-/** The degraded banner's button: the 32 dp band less 3 dp above and below. */
-private val BANNER_BUTTON = 26.dp
 
 /** `OldgeTextField`'s well, from its edge to its text: the 1 dp border and `space-3`. */
 private val FIELD_INSET = 13.dp
@@ -943,6 +903,9 @@ private val GAP = 8.dp
 
 /** `.og-field { gap: 6px }`, between a field and its help line. */
 private val HELP_GAP = 6.dp
+
+/** The settings choice's height: the pointer density's text field and medium button. */
+private val SEGMENTED = 32.dp
 
 /** What `OldgeSegmented` takes. */
 private val SEGMENTS = 2..4

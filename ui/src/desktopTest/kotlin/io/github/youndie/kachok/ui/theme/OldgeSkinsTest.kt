@@ -91,12 +91,22 @@ class OldgeSkinsTest {
         assertEquals(MaterialKit.Default.colors.accent, MaterialKit.Default.colors.accentText)
     }
 
-    /** A stored name is the library's own; one it no longer has is its first skin; none is none. */
+    /**
+     * A stored value is the library's id, or the name a build before B-182 stored; one no skin has is
+     * the first skin; none is none.
+     */
     @Test
-    fun aStoredNameIsASkin() {
-        OldgeSkin.entries.forEach { assertEquals(it, OldgeKit.skinOf(it.name)) }
+    fun aStoredValueIsASkin() {
+        OldgeSkin.entries.forEach {
+            assertEquals(it, OldgeKit.skinOf(it.id))
+            assertEquals(it, OldgeKit.skinOf(it.name))
+        }
         assertEquals(OldgeSkin.entries.first(), OldgeKit.skinOf("Plasma"))
-        assertEquals(OldgeSkin.entries.first(), OldgeKit.skinOf("media"), "names are the library's, case included")
+        assertEquals(
+            OldgeSkin.entries.first(),
+            OldgeKit.skinOf("MEDIA"),
+            "ids and names are the library's, case included",
+        )
         assertNull(OldgeKit.skinOf(null))
     }
 

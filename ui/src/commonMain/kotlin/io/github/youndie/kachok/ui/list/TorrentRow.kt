@@ -123,6 +123,7 @@ private fun ProgressCell(model: TorrentRowModel) {
         // The kit's bar since B-160; the colours stay this row's, decided in `RowColors.kt`.
         KachokTheme.kit.ProgressBar(
             fraction = model.progress ?: METADATA_BAR_FRACTION,
+            name = model.name,
             track = rowColor(model, RowCell.Track, scheme),
             bar = rowColor(model, RowCell.Bar, scheme),
             modifier = Modifier.weight(1f),

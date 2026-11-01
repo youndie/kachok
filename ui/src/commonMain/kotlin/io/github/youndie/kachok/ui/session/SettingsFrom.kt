@@ -507,17 +507,18 @@ private fun seedsOf(colours: MaterialColours): Setting {
 /**
  * Under oldge-ui: its skins, as many as the library has — read from `OldgeSkin.entries`, so a skin a
  * release adds is offered here with the version bump and nothing else. Each is drawn as its own
- * ground with its accent on it, and stored by the library's name for it.
+ * ground with its accent on it, named by the library's name for it and stored by its `id`, the
+ * library's key for persisting a skin (B-182).
  */
 private fun skinsOf(skin: OldgeSkin): Setting =
     Setting(
         key = SettingKey.Colours,
         label = "Colours",
         note = "The design system's skin: ${OldgeSkin.entries.joinToString { it.name }}. Applies at once.",
-        default = OldgeKit.DEFAULT_SKIN.name.lowercase(),
-        value = skin.name,
-        swatches = OldgeSkin.entries.map { Swatch(it.name, it.colors.ground, it.name, mark = it.colors.accent) },
-        swatch = skin.name,
+        default = OldgeKit.DEFAULT_SKIN.id,
+        value = skin.id,
+        swatches = OldgeSkin.entries.map { Swatch(it.id, it.colors.ground, it.name, mark = it.colors.accent) },
+        swatch = skin.id,
         changed = skin != OldgeKit.DEFAULT_SKIN,
     )
 

@@ -5,8 +5,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertIsOff
+import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.getBoundsInRoot
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.performClick
@@ -73,14 +78,30 @@ class OldgeToolbarTest {
             waitForIdle()
             assertTrue("x" in filter && "deb" in filter, "typing reached the filter as \"$filter\"")
 
-            // The library names its clear button itself, in Russian, and takes no label for it.
-            onNodeWithContentDescription("Очистить").performClick()
+            // The library's name for its clear button, in the window's English (B-182).
+            onNodeWithContentDescription("Clear the filter").performClick()
             waitForIdle()
             assertEquals("", filter)
         }
 
     /**
-     * At the narrow artboard's 600 dp every control keeps its 36 dp and ends inside the bar. A bar
+     * The details and settings controls are toggles, heard on or off, and the rest are plain buttons
+     * (B-182). An open panel's toggle is latched in the library's look, not the screen's *Primary*.
+     */
+    @Test
+    fun thePanelTogglesAreTogglesAndTheRestAreNot(): Unit =
+        runComposeUiTest {
+            val bar = ToolbarState().forSelection(TorrentState.Downloading).withDetails(open = true)
+            setContent { KachokTheme(kit = OldgeKit.Default) { Toolbar(bar) } }
+
+            onNodeWithContentDescription(bar.details.label).assertIsOn()
+            onNodeWithContentDescription(bar.settings.label).assertIsOff()
+            onNodeWithContentDescription("Pause")
+                .assert(SemanticsMatcher.keyNotDefined(SemanticsProperties.ToggleableState))
+        }
+
+    /**
+     * At the narrow artboard's 600 dp every control keeps its 28 dp and ends inside the bar. A bar
      * that does not fit does not overflow visibly: the last controls are measured into what is left,
      * which is nothing, so the width is what is asserted, and not only the edge.
      */
@@ -97,8 +118,8 @@ class OldgeToolbarTest {
             bar.all.forEach { action ->
                 val bounds = onNodeWithContentDescription(action.label).getBoundsInRoot()
                 assertTrue(
-                    // 36 dp, less the pixel a layout at this density may round away.
-                    bounds.right - bounds.left >= 35.dp,
+                    // 28 dp, less the pixel a layout at this density may round away.
+                    bounds.right - bounds.left >= 27.dp,
                     "${action.label} squeezed to ${bounds.right - bounds.left}",
                 )
                 assertTrue(bounds.right <= NARROW, "${action.label} ends at ${bounds.right}, past $NARROW")

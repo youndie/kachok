@@ -143,12 +143,19 @@ class StoredPreferencesTest {
             file,
             defaults
                 .chose(SettingKey.Interface, InterfaceKit.Oldge.stored)
-                .swatched(SettingKey.Colours, OldgeSkin.Media.name),
+                .swatched(SettingKey.Colours, OldgeSkin.Media.id),
         )
         val read = loadPreferences(file, defaults)
         assertEquals(OldgeSkin.Media, read.oldgeSkin)
         assertEquals(MaterialColours.DEFAULT, read.materialColours, "the skin was read as a seed")
-        assertTrue("oldgeSkin=Media" in Files.readString(file), Files.readString(file))
+        assertTrue("oldgeSkin=media" in Files.readString(file), "stored by its id: " + Files.readString(file))
+    }
+
+    /** A file written before B-182 stored the skin's name, and keeps its choice. */
+    @Test
+    fun aSkinStoredByItsNameIsStillRead() {
+        file.writeText("oldgeSkin=Crystal\ninterface=oldge-ui\n")
+        assertEquals(OldgeSkin.Crystal, loadPreferences(file, defaults).oldgeSkin)
     }
 
     /**
