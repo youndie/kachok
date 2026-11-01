@@ -6,8 +6,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertHeightIsEqualTo
 import androidx.compose.ui.test.assertIsEnabled
@@ -56,7 +56,7 @@ class OldgeAnswersTest {
 
     /** A value changed from its default is ringed in the accent's ink by the field itself (#46). */
     @Test
-    fun aChangedFieldIsRingedInTheAccent(): Unit {
+    fun aChangedFieldIsRingedInTheAccent() {
         val changed = accentPixels(changed = true)
         val unchanged = accentPixels(changed = false)
 
@@ -101,7 +101,7 @@ class OldgeAnswersTest {
      * track is the `divider`, and its well stays the skin's (#49).
      */
     @Test
-    fun aTintedRowsWellIsTheRowsColour(): Unit {
+    fun aTintedRowsWellIsTheRowsColour() {
         assertTrue(wellShare(tinted = true) > TINTED_SHARE, "the tinted row's well is its track")
         assertEquals(0f, wellShare(tinted = false), "a plain row's well is the skin's")
     }
@@ -147,7 +147,9 @@ class OldgeAnswersTest {
         for (x in 0 until pixels.width) {
             for (y in 0 until pixels.height) {
                 val c = pixels[x, y]
-                if (abs(c.red - colour.red) < NEAR && abs(c.green - colour.green) < NEAR && abs(c.blue - colour.blue) < NEAR) {
+                if (abs(c.red - colour.red) < NEAR && abs(c.green - colour.green) < NEAR &&
+                    abs(c.blue - colour.blue) < NEAR
+                ) {
                     count++
                 }
             }

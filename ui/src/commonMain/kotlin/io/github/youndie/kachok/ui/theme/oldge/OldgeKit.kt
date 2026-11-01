@@ -961,8 +961,8 @@ private val CARET = 2.dp
 /**
  * A settings directory: 180, where the Material field is 210, because *Browse…* at the well's
  * 44 dp is the wider button by about as much, and at 210 the row's label wrapped. The well's 16 sp
- * `body` and its 20 dp icon show about fourteen characters of a path, cut at the end: the component
- * has no middle ellipsis, which the Material field's `PathText` has.
+ * `body` and its 20 dp icon show about fourteen characters of a path, cut from the front at rest as
+ * the Material field's `PathText` cuts it (B-183).
  */
 private val PATH = 180.dp
 
@@ -971,8 +971,6 @@ private val GAP = 8.dp
 
 /** `.og-field { gap: 6px }`, between a field and its help line. */
 private val HELP_GAP = 6.dp
-
-/** The settings choice's height: the pointer density's text field and medium button. */
 
 /** What `OldgeSegmented` takes. */
 private val SEGMENTS = 2..4
