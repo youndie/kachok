@@ -51,7 +51,9 @@ field's two widths. The oldge kit draws them with the library's own components:
 
 The glyphs map to oldge-ui's icons in `TOOL_ICONS`: *Plus*, *Attach* (paste magnet), *Pause*,
 *Play*, *Trash*, *Refresh* (re-check), *Share* (re-announce), *Info* (details panel) and *Levels*
-(settings). A glyph with no entry would draw *More*.
+(settings). A glyph with no entry would draw *More*. Changed by
+[B-184](B-184-the-toolbar-loses-re-announce-and-settings-is-a-gear.md): re-announce is off the bar
+and settings is *Gear*.
 
 **Goldens.** The Material goldens are byte-identical after `viddikRecord` on the mac: only the
 three oldge windows changed, and one is new.

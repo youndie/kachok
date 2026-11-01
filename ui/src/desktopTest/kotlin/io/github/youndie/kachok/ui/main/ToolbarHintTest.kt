@@ -22,12 +22,12 @@ class ToolbarHintTest {
     fun aHoveredButtonSaysWhatItDoes(): Unit =
         runComposeUiTest {
             setContent { KachokTheme { Toolbar(ToolbarState().forSelection(TorrentState.Downloading)) } }
-            assertEquals(0, onAllNodesWithText("Force re-announce").fetchSemanticsNodes().size, "shown before a hover")
+            assertEquals(0, onAllNodesWithText("Force re-check").fetchSemanticsNodes().size, "shown before a hover")
 
-            onNodeWithContentDescription("Force re-announce").performMouseInput { moveTo(center) }
+            onNodeWithContentDescription("Force re-check").performMouseInput { moveTo(center) }
             mainClock.advanceTimeBy(HINT_DELAY_MILLIS + 200L)
 
-            onNodeWithText("Force re-announce").assertExists("the hover drew no tooltip")
+            onNodeWithText("Force re-check").assertExists("the hover drew no tooltip")
         }
 
     @Test

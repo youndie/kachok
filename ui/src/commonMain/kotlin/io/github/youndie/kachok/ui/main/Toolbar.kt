@@ -23,7 +23,6 @@ internal enum class ToolbarCommand {
     Resume,
     Remove,
     Recheck,
-    Reannounce,
     ToggleDetails,
     ToggleSettings,
 }
@@ -87,8 +86,6 @@ internal class ToolbarState(
         ToolbarAction(Icons.DELETE, "Remove…", disabledBecause = NOTHING_SELECTED),
     val recheck: ToolbarAction =
         ToolbarAction(Icons.RESTART_ALT, "Force re-check", disabledBecause = NOTHING_SELECTED),
-    val reannounce: ToolbarAction =
-        ToolbarAction(Icons.CAMPAIGN, REANNOUNCE, disabledBecause = NOTHING_SELECTED),
     val filter: String = "",
     val details: ToolbarAction =
         ToolbarAction(Icons.RIGHT_PANEL_OPEN, "Details panel", ToolbarCommand.ToggleDetails, active = false),
@@ -97,7 +94,7 @@ internal class ToolbarState(
 ) {
     /** Every control on the bar, in the order it is drawn. */
     val all: List<ToolbarAction>
-        get() = listOf(addTorrent, pasteMagnet, pause, resume, remove, recheck, reannounce, details, settings)
+        get() = listOf(addTorrent, pasteMagnet, pause, resume, remove, recheck, details, settings)
 
     /** The same state with both toggles set from whether their screens are actually there. */
     fun withDetails(
@@ -110,7 +107,6 @@ internal class ToolbarState(
             resume = resume,
             remove = remove,
             recheck = recheck,
-            reannounce = reannounce,
             filter = filter,
             details = ToolbarAction(details.glyph, details.label, details.command, active = open),
             settings =
@@ -173,35 +169,6 @@ internal class ToolbarState(
                         ToolbarAction(Icons.RESTART_ALT, "Force re-check", ToolbarCommand.Recheck)
                     }
                 },
-            // **The details panel's *Re-announce*, on the bar** (B-144): the same command, for a
-            // person who has not opened the Trackers tab. Not for a paused torrent, which has told
-            // its trackers `stopped`, nor for a magnet, which has no torrent to announce yet.
-            reannounce =
-                when (selected) {
-                    null -> {
-                        ToolbarAction(Icons.CAMPAIGN, REANNOUNCE, disabledBecause = NOTHING_SELECTED)
-                    }
-
-                    TorrentState.Paused -> {
-                        ToolbarAction(
-                            Icons.CAMPAIGN,
-                            REANNOUNCE,
-                            disabledBecause = PAUSED_SAYS_NOTHING,
-                        )
-                    }
-
-                    TorrentState.Metadata -> {
-                        ToolbarAction(Icons.CAMPAIGN, REANNOUNCE, disabledBecause = NO_TORRENT_YET)
-                    }
-
-                    TorrentState.Queued -> {
-                        ToolbarAction(Icons.CAMPAIGN, REANNOUNCE, disabledBecause = QUEUED_SAYS_NOTHING)
-                    }
-
-                    else -> {
-                        ToolbarAction(Icons.CAMPAIGN, REANNOUNCE, ToolbarCommand.Reannounce)
-                    }
-                },
             filter = filter,
             details = details,
             settings = settings,
@@ -218,13 +185,8 @@ internal class ToolbarState(
             "There is no torrent yet, so there is nothing to check the disk against."
         const val ALREADY_CHECKING =
             "This torrent is being checked right now."
-        const val REANNOUNCE = "Force re-announce"
-        const val PAUSED_SAYS_NOTHING =
-            "This torrent is paused; it has told its trackers it stopped."
-        const val QUEUED_SAYS_NOTHING =
-            "This torrent is waiting for a turn; it has told its trackers it stopped."
-        const val NO_TORRENT_YET =
-            "There is no torrent yet, only a magnet looking for one."
+        // No *Force re-announce* here any more (B-184): neither kit had a glyph that said it, and
+        // the Trackers tab's *Re-announce* is the same command beside the trackers it is sent to.
     }
 }
 
@@ -237,7 +199,7 @@ internal fun Toolbar(
     /**
      * The window is under 800 dp, so the filter gives up most of its width.
      *
-     * At 600 dp the bar's fixed contents — the button, eight controls and a 220 dp field — come to
+     * At 600 dp the bar's fixed contents — the button, the controls and a 220 dp field — came to
      * more than the window, and the last glyph was drawn half off the edge. The field is the only
      * thing here that can be smaller without becoming a different control.
      */
@@ -255,7 +217,7 @@ internal fun Toolbar(
         }
         IconAction(state.pasteMagnet) { onAction(state.pasteMagnet) }
         ToolbarSeparator()
-        listOf(state.pause, state.resume, state.remove, state.recheck, state.reannounce).forEach { action ->
+        listOf(state.pause, state.resume, state.remove, state.recheck).forEach { action ->
             IconAction(action) { onAction(action) }
         }
         Spacer()
