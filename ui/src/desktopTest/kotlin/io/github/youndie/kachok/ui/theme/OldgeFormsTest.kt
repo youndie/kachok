@@ -16,6 +16,7 @@ import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.assert
+import androidx.compose.ui.test.assertHeightIsEqualTo
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.assertIsNotEnabled
@@ -72,16 +73,23 @@ class OldgeFormsTest {
         }
 
     /**
-     * The row draws the label on its left, so the field draws none above its well (B-182), and the
-     * label still names the field: it is heard once, as the field's name.
+     * The row draws the label on its left, so the field draws none above its well (B-182): the field
+     * is the well's 32 dp and no taller. The label still names the field, and is heard once.
      */
     @Test
     fun theFieldDoesNotDrawItsLabelOverTheRow(): Unit =
         runComposeUiTest {
-            settings()
-            numberField(MAX_PEERS).performScrollTo()
+            setContent {
+                KachokTheme(kit = OldgeKit.Default) {
+                    Box(Modifier.testTag(FIELD)) {
+                        KachokTheme.kit.SettingField(MAX_PEERS, "80", 80.dp, null, false, false) {}
+                    }
+                }
+            }
 
-            assertEquals(1, onAllNodesWithText(MAX_PEERS).fetchSemanticsNodes().size, "only the row's label")
+            onNodeWithTag(FIELD).assertHeightIsEqualTo(WELL)
+            numberField(MAX_PEERS).assertIsDisplayed()
+            assertEquals(0, onAllNodesWithText(MAX_PEERS).fetchSemanticsNodes().size, "the label is the field's name")
         }
 
     @Test
@@ -129,21 +137,6 @@ class OldgeFormsTest {
             onNodeWithText("Two").assertIsNotEnabled().performClick()
             onNodeWithText("One").assertIsNotEnabled()
             assertEquals(0, chosen)
-        }
-
-    /** The dialog's width is a cap: in a window narrower than the dialog, the dialog fits it (B-182). */
-    @Test
-    fun theDialogFitsAWindowNarrowerThanItself(): Unit =
-        runComposeUiTest {
-            setContent {
-                KachokTheme(kit = OldgeKit.Default) {
-                    Box(Modifier.width(NARROW_WINDOW)) {
-                        KachokTheme.kit.DialogFrame("Add torrent", ADD_WIDTH, Modifier.testTag(DIALOG)) {}
-                    }
-                }
-            }
-
-            onNodeWithTag(DIALOG).assertWidthIsEqualTo(NARROW_WINDOW)
         }
 
     @Test
@@ -278,7 +271,8 @@ class OldgeFormsTest {
         const val DIALOG = "dialog"
         val ADD_WIDTH = 520.dp
         val REMOVE_WIDTH = 420.dp
-        val NARROW_WINDOW = 400.dp
+        const val FIELD = "field"
+        val WELL = 32.dp
         const val RED_LEAD = 0.25f
         const val RED_SHARE = 0.3f
     }

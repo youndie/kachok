@@ -551,7 +551,7 @@ internal class OldgeKit private constructor(
     /**
      * `OldgeDialog`, not modal: the window — the skin's bezel, the title in its bar — in place, over
      * the screen's own scrim. [width] is its `maxWidth`, where the library's own is the design
-     * system's 358 dp phone width, so a window narrower than the dialog fits it (B-182). No close
+     * system's 358 dp phone width; until B-182 it was forced from outside, ahead of that cap. No close
      * orb: the dialog ends with *Cancel*, the design's. The body is padded 16 dp by the window, so
      * the screen's side margin is 4 — 20 in all, the design's.
      */

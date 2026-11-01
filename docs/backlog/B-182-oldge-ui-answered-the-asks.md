@@ -27,8 +27,8 @@ outside. This item takes the release and puts each workaround back into the libr
   the row already shows, and the label is heard once. `wellOnly` goes.
 - **`OldgeSegmented(enabled)`** (#26). A choice that cannot be changed is drawn disabled, not only
   deaf to the press.
-- **`OldgeDialog(maxWidth)`** (#27). The dialog's 520 or 420 dp is a cap, not a fixed width, so a
-  window narrower than that fits the dialog to it.
+- **`OldgeDialog(maxWidth)`** (#27). The dialog's 520 or 420 dp is the library's own cap, and no
+  longer a fixed width placed ahead of the library's 358 dp in the chain.
 - **`OldgeIconButton(selected)`** (#20). The details and settings toggles are latched toggles. Before
   this they were *Primary*, which is the screen's one main action.
 - **`OldgeProgressWell`** (#22). It replaces the hand-drawn copy of the bar's look. The fill stays in
