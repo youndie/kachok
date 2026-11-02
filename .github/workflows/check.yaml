@@ -45,7 +45,7 @@ jobs:
       # github-actions manager does not read this input — the regex manager in renovate.json moves it.
       - uses: youndie/docs-bootstrap@v0.3.8
         with:
-          python-version: "3.14"
+          python-version: "3.15"
 
   # On a schedule, apart from the gate. The list is at zero and every path outside this repository
   # is an address (SPEC 4.1) - inside a dependency's artefact or at a commit of another repository -
@@ -64,7 +64,7 @@ jobs:
       - uses: youndie/docs-bootstrap@v0.3.8
         with:
           target: report
-          python-version: "3.14"
+          python-version: "3.15"
 
       # For a separate documentation repository, put shallow clones of the services next to the
       # step above and point REPOS at them. History is not needed - only the file tree - and a
