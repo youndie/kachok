@@ -1,7 +1,7 @@
 ---
 id: B-190
 title: "Decide whether the installers are signed, or ship unsigned with the README's explanation"
-status: question
+status: dropped
 priority: P3
 size: M
 stage: phase-2-ui
@@ -37,3 +37,16 @@ route is not on the table.
 - AC (when answered): the answer recorded here; for 2 or 3 this item becomes `open` with a size and
   the account it needs, or `dropped` with the reason.
 - Anchors: `.github/workflows/distributions.yml`, `ui/build.gradle.kts`.
+
+## Answer — 2026-11-09: unsigned, explained
+
+The owner chose **1**. Nothing is paid and no signing secret is added; the installers ship as
+jpackage makes them, unsigned on Windows and with the ad hoc signature on macOS (B-171), and
+[B-189](B-189-the-readme-says-what-an-unsigned-installer-looks-like.md)'s README paragraph — what
+SmartScreen and Gatekeeper show on first start, and how to get past each — is the answer a stranger
+gets. Dropped with that reason.
+
+- Look again if the warning turns out to stop people installing — an issue saying so is the
+  evidence — or if a free signing programme for open-source projects becomes worth its conditions:
+  the OSI licence those programmes ask for is there since
+  [B-185](B-185-the-readme-says-mit-and-the-repository-has-no-licence.md) (MIT).
