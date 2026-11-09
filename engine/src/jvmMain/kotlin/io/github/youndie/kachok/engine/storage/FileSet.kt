@@ -242,7 +242,7 @@ public class FileSet private constructor(
         private fun create(path: Path) {
             try {
                 FileChannel
-                    .open(path, StandardOpenOption.CREATE, StandardOpenOption.WRITE, StandardOpenOption.SPARSE)
+                    .open(path, StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE, StandardOpenOption.SPARSE)
                     .close()
             } catch (appeared: java.nio.file.FileAlreadyExistsException) {
                 System.err.println("kachok: ${appeared.file} appeared while it was being created; keeping it")
