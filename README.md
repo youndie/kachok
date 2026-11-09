@@ -27,10 +27,25 @@ screenshot suite compares against, degraded banner and all.*
 * **Stays out of the way**: a tray icon, file associations for `.torrent`, a clipboard offer when
   a magnet is on it, and installers for macOS, Windows and Linux.
 
+## Install
+
+Download the installer for your system from the
+[latest release](https://github.com/youndie/kachok/releases/latest):
+
+| System | File |
+|---|---|
+| Windows | `kachok-0.1.<n>.msi` — installs for you alone, no administrator password; a shortcut on the desktop and in the Start menu |
+| macOS on Apple silicon | `kachok-1.0.<n>.dmg` — the same build; Apple refuses a version that starts with zero |
+| Debian, Ubuntu | `kachok_0.1.<n>_amd64.deb` |
+
+All three register `.torrent` files with the client. Each release is built by CI from the tagged
+commit, on its own platform.
+
 ## Three ways in
 
-**The window** — `./gradlew :ui:run`, or an installer from
-`./gradlew :ui:packageReleaseDistributionForCurrentOS` (`.dmg`, `.msi`, `.deb`).
+**The window** — an installer from the [latest release](https://github.com/youndie/kachok/releases/latest),
+or from source: `./gradlew :ui:run`, or `./gradlew :ui:packageReleaseDistributionForCurrentOS`
+(`.dmg`, `.msi`, `.deb`) on the platform the installer is for.
 
 **The command line** — a headless client that prints one progress line a second:
 
