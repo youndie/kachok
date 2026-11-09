@@ -32,3 +32,31 @@ jobs:
             **/build/reports/**
             **/build/test-results/**
           retention-days: 7
+
+  # The client's only outside user is on Windows, and both defects reported from a real machine came
+  # from there (B-146, B-116), so the modules without a window are tested there too (B-188). Not
+  # `:ui`: its goldens are a mac's rasteriser, and a Windows render would be red for a reason that
+  # is not a defect.
+  #
+  # `check`, ktlint included, and no `.gitattributes`. The item expected the runner's checkout to
+  # turn every line ending into CRLF against `.editorconfig`'s `end_of_line = lf` and ktlint to
+  # refuse all of it; the first run had every ktlint task green, so nothing here works around it.
+  # If a ktlint bump starts failing this job on every file, `* text=auto eol=lf` is the fix.
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: youndie/sborka/.github/actions/setup-kotlin@v0.5.0.135
+
+      - shell: bash
+        run: ./gradlew :engine:check :wire:check :swarm:check :control:check :cli:check --stacktrace
+
+      - if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: windows-reports
+          path: |
+            **/build/reports/**
+            **/build/test-results/**
+          retention-days: 7
