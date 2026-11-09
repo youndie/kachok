@@ -1,7 +1,7 @@
 ---
 id: B-02
 title: "CI runs the build and the documentation gates on every push"
-status: open
+status: done
 priority: infra
 size: S
 stage: m0-skeleton
@@ -56,3 +56,25 @@ no window server is not something this repository can find out before the first 
   somebody can install or unpack.
 - Anchors: `.github/workflows/ci.yml`, `.github/workflows/check.yaml`,
   `.github/workflows/distributions.yml`, `Makefile`.
+
+## Done — 2026-11-09: every one of the three has run, and the gate has been seen to fail
+
+The item was filed before any workflow had run; by the time it was picked up they had been running
+for two months, so what closes it is the evidence rather than a change.
+
+- **Both workflows green on a push to `main`**: `CI` and `check` at `9327b6e` (#148) and at
+  `d4ba256` (#149), read from `gh run list --branch main --event push`.
+- **A broken frontmatter link turns `check` red on its pull request.** On a throwaway branch,
+  `blocked_by: [B-01]` here became `[B-999]`; the `check` job of
+  [#151](https://github.com/youndie/kachok/pull/151) failed with `B-02: blocked_by points at B-999,
+  which does not exist`, and the pull request was closed unmerged and its branch deleted.
+- **`distributions` makes four artifacts, each a file**: run
+  [42683975110](https://github.com/youndie/kachok/actions/runs/42683975110) at `944fcb8` uploaded
+  the `.dmg` (80 MB), the `.msi` (70 MB), the `.deb` (65 MB) and the headless tarball (29 MB). That
+  each is a file somebody can install is what the jobs before the upload check —
+  `checkDistributable`, `checkDownload` with a real download, and since B-186 the `.msi`'s Shortcut
+  table — and the `.msi` has been installed by a person on Windows (#27, B-116's readings).
+- **The scheduled anchors job** — the *not covered* line — has run green on three Mondays:
+  2026-10-26, 2026-11-02 and 2026-11-09 (`gh run list --workflow check.yaml --event schedule`).
+- **The macOS preflight** this item guessed would need a second attempt runs in every
+  `distributions` run on `macos-latest` (`:ui:checkDistributable`), green in the runs above.
