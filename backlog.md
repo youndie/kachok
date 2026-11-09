@@ -48,7 +48,7 @@ which is also the order of work.
 
 <!-- BEGIN INDEX -->
 
-## Open (11)
+## Open (10)
 
 | Task | | Priority | Size | Blocked by |
 |---|---|---|---|---|
@@ -58,13 +58,12 @@ which is also the order of work.
 | [B-116](docs/backlog/B-116-a-torrent-whose-name-is-not-ascii-cannot-be-opened-on-windows.md) `[~]` | A `.torrent` whose name is not ASCII cannot be opened on Windows: the launcher hands the path over as question marks | P2 | S | - |
 | [B-189](docs/backlog/B-189-the-readme-says-what-an-unsigned-installer-looks-like.md) `[ ]` | The README says what an unsigned installer looks like on first start, platform by platform | P2 | S | B-187 |
 | [B-80](docs/backlog/B-80-the-ui-moves-to-commonmain.md) `[~]` | The UI moves to commonMain | P2 | L | B-79 |
-| [B-184](docs/backlog/B-184-the-toolbar-loses-re-announce-and-settings-is-a-gear.md) `[~]` | The toolbar has no re-announce, and under oldge-ui settings is a gear | P3 | S | - |
 | [B-37](docs/backlog/B-37-v2-and-hybrid-torrents.md) `[?]` | v2 and hybrid torrents (BEP 52): SHA-256 piece layers | P3 | L | B-04 |
 | [B-40](docs/backlog/B-40-wasmjs-ui-is-a-client-of-the-headless-engine.md) `[ ]` | The browser build of the UI is a client of the headless engine | P3 | L | B-80 |
 | [B-41](docs/backlog/B-41-android-and-ios-targets.md) `[ ]` | Phase 3: Android and iOS targets on the engine | P3 | XL | B-39 |
 | [B-87](docs/backlog/B-87-a-server-with-a-web-face.md) `[ ]` | Phase 3: a headless server with a web face, installable on a box that is always on | P3 | XL | B-80 |
 
-## Closed (179)
+## Closed (180)
 
 **M0 — The build and its gates**
 
@@ -216,6 +215,7 @@ which is also the order of work.
 - [B-181](docs/backlog/B-181-a-style-can-turn-the-chosen-colour-into-another.md) `[x]` - A style can turn the chosen colour into another: the swatches show the seed, not the accent
 - [B-182](docs/backlog/B-182-oldge-ui-answered-the-asks.md) `[x]` - oldge-ui answered every ask: take 0.1.1.30 and drop the workarounds
 - [B-183](docs/backlog/B-183-oldge-ui-answered-the-second-asks.md) `[x]` - oldge-ui answered the second asks: take 0.1.1.37 and drop what the kit still drew
+- [B-184](docs/backlog/B-184-the-toolbar-loses-re-announce-and-settings-is-a-gear.md) `[x]` - The toolbar has no re-announce, and under oldge-ui settings is a gear
 - [B-185](docs/backlog/B-185-the-readme-says-mit-and-the-repository-has-no-licence.md) `[x]` - The README says MIT, and the repository has no licence file
 - [B-190](docs/backlog/B-190-sign-the-installers-or-ship-them-unsigned.md) `[-]` - Decide whether the installers are signed, or ship unsigned with the README's explanation
 - [B-39](docs/backlog/B-39-compose-ui-desktop.md) `[x]` - Phase 2: a Compose Multiplatform desktop UI on the engine's StateFlow
