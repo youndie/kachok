@@ -54,3 +54,53 @@ flags its `AbstractJPackageTask` knows are `--win-console`, `--win-dir-chooser`,
   The answer in the issue is the owner's; this item writes nothing there.
 - Anchors: `ui/build.gradle.kts`, `docs/research/research-architecture.md`,
   `docs/services/ui.md`.
+
+## Findings
+
+**Read out of the package, with nothing installed** — `scripts/check_msi_shortcuts.ps1`, a step of
+the Windows job in `distributions.yml` since this item, which opens the `.msi` read-only through the
+WindowsInstaller COM object and resolves each shortcut's directory up the Directory table.
+
+Before — the configuration on `main` (`shortcut` and `menu` unset), run
+[42682676977](https://github.com/youndie/kachok/actions/runs/42682676977) at `cc5379d`,
+`kachok-0.1.245.msi`:
+
+```
+shortcutd18a9d87…  in dirb0f449c0… < ProgramMenuFolder < TARGETDIR  name 'kachok'
+Missing from the package: a desktop shortcut (DesktopFolder).
+```
+
+- **The hypothesis was wrong: there was a Start menu entry.** One row, in the `menuGroup` folder
+  under `ProgramMenuFolder`. So `menuGroup` alone makes the entry with this jpackage, and the
+  title's "very likely no Start menu entry either" is refuted; the item keeps its title because its
+  file name is its id. `menu = true` stays in the change, so the entry is asked for rather than
+  a side effect of the group.
+- **What #27 reported is confirmed:** no row in `DesktopFolder`.
+- The check was shown to fail on the old package before the fix landed — the run above is red at
+  that step. The first attempt
+  ([42681116206](https://github.com/youndie/kachok/actions/runs/42681116206)) was red for the wrong
+  reason, a defect in the script (`DISP_E_TYPEMISMATCH` reading a field), and is not the control.
+
+After — `shortcut = true`, `menu = true`, run
+[42683975110](https://github.com/youndie/kachok/actions/runs/42683975110) at `944fcb8`,
+`kachok-0.1.246.msi`, the step green:
+
+```
+shortcutd18a9d87…  in dirb0f449c0… < ProgramMenuFolder < TARGETDIR  name 'kachok'
+shortcutd33ec403…  in DesktopFolder < TARGETDIR                     name 'kachok'
+A desktop shortcut and a Start menu entry: both present.
+```
+
+## Iteration 1 — 2026-11-09
+
+- AC 1 (the Shortcut table has a desktop row and a Start menu row; the old one written here): met,
+  above, and kept by the `distributions.yml` step.
+- AC 3 (research §1.3j amended at its row): done. The release that carries the fix is
+  [B-187](B-187-a-tag-publishes-the-installers-as-a-github-release.md)'s, and the answer in #27 is
+  the owner's.
+- **AC 2 is not checked by hand** — installing the new `.msi` over an installed earlier one on a
+  Windows 11 host, seeing *kachok* on the desktop and in the Start menu, both starting the window,
+  and uninstalling to see both go. No runner shows a desktop, and the loop has no Windows host. The
+  upgrade picking up the new shortcut component is still the hypothesis the decision named. So the
+  item stays `wip`: what is left is that one check by a person on Windows, with the `.msi` from the
+  next `distributions` run on `main`.
