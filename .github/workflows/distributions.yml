@@ -68,6 +68,16 @@ jobs:
       - run: ./gradlew :ui:packageReleaseDistributionForCurrentOS --stacktrace
 
       # So the log says what was built rather than only that something was.
+      # The .msi is a database, and its Shortcut table says what an install would put on the desktop
+      # and in the Start menu - read here with nothing installed, because no runner has a desktop
+      # anybody looks at (B-186; #27 was a package that made neither).
+      - if: runner.os == 'Windows'
+        name: The .msi makes a desktop shortcut and a Start menu entry
+        shell: pwsh
+        run: |
+          $msi = Get-ChildItem ui/build/compose/binaries/main-release/msi/*.msi | Select-Object -First 1
+          ./scripts/check_msi_shortcuts.ps1 $msi.FullName
+
       - name: What came out
         shell: bash
         run: |

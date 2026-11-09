@@ -247,6 +247,12 @@ compose.desktop {
                 // in place and two entries in the control panel. The value is arbitrary and must
                 // never change again — it is the identity Windows upgrades along.
                 upgradeUuid = "f5d8042f-8065-4a63-bb60-dd440a0f1411"
+                // Both default to false in the Compose plugin. Without `shortcut` the package put
+                // nothing on the desktop (#27, B-186); the Start menu entry was there already, made
+                // from `menuGroup` alone, and `menu` asks for it rather than relying on that.
+                // `distributions.yml` reads the `.msi`'s Shortcut table for both.
+                shortcut = true
+                menu = true
                 menuGroup = "kachok"
                 // A client is not a machine-wide service, and a per-user install is the one that
                 // does not ask for the administrator password.

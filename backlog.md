@@ -53,7 +53,7 @@ which is also the order of work.
 | Task | | Priority | Size | Blocked by |
 |---|---|---|---|---|
 | [B-175](docs/backlog/B-175-a-piece-waits-on-its-slowest-peer-outside-the-endgame.md) `[~]` | An idle peer takes over a block a slow peer has sat on, before the endgame | P1 | S | B-174 |
-| [B-186](docs/backlog/B-186-the-msi-makes-no-desktop-or-start-menu-shortcut.md) `[ ]` | The .msi makes no desktop shortcut, and very likely no Start menu entry either | P1 | S | - |
+| [B-186](docs/backlog/B-186-the-msi-makes-no-desktop-or-start-menu-shortcut.md) `[~]` | The .msi makes no desktop shortcut, and very likely no Start menu entry either | P1 | S | - |
 | [B-187](docs/backlog/B-187-a-tag-publishes-the-installers-as-a-github-release.md) `[ ]` | A tag publishes the three installers as a GitHub Release, and the README leads to it | P1 | M | B-185 |
 | [B-116](docs/backlog/B-116-a-torrent-whose-name-is-not-ascii-cannot-be-opened-on-windows.md) `[~]` | A `.torrent` whose name is not ASCII cannot be opened on Windows: the launcher hands the path over as question marks | P2 | S | - |
 | [B-188](docs/backlog/B-188-ci-runs-the-engine-tests-on-windows.md) `[ ]` | CI runs the engine's tests on Windows, where the client's only outside user is | P2 | S/M | - |

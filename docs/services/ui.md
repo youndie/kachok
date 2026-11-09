@@ -205,6 +205,14 @@ on the single-instance lock and has its MCP server download a torrent from a see
 second is the one that sees a window; it needs a display, so it is not on `check` (`xvfb-run` on
 the Linux runner, WSLg with `DISPLAY=:0` on the build machine).
 
+After packaging, the Windows job reads the `.msi`'s own database with
+`scripts/check_msi_shortcuts.ps1` — nothing is installed — and fails unless its Shortcut table puts
+a *kachok* shortcut on the desktop and one in the Start menu under the `menuGroup` folder. Both come
+from `shortcut = true` and `menu = true` in `windows {}`, which the Compose plugin defaults to
+false. Without `shortcut` the package put nothing on the desktop; the Start menu entry was already
+there, made from `menuGroup` alone
+([B-186](../backlog/B-186-the-msi-makes-no-desktop-or-start-menu-shortcut.md), #27).
+
 No installer carries an **AOT cache** any more, and none needs a display to be built
 ([B-173](../backlog/B-173-the-window-ships-unshrunk-and-without-an-aot-cache.md)): the `.deb`'s and
 the `.dmg`'s (B-157, B-171) were trained on the shrunk classes, and the `.msi`'s could not map on a
