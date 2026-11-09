@@ -1,7 +1,7 @@
 ---
 id: B-184
 title: "The toolbar has no re-announce, and under oldge-ui settings is a gear"
-status: wip
+status: done
 priority: P3
 size: S
 stage: phase-2-ui
@@ -35,3 +35,15 @@ say what they did.
   mac's rasteriser, and this change was made on Windows.
 - Anchors: `ui/src/commonMain/kotlin/io/github/youndie/kachok/ui/main/Toolbar.kt`,
   `ui/src/commonMain/kotlin/io/github/youndie/kachok/ui/theme/oldge/OldgeKit.kt`.
+
+## Done — 2026-11-09: the goldens recorded on the mac
+
+`LOCAL=1 ./gradlew :ui:viddikVerify` on the mac was red on exactly the five goldens of the main
+window under oldge-ui — `main_window-oldge`, `main_window-crystal`, `main_window-media`,
+`main_empty-oldge`, `main_narrow-oldge` — each about 1 370 pixels apart (0.10–0.38 %, tolerance
+0.05 %). The `_DIFF`s were looked at: the red is the Re-announce slot the bar no longer has and the
+gear where *Levels* was, and nothing else. `:ui:viddikRecord` rewrote those five and left the other
+28 byte for byte; `main_narrow-oldge` was looked at after recording (gear, no Re-announce), and
+`viddikVerify` is green again, 33 of 33. The Material goldens did not move, which agrees with the
+item: the Material kit keeps `tune`. `make check` on the mac, which runs `viddikVerify`, is green
+with them.
