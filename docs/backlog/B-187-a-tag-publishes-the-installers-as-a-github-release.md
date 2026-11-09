@@ -1,7 +1,7 @@
 ---
 id: B-187
 title: "A tag publishes the three installers as a GitHub Release, and the README leads to it"
-status: open
+status: wip
 priority: P1
 size: M
 stage: phase-2-ui
