@@ -1,7 +1,7 @@
 ---
 id: B-188
 title: "CI runs the engine's tests on Windows, where the client's only outside user is"
-status: open
+status: wip
 priority: P2
 size: S/M
 stage: m0-skeleton
