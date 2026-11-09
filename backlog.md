@@ -48,14 +48,20 @@ which is also the order of work.
 
 <!-- BEGIN INDEX -->
 
-## Open (9)
+## Open (15)
 
 | Task | | Priority | Size | Blocked by |
 |---|---|---|---|---|
 | [B-175](docs/backlog/B-175-a-piece-waits-on-its-slowest-peer-outside-the-endgame.md) `[~]` | An idle peer takes over a block a slow peer has sat on, before the endgame | P1 | S | B-174 |
+| [B-185](docs/backlog/B-185-the-readme-says-mit-and-the-repository-has-no-licence.md) `[?]` | The README says MIT, and the repository has no licence file | P1 | XS | - |
+| [B-186](docs/backlog/B-186-the-msi-makes-no-desktop-or-start-menu-shortcut.md) `[ ]` | The .msi makes no desktop shortcut, and very likely no Start menu entry either | P1 | S | - |
+| [B-187](docs/backlog/B-187-a-tag-publishes-the-installers-as-a-github-release.md) `[ ]` | A tag publishes the three installers as a GitHub Release, and the README leads to it | P1 | M | B-185 |
 | [B-116](docs/backlog/B-116-a-torrent-whose-name-is-not-ascii-cannot-be-opened-on-windows.md) `[~]` | A `.torrent` whose name is not ASCII cannot be opened on Windows: the launcher hands the path over as question marks | P2 | S | - |
+| [B-188](docs/backlog/B-188-ci-runs-the-engine-tests-on-windows.md) `[ ]` | CI runs the engine's tests on Windows, where the client's only outside user is | P2 | S/M | - |
+| [B-189](docs/backlog/B-189-the-readme-says-what-an-unsigned-installer-looks-like.md) `[ ]` | The README says what an unsigned installer looks like on first start, platform by platform | P2 | S | B-187 |
 | [B-80](docs/backlog/B-80-the-ui-moves-to-commonmain.md) `[~]` | The UI moves to commonMain | P2 | L | B-79 |
 | [B-184](docs/backlog/B-184-the-toolbar-loses-re-announce-and-settings-is-a-gear.md) `[~]` | The toolbar has no re-announce, and under oldge-ui settings is a gear | P3 | S | - |
+| [B-190](docs/backlog/B-190-sign-the-installers-or-ship-them-unsigned.md) `[?]` | Decide whether the installers are signed, or ship unsigned with the README's explanation | P3 | M | - |
 | [B-37](docs/backlog/B-37-v2-and-hybrid-torrents.md) `[?]` | v2 and hybrid torrents (BEP 52): SHA-256 piece layers | P3 | L | B-04 |
 | [B-40](docs/backlog/B-40-wasmjs-ui-is-a-client-of-the-headless-engine.md) `[ ]` | The browser build of the UI is a client of the headless engine | P3 | L | B-80 |
 | [B-41](docs/backlog/B-41-android-and-ios-targets.md) `[ ]` | Phase 3: Android and iOS targets on the engine | P3 | XL | B-39 |

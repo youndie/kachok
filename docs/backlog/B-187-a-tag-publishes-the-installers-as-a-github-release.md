@@ -1,0 +1,54 @@
+---
+id: B-187
+title: "A tag publishes the three installers as a GitHub Release, and the README leads to it"
+status: open
+priority: P1
+size: M
+stage: phase-2-ui
+epic: feature-ui
+blocked_by: [B-185]
+---
+
+# B-187 — A tag publishes the installers as a GitHub Release
+
+There is nowhere a stranger can download kachok from. `gh api repos/youndie/kachok/releases`
+returns an empty list and the repository has no tags (both read 2026-11-09). The installers exist —
+the last `distributions` run (`41514499257`, at `00ae2dc`, 2026-11-02) made a `.dmg`, an `.msi` and
+a `.deb` — but only as workflow artifacts: `distributions.yml:7` runs on `workflow_dispatch` alone,
+and `retention-days` (`distributions.yml:9`, at most 30) deletes them; that run's expire on
+2026-12-02. An artifact is found through the Actions tab of one run, and downloading one needs a
+signed-in GitHub account (GitHub's documentation on workflow artifacts; not tried here). The
+README, meanwhile, tells a reader to build the installer from source (`README.md:32-33`:
+`./gradlew :ui:packageReleaseDistributionForCurrentOS`), which needs a JDK 25 and the platform the
+installer is for.
+
+- **The decision and its reason.** `distributions.yml` also runs on `push` of a tag `v*`, and a
+  last job — after the `desktop` matrix — downloads the three installers and creates the release
+  with `gh release create "$GITHUB_REF_NAME" … --generate-notes`. The workflow already builds each
+  installer on its own platform and checks it (`checkDistributable`, `checkDownload`); a second
+  workflow would be a second copy of that. `permissions: contents: write` goes on that one job;
+  the workflow's `contents: read` (`distributions.yml:14-15`) stays for the rest.
+- **The tag names the version, and the job refuses one that does not.** The package version is
+  `0.1.<commits>` on Windows and Linux and `1.0.<commits>` on macOS (B-82, B-90;
+  `ui/build.gradle.kts:160` and `:240`). Hypothesis for the shape: the tag is `v0.1.<commits>` and
+  the release job fails when the `.msi`'s and the `.deb`'s file names do not carry that number —
+  otherwise a tag pushed on the wrong commit publishes a release whose name and files disagree.
+  The `.dmg`'s `1.0.<commits>` is said in the release notes rather than hidden.
+- **Pushing a tag is publishing.** The loop builds and checks the workflow on a branch; the first
+  tag, and every one after it, is the owner's. Blocked by [B-185](B-185-the-readme-says-mit-and-the-repository-has-no-licence.md):
+  binaries offered to strangers should come with a licence.
+- **The README leads with it.** A short *Install* section before *Three ways in*: the
+  `releases/latest` link, which file is for which system, and what an unsigned installer looks like
+  on first start ([B-189](B-189-the-readme-says-what-an-unsigned-installer-looks-like.md)).
+  Building from source stays, below it.
+- Rejected: attaching the files to the release by hand after a dispatch. It works once, and it is
+  how a release ends up with two of three files or files from another commit.
+- Not covered: the headless tarball (it can be a fourth file; the always-on box it is for is
+  [B-87](B-87-a-server-with-a-web-face.md)), an updater, winget / Homebrew / apt repositories,
+  signing ([B-190](B-190-sign-the-installers-or-ship-them-unsigned.md)), an Intel `.dmg`.
+
+- AC: a tag `v0.1.<n>` pushed by the owner produces a GitHub Release with exactly the `.msi`, the
+  `.dmg` and the `.deb` built from the tagged commit, and `releases/latest` resolves to it.
+- AC: a tag whose number is not the package version fails the release job and creates no release.
+- AC: the README's first instruction for the window is the release link; `make check` green.
+- Anchors: `.github/workflows/distributions.yml`, `README.md`, `ui/build.gradle.kts`.
