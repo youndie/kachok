@@ -1,7 +1,7 @@
 ---
 id: B-185
 title: "The README says MIT, and the repository has no licence file"
-status: question
+status: wip
 priority: P1
 size: XS
 stage: phase-2-ui
