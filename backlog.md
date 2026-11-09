@@ -48,14 +48,11 @@ which is also the order of work.
 
 <!-- BEGIN INDEX -->
 
-## Open (10)
+## Open (7)
 
 | Task | | Priority | Size | Blocked by |
 |---|---|---|---|---|
 | [B-175](docs/backlog/B-175-a-piece-waits-on-its-slowest-peer-outside-the-endgame.md) `[~]` | An idle peer takes over a block a slow peer has sat on, before the endgame | P1 | S | B-174 |
-| [B-186](docs/backlog/B-186-the-msi-makes-no-desktop-or-start-menu-shortcut.md) `[~]` | The .msi makes no desktop shortcut, and very likely no Start menu entry either | P1 | S | - |
-| [B-187](docs/backlog/B-187-a-tag-publishes-the-installers-as-a-github-release.md) `[~]` | A tag publishes the three installers as a GitHub Release, and the README leads to it | P1 | M | B-185 |
-| [B-116](docs/backlog/B-116-a-torrent-whose-name-is-not-ascii-cannot-be-opened-on-windows.md) `[~]` | A `.torrent` whose name is not ASCII cannot be opened on Windows: the launcher hands the path over as question marks | P2 | S | - |
 | [B-189](docs/backlog/B-189-the-readme-says-what-an-unsigned-installer-looks-like.md) `[ ]` | The README says what an unsigned installer looks like on first start, platform by platform | P2 | S | B-187 |
 | [B-80](docs/backlog/B-80-the-ui-moves-to-commonmain.md) `[~]` | The UI moves to commonMain | P2 | L | B-79 |
 | [B-37](docs/backlog/B-37-v2-and-hybrid-torrents.md) `[?]` | v2 and hybrid torrents (BEP 52): SHA-256 piece layers | P3 | L | B-04 |
@@ -63,7 +60,7 @@ which is also the order of work.
 | [B-41](docs/backlog/B-41-android-and-ios-targets.md) `[ ]` | Phase 3: Android and iOS targets on the engine | P3 | XL | B-39 |
 | [B-87](docs/backlog/B-87-a-server-with-a-web-face.md) `[ ]` | Phase 3: a headless server with a web face, installable on a box that is always on | P3 | XL | B-80 |
 
-## Closed (180)
+## Closed (183)
 
 **M0 — The build and its gates**
 
@@ -182,6 +179,7 @@ which is also the order of work.
 - [B-106](docs/backlog/B-106-per-file-priority.md) `[x]` - Per-file priority: which file of a torrent the picker fetches first
 - [B-107](docs/backlog/B-107-dropping-a-torrent-does-nothing-on-macos.md) `[x]` - Dropping a .torrent on the window does nothing on macOS
 - [B-115](docs/backlog/B-115-the-startup-check-runs-on-the-window-s-thread.md) `[x]` - The window draws its title bar and nothing else: the start-up check reads the disk on the AWT event thread
+- [B-116](docs/backlog/B-116-a-torrent-whose-name-is-not-ascii-cannot-be-opened-on-windows.md) `[x]` - A `.torrent` whose name is not ASCII cannot be opened on Windows: the launcher hands the path over as question marks
 - [B-121](docs/backlog/B-121-sequential-does-not-serve-a-player.md) `[x]` - Sequential downloads a file front to back, and a player needs its end too
 - [B-130](docs/backlog/B-130-the-interface-is-too-small.md) `[x]` - The whole interface wants to be 10–20 % larger
 - [B-131](docs/backlog/B-131-the-window-has-no-minimum-size.md) `[x]` - The window has no minimum size, and the interface scale moved where it breaks
@@ -217,6 +215,8 @@ which is also the order of work.
 - [B-183](docs/backlog/B-183-oldge-ui-answered-the-second-asks.md) `[x]` - oldge-ui answered the second asks: take 0.1.1.37 and drop what the kit still drew
 - [B-184](docs/backlog/B-184-the-toolbar-loses-re-announce-and-settings-is-a-gear.md) `[x]` - The toolbar has no re-announce, and under oldge-ui settings is a gear
 - [B-185](docs/backlog/B-185-the-readme-says-mit-and-the-repository-has-no-licence.md) `[x]` - The README says MIT, and the repository has no licence file
+- [B-186](docs/backlog/B-186-the-msi-makes-no-desktop-or-start-menu-shortcut.md) `[x]` - The .msi makes no desktop shortcut, and very likely no Start menu entry either
+- [B-187](docs/backlog/B-187-a-tag-publishes-the-installers-as-a-github-release.md) `[x]` - A tag publishes the three installers as a GitHub Release, and the README leads to it
 - [B-190](docs/backlog/B-190-sign-the-installers-or-ship-them-unsigned.md) `[-]` - Decide whether the installers are signed, or ship unsigned with the README's explanation
 - [B-39](docs/backlog/B-39-compose-ui-desktop.md) `[x]` - Phase 2: a Compose Multiplatform desktop UI on the engine's StateFlow
 - [B-46](docs/backlog/B-46-ui-theme-and-calibration.md) `[x]` - The theme: colour roles, type, and the desktop calibration

@@ -1,7 +1,7 @@
 ---
 id: B-116
 title: "A `.torrent` whose name is not ASCII cannot be opened on Windows: the launcher hands the path over as question marks"
-status: wip
+status: done
 priority: P2
 size: S
 stage: phase-2-ui
@@ -117,3 +117,21 @@ transcription of the probe that was run.
   `aFailedReadIsNotAFailedStart`.
 - Anchors: `ui/src/desktopMain/kotlin/io/github/youndie/kachok/ui/App.kt`,
   `ui/build.gradle.kts`.
+
+## Checked on Windows — 2026-11-09
+
+The packaged client from the first release, `kachok 0.1.248`
+([`v0.1.248`](https://github.com/youndie/kachok/releases/tag/v0.1.248), `9433fdd`), installed on
+the owner's Windows 11 machine. A `.torrent` built for the check with `Проверка кириллицы
+B-116.torrent` as its file name and `проверка-b116.bin` inside, handed to the client with the
+command the `.msi` registers for `.torrent` — `"%LOCALAPPDATA%\kachok\kachok.exe" "%1" %*`, read
+out of `HKCU\Software\Classes\<progid>\shell\open\command` — with the window already running: the
+second launcher passed the path on and exited, and **the window opened its add dialog with the
+Cyrillic name intact** (seen by the owner). No new `startup-error.txt`.
+
+- **Not a double-click on this machine, and why.** Explorer's choice for `.torrent` here is
+  another client (`UserChoice` → `qBittorrent.File.Torrent`), which wins over the class the `.msi`
+  registers; a double-click therefore never reaches kachok. The command above is exactly what a
+  double-click runs when kachok is the chosen handler, so what was checked is the same launch.
+- All ACs met; macOS and Linux were never affected — the wide read is skipped there
+  (`WideArgumentsTest#nothingIsReadWhereTheArgumentsAreAlreadyRight`).

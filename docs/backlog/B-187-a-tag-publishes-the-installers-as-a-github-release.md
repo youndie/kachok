@@ -1,7 +1,7 @@
 ---
 id: B-187
 title: "A tag publishes the three installers as a GitHub Release, and the README leads to it"
-status: wip
+status: done
 priority: P1
 size: M
 stage: phase-2-ui
@@ -81,3 +81,23 @@ owner's.**
   `releases/latest` resolves to it) and AC 2 (a tag whose number is not the package version fails
   `release` and creates no release) — the second is the fixture run above, not yet a real tag. The
   item stays `wip` until a real tag has done both.
+
+## Iteration 2 — 2026-11-09, the first tag
+
+The owner's `v0.1.248` on `9433fdd` (`git rev-list --count` 248), pushed as `docs/services/ui.md`
+says. `distributions` run [42703988120](https://github.com/youndie/kachok/actions/runs/42703988120):
+the three desktop jobs, `headless` and `release` all green.
+
+- **AC 1, met.** [The release](https://github.com/youndie/kachok/releases/tag/v0.1.248) has exactly
+  `kachok-0.1.248.msi` (71 074 648 bytes), `kachok-1.0.248.dmg` (80 479 156) and
+  `kachok_0.1.248_amd64.deb` (65 406 520), and `https://github.com/youndie/kachok/releases/latest`
+  answers with a redirect to it. The `.msi` was installed from it on Windows 11
+  ([B-186](B-186-the-msi-makes-no-desktop-or-start-menu-shortcut.md), iteration 2).
+- **AC 2, met, with a real wrong tag.** `v0.1.247` on the same commit, at the owner's say-so, run
+  [42708178943](https://github.com/youndie/kachok/actions/runs/42708178943): the three installers
+  and `headless` built green, and `release` failed at *Publish the release*, before `gh release
+  create`, with `release_assets.sh` naming each file against the tag — `the .msi is
+  kachok-0.1.248.msi; the tag v0.1.247 names kachok-0.1.247.msi`, the same for the `.deb` and the
+  `.dmg` — and `nothing is published: the tag and the packages disagree`. `gh release view v0.1.247`
+  answers `release not found`; `v0.1.248` is still *Latest*. The tag was deleted from the remote
+  afterwards, so the public list holds only the real release.
