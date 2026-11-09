@@ -48,7 +48,7 @@ which is also the order of work.
 
 <!-- BEGIN INDEX -->
 
-## Open (14)
+## Open (13)
 
 | Task | | Priority | Size | Blocked by |
 |---|---|---|---|---|
@@ -56,7 +56,6 @@ which is also the order of work.
 | [B-186](docs/backlog/B-186-the-msi-makes-no-desktop-or-start-menu-shortcut.md) `[~]` | The .msi makes no desktop shortcut, and very likely no Start menu entry either | P1 | S | - |
 | [B-187](docs/backlog/B-187-a-tag-publishes-the-installers-as-a-github-release.md) `[ ]` | A tag publishes the three installers as a GitHub Release, and the README leads to it | P1 | M | B-185 |
 | [B-116](docs/backlog/B-116-a-torrent-whose-name-is-not-ascii-cannot-be-opened-on-windows.md) `[~]` | A `.torrent` whose name is not ASCII cannot be opened on Windows: the launcher hands the path over as question marks | P2 | S | - |
-| [B-188](docs/backlog/B-188-ci-runs-the-engine-tests-on-windows.md) `[~]` | CI runs the engine's tests on Windows, where the client's only outside user is | P2 | S/M | - |
 | [B-189](docs/backlog/B-189-the-readme-says-what-an-unsigned-installer-looks-like.md) `[ ]` | The README says what an unsigned installer looks like on first start, platform by platform | P2 | S | B-187 |
 | [B-80](docs/backlog/B-80-the-ui-moves-to-commonmain.md) `[~]` | The UI moves to commonMain | P2 | L | B-79 |
 | [B-184](docs/backlog/B-184-the-toolbar-loses-re-announce-and-settings-is-a-gear.md) `[~]` | The toolbar has no re-announce, and under oldge-ui settings is a gear | P3 | S | - |
@@ -67,11 +66,12 @@ which is also the order of work.
 | [B-87](docs/backlog/B-87-a-server-with-a-web-face.md) `[ ]` | Phase 3: a headless server with a web face, installable on a box that is always on | P3 | XL | B-80 |
 | [B-02](docs/backlog/B-02-ci-runs-build-and-docs-gates.md) `[ ]` | CI runs the build and the documentation gates on every push | infra | S | B-01 |
 
-## Closed (176)
+## Closed (177)
 
 **M0 — The build and its gates**
 
 - [B-01](docs/backlog/B-01-gradle-skeleton-builds-on-jdk-25.md) `[x]` - The Gradle skeleton builds, lints and tests on JDK 25
+- [B-188](docs/backlog/B-188-ci-runs-the-engine-tests-on-windows.md) `[x]` - CI runs the engine's tests on Windows, where the client's only outside user is
 
 **M1 — Metainfo**
 

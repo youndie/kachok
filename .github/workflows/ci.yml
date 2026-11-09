@@ -37,6 +37,11 @@ jobs:
   # from there (B-146, B-116), so the modules without a window are tested there too (B-188). Not
   # `:ui`: its goldens are a mac's rasteriser, and a Windows render would be red for a reason that
   # is not a defect.
+  #
+  # `check`, ktlint included, and no `.gitattributes`. The item expected the runner's checkout to
+  # turn every line ending into CRLF against `.editorconfig`'s `end_of_line = lf` and ktlint to
+  # refuse all of it; the first run had every ktlint task green, so nothing here works around it.
+  # If a ktlint bump starts failing this job on every file, `* text=auto eol=lf` is the fix.
   windows:
     runs-on: windows-latest
     steps:

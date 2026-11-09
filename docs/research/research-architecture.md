@@ -1831,6 +1831,12 @@ knob, measured in M6.
 differently there and nothing in phase 1 runs on it. *It came due for `SPARSE`* (§1.3a, second
 correction, B-146): the option never applied on Windows, and a large torrent stalled on it. Mitigation: it is said here and in the CLI
 service document rather than implied by "JVM"; the CI matrix grows when there is a Windows user.
+*The matrix grew* ([B-188](../backlog/B-188-ci-runs-the-engine-tests-on-windows.md), 2026-11-09): this
+risk said nothing runs on Windows; since then `ci.yml` has a `windows-latest` job running `check` —
+ktlint and every test — for `:engine`, `:wire`, `:swarm`, `:control` and `:cli` on each pull
+request and push to `main`. B-146's `aFreshFileIsSparseOnWindows` runs there, and opening without
+`CREATE_NEW` turns the job red. What stays untested on Windows is `:ui` (its goldens are a mac's
+rasteriser) and the packaged window, which only `distributions.yml` starts, on dispatch.
 
 **Risk 7. Peers close the connection on a request larger than 16 KiB** (§1.5). Mitigation: the
 request size is a constant, the last block of a torrent is computed, and the codec test suite has

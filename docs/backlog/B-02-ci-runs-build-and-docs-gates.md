@@ -47,7 +47,7 @@ no window server is not something this repository can find out before the first 
   other repositories.
 - Rejected: one workflow for both. The documentation gate takes seconds and should be red on its
   own line when it is red; a Gradle failure must not hide a broken link and vice versa.
-- Not covered: a Windows job (research Risk 6), the scheduled anchors job's first green run (it
+- Not covered: a Windows job (research Risk 6) — since [B-188](B-188-ci-runs-the-engine-tests-on-windows.md) there is one, for the modules without a window; the scheduled anchors job's first green run (it
   runs on a Monday; check it after the first one).
 
 - AC: a push to `main` shows both workflows green in the Actions tab; a deliberately broken
