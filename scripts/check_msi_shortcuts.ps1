@@ -28,7 +28,13 @@ function Get-Rows($database, [string] $sql, [int] $columns) {
     while ($true) {
         $record = Invoke-Com $view 'Fetch' $method $null
         if ($null -eq $record) { break }
-        $rows += , @(1..$columns | ForEach-Object { Invoke-Com $record 'StringData' $property @($_) })
+        # A plain loop, not `1..$n | ForEach-Object`: the pipeline hands `$_` over as a PSObject,
+        # and the COM binder refuses it as a field index (DISP_E_TYPEMISMATCH, seen on the runner).
+        $values = @()
+        for ($i = 1; $i -le $columns; $i++) {
+            $values += [string](Invoke-Com $record 'StringData' $property @([int] $i))
+        }
+        $rows += , $values
     }
     Invoke-Com $view 'Close' $method $null | Out-Null
     , $rows
