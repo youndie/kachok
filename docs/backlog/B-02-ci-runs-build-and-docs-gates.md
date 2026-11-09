@@ -5,7 +5,7 @@ status: open
 priority: infra
 size: S
 stage: m0-skeleton
-blocked_by: [B-01]
+blocked_by: [B-999]
 ---
 
 # B-02 — CI runs the build and the documentation gates on every push
