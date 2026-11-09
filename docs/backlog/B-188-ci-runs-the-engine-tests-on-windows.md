@@ -66,4 +66,14 @@ ran.
   0x20)", 1 of 533 — while the Linux `build` stayed green
   ([42688839593](https://github.com/youndie/kachok/actions/runs/42688839593)). Reverted in the
   next commit.
+- **A real Windows failure, on the third run.** On the head after the revert (`fecae5e`) both
+  `DhtPortTest` tests that bind failed: `aTakenUdpPortFallsBackAndSaysSo` with `BindException:
+  Address already in use` from its own `DatagramSocket(port)`, and `theDhtListensOnTheListenersPort`
+  with the DHT on another port than the listener — the fallback B-143 designed, doing its job. The
+  test's `freePort()` asked for a free *TCP* port and used the number for UDP as well; on the
+  Windows runner that number was taken in UDP. The engine was right and the test's assumption was
+  not, so the helper now returns a port it could bind in both. It is intermittent — the first two
+  runs passed — so one green run after the fix shows it is not broken, not that the race is gone
+  for every port; a mutant cannot pin it, since nothing here can make a runner's UDP port busy on
+  demand.
 - Research Risk 6 and B-02's *not covered* line are amended at their points.

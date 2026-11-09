@@ -42,7 +42,20 @@ class DhtPortTest {
             onBindFailure = { synchronized(failures) { failures += it } },
         ).also { sets += it }
 
-    private fun freePort(): Int = ServerSocket(0).use { it.localPort }
+    /**
+     * A port free for TCP **and** UDP, since the set binds both to it. A port the OS hands out for
+     * a `ServerSocket` says nothing about the same number in UDP: on the Windows runner it was
+     * taken there, and both tests failed — the DHT fell back as designed, and the
+     * `DatagramSocket` the second test opens could not bind (B-188).
+     */
+    private fun freePort(): Int {
+        repeat(20) {
+            val port = ServerSocket(0).use { it.localPort }
+            val udpFree = runCatching { DatagramSocket(port).close() }.isSuccess
+            if (udpFree) return port
+        }
+        error("no port among 20 was free for both TCP and UDP")
+    }
 
     @Test
     fun theDhtListensOnTheListenersPort() {
