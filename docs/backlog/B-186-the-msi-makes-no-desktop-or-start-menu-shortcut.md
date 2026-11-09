@@ -1,7 +1,7 @@
 ---
 id: B-186
 title: "The .msi makes no desktop shortcut, and very likely no Start menu entry either"
-status: open
+status: wip
 priority: P1
 size: S
 stage: phase-2-ui
