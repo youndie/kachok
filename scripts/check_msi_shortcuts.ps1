@@ -83,7 +83,7 @@ $missing = @()
 if (-not $desktop) { $missing += 'a desktop shortcut (DesktopFolder)' }
 if (-not $menu) { $missing += 'a Start menu entry (ProgramMenuFolder)' }
 if ($missing.Count -gt 0) {
-    Write-Output "The package makes no $($missing -join ', and no ')."
+    Write-Output "Missing from the package: $($missing -join '; ')."
     exit 1
 }
 Write-Output 'A desktop shortcut and a Start menu entry: both present.'
