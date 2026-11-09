@@ -54,7 +54,7 @@ which is also the order of work.
 |---|---|---|---|---|
 | [B-175](docs/backlog/B-175-a-piece-waits-on-its-slowest-peer-outside-the-endgame.md) `[~]` | An idle peer takes over a block a slow peer has sat on, before the endgame | P1 | S | B-174 |
 | [B-186](docs/backlog/B-186-the-msi-makes-no-desktop-or-start-menu-shortcut.md) `[~]` | The .msi makes no desktop shortcut, and very likely no Start menu entry either | P1 | S | - |
-| [B-187](docs/backlog/B-187-a-tag-publishes-the-installers-as-a-github-release.md) `[ ]` | A tag publishes the three installers as a GitHub Release, and the README leads to it | P1 | M | B-185 |
+| [B-187](docs/backlog/B-187-a-tag-publishes-the-installers-as-a-github-release.md) `[~]` | A tag publishes the three installers as a GitHub Release, and the README leads to it | P1 | M | B-185 |
 | [B-116](docs/backlog/B-116-a-torrent-whose-name-is-not-ascii-cannot-be-opened-on-windows.md) `[~]` | A `.torrent` whose name is not ASCII cannot be opened on Windows: the launcher hands the path over as question marks | P2 | S | - |
 | [B-189](docs/backlog/B-189-the-readme-says-what-an-unsigned-installer-looks-like.md) `[ ]` | The README says what an unsigned installer looks like on first start, platform by platform | P2 | S | B-187 |
 | [B-80](docs/backlog/B-80-the-ui-moves-to-commonmain.md) `[~]` | The UI moves to commonMain | P2 | L | B-79 |

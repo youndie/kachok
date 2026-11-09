@@ -213,6 +213,20 @@ false. Without `shortcut` the package put nothing on the desktop; the Start menu
 there, made from `menuGroup` alone
 ([B-186](../backlog/B-186-the-msi-makes-no-desktop-or-start-menu-shortcut.md), #27).
 
+**A tag `v0.1.<n>` publishes a release**
+([B-187](../backlog/B-187-a-tag-publishes-the-installers-as-a-github-release.md)). The same
+workflow runs on it, and its last job, `release`, waits for all three `desktop` entries, takes the
+installers from this run's artifacts, and creates the GitHub Release with them — after
+`scripts/release_assets.sh` has checked that each file name carries `<n>`, so a tag on the wrong
+commit fails and publishes nothing. `<n>` is the commit count the build reads, so the tag for the
+head of `main` is
+
+```bash
+git tag v0.1.$(git rev-list --count origin/main) origin/main && git push origin v0.1.$(git rev-list --count origin/main)
+```
+
+and the owner is the one who pushes it.
+
 No installer carries an **AOT cache** any more, and none needs a display to be built
 ([B-173](../backlog/B-173-the-window-ships-unshrunk-and-without-an-aot-cache.md)): the `.deb`'s and
 the `.dmg`'s (B-157, B-171) were trained on the shrunk classes, and the `.msi`'s could not map on a

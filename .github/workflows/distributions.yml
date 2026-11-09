@@ -4,6 +4,10 @@ name: distributions
 # runners; a build on every push would be storage and minutes spent on artifacts nobody downloads.
 # The gate that must run on every push is in `ci.yml`, and it is a different question.
 on:
+  # A tag `v0.1.<n>` is a release: the same jobs build and check the three installers, and
+  # `release` below publishes them (B-187). Tags are pushed by the owner and by nobody else.
+  push:
+    tags: ["v*"]
   workflow_dispatch:
     inputs:
       retention-days:
@@ -95,7 +99,7 @@ jobs:
           # under a second and wrote nothing, which is how B-82 was filed; without this a run that
           # produces no installer is a green run.
           if-no-files-found: error
-          retention-days: ${{ inputs.retention-days }}
+          retention-days: ${{ inputs.retention-days || '30' }}
 
   # The headless client, which is a different artifact for a different machine: no window, no
   # installer, a `jlink` image with a launcher that fixes the JVM flags. It is what the always-on
@@ -127,4 +131,42 @@ jobs:
           name: kachok-headless-Linux-X64-${{ github.sha }}
           path: kachok-headless-linux-x64.tar.gz
           if-no-files-found: error
-          retention-days: ${{ inputs.retention-days }}
+          retention-days: ${{ inputs.retention-days || '30' }}
+
+  # B-187: a tag publishes the three installers as a GitHub Release. Only after every `desktop`
+  # entry is green, so a release never has two files of three; from the artifacts this run built,
+  # so they are the tagged commit's; and only once `release_assets.sh` agrees that the tag names
+  # the packages' version - a tag on the wrong commit fails here and publishes nothing. The `.dmg`
+  # says `1.0.<n>` because Apple refuses a leading zero (B-82), and the notes say so.
+  release:
+    if: github.ref_type == 'tag'
+    needs: [desktop]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: kachok-*-${{ github.sha }}
+          path: installers
+
+      - name: Publish the release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # Into a file and not through `< <(…)`: a process substitution's exit status is lost, and
+          # a refused tag would have gone on to publish a release with no files at all.
+          scripts/release_assets.sh "$GITHUB_REF_NAME" installers > assets.txt
+          mapfile -t files < assets.txt
+          n="${GITHUB_REF_NAME#v0.1.}"
+          printf '%s\n' \
+            "Installers built from ${GITHUB_SHA::7}: \`.msi\` for Windows, \`.dmg\` for macOS on Apple silicon, \`.deb\` for Debian and Ubuntu." \
+            "" \
+            "The macOS package says 1.0.$n where the others say 0.1.$n: Apple refuses a version whose first number is zero. They are the same build." \
+            > notes.md
+          gh release create "$GITHUB_REF_NAME" "${files[@]}" \
+            --repo "$GITHUB_REPOSITORY" --verify-tag --title "kachok $GITHUB_REF_NAME" \
+            --notes-file notes.md --generate-notes
