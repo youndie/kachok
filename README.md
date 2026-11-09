@@ -115,4 +115,4 @@ order.
 
 ## Licence
 
-MIT.
+MIT — see [LICENSE](LICENSE).

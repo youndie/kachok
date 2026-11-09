@@ -1,7 +1,7 @@
 ---
 id: B-185
 title: "The README says MIT, and the repository has no licence file"
-status: wip
+status: done
 priority: P1
 size: XS
 stage: phase-2-ui
@@ -48,3 +48,19 @@ offered with no licence are, by default, all rights reserved.
 - AC: `gh repo view youndie/kachok --json licenseInfo` names an SPDX id, and it is the one the
   README names; or, for answer 3, the README says there is none.
 - Anchors: `README.md`, `docs/research/research-architecture.md`.
+
+## Answer — 2026-11-09
+
+The owner chose **1, MIT**. `LICENSE` at the root carries the MIT text with the copyright line
+`Copyright (c) 2026 youndie`, the same line the owner's other MIT repositories use (appframe's
+`LICENSE`, for one). The README's last section now points at the file; research §1.3j's row is
+amended at the point it said there was no licence.
+
+Re-read the same day, after this item was written: `gh repo view youndie/appframe --json
+licenseInfo` now reports `mit` and `youndie/oldge-ui` reports `apache-2.0`, so both libraries the
+installers bundle carry a licence of their own. Apache-2.0 asks a redistributor to pass its
+licence (and a `NOTICE`, where the project has one) along with the binary — that is the
+third-party-notices work listed above as not covered, and it stays not covered here.
+
+- AC: `gh repo view youndie/kachok --json licenseInfo` names `mit` once this merges — GitHub reads
+  the file on the default branch, so it is checked after the merge, not on the branch.

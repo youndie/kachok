@@ -48,12 +48,11 @@ which is also the order of work.
 
 <!-- BEGIN INDEX -->
 
-## Open (15)
+## Open (14)
 
 | Task | | Priority | Size | Blocked by |
 |---|---|---|---|---|
 | [B-175](docs/backlog/B-175-a-piece-waits-on-its-slowest-peer-outside-the-endgame.md) `[~]` | An idle peer takes over a block a slow peer has sat on, before the endgame | P1 | S | B-174 |
-| [B-185](docs/backlog/B-185-the-readme-says-mit-and-the-repository-has-no-licence.md) `[~]` | The README says MIT, and the repository has no licence file | P1 | XS | - |
 | [B-186](docs/backlog/B-186-the-msi-makes-no-desktop-or-start-menu-shortcut.md) `[ ]` | The .msi makes no desktop shortcut, and very likely no Start menu entry either | P1 | S | - |
 | [B-187](docs/backlog/B-187-a-tag-publishes-the-installers-as-a-github-release.md) `[ ]` | A tag publishes the three installers as a GitHub Release, and the README leads to it | P1 | M | B-185 |
 | [B-116](docs/backlog/B-116-a-torrent-whose-name-is-not-ascii-cannot-be-opened-on-windows.md) `[~]` | A `.torrent` whose name is not ASCII cannot be opened on Windows: the launcher hands the path over as question marks | P2 | S | - |
@@ -68,7 +67,7 @@ which is also the order of work.
 | [B-87](docs/backlog/B-87-a-server-with-a-web-face.md) `[ ]` | Phase 3: a headless server with a web face, installable on a box that is always on | P3 | XL | B-80 |
 | [B-02](docs/backlog/B-02-ci-runs-build-and-docs-gates.md) `[ ]` | CI runs the build and the documentation gates on every push | infra | S | B-01 |
 
-## Closed (175)
+## Closed (176)
 
 **M0 — The build and its gates**
 
@@ -218,6 +217,7 @@ which is also the order of work.
 - [B-181](docs/backlog/B-181-a-style-can-turn-the-chosen-colour-into-another.md) `[x]` - A style can turn the chosen colour into another: the swatches show the seed, not the accent
 - [B-182](docs/backlog/B-182-oldge-ui-answered-the-asks.md) `[x]` - oldge-ui answered every ask: take 0.1.1.30 and drop the workarounds
 - [B-183](docs/backlog/B-183-oldge-ui-answered-the-second-asks.md) `[x]` - oldge-ui answered the second asks: take 0.1.1.37 and drop what the kit still drew
+- [B-185](docs/backlog/B-185-the-readme-says-mit-and-the-repository-has-no-licence.md) `[x]` - The README says MIT, and the repository has no licence file
 - [B-39](docs/backlog/B-39-compose-ui-desktop.md) `[x]` - Phase 2: a Compose Multiplatform desktop UI on the engine's StateFlow
 - [B-46](docs/backlog/B-46-ui-theme-and-calibration.md) `[x]` - The theme: colour roles, type, and the desktop calibration
 - [B-47](docs/backlog/B-47-torrent-row-and-states.md) `[x]` - The torrent row and its seven states
