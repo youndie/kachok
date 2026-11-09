@@ -1,7 +1,7 @@
 ---
 id: B-186
 title: "The .msi makes no desktop shortcut, and very likely no Start menu entry either"
-status: wip
+status: done
 priority: P1
 size: S
 stage: phase-2-ui
@@ -104,3 +104,25 @@ A desktop shortcut and a Start menu entry: both present.
   upgrade picking up the new shortcut component is still the hypothesis the decision named. So the
   item stays `wip`: what is left is that one check by a person on Windows, with the `.msi` from the
   next `distributions` run on `main`.
+
+## Iteration 2 — 2026-11-09, on the owner's Windows 11 machine
+
+AC 2, by hand, with the `.msi` of the first release —
+[`v0.1.248`](https://github.com/youndie/kachok/releases/tag/v0.1.248) (`9433fdd`), fetched with
+`gh release download` — installed over `kachok 0.1.238`, read through `WScript.Shell` and the
+process table rather than looked at:
+
+- **Before:** `kachok.lnk` in the Start menu's `kachok` folder, none on the desktop
+  (`[Environment]::GetFolderPath('Desktop')` is `C:\Users\<user>\Desktop`).
+- **After the upgrade** (`msiexec /i … /qn`, exit 0, the log says *Product Version: 0.1.248*): a
+  desktop `kachok.lnk` and the Start menu one, both to `%LOCALAPPDATA%\kachok\kachok.exe`, working
+  directory beside it. So the upgrade does install the new shortcut component — the hypothesis the
+  decision named holds.
+- **Each starts the window:** the desktop shortcut, then — after the reinstall below — the Start
+  menu one, opened the way Explorer opens them (`ShellExecute` on the `.lnk`). Both times a
+  `kachok.exe` titled *kachok*, and the MCP server attached to it with all twenty torrents.
+- **Uninstalling removes both** (`msiexec /x`, exit 0): no desktop `kachok.lnk`, no `kachok`
+  folder in the Start menu, no `kachok.exe`; the torrents and settings in `%APPDATA%\kachok` stay,
+  as a per-user uninstall should leave them.
+
+All three ACs met. The answer in #27 is the owner's, with the release above.
