@@ -122,7 +122,7 @@ opens the same list.
   | `torrent_status` | one torrent in detail, files with their tier and the order included, and how many pool buffers are on loan (B-147) |
   | `wait_for_completion` | **blocks** until done, failed, or `timeout_seconds` (default 600, at most 3600); says which |
   | `pause_torrent`, `resume_torrent` | as the toolbar's |
-  | `remove_torrent` | off the list; `delete_data: true` deletes the files it wrote |
+  | `remove_torrent` | off the list; `delete_data: true` deletes the files it wrote and the folders of its own they leave empty, as the window does (B-191) |
   | `set_file_priority` | one file to `skip`, `normal` or `high` on a running torrent (B-106) |
   | `set_sequential` | a running torrent in order or rarest first, both ways (B-89, B-133) |
   | `move_torrent` | the files and the resume record to another directory, progress, tiers and order kept; refused with nothing touched when the target holds its files or lacks room (B-134) |

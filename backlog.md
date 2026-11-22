@@ -60,7 +60,7 @@ which is also the order of work.
 | [B-41](docs/backlog/B-41-android-and-ios-targets.md) `[ ]` | Phase 3: Android and iOS targets on the engine | P3 | XL | B-39 |
 | [B-87](docs/backlog/B-87-a-server-with-a-web-face.md) `[ ]` | Phase 3: a headless server with a web face, installable on a box that is always on | P3 | XL | B-80 |
 
-## Closed (183)
+## Closed (184)
 
 **M0 — The build and its gates**
 
@@ -218,6 +218,7 @@ which is also the order of work.
 - [B-186](docs/backlog/B-186-the-msi-makes-no-desktop-or-start-menu-shortcut.md) `[x]` - The .msi makes no desktop shortcut, and very likely no Start menu entry either
 - [B-187](docs/backlog/B-187-a-tag-publishes-the-installers-as-a-github-release.md) `[x]` - A tag publishes the three installers as a GitHub Release, and the README leads to it
 - [B-190](docs/backlog/B-190-sign-the-installers-or-ship-them-unsigned.md) `[-]` - Decide whether the installers are signed, or ship unsigned with the README's explanation
+- [B-191](docs/backlog/B-191-remove-with-data-leaves-the-torrents-empty-folder.md) `[x]` - Removing a torrent with its data through MCP leaves its empty folder behind
 - [B-39](docs/backlog/B-39-compose-ui-desktop.md) `[x]` - Phase 2: a Compose Multiplatform desktop UI on the engine's StateFlow
 - [B-46](docs/backlog/B-46-ui-theme-and-calibration.md) `[x]` - The theme: colour roles, type, and the desktop calibration
 - [B-47](docs/backlog/B-47-torrent-row-and-states.md) `[x]` - The torrent row and its seven states

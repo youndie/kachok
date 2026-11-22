@@ -15,6 +15,7 @@ import io.github.youndie.kachok.engine.runtime.TorrentSet
 import io.github.youndie.kachok.engine.runtime.fetchMetainfo
 import io.github.youndie.kachok.engine.session.FilePriority
 import io.github.youndie.kachok.engine.session.SessionState
+import io.github.youndie.kachok.engine.storage.DownloadedFiles
 import io.github.youndie.kachok.engine.wire.PeerWire
 import io.github.youndie.kachok.wire.Snapshot
 import kotlinx.coroutines.CoroutineScope
@@ -516,14 +517,10 @@ public class McpServer(
         set.remove(runtime, forgetProgress = deleteData)
         keeper.removed(runtime.metainfo.infoHash.hex())
         if (!deleteData) return Outcome("Removed $name from the list; its files are still on the disk.")
-        val kept = mutableListOf<String>()
-        paths.forEach { path ->
-            try {
-                Files.deleteIfExists(path)
-            } catch (undeletable: IOException) {
-                kept += "$path (${undeletable.message})"
-            }
-        }
+        // The files and the folders they leave empty, as the window does it (B-191): files alone
+        // left a multi-file torrent's empty folder in the save directory.
+        val kept =
+            DownloadedFiles.delete(paths, runtime.directory).map { (path, why) -> "$path (${why.message})" }
         return if (kept.isEmpty()) {
             Outcome("Removed $name and deleted its ${paths.size} file(s).")
         } else {

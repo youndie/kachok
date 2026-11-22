@@ -493,6 +493,8 @@ class McpServerTest {
             val (removed, refused) = driver.call("remove_torrent", """{"info_hash":"$hash","delete_data":true}""")
             assertFalse(refused, removed)
             assertFalse(Files.exists(root.resolve("payload.bin")), "the data was not deleted")
+            // B-191: the folders the torrent leaves empty go, the folder it was saved into does not.
+            assertTrue(Files.exists(root), "the save directory went with a single-file torrent")
             val (listed, _) = driver.call("list_torrents")
             assertContains(listed, "No torrents")
         }
