@@ -54,7 +54,8 @@ knowing which data and where.
 - AC: *Remove…* is enabled, asks, and on yes the torrent leaves the list and its session stops
   cleanly; whether the data goes with it is whatever the dialog said.
   **Automated:** `ui/src/desktopTest/.../remove/RemoveTorrentTest.kt`,
-  `ui/src/desktopTest/.../DeleteQuietlyTest.kt` — which checks the two cases where it must *not*
+  `ui/src/desktopTest/.../DeleteQuietlyTest.kt` (since [B-191](B-191-remove-with-data-leaves-the-torrents-empty-folder.md)
+  `engine/src/jvmTest/.../storage/DownloadedFilesTest.kt`) — which checks the two cases where it must *not*
   delete, against real files — `WiringTest.theRemoveDialogsAnswersLeaveTheWindow`, and the golden
   `remove_dialog.png`. Checked by hand as well: removing with the box unticked left
   `~/Downloads/payload.bin` where it was.

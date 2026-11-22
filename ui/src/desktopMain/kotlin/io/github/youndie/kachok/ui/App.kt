@@ -53,6 +53,7 @@ import io.github.youndie.kachok.engine.runtime.TorrentRuntime
 import io.github.youndie.kachok.engine.runtime.TorrentSet
 import io.github.youndie.kachok.engine.runtime.fetchMetainfo
 import io.github.youndie.kachok.engine.session.FilePriority
+import io.github.youndie.kachok.engine.storage.DownloadedFiles
 import io.github.youndie.kachok.engine.storage.FileSet
 import io.github.youndie.kachok.ui.add.AddTorrentState
 import io.github.youndie.kachok.ui.add.DroppedFiles
@@ -1025,27 +1026,18 @@ internal fun refusedIfOccupied(
 }
 
 /**
- * Delete what a removed torrent wrote, and its directory if that is now empty.
+ * Delete what a removed torrent wrote, and the folders of its own that are empty afterwards — never
+ * [root], the folder it was saved into (B-191).
  *
- * Quietly, and one file at a time: a file the person moved, renamed or already deleted is not a
- * reason to leave the rest, and there is nothing useful to do about a permission error except say
- * so. The directory goes only if it is empty — deleting a *non*-empty one would take somebody
- * else's files with it.
+ * Quietly: there is nothing useful to do about a permission error except say so. The deleting is
+ * the engine's, because the MCP server's remove does the same and two copies had drifted.
  */
-internal fun deleteQuietly(paths: List<Path>) {
-    paths.forEach { path ->
-        try {
-            Files.deleteIfExists(path)
-        } catch (refused: IOException) {
-            System.err.println("kachok: cannot delete $path: ${refused.message}")
-        }
-    }
-    paths.mapNotNull { it.parent }.distinct().forEach { directory ->
-        try {
-            Files.newDirectoryStream(directory).use { if (!it.iterator().hasNext()) Files.delete(directory) }
-        } catch (refused: IOException) {
-            System.err.println("kachok: leaving $directory: ${refused.message}")
-        }
+internal fun deleteQuietly(
+    paths: List<Path>,
+    root: Path,
+) {
+    DownloadedFiles.delete(paths, root).forEach { (path, refused) ->
+        System.err.println("kachok: cannot delete $path: ${refused.message}")
     }
 }
 

@@ -272,7 +272,7 @@ class CommandsEndToEndTest {
                 val paths = runtime.paths
 
                 set.remove(runtime)
-                deleteQuietly(paths)
+                deleteQuietly(paths, runtime.directory)
 
                 paths.forEach { assertTrue(!it.exists(), "$it survived a remove that was told to delete it") }
             }

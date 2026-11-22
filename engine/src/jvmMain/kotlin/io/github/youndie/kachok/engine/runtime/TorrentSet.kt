@@ -15,6 +15,7 @@ import io.github.youndie.kachok.engine.nat.PortMapping
 import io.github.youndie.kachok.engine.peer.Encryption
 import io.github.youndie.kachok.engine.session.Command
 import io.github.youndie.kachok.engine.session.FilePriority
+import io.github.youndie.kachok.engine.storage.DownloadedFiles
 import io.github.youndie.kachok.engine.storage.FileSet
 import io.github.youndie.kachok.engine.tracker.TrackerProtocol
 import kotlinx.coroutines.CoroutineScope
@@ -736,7 +737,8 @@ public class TorrentSet(
                 }
                 "${failed.message ?: failed::class.simpleName}; everything was put back in $from"
             }
-        if (failure == null) pruneEmpty(moves.map { it.first }, from)
+        // The folders the move emptied, up to and not including `from` (B-191 shares it).
+        if (failure == null) DownloadedFiles.pruneEmptyFolders(moves.map { it.first }, from)
 
         val tiers = state.files
         val options =
@@ -782,32 +784,6 @@ public class TorrentSet(
         var at: Path? = path
         while (at != null && !Files.exists(at)) at = at.parent
         return at ?: path.root
-    }
-
-    /**
-     * The directories the move emptied, deepest first, up to and not including [root].
-     *
-     * A multi-file torrent's folder, and any folder inside it, would otherwise stay behind as an
-     * empty tree beside wherever the files went. Only empty ones: a folder that holds something
-     * else is somebody's, and a move is no reason to touch it.
-     */
-    private fun pruneEmpty(
-        moved: List<Path>,
-        root: Path,
-    ) {
-        moved
-            .flatMap { file ->
-                generateSequence(file.parent) { it.parent }.takeWhile { it != root && it.startsWith(root) }
-            }.distinct()
-            .sortedByDescending { it.nameCount }
-            .forEach { folder ->
-                try {
-                    Files.deleteIfExists(folder)
-                } catch (kept: IOException) {
-                    // Not empty — somebody else's files are in it, and they stay — or not ours to
-                    // delete. Either way the move itself is done.
-                }
-            }
     }
 
     /**

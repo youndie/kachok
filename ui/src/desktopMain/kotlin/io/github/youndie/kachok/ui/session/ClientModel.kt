@@ -418,7 +418,7 @@ internal class ClientModel(
                             val paths = runtime.paths
                             set.remove(runtime, forgetProgress = true)
                             forgetTorrent(torrents, command.infoHash)
-                            deleteQuietly(paths)
+                            deleteQuietly(paths, runtime.directory)
                         }
                     }
                 }
