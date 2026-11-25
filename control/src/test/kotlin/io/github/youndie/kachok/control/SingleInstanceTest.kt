@@ -6,8 +6,11 @@ import kotlinx.coroutines.withTimeoutOrNull
 import java.io.IOException
 import java.net.InetAddress
 import java.net.Socket
+import java.nio.channels.FileChannel
 import java.nio.file.Files
 import java.nio.file.Path
+import java.nio.file.StandardOpenOption
+import kotlin.concurrent.thread
 import kotlin.io.path.deleteRecursively
 import kotlin.test.AfterTest
 import kotlin.test.Test
@@ -69,7 +72,14 @@ class SingleInstanceTest {
         assertEquals(Path.of("/srv/one.torrent").toAbsolutePath(), await(first.opened))
     }
 
-    /** A holder that yields is told so, lets go, and the window gets the lock. */
+    /**
+     * A holder that yields is told so, lets go, and the window gets the lock — and keeps the file.
+     *
+     * The last assertion is the half that failed silently: a holder that read its secret, lost
+     * the processor, and deleted the file *after* the window had renamed its own over it left a
+     * window that held the lock with no file saying so, and the next launch became a second
+     * client (B-192).
+     */
     @Test
     fun aHolderThatYieldsGivesTheWindowTheLock() {
         val headless = assertNotNull(claim())
@@ -81,6 +91,41 @@ class SingleInstanceTest {
         val window = SingleInstance.claimForWindow(root, emptyList())?.also { open += it }
         assertNotNull(window, "the window did not get the lock")
         assertTrue(yielded, "the holder was never asked")
+        assertNull(claim(), "a later launch did not find the window")
+    }
+
+    /**
+     * Somebody reading the lock file does not lock the next client out (B-192).
+     *
+     * On Windows a file that any other handle has open cannot be renamed over, even though every
+     * reader here opens it with `FILE_SHARE_DELETE`: `Files.move` fails with
+     * `AccessDeniedException`. The readers are this class itself in other processes — a launch
+     * in `handOverTo`, an agent in `attach`, a yielding holder checking its secret in `close` —
+     * and whatever else on the machine opens a file that was just written. The handle here is
+     * one of those, held for longer than any of them would, and let go while the claim is under
+     * way. On Linux the rename succeeds at once and the test passes on the first attempt.
+     */
+    @Test
+    fun aReaderHoldingTheLockFileDoesNotLockTheNextClientOut() {
+        val dead = java.net.ServerSocket(0, 1, InetAddress.getLoopbackAddress()).also { it.close() }
+        val file = root.resolve("instance")
+        Files.write(file, listOf(dead.localPort.toString(), "0123456789abcdef"))
+        val reader = FileChannel.open(file, StandardOpenOption.READ)
+        val letGo =
+            thread(isDaemon = true) {
+                Thread.sleep(READER_HOLDS_MILLIS)
+                reader.close()
+            }
+        try {
+            assertNotNull(claim(), "a reader holding the lock file kept the next client out")
+        } finally {
+            letGo.join()
+            reader.close()
+        }
+        assertTrue(
+            Files.readAllLines(file).first().toInt() != dead.localPort,
+            "the client came up without writing the file",
+        )
     }
 
     /**
@@ -193,5 +238,10 @@ class SingleInstanceTest {
 
         assertTrue(!Files.exists(root.resolve("instance")), "the lock file outlived the client")
         assertNotNull(claim(), "the next launch could not become the client")
+    }
+
+    private companion object {
+        /** Long against a reader's microseconds, short against the claim's patience. */
+        const val READER_HOLDS_MILLIS = 200L
     }
 }

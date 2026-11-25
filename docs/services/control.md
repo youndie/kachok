@@ -102,6 +102,15 @@ of the lock and exits; the window then takes the lock and opens the same list. A
 window answers `kachok/stay`, and an older one hangs up on a word it does not know; either way the
 new window hands its paths over and exits, as before.
 
+**Letting go deletes the file before it closes the port, and taking the file waits out its
+readers** ([B-192](../backlog/B-192-a-window-taking-a-yielded-lock-renames-over-an-open-file.md)).
+The window reads a port that no longer answers as "gone" and renames its own file over the old one
+straight away. On Windows that rename fails with `AccessDeniedException` while any other handle has
+the old file open, and the yielding holder used to have it open: it closed the port first and
+only then read its secret back and deleted the file. Now everything the holder does to the file is
+over before the port goes away. The rename in `writeLock` is also retried for up to a second while
+it is refused, because other launches, agents and scanners read the file too.
+
 **Opening it is one loop, and one torrent's failure is that torrent's**
 ([B-138](../backlog/B-138-one-missing-drive-does-not-cost-the-list.md)). `reopenStored` opens each
 remembered torrent on its own; a refusal from the set is reported, and anything else — a drive that
@@ -122,7 +131,7 @@ started before `D:` answered opened none of ten torrents.
 | `control/src/main/kotlin/io/github/youndie/kachok/control/mcp/McpKeeper.kt` | what an agent changed, for a host that keeps a torrent list; the list's is `store/StoredTorrents.kt`'s `StoredTorrentsKeeper` |
 | `control/src/main/kotlin/io/github/youndie/kachok/control/Snapshot.kt` | the engine's state as `:wire`'s, shared by the socket and the MCP resource so the two cannot drift |
 | `control/src/main/kotlin/io/github/youndie/kachok/control/ConfigDirectory.kt` | where this user's kachok keeps things, on each platform |
-| `control/src/test/kotlin/io/github/youndie/kachok/control/SingleInstanceTest.kt` | a stale file, a stranger on the port, a wrong secret |
+| `control/src/test/kotlin/io/github/youndie/kachok/control/SingleInstanceTest.kt` | a stale file, a stranger on the port, a wrong secret, a holder that yields, a reader holding the file during a takeover |
 | `control/src/test/kotlin/io/github/youndie/kachok/control/mcp/McpServerTest.kt` | the tools against a real download on `:swarm` |
 | `cli/src/test/kotlin/io/github/youndie/kachok/cli/mcp/AttachTest.kt` | the two halves as two real things: what the window holds is what the agent lists |
 | `cli/src/test/kotlin/io/github/youndie/kachok/cli/mcp/RememberTest.kt` | a headless `kachok mcp` remembers across a restart, a second one attaches, and a window is given the engine |

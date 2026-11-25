@@ -10,6 +10,7 @@ import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.net.ServerSocket
 import java.net.Socket
+import java.nio.file.AccessDeniedException
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardCopyOption
@@ -193,17 +194,24 @@ public class SingleInstance private constructor(
 
     override fun close() {
         opened.close()
+        // **The file goes before the port does** (B-192). A window waiting for this client to
+        // yield takes a port that no longer answers as "gone" and writes its own file at once.
+        // Closing the port first left this client still at the file — reading its secret back,
+        // then deleting — while the window renamed over it: on Windows the rename fails against
+        // the open handle and the window came up with no lock at all, and anywhere a delete that
+        // lands after the rename takes the *window's* file away. In this order everything this
+        // client does to the file is over by the time anybody is told it has gone.
+        try {
+            // Only if it is still ours. A second client that replaced the file while this one was
+            // stopping owns it now, and deleting it would leave *that* one invisible.
+            if (readLock(lock)?.second == secret) Files.deleteIfExists(lock)
+        } catch (undeletable: IOException) {
+            System.err.println("kachok: cannot remove $lock: ${undeletable.message}")
+        }
         try {
             server.close()
         } catch (ignored: IOException) {
             // Closing a socket that is already shut is not news.
-        }
-        try {
-            // Only if it is still ours. A second client that replaced the file after this one
-            // stopped answering owns it now, and deleting it would leave *that* one invisible.
-            if (readLock(lock)?.second == secret) Files.deleteIfExists(lock)
-        } catch (undeletable: IOException) {
-            System.err.println("kachok: cannot remove $lock: ${undeletable.message}")
         }
     }
 
@@ -395,7 +403,34 @@ public class SingleInstance private constructor(
             Files.createDirectories(lock.parent)
             val temporary = lock.resolveSibling("${lock.fileName}.new")
             Files.write(temporary, listOf(port.toString(), secret))
-            Files.move(temporary, lock, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE)
+            replace(temporary, lock)
+        }
+
+        /**
+         * [temporary] renamed over [lock], waiting out whoever is reading the old one (B-192).
+         *
+         * On Windows a file that any other handle has open cannot be renamed over: `Files.move`
+         * throws `AccessDeniedException`, even though every reader opens it sharing deletion. The
+         * readers are other launches in `handOverTo`, agents in `attach`, and whatever else on the
+         * machine opens a file that was just written; each holds it for the length of one read.
+         * Taking the first refusal as final made a client come up with no lock over a read it
+         * happened to land on — and then the next launch is a second client. A refusal that
+         * outlasts [REPLACE_WAIT_MILLIS] is not a reader, and ends as it always did.
+         */
+        private fun replace(
+            temporary: Path,
+            lock: Path,
+        ) {
+            val deadline = System.nanoTime() + REPLACE_WAIT_MILLIS * NANOS_PER_MILLI
+            while (true) {
+                try {
+                    Files.move(temporary, lock, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE)
+                    return
+                } catch (held: AccessDeniedException) {
+                    if (System.nanoTime() >= deadline) throw held
+                    Thread.sleep(REPLACE_POLL_MILLIS)
+                }
+            }
         }
 
         private const val LOCK_FILE = "instance"
@@ -428,6 +463,16 @@ public class SingleInstance private constructor(
         private const val YIELD_WAIT_MILLIS = 30_000L
         private const val YIELD_POLL_MILLIS = 100L
         private const val NANOS_PER_MILLI = 1_000_000L
+
+        /**
+         * How long a rename over the lock file waits for its readers to let go (B-192).
+         *
+         * A read is one `readAllLines` of two short lines, well under a millisecond; a second is
+         * room for a loaded machine and for a scanner that opens a file it saw being written. That
+         * margin is an assumption, not a measurement of any scanner.
+         */
+        private const val REPLACE_WAIT_MILLIS = 1_000L
+        private const val REPLACE_POLL_MILLIS = 10L
 
         /**
          * How long a departing agent's owed answers are waited for.
