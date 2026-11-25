@@ -46,7 +46,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: youndie/sborka/.github/actions/setup-kotlin@v0.5.0.135
+      - uses: youndie/sborka/.github/actions/setup-kotlin@v0.5.0.136
 
       # `jpackage` skips the DEB bundler without `fakeroot` — with a message that names it, which is
       # the good kind of failure — and `:ui:patchDesktopEntry` repacks the package with it. `xvfb`
@@ -116,7 +116,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: youndie/sborka/.github/actions/setup-kotlin@v0.5.0.135
+      - uses: youndie/sborka/.github/actions/setup-kotlin@v0.5.0.136
 
       - run: ./gradlew :cli:runtimeImage --stacktrace
 
